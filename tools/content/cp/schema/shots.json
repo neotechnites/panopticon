@@ -1,0 +1,368 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "panopticon/cp/shots.json",
+ "title": "shots",
+ "description": "LLM translation of spec.json into machine shot rows; one row per spec line",
+ "type": "object",
+ "properties": {
+  "name": {
+   "type": "string"
+  },
+  "spec_sha1": {
+   "type": "string"
+  },
+  "rows": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "line": {
+      "type": "string",
+      "pattern": "^[LM][0-9]+[a-z]?$"
+     },
+     "text": {
+      "type": "string"
+     },
+     "note": {
+      "type": "string"
+     },
+     "source": {
+      "type": "string",
+      "enum": [
+       "game",
+       "editor",
+       "online",
+       "card",
+       "black",
+       "reuse"
+      ]
+     },
+     "game": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "properties": {
+       "map": {
+        "type": "string"
+       },
+       "pov": {
+        "type": "string",
+        "enum": [
+         "guard",
+         "prisoner",
+         "free",
+         "spectator",
+         "orbit",
+         "drone",
+         "other"
+        ]
+       },
+       "hud": {
+        "type": "string"
+       },
+       "stage": {
+        "type": "string"
+       },
+       "set": {
+        "type": "string"
+       },
+       "bots": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "ref": {
+        "type": "string"
+       },
+       "humans": {
+        "type": "string",
+        "enum": [
+         "on",
+         "off"
+        ]
+       },
+       "seconds": {
+        "type": "number"
+       },
+       "seed": {
+        "type": [
+         "integer",
+         "null"
+        ]
+       },
+       "tape": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "look_override": {
+        "type": "boolean"
+       },
+       "keep_audio": {
+        "type": "boolean"
+       },
+       "args": {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       }
+      },
+      "required": [
+       "map",
+       "pov",
+       "stage"
+      ],
+      "additionalProperties": true
+     },
+     "editor": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "properties": {
+       "ref": {
+        "type": "string"
+       },
+       "scene": {
+        "type": "string"
+       },
+       "dock": {
+        "type": "string"
+       },
+       "camera": {
+        "type": "string"
+       },
+       "seconds": {
+        "type": "number"
+       }
+      },
+      "required": [
+       "ref",
+       "scene"
+      ],
+      "additionalProperties": true
+     },
+     "online": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "properties": {
+       "url": {
+        "type": "string"
+       },
+       "from": {
+        "type": "number"
+       },
+       "to": {
+        "type": "number"
+       },
+       "find": {
+        "type": "string"
+       },
+       "name": {
+        "type": "string"
+       }
+      },
+      "additionalProperties": true
+     },
+     "card": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "properties": {
+       "kind": {
+        "type": "string",
+        "enum": [
+         "comment",
+         "title",
+         "text",
+         "black"
+        ]
+       },
+       "handle": {
+        "type": "string"
+       },
+       "text": {
+        "type": "string"
+       },
+       "seconds": {
+        "type": "number"
+       }
+      },
+      "required": [
+       "kind"
+      ],
+      "additionalProperties": true
+     },
+     "overlays": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "kind": {
+         "type": "string",
+         "enum": [
+          "comment_card",
+          "text",
+          "image",
+          "letterbox",
+          "arrow",
+          "logo"
+         ]
+        },
+        "handle": {
+         "type": "string"
+        },
+        "text": {
+         "type": "string"
+        },
+        "path": {
+         "type": "string"
+        },
+        "in": {
+         "type": "string",
+         "description": "line_start | line_end | word:<word> | t:<seconds>"
+        },
+        "out": {
+         "type": "string"
+        },
+        "placeholder": {
+         "type": "boolean"
+        },
+        "box": {
+         "$ref": "#/$defs/box"
+        }
+       },
+       "required": [
+        "kind",
+        "in",
+        "out"
+       ],
+       "additionalProperties": true
+      }
+     },
+     "beats": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "word": {
+         "type": "string"
+        },
+        "event": {
+         "type": "string",
+         "enum": [
+          "hit",
+          "shove",
+          "death",
+          "spawn",
+          "fire",
+          "land",
+          "cut",
+          "other"
+         ]
+        },
+        "tolerance_s": {
+         "type": "number",
+         "default": 0.034
+        }
+       },
+       "required": [
+        "word",
+        "event"
+       ],
+       "additionalProperties": true
+      }
+     },
+     "min_seconds": {
+      "oneOf": [
+       {
+        "type": "number"
+       },
+       {
+        "const": "voice"
+       }
+      ]
+     },
+     "continuity": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "same_take_as:<id> | null"
+     },
+     "flags": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "interpreted": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "field": {
+         "type": "string"
+        },
+        "why": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "field",
+        "why"
+       ],
+       "additionalProperties": false
+      }
+     }
+    },
+    "required": [
+     "line",
+     "text",
+     "note",
+     "source",
+     "overlays",
+     "beats",
+     "interpreted"
+    ],
+    "additionalProperties": true
+   }
+  }
+ },
+ "required": [
+  "name",
+  "rows"
+ ],
+ "additionalProperties": true,
+ "$defs": {
+  "box": {
+   "type": "object",
+   "properties": {
+    "x": {
+     "type": "number"
+    },
+    "y": {
+     "type": "number"
+    },
+    "w": {
+     "type": "number"
+    },
+    "h": {
+     "type": "number"
+    }
+   },
+   "required": [
+    "x",
+    "y",
+    "w",
+    "h"
+   ],
+   "additionalProperties": false
+  }
+ }
+}

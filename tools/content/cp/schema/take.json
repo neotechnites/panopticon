@@ -1,0 +1,149 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "panopticon/cp/take.json",
+ "title": "take",
+ "description": "capture output manifest per take (WP2)",
+ "type": "object",
+ "properties": {
+  "line": {
+   "type": "string",
+   "pattern": "^[LM][0-9]+[a-z]?$"
+  },
+  "path": {
+   "type": "string"
+  },
+  "w": {
+   "type": "integer"
+  },
+  "h": {
+   "type": "integer"
+  },
+  "fps": {
+   "type": "number"
+  },
+  "commit": {
+   "type": "string"
+  },
+  "args": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "seed": {
+   "type": [
+    "integer",
+    "null"
+   ]
+  },
+  "t0": {
+   "type": "number"
+  },
+  "t1": {
+   "type": "number"
+  },
+  "map": {
+   "type": "string"
+  },
+  "pov": {
+   "type": "string"
+  },
+  "stage": {
+   "type": "string"
+  },
+  "set": {
+   "type": "string"
+  },
+  "bots": {
+   "type": "integer"
+  },
+  "look": {
+   "type": "string"
+  },
+  "events": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "t": {
+      "type": "number"
+     },
+     "kind": {
+      "type": "string"
+     },
+     "who": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "t",
+     "kind"
+    ]
+   }
+  },
+  "light": {
+   "type": "object",
+   "properties": {
+    "exposure": {
+     "type": "number"
+    },
+    "ambient": {
+     "type": "number"
+    },
+    "sky": {
+     "type": "number"
+    },
+    "look": {
+     "type": "string"
+    }
+   }
+  },
+  "clip_events": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "t": {
+      "type": "number"
+     },
+     "what": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "t",
+     "what"
+    ]
+   }
+  },
+  "gates": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "object",
+    "properties": {
+     "pass": {
+      "type": "boolean"
+     },
+     "reason": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "pass",
+     "reason"
+    ]
+   }
+  }
+ },
+ "required": [
+  "line",
+  "path",
+  "w",
+  "h",
+  "fps",
+  "commit",
+  "t0",
+  "t1"
+ ],
+ "additionalProperties": true
+}

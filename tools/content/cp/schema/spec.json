@@ -1,0 +1,159 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "panopticon/cp/spec.json",
+ "title": "spec",
+ "description": "content plan: deterministic parse of tools/content/projects/<name>.md",
+ "type": "object",
+ "properties": {
+  "name": {
+   "type": "string"
+  },
+  "src": {
+   "type": "string"
+  },
+  "src_sha1": {
+   "type": "string",
+   "pattern": "^[0-9a-f]{40}$"
+  },
+  "header": {
+   "type": "object",
+   "properties": {
+    "kind": {
+     "type": "string",
+     "enum": [
+      "short",
+      "devlog",
+      "trailer"
+     ]
+    },
+    "music": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "captions": {
+     "type": "string",
+     "enum": [
+      "pop",
+      "stack",
+      "none"
+     ]
+    },
+    "base": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "cutoff": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "voice": {
+     "type": "string",
+     "enum": [
+      "andrew",
+      "ryan"
+     ]
+    },
+    "tag": {
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   },
+   "additionalProperties": true
+  },
+  "lines": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "pattern": "^[LM][0-9]+[a-z]?$"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "line",
+       "music"
+      ]
+     },
+     "text": {
+      "type": "string",
+      "description": "voice text verbatim; empty for M lines"
+     },
+     "note": {
+      "type": "string",
+      "description": "Ryan's shot note verbatim (braces stripped, multiple notes joined by ' | ')"
+     },
+     "pauses": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "at_char": {
+         "type": "integer"
+        },
+        "seconds": {
+         "type": [
+          "number",
+          "null"
+         ]
+        }
+       },
+       "additionalProperties": true
+      }
+     },
+     "flags": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "enum": [
+        "refilm",
+        "look_override",
+        "freeze_waive",
+        "keep_audio",
+        "letterbox"
+       ]
+      }
+     },
+     "src_line": {
+      "type": "integer"
+     },
+     "auto_id": {
+      "type": "boolean",
+      "description": "true when the parser numbered the line (no L/M prefix in the md)"
+     }
+    },
+    "required": [
+     "id",
+     "kind",
+     "text",
+     "note",
+     "src_line"
+    ],
+    "additionalProperties": true
+   },
+   "minItems": 1
+  },
+  "warnings": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  }
+ },
+ "required": [
+  "name",
+  "src",
+  "header",
+  "lines"
+ ],
+ "additionalProperties": true
+}

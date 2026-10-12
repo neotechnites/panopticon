@@ -1,0 +1,48 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "panopticon/cp/prov.json",
+ "title": "prov",
+ "description": "<file>.prov.json sidecar on every output",
+ "type": "object",
+ "properties": {
+  "inputs": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   },
+   "description": "sha1 of each input"
+  },
+  "input_paths": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "encoder": {
+   "type": "string"
+  },
+  "lossless": {
+   "type": "boolean"
+  },
+  "tool": {
+   "type": "string"
+  },
+  "version": {
+   "type": "string"
+  },
+  "commit": {
+   "type": "string"
+  },
+  "sha1": {
+   "type": "string"
+  }
+ },
+ "required": [
+  "inputs",
+  "encoder",
+  "lossless",
+  "tool",
+  "version"
+ ],
+ "additionalProperties": true
+}

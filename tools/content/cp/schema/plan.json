@@ -1,0 +1,607 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "panopticon/cp/plan.json",
+ "title": "plan",
+ "description": "content plan output: every line with its action; consumed by capture, render, verify",
+ "type": "object",
+ "properties": {
+  "name": {
+   "type": "string"
+  },
+  "kind": {
+   "type": "string",
+   "enum": [
+    "short",
+    "devlog",
+    "trailer"
+   ]
+  },
+  "aspect": {
+   "type": "array",
+   "items": {
+    "type": "integer"
+   },
+   "minItems": 2,
+   "maxItems": 2
+  },
+  "fps": {
+   "const": 60
+  },
+  "cutoff": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "base": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "captions": {
+   "type": "string",
+   "enum": [
+    "pop",
+    "stack",
+    "none"
+   ]
+  },
+  "music": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "counts": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "integer"
+   }
+  },
+  "lines": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "pattern": "^[LM][0-9]+[a-z]?$"
+     },
+     "text": {
+      "type": "string"
+     },
+     "note": {
+      "type": "string"
+     },
+     "source": {
+      "type": "string",
+      "enum": [
+       "game",
+       "editor",
+       "online",
+       "card",
+       "black",
+       "reuse"
+      ]
+     },
+     "action": {
+      "type": "string",
+      "enum": [
+       "reuse",
+       "capture",
+       "editor",
+       "fetch",
+       "card",
+       "black"
+      ]
+     },
+     "reuse": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "type": "object",
+        "properties": {
+         "inventory_id": {
+          "type": "integer"
+         },
+         "path": {
+          "type": "string"
+         },
+         "sha1": {
+          "type": "string"
+         },
+         "in": {
+          "type": "number"
+         },
+         "len": {
+          "type": "number"
+         },
+         "rule": {
+          "type": "string",
+          "enum": [
+           "explicit",
+           "capture_key",
+           "description"
+          ]
+         },
+         "fit": {
+          "type": "number",
+          "description": "0-1 fit of clip to note"
+         },
+         "uses": {
+          "type": "integer",
+          "description": "prior uses in other cuts"
+         },
+         "score": {
+          "type": "number",
+          "description": "fit minus variety penalty"
+         },
+         "from_project": {
+          "type": "string"
+         },
+         "from_line": {
+          "type": "string"
+         },
+         "why": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "path",
+         "in",
+         "len",
+         "rule",
+         "score"
+        ],
+        "additionalProperties": true
+       }
+      ]
+     },
+     "candidates": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "inventory_id": {
+         "type": "integer"
+        },
+        "path": {
+         "type": "string"
+        },
+        "sha1": {
+         "type": "string"
+        },
+        "in": {
+         "type": "number"
+        },
+        "len": {
+         "type": "number"
+        },
+        "rule": {
+         "type": "string",
+         "enum": [
+          "explicit",
+          "capture_key",
+          "description"
+         ]
+        },
+        "fit": {
+         "type": "number",
+         "description": "0-1 fit of clip to note"
+        },
+        "uses": {
+         "type": "integer",
+         "description": "prior uses in other cuts"
+        },
+        "score": {
+         "type": "number",
+         "description": "fit minus variety penalty"
+        },
+        "from_project": {
+         "type": "string"
+        },
+        "from_line": {
+         "type": "string"
+        },
+        "why": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "path",
+        "in",
+        "len",
+        "rule",
+        "score"
+       ],
+       "additionalProperties": true
+      },
+      "description": "ranked inventory candidates, best first"
+     },
+     "game": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "properties": {
+       "map": {
+        "type": "string"
+       },
+       "pov": {
+        "type": "string",
+        "enum": [
+         "guard",
+         "prisoner",
+         "free",
+         "spectator",
+         "orbit",
+         "drone",
+         "other"
+        ]
+       },
+       "hud": {
+        "type": "string"
+       },
+       "stage": {
+        "type": "string"
+       },
+       "set": {
+        "type": "string"
+       },
+       "bots": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "ref": {
+        "type": "string"
+       },
+       "humans": {
+        "type": "string",
+        "enum": [
+         "on",
+         "off"
+        ]
+       },
+       "seconds": {
+        "type": "number"
+       },
+       "seed": {
+        "type": [
+         "integer",
+         "null"
+        ]
+       },
+       "tape": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "look_override": {
+        "type": "boolean"
+       },
+       "keep_audio": {
+        "type": "boolean"
+       },
+       "args": {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       }
+      },
+      "required": [
+       "map",
+       "pov",
+       "stage"
+      ],
+      "additionalProperties": true
+     },
+     "editor": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "properties": {
+       "ref": {
+        "type": "string"
+       },
+       "scene": {
+        "type": "string"
+       },
+       "dock": {
+        "type": "string"
+       },
+       "camera": {
+        "type": "string"
+       },
+       "seconds": {
+        "type": "number"
+       }
+      },
+      "required": [
+       "ref",
+       "scene"
+      ],
+      "additionalProperties": true
+     },
+     "online": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "properties": {
+       "url": {
+        "type": "string"
+       },
+       "from": {
+        "type": "number"
+       },
+       "to": {
+        "type": "number"
+       },
+       "find": {
+        "type": "string"
+       },
+       "name": {
+        "type": "string"
+       }
+      },
+      "additionalProperties": true
+     },
+     "card": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "properties": {
+       "kind": {
+        "type": "string",
+        "enum": [
+         "comment",
+         "title",
+         "text",
+         "black"
+        ]
+       },
+       "handle": {
+        "type": "string"
+       },
+       "text": {
+        "type": "string"
+       },
+       "seconds": {
+        "type": "number"
+       }
+      },
+      "required": [
+       "kind"
+      ],
+      "additionalProperties": true
+     },
+     "overlays": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "kind": {
+         "type": "string",
+         "enum": [
+          "comment_card",
+          "text",
+          "image",
+          "letterbox",
+          "arrow",
+          "logo"
+         ]
+        },
+        "handle": {
+         "type": "string"
+        },
+        "text": {
+         "type": "string"
+        },
+        "path": {
+         "type": "string"
+        },
+        "in": {
+         "type": "string",
+         "description": "line_start | line_end | word:<word> | t:<seconds>"
+        },
+        "out": {
+         "type": "string"
+        },
+        "placeholder": {
+         "type": "boolean"
+        },
+        "box": {
+         "$ref": "#/$defs/box"
+        }
+       },
+       "required": [
+        "kind",
+        "in",
+        "out"
+       ],
+       "additionalProperties": true
+      }
+     },
+     "beats": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "word": {
+         "type": "string"
+        },
+        "event": {
+         "type": "string",
+         "enum": [
+          "hit",
+          "shove",
+          "death",
+          "spawn",
+          "fire",
+          "land",
+          "cut",
+          "other"
+         ]
+        },
+        "tolerance_s": {
+         "type": "number",
+         "default": 0.034
+        }
+       },
+       "required": [
+        "word",
+        "event"
+       ],
+       "additionalProperties": true
+      }
+     },
+     "continuity": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "min_seconds": {
+      "oneOf": [
+       {
+        "type": "number"
+       },
+       {
+        "const": "voice"
+       }
+      ]
+     },
+     "flags": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "interpreted": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "field": {
+         "type": "string"
+        },
+        "why": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "field",
+        "why"
+       ],
+       "additionalProperties": false
+      }
+     },
+     "match": {
+      "type": "object",
+      "description": "what each inventory rule found, for G2",
+      "properties": {
+       "explicit": {
+        "type": [
+         "object",
+         "null"
+        ]
+       },
+       "capture_key": {
+        "type": [
+         "object",
+         "null"
+        ]
+       },
+       "description": {
+        "type": [
+         "object",
+         "null"
+        ]
+       }
+      },
+      "additionalProperties": true
+     }
+    },
+    "required": [
+     "id",
+     "text",
+     "note",
+     "source",
+     "action",
+     "reuse",
+     "overlays",
+     "beats"
+    ],
+    "additionalProperties": true
+   }
+  },
+  "gates": {
+   "type": "object",
+   "properties": {
+    "G1": {
+     "$ref": "#/$defs/gate"
+    },
+    "G2": {
+     "$ref": "#/$defs/gate"
+    }
+   },
+   "additionalProperties": true
+  }
+ },
+ "required": [
+  "name",
+  "kind",
+  "aspect",
+  "fps",
+  "lines"
+ ],
+ "additionalProperties": true,
+ "$defs": {
+  "box": {
+   "type": "object",
+   "properties": {
+    "x": {
+     "type": "number"
+    },
+    "y": {
+     "type": "number"
+    },
+    "w": {
+     "type": "number"
+    },
+    "h": {
+     "type": "number"
+    }
+   },
+   "required": [
+    "x",
+    "y",
+    "w",
+    "h"
+   ],
+   "additionalProperties": false
+  },
+  "gate": {
+   "type": "object",
+   "properties": {
+    "pass": {
+     "type": "boolean"
+    },
+    "reason": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "pass",
+    "reason"
+   ]
+  }
+ }
+}

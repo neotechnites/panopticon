@@ -1,0 +1,73 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "panopticon/cp/voice_manifest.json",
+ "title": "voice_manifest",
+ "description": "voice/manifest.json (WP3)",
+ "type": "object",
+ "properties": {
+  "engine": {
+   "type": "string",
+   "enum": [
+    "edge-tts",
+    "ryan"
+   ]
+  },
+  "voice": {
+   "type": "string"
+  },
+  "rate": {
+   "type": "string"
+  },
+  "endpoint": {
+   "type": "string"
+  },
+  "lines": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "object",
+    "properties": {
+     "wav": {
+      "type": "string"
+     },
+     "dur": {
+      "type": "number"
+     },
+     "words": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "w": {
+         "type": "string"
+        },
+        "t0": {
+         "type": "number"
+        },
+        "t1": {
+         "type": "number"
+        }
+       },
+       "required": [
+        "w",
+        "t0",
+        "t1"
+       ]
+      }
+     }
+    },
+    "required": [
+     "wav",
+     "dur",
+     "words"
+    ]
+   }
+  }
+ },
+ "required": [
+  "engine",
+  "voice",
+  "rate",
+  "lines"
+ ],
+ "additionalProperties": true
+}

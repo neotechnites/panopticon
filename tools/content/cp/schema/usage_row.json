@@ -1,0 +1,43 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "panopticon/cp/usage_row.json",
+ "title": "usage_row",
+ "description": "one row of inventory.sqlite table usage: a clip window used by a cut; drives the variety penalty",
+ "type": "object",
+ "properties": {
+  "sha1": {
+   "type": "string"
+  },
+  "path": {
+   "type": "string"
+  },
+  "project": {
+   "type": "string"
+  },
+  "version": {
+   "type": "string"
+  },
+  "line": {
+   "type": "string"
+  },
+  "in": {
+   "type": "number"
+  },
+  "len": {
+   "type": "number"
+  },
+  "published": {
+   "type": "boolean"
+  },
+  "at": {
+   "type": "string"
+  }
+ },
+ "required": [
+  "path",
+  "project",
+  "version",
+  "line"
+ ],
+ "additionalProperties": true
+}

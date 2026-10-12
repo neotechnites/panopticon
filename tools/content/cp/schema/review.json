@@ -1,0 +1,67 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "panopticon/cp/review.json",
+ "title": "review",
+ "description": "Gemini review (WP4)",
+ "type": "object",
+ "properties": {
+  "model": {
+   "type": "string"
+  },
+  "fps": {
+   "type": "number"
+  },
+  "lines": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "pattern": "^[LM][0-9]+[a-z]?$"
+     },
+     "heard": {
+      "type": "string"
+     },
+     "seen": {
+      "type": "string"
+     },
+     "matches_note": {
+      "type": "string",
+      "enum": [
+       "yes",
+       "partly",
+       "no"
+      ]
+     },
+     "defects": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "why": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "matches_note",
+     "defects"
+    ]
+   }
+  },
+  "overall_defects": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  }
+ },
+ "required": [
+  "model",
+  "lines",
+  "overall_defects"
+ ],
+ "additionalProperties": true
+}

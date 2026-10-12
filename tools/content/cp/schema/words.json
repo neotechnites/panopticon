@@ -1,0 +1,29 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "panopticon/cp/words.json",
+ "title": "words",
+ "description": "voice/words.json: line id -> word timings, seconds from line start",
+ "type": "object",
+ "additionalProperties": {
+  "type": "array",
+  "items": {
+   "type": "object",
+   "properties": {
+    "w": {
+     "type": "string"
+    },
+    "t0": {
+     "type": "number"
+    },
+    "t1": {
+     "type": "number"
+    }
+   },
+   "required": [
+    "w",
+    "t0",
+    "t1"
+   ]
+  }
+ }
+}

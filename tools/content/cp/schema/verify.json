@@ -1,0 +1,40 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "panopticon/cp/verify.json",
+ "title": "verify",
+ "description": "gate results (WP4 runner); each gate pass/fail + one-line reason",
+ "type": "object",
+ "properties": {
+  "gates": {
+   "type": "object",
+   "patternProperties": {
+    "^G[0-9]+$": {
+     "type": "object",
+     "properties": {
+      "pass": {
+       "type": "boolean"
+      },
+      "reason": {
+       "type": "string"
+      },
+      "lines": {
+       "type": "object"
+      }
+     },
+     "required": [
+      "pass",
+      "reason"
+     ]
+    }
+   }
+  },
+  "pass": {
+   "type": "boolean"
+  }
+ },
+ "required": [
+  "gates",
+  "pass"
+ ],
+ "additionalProperties": true
+}

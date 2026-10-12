@@ -1,0 +1,167 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "panopticon/cp/edl.json",
+ "title": "edl",
+ "description": "render output edit list (WP3)",
+ "type": "object",
+ "properties": {
+  "lines": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "pattern": "^[LM][0-9]+[a-z]?$"
+     },
+     "start": {
+      "type": "number"
+     },
+     "dur": {
+      "type": "number"
+     },
+     "parts": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "path": {
+         "type": "string"
+        },
+        "sha1": {
+         "type": "string"
+        },
+        "in": {
+         "type": "number"
+        },
+        "len": {
+         "type": "number"
+        },
+        "speed": {
+         "const": 1.0
+        }
+       },
+       "required": [
+        "path",
+        "in",
+        "len",
+        "speed"
+       ]
+      }
+     },
+     "overlays": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "kind": {
+         "type": "string"
+        },
+        "box": {
+         "$ref": "#/$defs/box"
+        },
+        "t0": {
+         "type": "number"
+        },
+        "t1": {
+         "type": "number"
+        }
+       },
+       "required": [
+        "kind",
+        "box",
+        "t0",
+        "t1"
+       ]
+      }
+     },
+     "captions": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "text": {
+         "type": "string"
+        },
+        "box": {
+         "$ref": "#/$defs/box"
+        },
+        "t0": {
+         "type": "number"
+        },
+        "t1": {
+         "type": "number"
+        }
+       },
+       "required": [
+        "text",
+        "box",
+        "t0",
+        "t1"
+       ]
+      }
+     },
+     "beats": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "word": {
+         "type": "string"
+        },
+        "t_word": {
+         "type": "number"
+        },
+        "t_event": {
+         "type": "number"
+        }
+       }
+      }
+     }
+    },
+    "required": [
+     "id",
+     "start",
+     "dur",
+     "parts"
+    ]
+   }
+  },
+  "master": {
+   "type": "string"
+  },
+  "final": {
+   "type": "string"
+  }
+ },
+ "required": [
+  "lines"
+ ],
+ "additionalProperties": true,
+ "$defs": {
+  "box": {
+   "type": "object",
+   "properties": {
+    "x": {
+     "type": "number"
+    },
+    "y": {
+     "type": "number"
+    },
+    "w": {
+     "type": "number"
+    },
+    "h": {
+     "type": "number"
+    }
+   },
+   "required": [
+    "x",
+    "y",
+    "w",
+    "h"
+   ],
+   "additionalProperties": false
+  }
+ }
+}

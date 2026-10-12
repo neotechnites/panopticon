@@ -1,0 +1,171 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "panopticon/cp/inventory_row.json",
+ "title": "inventory_row",
+ "description": "one row of inventory.sqlite table clips (WP1); every take, line clip and cut on PC and Mac",
+ "type": "object",
+ "properties": {
+  "id": {
+   "type": "integer"
+  },
+  "host": {
+   "type": "string",
+   "enum": [
+    "pc",
+    "mac"
+   ]
+  },
+  "path": {
+   "type": "string"
+  },
+  "sha1": {
+   "type": "string"
+  },
+  "size": {
+   "type": "integer"
+  },
+  "mtime": {
+   "type": "number"
+  },
+  "duration": {
+   "type": "number"
+  },
+  "w": {
+   "type": "integer"
+  },
+  "h": {
+   "type": "integer"
+  },
+  "fps": {
+   "type": "number"
+  },
+  "codec": {
+   "type": "string"
+  },
+  "lossless": {
+   "type": "boolean"
+  },
+  "project": {
+   "type": "string"
+  },
+  "version": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "line": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "line_text": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "role": {
+   "type": "string",
+   "enum": [
+    "take",
+    "line",
+    "final",
+    "external",
+    "other"
+   ]
+  },
+  "commit": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "date": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "map": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "pov": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "stage": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "set": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "bots": {
+   "type": [
+    "integer",
+    "null"
+   ]
+  },
+  "seed": {
+   "type": [
+    "integer",
+    "null"
+   ]
+  },
+  "look": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "events": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   },
+   "description": "action/event kinds: from take.json or the caption"
+  },
+  "caption": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "caption_src": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "enum": [
+    "take",
+    "notes",
+    "gemini",
+    null
+   ]
+  },
+  "approved": {
+   "type": "boolean"
+  }
+ },
+ "required": [
+  "path",
+  "duration",
+  "w",
+  "h",
+  "project",
+  "role"
+ ],
+ "additionalProperties": true
+}
