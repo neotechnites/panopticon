@@ -25,7 +25,7 @@ foreach ($line in Get-Content $Jobs) {
   $fp.StandardInput.Write('q'); $fp.StandardInput.Close()
   if (-not $fp.WaitForExit(30000)) { Stop-Process -Id $fp.Id -Force }
   Remove-Item "$proj\override.cfg" -ErrorAction SilentlyContinue
-  $d = ffmpeg -hide_banner -nostats -threads 4 -i $raw -an -vf 'negate,blackdetect=d=0.15:pix_th=0.05:pic_th=0.98' -f null - 2>&1 | Select-String 'black_end:([0-9.]+)' | Select-Object -First 1
+  $d = ffmpeg -hide_banner -nostats -threads 4 -i $raw -an -vf 'crop=800:600:0:0,negate,blackdetect=d=0.1:pix_th=0.05:pic_th=0.98' -f null - 2>&1 | Select-String 'black_end:([0-9.]+)' | Select-Object -Last 1
   if (-not $d) { "   no sync frames" | Out-File $log -Append; continue }
   $t0 = [double]::Parse($d.Matches[0].Groups[1].Value, [Globalization.CultureInfo]::InvariantCulture)
   # The take's last game frame is t0 + seconds; stop 0.25 s short of it so no desktop follows.

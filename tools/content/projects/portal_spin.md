@@ -44,3 +44,12 @@ captions_y: 0.72
 | l5b | cuts/s4_dial.mp4 | cont |  | line |  | that rotate the texture around its centre a little more every frame, so the whole swirl turns. |  |
 | l6 | cuts/s5_orbit.mp4 | 0 |  | line |  | What do you think? Should I keep this in or not? |  |
 | l7 | cuts/s6_runner.mp4 | 0 |  | line |  | Let me know what else you think I should add in the comments, and it just might make it into the final game! |  |
+
+## v1 as cut (2026-10-12)
+# Takes: real time, ddagrab 810x1440 scaled to 1080x1920; sync = the LAST white stretch in the window's top 600 px
+# (the window boots 1280x720, so the whole-frame test found the desktop); recut.ps1 re-trimmed every take from it.
+# s3_wave: C:\dev\worktrees\portal_before had no imported fonts, so L4 was filmed in C:\dev\verify with the two files
+# ed473b24 changed checked out at ed473b24~1 (that commit's whole diff), then restored.
+# s4_dial: the live dial (portal_spin_dial.gdshader), spin 0 until take 4.3 s, which lands on "that rotate".
+# Code card: the commit's lines, the smoothstep rim factor left out so it fits on a phone.
+# Voice: edge-tts en-US-AndrewNeural +5% (PC system Python, endpoint patched). Music: shove's windmill_isle_day at -18.
