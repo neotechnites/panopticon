@@ -8,13 +8,15 @@ const SKIP := ["haze", "portal", "swirl", "shimmer", "sky", "water", "fog", "ray
 ## The probe sphere: twice the lens's near plane, never under the shipped 0.3 m near plane
 ## (clip cameras run at 0.05 m, where twice that would only catch a lens already in the rock).
 const NEAR_FLOOR_METRES: float = 0.3
-## Wall test: wall (not floor) nearer than WALL_METRES over WALL_SHARE of a 9x16 ray grid: the lens
+## Wall test: wall (not floor) nearer than WALL_METRES over WALL_SHARE of a ray grid: the lens
 ## shoved against rock. Running a cave lane (S1, rock at 1-2 m) must stay clear of it.
 const WALL_METRES: float = 1.5
 const WALL_SHARE: float = 0.4
 ## A hit facing up this much is floor: looking down at it is not being in it.
 const FLOOR_NORMAL_Y: float = 0.7
-const WALL_GRID := Vector2i(9, 16)
+const WALL_GRID := Vector2i(6, 10)
+## The wall rays run every Nth frame: a real-time take must never drop under 60 fps for the probe.
+const WALL_EVERY_FRAMES: int = 4
 ## Inside test: a ray this long whose first hit is a back face means the lens is in the mesh.
 const INSIDE_RAY_METRES: float = 3.0
 
@@ -26,6 +28,7 @@ var _sphere := SphereShape3D.new()
 var _shape_query := PhysicsShapeQueryParameters3D.new()
 var _ray_query := PhysicsRayQueryParameters3D.new()
 var _exclude_owner: Node = null
+var _last_wall: String = ""
 var meshes: int = 0
 var triangles: int = 0
 
@@ -94,9 +97,10 @@ func probe(camera: Camera3D, ridden: Node) -> String:
 		var hit: Dictionary = state.intersect_ray(_ray_query)
 		if not hit.is_empty() and (hit["normal"] as Vector3).dot(direction) > 0.0:
 			return "inside " + String(_names.get((hit["rid"] as RID).get_id(), "mesh"))
-	var wall: String = _wall(camera, state)
-	if not wall.is_empty():
-		return wall
+	if Engine.get_process_frames() % WALL_EVERY_FRAMES == 0:
+		_last_wall = _wall(camera, state)
+	if not _last_wall.is_empty():
+		return _last_wall
 	return _against_bodies(camera, ridden)
 
 
