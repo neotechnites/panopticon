@@ -16,7 +16,7 @@ import uuid
 
 PC_HOST = os.environ.get("CP_PC_HOST", "panopticon-pc")
 LOCK_ROOT = r"C:\dev\locks"
-LEGACY_LOCK = r"C:\dev\content.lock"   # the old whole-short lock; honoured while it exists
+LEGACY_LOCK = r"C:\dev\content.lock"   # the old whole-short lock: honoured while its holder has Godot or ffmpeg running
 SLOTS = ("screen", "heavy")
 
 
@@ -61,7 +61,7 @@ def try_acquire(slot: str, owner: str, seconds: float) -> str | None:
 $ErrorActionPreference = 'Stop'
 $d = {_ps_str(d)}
 New-Item -ItemType Directory -Force -Path {_ps_str(LOCK_ROOT)} | Out-Null
-if ((Test-Path {_ps_str(LEGACY_LOCK)}) -and ({_ps_str(slot)} -eq 'screen')) {{
+if ((Test-Path {_ps_str(LEGACY_LOCK)}) -and ({_ps_str(slot)} -eq 'screen') -and (Get-Process godot*, ffmpeg -EA SilentlyContinue)) {{
   Write-Output ('HELD legacy content.lock: ' + (Get-Content {_ps_str(LEGACY_LOCK + chr(92) + 'owner.txt')} -EA SilentlyContinue)); exit 0 }}
 if (Test-Path $d) {{
   $o = Get-Content "$d\\owner.json" -Raw -EA SilentlyContinue | ConvertFrom-Json -EA SilentlyContinue

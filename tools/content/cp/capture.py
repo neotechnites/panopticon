@@ -45,6 +45,7 @@ MAGENTA_MAX = 0.005
 FULL_WHITE_YMIN = 230.0
 LUMA_TOLERANCE = 0.15
 LENGTH_SLACK_S = 0.5
+CLIP_MIN_S = 0.1      # a lens event shorter than this (gaps under it merged) is a graze, not a shot in the rock
 EVENT_ALIAS = {"out": "death"}
 
 
@@ -126,7 +127,8 @@ LOG_RE = re.compile(r"^\[(event|light|clip|take)\]\s+(-?[0-9.]+)\s+(.*)$")
 def parse_log(text: str) -> dict:
     events, light, clips, end, errors = [], [], [], None, []
     for line in text.splitlines():
-        if "SCRIPT ERROR" in line or line.startswith("--deny-look") or "would not load" in line:
+        if ("SCRIPT ERROR" in line or line.startswith("--deny-look") or "would not load" in line
+                or "Failed loading resource" in line or "Can't load dependency" in line):
             errors.append(line.strip())
         if line.startswith("[clip] probe:"):
             clips.append({"t": -1.0, "what": line[len("[clip] "):].strip()})
@@ -166,7 +168,13 @@ def clip_intervals(clips: list[dict], t_end: float) -> list[dict]:
             what = c["what"]
     if open_at is not None:
         out.append({"from": open_at, "to": t_end, "what": what})
-    return out
+    merged: list[dict] = []
+    for i in out:
+        if merged and i["from"] - merged[-1]["to"] < CLIP_MIN_S:
+            merged[-1]["to"] = i["to"]
+        else:
+            merged.append(dict(i))
+    return [i for i in merged if i["to"] - i["from"] >= CLIP_MIN_S]
 
 
 # --- Gates G3-G6: each returns {"pass", "reason"} -------------------------------------------
@@ -269,9 +277,12 @@ def _arg(args: list[str], key: str) -> str:
     return ""
 
 
-def g6b_matches_plan(take: dict, row: dict, expected_commit: str) -> dict:
-    """The take is the row: map, POV, stage and commit in take.json equal the plan's."""
+def g6b_matches_plan(take: dict, row: dict, expected_commit: str, log: dict | None = None) -> dict:
+    """The take is the row: map, POV, stage and commit in take.json equal the plan's, and the world loaded."""
     g = row.get("game") or {}
+    broken = [e for e in (log or {}).get("errors", []) if "loading resource" in e or "load dependency" in e]
+    if broken:
+        return gate(False, f"the world did not load ({len(broken)} resource errors): {broken[0]}")
     args = take.get("args", [])
     want = {"map": g.get("map", ""), "pov": POV_ARG.get(g.get("pov", ""), g.get("pov_arg", "")),
             "stage": g.get("stage", "") if g.get("stage") not in ("none", "free") else ""}
@@ -364,7 +375,7 @@ def capture_line(plan: dict, row: dict, mode: str, local_dir: Path, retakes: int
             "capture": "realtime-ddagrab", "gates": gates,
         }
         gates["G3b"] = g3b_realtime(take)
-        gates["G6b"] = g6b_matches_plan(take, row, expected)
+        gates["G6b"] = g6b_matches_plan(take, row, expected, log)
         retry = not (gates["G3"]["pass"] and gates["G4"]["pass"])
         if not retry or not all(gates[k]["pass"] for k in ("G3b", "G5", "G6", "G6b")):
             break   # G5/G6 are restaged, never retaken blindly

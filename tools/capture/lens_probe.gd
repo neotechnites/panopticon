@@ -8,6 +8,13 @@ const SKIP := ["portal", "swirl", "shimmer", "sky", "water", "fog", "ray", "beam
 ## The probe sphere: twice the lens's near plane, never under the shipped 0.3 m near plane
 ## (clip cameras run at 0.05 m, where twice that would only catch a lens already in the rock).
 const NEAR_FLOOR_METRES: float = 0.3
+## Wall test: rays over the frame; wall (not floor) nearer than WALL_METRES over WALL_SHARE of the view
+## reads on a phone as the camera in the rock (portal_spin L7: S5 bank and pillars at 1-2 m, falls bulging 0.75 m).
+const WALL_METRES: float = 2.0
+const WALL_SHARE: float = 0.3
+## A hit facing up this much is floor: looking down at it is not being in it.
+const FLOOR_NORMAL_Y: float = 0.7
+const WALL_GRID := Vector2i(5, 9)
 ## Inside test: a ray this long whose first hit is a back face means the lens is in the mesh.
 const INSIDE_RAY_METRES: float = 3.0
 
@@ -87,7 +94,31 @@ func probe(camera: Camera3D, ridden: Node) -> String:
 		var hit: Dictionary = state.intersect_ray(_ray_query)
 		if not hit.is_empty() and (hit["normal"] as Vector3).dot(direction) > 0.0:
 			return "inside " + String(_names.get((hit["rid"] as RID).get_id(), "mesh"))
+	var wall: String = _wall(camera, state)
+	if not wall.is_empty():
+		return wall
 	return _against_bodies(camera, ridden)
+
+
+## The share of the frame that is rock within WALL_METRES, cast as a grid of rays through the frustum.
+func _wall(camera: Camera3D, state: PhysicsDirectSpaceState3D) -> String:
+	var size: Vector2 = camera.get_viewport().get_visible_rect().size
+	var near_hits: int = 0
+	var name: String = ""
+	var at: Vector3 = camera.global_position
+	for gx: int in WALL_GRID.x:
+		for gy: int in WALL_GRID.y:
+			var pixel := Vector2((gx + 0.5) / WALL_GRID.x * size.x, (gy + 0.5) / WALL_GRID.y * size.y)
+			_ray_query.from = at
+			_ray_query.to = at + camera.project_ray_normal(pixel) * WALL_METRES
+			var hit: Dictionary = state.intersect_ray(_ray_query)
+			if not hit.is_empty() and absf((hit["normal"] as Vector3).y) < FLOOR_NORMAL_Y:
+				near_hits += 1
+				name = String(_names.get((hit["rid"] as RID).get_id(), "mesh"))
+	var share: float = float(near_hits) / float(WALL_GRID.x * WALL_GRID.y)
+	if share >= WALL_SHARE:
+		return "wall %s fills %d%% within %.1f m" % [name, roundi(share * 100.0), WALL_METRES]
+	return ""
 
 
 ## Another body inside the near plane: the lens is in somebody's head.

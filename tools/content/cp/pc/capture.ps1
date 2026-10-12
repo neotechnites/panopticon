@@ -4,6 +4,7 @@ param([string]$Job)
 $ErrorActionPreference = 'Stop'
 $inv = [Globalization.CultureInfo]::InvariantCulture
 $j = Get-Content $Job -Raw | ConvertFrom-Json
+$ErrorActionPreference = 'Continue'   # ffmpeg talks on stderr; PowerShell 5 would stop on it
 $res = [ordered]@{ ok = $false; error = ''; mode = $j.mode }
 function Done { $res | ConvertTo-Json -Depth 6 | Set-Content -Path $j.result -Encoding UTF8; exit 0 }
 function F([double]$x) { $x.ToString('0.######', $inv) }
@@ -57,7 +58,7 @@ if ($w -gt $b.Width -or $h -gt $b.Height) { $res.error = "${w}x${h} does not fit
 $idx = -1
 for ($i = 0; $i -lt 6 -and $idx -lt 0; $i++) {
   $probe = & ffmpeg -hide_banner -f lavfi -i "ddagrab=output_idx=${i}:framerate=5" -frames:v 1 -f null - 2>&1 | Out-String
-  if ($probe -match "Video: d3d11.*?(\d{3,5})x(\d{3,5})") {
+  if ($probe -match "Video: .*?d3d11.*?(\d{3,5})x(\d{3,5})") {
     if ([int]$Matches[1] -eq $b.Width -and [int]$Matches[2] -eq $b.Height) { $idx = $i }
   }
 }

@@ -60,6 +60,7 @@ param([string]$Job)
 $ErrorActionPreference = 'Stop'
 $inv = [Globalization.CultureInfo]::InvariantCulture
 $j = Get-Content $Job -Raw | ConvertFrom-Json
+$ErrorActionPreference = 'Continue'   # ffmpeg talks on stderr; PowerShell 5 would stop on it
 $res = [ordered]@{ ok = $false; error = '' }
 function Done { $res | ConvertTo-Json -Depth 5 | Set-Content -Path $j.result -Encoding UTF8; exit 0 }
 Add-Type -AssemblyName System.Windows.Forms
@@ -78,7 +79,7 @@ $b = $screen.Bounds
 $idx = -1
 for ($i = 0; $i -lt 6 -and $idx -lt 0; $i++) {
   $p = & ffmpeg -hide_banner -f lavfi -i "ddagrab=output_idx=${i}:framerate=5" -frames:v 1 -f null - 2>&1 | Out-String
-  if ($p -match "Video: d3d11.*?(\d{3,5})x(\d{3,5})" -and [int]$Matches[1] -eq $b.Width -and [int]$Matches[2] -eq $b.Height) { $idx = $i }
+  if ($p -match "Video: .*?d3d11.*?(\d{3,5})x(\d{3,5})" -and [int]$Matches[1] -eq $b.Width -and [int]$Matches[2] -eq $b.Height) { $idx = $i }
 }
 if ($idx -lt 0) { $res.error = 'no ddagrab output for the screen'; Done }
 $g = Start-Process -FilePath $j.godot -ArgumentList "-e --path $($j.project) --resolution ${w}x${h} --position $($b.X),$($b.Y) $($j.scene)" -RedirectStandardOutput $j.log -RedirectStandardError "$($j.log).err" -PassThru -WindowStyle Normal
