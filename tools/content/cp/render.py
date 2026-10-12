@@ -151,7 +151,10 @@ def guard(filtergraph):
 
 @contextlib.contextmanager
 def heavy_lock(owner):
-    """WP2's PC lease for one heavy render batch, when cp.pclock is present."""
+    """WP2's PC lease for one heavy render batch; the orchestrator holds it when it runs this on the PC."""
+    if os.environ.get("CP_LEASE_HELD"):
+        yield
+        return
     try:
         from cp import pclock
         fn = getattr(pclock, "lock", None) or getattr(pclock, "lease", None)
@@ -160,7 +163,7 @@ def heavy_lock(owner):
     if fn is None:
         yield
         return
-    with fn("heavy", owner=owner):
+    with fn("heavy", owner, 900):
         yield
 
 
@@ -206,7 +209,8 @@ def line_parts(line, project, roots):
             return []
         with open(tj, encoding="utf-8") as f:
             take = json.load(f)
-        raw = [{"path": take["path"], "in": take.get("t0", 0.0), "max_end": take.get("t1")}]
+        # take.avi is already cut between the markers: take time 0 is the game's first frame (t0/t1 are raw-file times)
+        raw = [{"path": take["path"], "in": (take.get("window") or {}).get("in", 0.0)}]
         events = take.get("events", [])
     out = []
     for p in raw:
@@ -622,6 +626,20 @@ def _beat_global(lp, b):
 # gates G7-G11, G13
 # ---------------------------------------------------------------------------
 
+ROUGH_H = 1440                # the PC screen's height: a rough real-time take of a short is 810x1440 (Ryan's ruling)
+
+
+def rough_take(path, W, H):
+    """True when `path` is a rough real-time take (take.json beside it) at the screen's height and the output's aspect."""
+    tj = os.path.join(os.path.dirname(path), "take.json")
+    try:
+        with open(tj, encoding="utf-8") as f:
+            t = json.load(f)
+    except (OSError, ValueError):
+        return False
+    return t.get("mode") == "rough" and t.get("h") == min(H, ROUGH_H) and abs(t["w"] / t["h"] - W / H) < 0.01
+
+
 def gate_g7(edl, project, W, H):
     bad = []
     for ln in edl["lines"]:
@@ -630,7 +648,7 @@ def gate_g7(edl, project, W, H):
             bad.append("%s %sx%s@%.2f" % (ln["id"], i["w"], i["h"], i["fps"]))
         for p in ln["parts"]:
             s = probe(p["path"])
-            if (s["h"] or 0) < H or (s["w"] or 0) < W:
+            if ((s["h"] or 0) < H or (s["w"] or 0) < W) and not rough_take(p["path"], W, H):
                 bad.append("%s source %s %sx%s upscaled" % (ln["id"], os.path.basename(p["path"]), s["w"], s["h"]))
     f = probe(os.path.join(project, edl["final"]))
     if (f["w"], f["h"]) != (W, H) or abs(f["fps"] - FPS) > 0.01:
@@ -732,14 +750,14 @@ def run_gates(project, edl=None, lps=None, g11=None, manifest=None, plan=None):
     return out
 
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("project")
     ap.add_argument("--tag")
     ap.add_argument("--only")
     ap.add_argument("--jobs", type=int, default=2)
     ap.add_argument("--content-root", action="append")
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
     only = set(x.strip() for x in a.only.split(",")) if a.only else None
     g = run(a.project, a.tag, only, a.jobs, a.content_root)
     return 0 if (g is None or g["pass"]) else 1

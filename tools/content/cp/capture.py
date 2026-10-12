@@ -45,6 +45,7 @@ MAGENTA_MAX = 0.005
 FULL_WHITE_YMIN = 230.0
 LUMA_TOLERANCE = 0.15
 LENGTH_SLACK_S = 0.5
+DROP_MAX = 0.01       # G4b: repeated frames in the used window, and game time lost against wall time, as a share
 CLIP_MIN_S = 0.1      # a lens event shorter than this (gaps under it merged) is a graze, not a shot in the rock
 EVENT_ALIAS = {"out": "death"}
 
@@ -102,23 +103,31 @@ def run_clip_args(row: dict) -> list[str]:
 
 
 def pc_project(ref: str) -> str:
-    """The PC checkout a take is filmed in: C:\\dev\\verify for main, a detached worktree per other ref.
-    An older ref gets today's tools/capture, so its takes carry markers, [light] and [clip] too."""
-    if ref in ("", "main", "HEAD", "origin/main"):
-        return os.environ.get("CP_PC_PROJECT", PC_VERIFY)
+    """The PC checkout a take is filmed in: a detached worktree per resolved commit (origin/<ref> first), never a
+    checkout another job owns. It gets this checkout's tools/capture, so any ref's takes carry markers, [light], [clip]."""
+    ref = ref or "main"
     out = pc(f"""
-$ErrorActionPreference = 'Stop'
-$sha = (git -C C:/dev/verify rev-parse '{ref}^{{commit}}').Trim()
+$ErrorActionPreference = 'Continue'
+git -C C:/dev/verify fetch -q origin 2>&1 | Out-Null
+$sha = git -C C:/dev/verify rev-parse --verify -q 'origin/{ref}^{{commit}}'
+if (-not $sha) {{ $sha = git -C C:/dev/verify rev-parse --verify -q '{ref}^{{commit}}' }}
+if (-not $sha) {{ Write-Output 'NOREF'; exit 0 }}
+$sha = $sha.Trim()
 $p = '{PC_WORKTREES}\\cp_' + $sha.Substring(0, 10)
 if (-not (Test-Path "$p\\project.godot")) {{
   git -C C:/dev/verify worktree add --detach $p $sha 2>&1 | Out-Null
-  Copy-Item -Recurse -Force C:\\dev\\verify\\tools\\capture\\* "$p\\tools\\capture\\"
+  if (Test-Path C:\\dev\\verify\\.godot\\imported) {{ robocopy C:\\dev\\verify\\.godot\\imported "$p\\.godot\\imported" /E /NFL /NDL /NJH /NJS /NP | Out-Null }}
   cmd /c "{PC_GODOT} --headless --import --path $p > $p\\import.txt 2>&1"
   cmd /c "{PC_GODOT} --headless --import --path $p >> $p\\import.txt 2>&1"
 }}
 Write-Output $p
 """, timeout=1800)
-    return out.strip().splitlines()[-1]
+    p = out.strip().splitlines()[-1] if out.strip() else "NOREF"
+    if p == "NOREF":
+        raise SystemExit(f"capture: ref {ref!r} is not on the PC (push it to origin)")
+    subprocess.run(["scp", "-rq", str(HERE.parent.parent / "capture"), f"{pclock.PC_HOST}:{(p + '/tools').replace(chr(92), '/')}"],
+                   check=True)
+    return p
 
 
 LOG_RE = re.compile(r"^\[(event|light|clip|take)\]\s+(-?[0-9.]+)\s+(.*)$")
@@ -215,6 +224,20 @@ def g4_alive(res: dict, row: dict) -> dict:
     return gate(True, f"{rate / 1e6:.1f} MB/s, motion {res['motion']:.4f}, no black, no freeze")
 
 
+def g4b_frames(res: dict, log: dict) -> dict:
+    """No dropped frames: the game kept 60 fps for the whole take (a repeat in the grab is a frame it missed)."""
+    if not res.get("ok"):
+        return gate(False, "no take")
+    n, dup = res.get("win_frames") or 0, res.get("dup_frames")
+    if not n or dup is None:
+        return gate(False, "dropped frames unmeasured (capture.ps1 too old)")
+    share = dup / n
+    pace = 1.0 - log["t_end"] / res["duration"] if log.get("t_end") and res.get("duration") else 0.0
+    if share > DROP_MAX or pace > DROP_MAX:
+        return gate(False, f"dropped frames: {dup}/{n} repeated ({share * 100:.1f}%), game time {pace * 100:+.1f}% behind wall time")
+    return gate(True, f"{dup}/{n} repeated frames ({share * 100:.1f}%), game time {pace * 100:+.1f}% behind")
+
+
 def g5_clipping(log: dict, win: tuple[float, float]) -> dict:
     t_end = log["t_end"] if log["t_end"] is not None else win[0] + win[1]
     if not any(c["what"].startswith("probe:") for c in log["clip_events"]):
@@ -293,7 +316,7 @@ def g6b_matches_plan(take: dict, row: dict, expected_commit: str, log: dict | No
     return gate(not bad, "; ".join(bad) if bad else f"map/pov/stage/commit = plan ({expected_commit[:10]})")
 
 
-GATES = {"G3": g3_desktop, "G3b": g3b_realtime, "G4": g4_alive, "G5": g5_clipping, "G6": g6_light,
+TAKE_GATES = {"G3": g3_desktop, "G3b": g3b_realtime, "G4": g4_alive, "G4b": g4b_frames, "G5": g5_clipping, "G6": g6_light,
          "G6b": g6b_matches_plan}
 
 
@@ -326,8 +349,7 @@ def capture_line(plan: dict, row: dict, mode: str, local_dir: Path, retakes: int
     project = pc_project(g.get("ref", "main"))
     commit = pc(f"git -C '{project}' rev-parse HEAD").strip()
     ref = g.get("ref", "main")
-    expected = commit if ref in ("", "main", "HEAD", "origin/main") else pc(
-        f"(git -C C:/dev/verify rev-parse '{ref}^{{commit}}').Trim()").strip()
+    expected = commit   # pc_project resolved the ref to exactly this commit
     pc_dir = f"{PC_CONTENT}\\{name}\\takes\\{line}"
     local_dir.mkdir(parents=True, exist_ok=True)
     pc(f"New-Item -ItemType Directory -Force -Path '{pc_dir}', '{PC_TOOLS}' | Out-Null")
@@ -356,7 +378,7 @@ def capture_line(plan: dict, row: dict, mode: str, local_dir: Path, retakes: int
         except subprocess.CalledProcessError:
             log_text = ""
         log = parse_log(log_text)
-        gates = {"G3": g3_desktop(res, (w, h), log), "G4": g4_alive(res, row),
+        gates = {"G3": g3_desktop(res, (w, h), log), "G4": g4_alive(res, row), "G4b": g4b_frames(res, log),
                  "G5": g5_clipping(log, win), "G6": g6_light(res, log, row)}
         take = {
             "line": line, "path": f"{pc_dir}\\take.avi", "w": res.get("w", w), "h": res.get("h", h), "fps": FPS,
@@ -370,13 +392,13 @@ def capture_line(plan: dict, row: dict, mode: str, local_dir: Path, retakes: int
             "window": {"in": win[0], "len": win[1]}, "game_end": log["t_end"], "mode": mode, "size_note": size_note,
             "project": project, "attempt": attempt + 1, "wall_seconds": round(time.time() - t_start, 1),
             "measure": {k: res.get(k) for k in ("duration", "bytes", "frames", "black", "freeze", "motion",
-                                                 "magenta_max", "luma_median", "head_full_white", "tail_full_white",
+                                                 "magenta_max", "luma_median", "win_frames", "dup_frames", "head_full_white", "tail_full_white",
                                                  "white_runs", "screen", "output_idx", "error", "godot_exit")},
             "capture": "realtime-ddagrab", "gates": gates,
         }
         gates["G3b"] = g3b_realtime(take)
         gates["G6b"] = g6b_matches_plan(take, row, expected, log)
-        retry = not (gates["G3"]["pass"] and gates["G4"]["pass"])
+        retry = not (gates["G3"]["pass"] and gates["G4"]["pass"] and gates["G4b"]["pass"])
         if not retry or not all(gates[k]["pass"] for k in ("G3b", "G5", "G6", "G6b")):
             break   # G5/G6 are restaged, never retaken blindly
     (local_dir / "take.json").write_text(json.dumps(take, indent=1))

@@ -5,12 +5,13 @@ import hashlib
 import importlib
 import json
 import os
+import re
 import subprocess
 import sys
 import time
 
 from . import deliver as deliver_mod
-from . import gates, gemini, preflight, review
+from . import gates, gemini, pclock, preflight, review
 
 MAX_FIX_ROUNDS = 2
 EXIT_GATE, EXIT_HANDBACK = 2, 3
@@ -37,26 +38,73 @@ def log(msg):
 # ---------- peer modules: the one table of how each is called ----------
 
 def argv_for(stage, b, only=None):
-    """argv for a peer module's main(). `b` is the Build; `only` restricts to line ids (fix rounds)."""
-    o = ["--only", ",".join(only), "--fix", b.p("fix.json")] if only else []
+    """argv for a peer module's main(). `b` is the Build; `only` restricts to line ids (fix rounds).
+    voice, render and timeline run on the PC (their paths are PC paths); plan and capture run here."""
+    pj = b.pc_proj
     return {
         "plan": [b.spec, "--out", b.dir],
-        "voice": [b.p("plan.json"), "--out", b.p("voice")] + (["--ryan", b.args.ryan] if b.args.ryan else []) + o,
-        "capture": [b.p("plan.json"), "--out", b.p("takes")] + (o or ["--all-new"]) + (["--movie"] if b.args.movie else []),
-        "editor": [b.p("plan.json"), "--out", b.p("takes")] + (o or ["--all-new"]),
-        "render": [b.p("plan.json"), "--voice", b.p("voice/manifest.json"), "--takes", b.p("takes"),
-                   "--out", b.dir] + (["--tag", b.args.tag] if b.args.tag else []) + o,
-        "timeline": [b.p("plan.json"), "--edl", b.p("edl.json"), "--out", b.dir],
+        "voice": [pj + "\\plan.json", "--out", pj] + (["--ryan", b.args.ryan] if b.args.ryan else []),
+        "capture": [b.p("plan.json"), "--out", b.dir] + (list(only) if only else b.film_ids())
+                   + (["--mode", "final"] if b.args.final or b.args.movie else []),
+        "render": [pj] + (["--tag", b.render_tag()]) + (["--only", ",".join(only)] if only else []),
+        "timeline": [pj, "--tag", b.render_tag()],
     }[stage]
 
 
+PC_CODE = r"C:\dev\cp\content"     # tools/content/{cp,pc} mirrored here for the PC-side tools
+PC_CONTENT = r"C:\Users\ddd\Desktop\panopticon-renders\content"
+PC_SIDE = {"voice", "render", "timeline"}
+_synced = False
+
+
+def sync_pc_code():
+    """Mirror this checkout's tools/content/cp and pc to the PC once per run (the PC never runs stale tools)."""
+    global _synced
+    if _synced:
+        return
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    rc, out = preflight.ssh(f'Remove-Item -Recurse -Force "{PC_CODE}\\cp", "{PC_CODE}\\pc" -EA SilentlyContinue; '
+                            f'New-Item -ItemType Directory -Force "{PC_CODE}" | Out-Null; "ok"')
+    if not out.endswith("ok"):
+        raise Stop(EXIT_GATE, f"PC code dir: {out[-120:]}")
+    for d in ("cp", "pc"):
+        subprocess.run(["scp", "-rq", os.path.join(here, d), deliver_mod.scp_path(PC_CODE + "\\" + d)], check=True)
+    _synced = True
+
+
+def _ps_arg(a):
+    return "'" + str(a).replace("'", "''") + "'"
+
+
+def pc_call(module, argv, timeout=3600):
+    """`python -m cp.<module> argv` on the PC, output streamed to this log; raises Stop on a non-zero exit."""
+    sync_pc_code()
+    log(f"{module} (PC): {' '.join(argv)}")
+    cmd = (f"$env:PYTHONPATH = '{PC_CODE}'; $env:CP_LEASE_HELD = '1'; $env:PYTHONIOENCODING = 'utf-8'; "
+           f"Set-Location '{PC_CODE}'; python -m cp.{module} {' '.join(_ps_arg(a) for a in argv)} 2>&1 | "
+           f"ForEach-Object {{ \"$_\" }}; \"rc=$LASTEXITCODE\"")
+    rc, out = preflight.ssh(cmd, timeout=timeout)
+    lines = out.splitlines()
+    for ln in lines[:-1]:
+        print("    " + ln, flush=True)
+    m = re.search(r"rc=(-?\d+)\s*$", out)
+    code = int(m.group(1)) if m else rc
+    if code != 0:
+        raise Stop(EXIT_GATE, f"{module} (PC) exited {code}: {lines[-2] if len(lines) > 1 else out[-200:]}")
+
+
 def call(module, argv):
+    if module in PC_SIDE:
+        return pc_call(module, argv)
     try:
         mod = importlib.import_module(f"{__package__}.{module}")
     except ImportError as e:
         raise Stop(EXIT_GATE, f"cp/{module}.py has not landed ({e})")
     log(f"{module}: {' '.join(argv)}")
     rc = mod.main(argv)
+    if module == "plan" and rc == 3:
+        raise Stop(EXIT_HANDBACK, f"write {os.path.join(argv[2], 'shots.json')} from shots.prompt.md "
+                   "(schema cp/schema/shots.json), then rerun")
     if rc not in (0, None):
         raise Stop(EXIT_GATE, f"{module} exited {rc}")
 
@@ -75,6 +123,32 @@ class Build:
 
     def p(self, f):
         return os.path.join(self.dir, f)
+
+    @property
+    def pc_proj(self):
+        """The build's PC folder: capture writes takes\\<line> here, voice and render read and write it."""
+        return f"{PC_CONTENT}\\{self.name}"
+
+    def film_ids(self):
+        return [l["id"] for l in self.lines({"capture", "editor"})]
+
+    def render_tag(self):
+        return self.args.tag and f"{self.name}_{self.args.tag}" or self.name
+
+    def push(self, rel):
+        """Copy a build file (plan.json, voice/manifest.json, ...) to the same place under the PC folder."""
+        dst = self.pc_proj + "\\" + rel.replace("/", "\\")
+        preflight.ssh(f'New-Item -ItemType Directory -Force "{os.path.dirname(dst.replace(chr(92), "/"))}" | Out-Null')
+        subprocess.run(["scp", "-q", self.p(rel), deliver_mod.scp_path(dst)], check=True)
+
+    def pull(self, rel, required=True):
+        dst = self.p(rel)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        r = subprocess.run(["scp", "-q", deliver_mod.scp_path(self.pc_proj + "\\" + rel.replace("/", "\\")), dst],
+                           capture_output=True, text=True)
+        if r.returncode and required:
+            raise Stop(EXIT_GATE, f"could not pull {rel} from the PC: {r.stderr.strip()[-160:]}")
+        return r.returncode == 0
 
     def load(self, f):
         try:
@@ -159,7 +233,14 @@ def s_plan(b):
 def s_voice(b):
     if b.fresh("voice", ["plan.json"], ["voice/manifest.json"]):
         return
+    b.push("plan.json")
+    if b.args.ryan and os.path.isdir(b.args.ryan):   # Ryan's takes on the Mac go to the PC first
+        dst = b.pc_proj + "\\ryan_vo"
+        subprocess.run(["scp", "-rq", b.args.ryan, deliver_mod.scp_path(dst)], check=True)
+        b.args.ryan = dst
     call("voice", argv_for("voice", b))
+    b.pull("voice/manifest.json")
+    b.pull("voice/words.json", required=False)
     b.done("voice", ["plan.json"])
 
 
@@ -225,10 +306,7 @@ def s_capture(b, only=None):
     ok, why, _ = preflight.run(capture=True, voice=False, final=b.args.final, log=lambda *_: None)
     if not ok:
         raise Stop(EXIT_GATE, f"G0 (capture): {why}")
-    editor = {l["id"] for l in b.lines({"editor"})}
-    for mod, ids in (("capture", [i for i in new if i not in editor]), ("editor", [i for i in new if i in editor])):
-        if ids:  # a reshoot of a reused line films it fresh
-            call(mod, argv_for(mod, b, only=ids if only else None))
+    call("capture", argv_for("capture", b, only=new))   # capture films game and editor rows alike
     for attempt in (0, 1):
         ok, res = b.gate("capture")
         bad = failing_lines(res)
@@ -249,9 +327,23 @@ def s_capture(b, only=None):
 def s_render(b, only=None):
     ins = ["plan.json", "voice/manifest.json"] + [f"takes/{l['id']}/take.json" for l in b.lines({"capture", "editor"})]
     if only or not b.fresh("render", ins, ["edl.json"]):
-        call("render", argv_for("render", b, only=only))
+        b.push("plan.json")
+        b.push("voice/manifest.json")
+        with pclock.lease("heavy", f"{b.name} render", 900):
+            try:
+                call("render", argv_for("render", b, only=only))
+            finally:
+                b.pull("render_gates.json", required=False)
+            if b.kind == "devlog":
+                call("timeline", argv_for("timeline", b))
+        b.pull("edl.json")
         if b.kind == "devlog":
-            call("timeline", argv_for("timeline", b))
+            rc, out = preflight.ssh(f'(Get-ChildItem "{b.pc_proj}" -Filter "{b.render_tag()}_*.fcpxml" | '
+                                    'Sort-Object LastWriteTime | Select-Object -Last 1).FullName')
+            edl = b.load("edl.json")
+            edl["fcpxml"] = out.strip() or None
+            with open(b.p("edl.json"), "w") as f:
+                json.dump(edl, f, indent=1)
         b.done("render", ins)
     ok, res = b.gate("render")
     if not ok:
@@ -263,7 +355,7 @@ def final_path(b):
     src = edl.get("final")
     if not src:
         raise Stop(EXIT_GATE, "edl.json names no final")
-    return src
+    return src if gates.is_pc(src) else b.pc_proj + "\\" + src.replace("/", "\\")
 
 
 def _base(p):

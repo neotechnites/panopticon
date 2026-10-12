@@ -233,14 +233,14 @@ def gate_g13_manifest(manifest):
                                    "pinned endpoint" if manifest.get("endpoint") == ENDPOINT else "WRONG endpoint")
 
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("plan", nargs="?")
     ap.add_argument("--out")
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--ryan")
     ap.add_argument("--force", action="store_true")
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
     if a.check:
         print(json.dumps(preflight()))
         return 0

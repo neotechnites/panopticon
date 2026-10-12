@@ -121,6 +121,10 @@ $res.black = (& ffmpeg -hide_banner -nostats -threads 4 @win -i $j.take -an -vf 
 $res.freeze = (& ffmpeg -hide_banner -nostats -threads 4 @win -i $j.take -an -vf 'freezedetect=n=-50dB:d=0.75' -f null - 2>&1 | Select-String 'freeze_duration' | Measure-Object).Count
 $mo = & ffmpeg -hide_banner -nostats -threads 4 @win -i $j.take -an -vf "fps=10,scale=90:-2,format=gray,tblend=all_mode=difference,lutyuv=y='if(gt(val,24),255,0)',signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-" -f null - 2>$null | Select-String 'YAVG=([0-9.]+)' | ForEach-Object { [double]::Parse($_.Matches[0].Groups[1].Value, $inv) }
 $res.motion = if ($mo) { ($mo | Measure-Object -Average).Average / 255.0 } else { 0 }
+# Dropped frames: ddagrab repeats the last desktop frame when the game misses one, so a repeat is a drop.
+$fm = & ffmpeg -hide_banner -nostats -threads 4 @win -i $j.take -an -f framemd5 - 2>$null | Where-Object { $_ -and $_ -notmatch '^#' } | ForEach-Object { ($_ -split ',')[-1].Trim() }
+$dup = 0; $prev = ''; foreach ($m in $fm) { if ($m -eq $prev) { $dup++ }; $prev = $m }
+$res.win_frames = @($fm).Count; $res.dup_frames = $dup
 $lu = & ffmpeg -hide_banner -nostats -threads 4 @win -i $j.take -an -vf 'fps=2,scale=270:-2,signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-' -f null - 2>$null | Select-String 'YAVG=([0-9.]+)' | ForEach-Object { [double]::Parse($_.Matches[0].Groups[1].Value, $inv) } | Sort-Object
 $res.luma_median = if ($lu) { @($lu)[[int][Math]::Floor(@($lu).Count / 2)] } else { -1 }
 if (-not $j.keep_raw) { Remove-Item $j.raw -ErrorAction SilentlyContinue }

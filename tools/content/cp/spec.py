@@ -2,7 +2,7 @@
 Forms: `L1 "text" {note}` (note may follow on the next lines, or as `-> note`), `M1 {note}`, devlog `text<TAB/4 spaces>shot`, `## N` + `said:` blocks."""
 import hashlib, json, os, re, sys
 
-HEADER_KEYS = ("kind", "music", "captions", "base", "cutoff", "voice", "tag", "aspect")
+HEADER_KEYS = ("kind", "music", "captions", "base", "cutoff", "voice", "tag", "aspect", "notes")
 FLAG_RES = [("refilm", re.compile(r"\brefilm\b", re.I)), ("look_override", re.compile(r"\blook[_ -]?override\b", re.I)),
             ("freeze_waive", re.compile(r"\bfreeze:?\s*waive\b", re.I)), ("keep_audio", re.compile(r"\bkeep[_ -]audio\b|\bwith (its|their) own audio\b", re.I)),
             ("letterbox", re.compile(r"\bletterbox", re.I))]

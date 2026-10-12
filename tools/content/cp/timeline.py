@@ -189,12 +189,12 @@ def build(project, tag=None, mac=None):
     return out
 
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("project")
     ap.add_argument("--tag")
     ap.add_argument("--mac")
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
     build(a.project, a.tag, a.mac)
     return 0
 
