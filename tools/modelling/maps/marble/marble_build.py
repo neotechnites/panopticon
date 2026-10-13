@@ -182,7 +182,7 @@ BARS_B = 353.0
 # Game bearings of the trapdoors: each a lane cell's centre (2.8125 * (k + 0.5)), the cell's inner
 # two paving bands (DECK_RS[0]..[2]) cut over a pit. WRITTEN FROM THE SCENE: drag marble_trapdoor.tscn
 # instances in maps/marble/marble.tscn, run `python3 marble_build.py --sync-trapdoors`, rebuild marble.
-TRAPDOOR_BEARINGS = (49.21875,)
+TRAPDOOR_BEARINGS = ()
 # ... and the OUTER pits, a cell's outer three bands (DECK_RS[2]..[4], r 52.0..57.3): the sections' trapdoors
 # behind a lane wall, synced the same way from marble_trapdoor_outer / marble_trapdoor_plate instances.
 TRAPDOOR_OUTER_BEARINGS = (91.40625, 94.21875, 97.03125, 277.03125, 279.84375, 282.65625)
