@@ -52,25 +52,15 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	_victim = runners[1].controller
 	_lead = runners[2].controller
 
+	# Steered from the first step: every turn is eased through the mouse, so the lens never snaps (v6 jumped at each leg).
 	var shover_steps: Array = [
 		{"do": "place", "at": LIB.ring_point(SHOVER_AT.x, SHOVER_AT.y, 0.1)},
 		{"do": "human", "on": true},
+		{"do": "steer", "on": true, "rate": 160.0, "gain": 5.0},
 	]
-	var glances: Array = [
-		{"t": 0.0, "right": 0.0, "pitch": -1.0},
-		{"t": 0.9, "right": 12.0, "pitch": -2.0},
-		{"t": 1.6, "right": -6.0, "pitch": -1.0},
-		{"t": 2.4, "right": 18.0, "pitch": 1.0},
-		{"t": 3.0, "right": 4.0, "pitch": -1.0},
-	]
-	var legs: Array = _legs([[287.0, 53.0], [295.0, 51.5], [301.0, 51.5], [306.0, 53.0], [316.0, 52.0],
-		[322.0, 50.8], [334.0, 50.8]], pace, 0.04)
-	for leg: Dictionary in legs:
-		leg["glances"] = glances
-	shover_steps.append_array(legs)
+	shover_steps.append_array(_legs([[287.0, 53.0], [295.0, 51.5], [301.0, 51.5], [306.0, 53.0], [316.0, 52.0],
+		[322.0, 50.8], [334.0, 50.8]], pace, 0.04))
 	shover_steps.append_array([
-		# Eased onto him through the mouse: an unsteered chase snaps the view round (reads as a cut).
-		{"do": "steer", "on": true, "rate": 220.0, "gain": 7.0},
 		{"do": "chase", "victim": _victim, "range": 2.6, "timeout": 2.5, "speed": 1.0},
 		{"do": "glance", "right": 40.0, "pitch": -8.0, "seconds": 0.5, "smooth": true},    # watch him go over
 		{"do": "hold", "seconds": 60.0},
