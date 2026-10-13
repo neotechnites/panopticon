@@ -28,6 +28,8 @@ var _below_at: float = -1.0
 var _ended: bool = false
 var _last_yaw: float = 0.0
 var _max_yaw: float = 0.0
+var _run_on: float = 0.0
+var _final_step: int = 0
 
 
 func bots() -> int:
@@ -69,10 +71,16 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "hold", "seconds": 0.5},
 		{"do": "hold", "seconds": 60.0},
 	]
+	# run_on (0): after the watch, eyes back on the lane and run run_on seconds to run_to/run_r; the end flag then.
+	_run_on = float(option("run_on", 0.0))
+	if _run_on > 0.0:
+		pov_steps[pov_steps.size() - 2] = {"do": "lane", "to": float(option("run_to", 100.0)), "r": float(option("run_r", 50.0)), "dir": 1,
+			"speed": 1.0, "weave": 0.03, "period": 1.2, "timeout": _run_on}
 	# lane_mid (a longer run-up): hold pov r to that bearing, then lane in to lane_r (row 68's obstacle sits at r 48.5-50.0).
 	if String(option("lane_mid", "")) != "":
 		pov_steps.insert(4, {"do": "lane", "to": float(option("lane_mid", 69.0)), "r": pov_at.y, "dir": 1, "speed": 1.0,
 			"weave": 0.03, "period": 1.2, "timeout": 8.0, "carry": true, "glances": [{"t": 0.0, "right": 0.0, "pitch": 0.0}]})
+	_final_step = pov_steps.size() - 1
 	_pov_driver = drive(runners[0], pov_steps, 0, "ClipShoverDriver")
 
 	_victim_driver = drive(runners[1], [
@@ -128,7 +136,9 @@ func tick(delta: float) -> void:
 	if _below_at < 0.0 and _victim.global_position.y < RIM_Y:
 		_below_at = elapsed()
 		_event("below_rim  %s  at %.1f deg r %.1f" % [_victim.name, LIB.bearing_of(_victim.global_position), LIB.radius_of(_victim.global_position)])
-	if _below_at >= 0.0 and elapsed() >= _below_at + float(option("tail", 0.7)):
+	var done: bool = int(_pov_driver.get("_index")) >= _final_step if _run_on > 0.0 \
+		else _below_at >= 0.0 and elapsed() >= _below_at + float(option("tail", 0.7))
+	if done:
 		_ended = true
 		_event("max_yaw  %.0f" % _max_yaw)
 		_event("end")

@@ -51,8 +51,11 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	var cast_at: float = elapsed()
 	for index: int in RADII.size():
 		var deg: float = _start + STAGGER[index]
+		# radii ("lead,victim,pov"): lane radii; an earlier start must clear the lip post at 61.4 deg (r < 48.3).
+		var radii: PackedStringArray = String(option("radii", "")).split(",", false)
+		var r: float = float(radii[index]) if radii.size() == RADII.size() else RADII[index]
 		var lane: Dictionary = {
-			"do": "lane", "to": 165.0, "r": RADII[index], "speed": PACE[index],
+			"do": "lane", "to": 165.0, "r": r, "speed": PACE[index],
 			"weave": WEAVE[index], "period": PERIOD[index], "timeout": 30.0,
 		}
 		if index == LEAD:
@@ -78,7 +81,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			]
 			lane["timeout"] = hit + float(option("shove_go", 2.6)) - cast_at
 		var steps: Array = [
-			{"do": "place", "at": LIB.ring_point(deg, RADII[index], 0.1), "face": LIB.tangent_at(deg)},
+			{"do": "place", "at": LIB.ring_point(deg, r, 0.1), "face": LIB.tangent_at(deg)},
 			{"do": "human", "on": true},
 			lane,
 			{"do": "hold", "seconds": 60.0, "fidget": true},
@@ -120,13 +123,17 @@ func _raise_the_hand() -> void:
 		return
 	_guard = shooter.controller
 	LIB.guard_to_window(_guard, float(option("window", 115.0)), 5.6)
+	# track_seconds (0): the hand follows the lead unscoped this long before swinging onto the victim.
+	var track: float = float(option("track_seconds", 0.0))
 	LIB.open_the_scope(_guard, float(option("clear", 0.74)))
 	_hand = GUARD_HAND.new()
 	_hand.name = "ClipGuardHand"
 	clip.root.add_child(_hand)
 	_hand.install(_guard, controller(), elapsed())
 	_hand.start_at = float(option("hand_at", 0.8))
-	_hand.beats.append({"body": _bodies[VICTIM], "seconds": 100.0, "fire_at": float(option("fire_at", 4.4)) - _hand.start_at, "watch": true})
+	if track > 0.0:
+		_hand.beats.append({"body": _bodies[LEAD], "seconds": track})
+	_hand.beats.append({"body": _bodies[VICTIM], "seconds": 100.0, "fire_at": float(option("fire_at", 4.4)) - _hand.start_at - track, "watch": true})
 	_hand.park = LIB.ring_point(_start + float(option("park", 10.0)), 49.0, 0.6)
 	say("guard at the window on %.0f deg; the hand from %.2f s, squeeze at %.2f s" % [float(option("window", 115.0)), _hand.start_at, float(option("fire_at", 4.4))])
 
