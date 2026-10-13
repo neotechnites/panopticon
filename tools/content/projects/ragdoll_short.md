@@ -64,10 +64,11 @@ in: 0.6
 seconds: 9.0
 
 ## 12
-said: L4 -- v7's own tower take (04_tower_runner_shot_momentum: rs_tower, s3_open_lane, seed 20260930, 2 bots, default dials) refilmed with a 5.7 s longer lead-in (wait 1.4->7.1, start 1.2->6.9) so it fills from the hard cut after "not an animator"; hit ~9.7 s in the take, 8.68 s into the cut
+said: L4 -- v7's own tower take (04_tower_runner_shot_momentum: rs_tower, s3_open_lane, seed 20260930, 2 bots, default dials) refilmed with a 5.7 s longer lead-in (wait 1.4->7.1, start 1.2->6.9) so it fills from the hard cut after "not an animator"; hit ~9.7 s in the take, 8.68 s into the cut; unscoped (scope=0) as v7's take; the still room before the runner enters is v7's, so motion 0.01, freeze 2
 capture: --shot=s3_open_lane --stage=rs_tower --pov=guard --bots=2 --seed=20260930 --shimmer=0 --set=wait=7.1;start=6.9;scope=0
 hud: crosshair
-freeze: 2   # the still room before the runner enters, as in v7's take
+motion: 0.01
+freeze: 2
 in: 1.0
 seconds: 10.6
 
