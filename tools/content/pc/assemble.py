@@ -40,6 +40,7 @@ clip fits the line (the v6 retime of the shove short, generalised):
          keeping aspect, its centre at y of the height, in from the right over
          `in` seconds at the line's first word, out to the left over `out`
          seconds at its last word, with the drop shadow baked in by card.py.
+         `from=this to=Ragdolls+0.6` moves in/out to those spoken words (#n = nth).
          Swapping the png is a one-file replacement.
 
   grade  a grade named in the script header, applied to this line's picture only:
@@ -244,11 +245,26 @@ def parse_card(cell):
             "alpha": 0.6, "blur": 24, "dx": 0, "dy": 12}
     for b in bits[1:]:
         k, _, v = b.partition("=")
+        if k in ("from", "to"):
+            card[k] = v                                   # <word>[#n][+sec], resolved on words.json
+            continue
         if k not in card or k == "path":
             raise SystemExit("assemble: card: unknown option %s" % b)
         card[k] = float(v)
     card["w"] = int(card["w"])
     return card
+
+
+def card_word_t(spec, ws, key):
+    """`word[#n][+sec]` -> seconds: the nth (1-based) spoken `word` in the line, plus sec."""
+    head, _, plus = spec.partition("+")
+    word, _, nth = head.partition("#")
+    norm = lambda x: "".join(c for c in x.lower() if c.isalnum() or c == "'")
+    hits = [w["t"] for w in ws if norm(w["word"]) == norm(word)]
+    n = int(nth or 1)
+    if len(hits) < n:
+        raise SystemExit("assemble: %s: card word %r not spoken in the line" % (key, head))
+    return hits[n - 1] + float(plus or 0)
 
 
 def atempo_chain(speed):
@@ -462,6 +478,10 @@ def main():
             ws = words_all.get(key, {}).get("words", [])
             t_in = max(0.0, ws[0]["t"]) if ws else 0.0
             t_out = max(t_in + card["in"], ws[-1]["t"]) if ws else max(seg_len - card["out"], t_in + card["in"])
+            if "from" in card:
+                t_in = card_word_t(card["from"], ws, key)
+            if "to" in card:
+                t_out = max(t_in + card["in"], card_word_t(card["to"], ws, key))
             card_t = (cw, ch, t_in, t_out)
             top, bot = card["y"] * H - ch / 2.0, card["y"] * H + ch / 2.0
             if band and top < band[1] and bot > band[0]:
