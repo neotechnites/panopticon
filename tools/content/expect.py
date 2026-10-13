@@ -3,8 +3,8 @@
 
 Clauses (';'-separated): "<kind> [who] lo-hi" (absolute s), "<kind> [who] +lo-hi" (after the first clause's
 event), "<kind> [who]" (happened; never the anchor),
-"alive <who>" (no out/ghosted), "max_yaw N" (every max_yaw event <= N), "lens_clear" ([lens] near < 0.4 m
-for > 0.1 s fails), "lens_cover <= N" (cover > N for > 0.25 s fails); lens clauses read EXPECT_WINDOW="in seconds".
+"alive <who>" (no out/ghosted), "max_yaw N" (every max_yaw event <= N), "lens_clear" ([lens] near < 0.8 m
+for >= 0.1 s fails), "lens_cover <= N" (cover > N for >= 0.1 s fails); lens clauses read EXPECT_WINDOW="in seconds".
 Exit 1 with the numbers on a miss.
 """
 import os
@@ -13,9 +13,9 @@ import sys
 
 EVENT = re.compile(r"^\[event\]\s+([0-9.]+)\s+(\S+)\s*(.*)$")
 LENS = re.compile(r"^\[lens\]\s+([0-9.]+)\s+near=([0-9.]+)\s+cover=([0-9.]+)")
-LENS_NEAR_METRES = 0.4
+LENS_NEAR_METRES = 0.8
 LENS_NEAR_SECONDS = 0.1
-LENS_COVER_SECONDS = 0.25
+LENS_COVER_SECONDS = 0.1
 
 
 def longest_run(frames, bad):
@@ -72,7 +72,7 @@ def main() -> int:
                 limit, what = LENS_COVER_SECONDS, "cover %.2f" % max((f[2] for f in run), default=0.0)
             at = run[0][0] if run else 0.0
             print("  lens %s: longest %.2f s from %.2f (worst %s)" % (kind, span, at, what))
-            if span > limit:
+            if run and span >= limit:
                 misses.append("%s: %.2f s from %.2f, worst %s" % (clause, span, at, what))
             continue
         if kind == "max_yaw":
