@@ -82,6 +82,9 @@ var _installed: bool = false
 var _seen: Dictionary = {}
 var _ray: PhysicsRayQueryParameters3D = null
 var _picked: Array = []
+var _centre_body: PlayerController = null
+var _centre_at: Vector3 = Vector3.ZERO
+var _centre_velocity: Vector3 = Vector3.ZERO
 
 
 ## [param clock] is the clip's elapsed time now, so start_at and the log are in clip seconds.
@@ -151,7 +154,11 @@ func _physics_process(delta: float) -> void:
 		if entry != null:
 			body = _body_of(entry)
 	var aim: Vector3
-	if _spent(k, beat) and bool(beat.get("watch", false)) and body != null and is_instance_valid(body) and body.is_visible_in_tree():
+	# centre (false): ride the man himself, no round lead until the squeeze, and once he is limp his ragdoll's pelvis.
+	if bool(beat.get("centre", false)) and body != null and is_instance_valid(body):
+		aim = _centre_on(body, delta) + _centre_velocity * (2.0 * HAND_ZETA / omega)
+		_last_aim[k] = aim
+	elif _spent(k, beat) and bool(beat.get("watch", false)) and body != null and is_instance_valid(body) and body.is_visible_in_tree():
 		# watch (false): after the squeeze the hand stays ON the man and rides the
 		# kick back down, which is what a player does -- he takes the shot and
 		# watches it land. With a round that travels it is the difference between
@@ -228,6 +235,19 @@ func _physics_process(delta: float) -> void:
 		_rate = Vector2(RECOIL_YAW_RATE * (1.0 if k % 2 == 0 else -1.0), RECOIL_PITCH_RATE) * float(beat.get("kick", 1.0))
 		return
 	_apply_head()
+
+
+## Where the eye sees [param body] (his chest, or the ragdoll's pelvis once limp), its fast-averaged velocity kept.
+func _centre_on(body: PlayerController, delta: float) -> Vector3:
+	var point: Vector3 = body.global_position + Vector3.UP * AIM_HEIGHT
+	var ragdoll: Node = body.get_node_or_null(^"Avatar/Ragdoll")
+	if ragdoll != null and (ragdoll.is_active() or ragdoll.is_flopping()):
+		point = ragdoll.centre()
+	if _centre_body == body and delta > 0.0:
+		_centre_velocity = _centre_velocity.lerp((point - _centre_at) / delta, clampf(delta / FAST_WINDOW, 0.0, 1.0))
+	_centre_body = body
+	_centre_at = point
+	return point
 
 
 ## Pull the trigger with the head already on the runner. Hitscan: the rifle's

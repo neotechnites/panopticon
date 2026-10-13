@@ -14,6 +14,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## v27 (Ryan): "the player gets shoved further, the sniper visibly reacts (re-aims), and then hits the shot" (late=1): the shipped
 ## shove, the scope resting on the wall's far side (rest, deg), he scrambles on (run_after s), the hand comes onto him react s after
 ## he clears the wall and fires settle s later. And "the runner must NOT look over at the tower" (late=1): the rider's eyes stay low.
+## v39 (Ryan): "the sniper pov sucks": late, the scope is centred on him (beat centre) from the raise; rest and react are gone.
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const COLUMN_SCENE: String = "res://maps/marble/models/marble_column.glb"
@@ -30,13 +31,19 @@ var _shoved: bool = false
 var _shoved_at: float = 0.0
 var _exposed: bool = false
 var _exposed_at: float = 0.0
-var _reacted: bool = false
 var _squeezed: bool = false
 var _hit_at: float = -1.0
 var _rest_checked: bool = false
 ## Wall's leading end (deg) and the clear margin past it (deg) the hit and the rest must keep.
 const WALL_END: float = 193.9
 const CLEAR_DEG: float = 3.0
+## v39: over the m2 cut (scope_from/scope_to, clip s) the runner stays inside half the scope's radius (7.4 deg) and AIM_DEG of the aim.
+const SCOPE_INNER: float = 0.5
+const AIM_DEG: float = 3.5
+var _worst_frac: float = 0.0
+var _worst_aim: float = 0.0
+var _worst_at: float = -1.0
+var _scope_judged: bool = false
 
 
 ## Marble columns at [param degrees] on the inner edge for one shot only; the map scene is untouched.
@@ -155,6 +162,7 @@ func tick(_delta: float) -> void:
 	if _hand == null:
 		_raise_the_hand()
 		return
+	_watch_the_scope()
 	if _hit_at >= 0.0 and not _rest_checked and elapsed() >= _hit_at + 1.2:
 		_rest_checked = true
 		_expect_in_the_open("rest")
@@ -170,14 +178,8 @@ func tick(_delta: float) -> void:
 		if not _late():
 			_hand.beats[0]["fire_at"] = elapsed() - _hand.start_at
 		say("victim exposed %.2f s after the shove at %.1f deg r %.2f%s" % [elapsed() - _shoved_at, LIB.bearing_of(_victim.global_position), LIB.radius_of(_victim.global_position), "" if _late() else "; squeeze now"])
-	# Late: he sees the man come out, a beat to react, then the hand comes off the wall onto him and rides him while he is down;
-	# the squeeze as he breaks back for the wall (back_fire s after the break), led on his run.
-	if _late() and _exposed and not _reacted and elapsed() >= _exposed_at + float(option("react", 0.3)):
-		_reacted = true
-		_hand.beats = [{"body": _victim, "seconds": 100.0, "fire_at": -1.0, "watch": true, "lead": float(option("lead", 1.0)), "now": int(option("now", 0)) == 1, "kick": float(option("kick", 0.3))}]
-		_hand.start_at = elapsed()
-		say("the guard reacts at %.2f s" % elapsed())
-	if _late() and _reacted and not _squeezed and elapsed() >= _shoved_at + float(option("run_after", 1.25)) + float(option("back_fire", 0.25)):
+	# Late: the hand is already on him; the squeeze as he breaks back for the wall (back_fire s after the break), led on his run.
+	if _late() and _shoved and not _squeezed and elapsed() >= _shoved_at + float(option("run_after", 1.25)) + float(option("back_fire", 0.25)):
 		_squeezed = true
 		_hand.beats[0]["fire_at"] = elapsed() - _hand.start_at
 		say("he breaks for the wall; squeeze at %.2f s" % elapsed())
@@ -196,9 +198,11 @@ func _raise_the_hand() -> void:
 	clip.root.add_child(_hand)
 	_hand.install(_guard, controller(), elapsed())
 	if _late():
-		# Resting on the wall's far side where a man would peek; the shove comes out of the other.
-		_hand.beats.append({"at": LIB.ring_point(float(option("rest", 191.75)), 48.6, 1.3), "seconds": 100.0})
-		_hand.park = LIB.ring_point(float(option("rest", 191.75)), 48.6, 1.3)
+		# v39 (Ryan): "the sniper pov sucks ... the sniper pans over". The scope rides him from before the shove,
+		# centred on him (no lead) through the throw, the run back, the hit and the ragdoll; only the squeeze is led.
+		_hand.beats.append({"body": _victim, "seconds": 100.0, "fire_at": -1.0, "watch": true, "centre": true, "omega": float(option("omega", 6.0)),
+			"lead": float(option("lead", 1.0)), "now": int(option("now", 0)) == 1, "kick": float(option("kick", 0.3))})
+		_hand.park = _victim.global_position + Vector3.UP
 	else:
 		_hand.beats.append({"body": _victim, "seconds": 100.0, "fire_at": -1.0, "watch": true, "lead": float(option("lead", 0.7)), "now": true, "kick": float(option("kick", 0.3))})
 		_hand.park = LIB.ring_point(195.35, 48.6, 1.3)
@@ -246,6 +250,43 @@ func _expect_in_the_open(label: String) -> void:
 	query.exclude = [_victim.get_rid(), _guard.get_rid()]
 	var blocker: Dictionary = clip.root.get_world_3d().direct_space_state.intersect_ray(query)
 	_expect(blocker.is_empty(), "%s in the guard's line of sight%s" % [label, "" if blocker.is_empty() else " (blocked by %s)" % blocker["collider"].name])
+
+
+## v39 (Ryan): "you see the runner get shoved for one frame, then they go out of frame". Over the cut, his body (the
+## ragdoll's pelvis once limp) must sit within SCOPE_INNER of the scope's radius and within AIM_DEG of the eye's line.
+func _watch_the_scope() -> void:
+	var t: float = elapsed()
+	if _scope_judged or t < float(option("scope_from", 2.95)) or _guard == null or not is_instance_valid(_victim):
+		return
+	if t > float(option("scope_to", 5.55)):
+		_scope_judged = true
+		_expect(_worst_frac <= SCOPE_INNER, "runner within %.0f%% of the scope radius over the cut (worst %.0f%% at %.2f)" % [SCOPE_INNER * 100.0, _worst_frac * 100.0, _worst_at])
+		_expect(_worst_aim <= AIM_DEG, "guard's aim within %.1f deg of the runner over the cut (worst %.2f deg)" % [AIM_DEG, _worst_aim])
+		return
+	var eye: Camera3D = _guard.get_node_or_null(^"Head/Camera") as Camera3D
+	if eye == null:
+		return
+	var point: Vector3 = seen_point(_victim)
+	var optic: WeaponOptic = _guard.get_node_or_null(^"Optic") as WeaponOptic
+	var clear: float = optic.profile.vignette_clear_fraction if optic != null and optic.profile != null else 0.46
+	# The screen as the vignette measures it (fov is the vertical one): offset from the centre in half-heights.
+	var view: Transform3D = eye.get_camera_transform()
+	var aim: float = rad_to_deg((-view.basis.z).angle_to(point - view.origin))
+	var frac: float = INF if aim >= 90.0 else tan(deg_to_rad(aim)) / tan(deg_to_rad(eye.fov) * 0.5) / clear
+	if OS.has_environment("STAGE_DEBUG"):
+		say("scope %.2f: runner %.0f%% of the radius, %.2f deg off the aim" % [t, frac * 100.0, aim])
+	if frac > _worst_frac:
+		_worst_frac = frac
+		_worst_at = t
+	_worst_aim = maxf(_worst_aim, aim)
+
+
+## Where a man is to the eye: the ragdoll's pelvis once he is limp, else his chest.
+static func seen_point(body: PlayerController) -> Vector3:
+	var ragdoll: Node = body.get_node_or_null(^"Avatar/Ragdoll")
+	if ragdoll != null and (ragdoll.is_active() or ragdoll.is_flopping()):
+		return ragdoll.centre()
+	return body.global_position + Vector3.UP * 1.0
 
 
 func on_hit(collider: Node3D) -> void:

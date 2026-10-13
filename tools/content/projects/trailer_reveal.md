@@ -154,7 +154,7 @@ freeze: waive
 
 ## 10a
 said: v5 "Marble, runner POV: two runners both behind the same column on the inner edge, hidden from the tower; he shoves the other out into the open; cut BEFORE the shot"
-capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=runner --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1 --seed=20261001
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=runner --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;omega=10;kick=0.1;back_pace=0.5 --seed=20261001
 tape: marble_column
 seconds: 2.6
 in: 1.2
@@ -166,7 +166,7 @@ freeze: waive
 
 ## 10b
 said: v5 "Marble, guard scope, the same event: nobody in sight, one shoved out from behind the column, fires, hits"
-capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1 --seed=20261001
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;omega=10;kick=0.1;back_pace=0.5 --seed=20261001
 tape: marble_column
 seconds: 3.4
 in: 2.5
