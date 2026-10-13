@@ -6,7 +6,7 @@
 # Rough (the default): ONE take at real speed, the screen recorded (lib.sh pc_rough);
 # a portrait take is 810x1440, scaled to 1080x1920 at the cut. A failed gate prints why
 # and stops: no retry, no fallback. The gate also fails a take that cuts inside the shot
-# (a scene change, or the camera changing body) or whose POV body is out or shoved in it. --movie (final only): Movie Maker, native 1080x1920.
+# (a scene change, the camera changing body, or a POV lens jumping position) or whose POV body is out or shoved in it. --movie (final only): Movie Maker, native 1080x1920.
 # --name: the cut is cuts\NAME.mp4 (default NN). A cut an earlier tag used is never overwritten.
 #
 # Entry fields it reads: capture (run_clip args) or still (shot.gd args), tape (a
@@ -60,6 +60,7 @@ AT=$(brief_field "${BRIEF}" "${N}" at)
 REF=$(brief_field "${BRIEF}" "${N}" ref)   # capture this one shot at a git ref, with that ref's own tools
 HOLD=$(brief_field "${BRIEF}" "${N}" hold 3)
 TAKES_MAX=$(brief_field "${BRIEF}" "${N}" takes "${TAKES_MAX}")
+JUMP_SPEEDS=3   # a POV lens moving over 3x its body's top speed in one frame is a teleport: the take fails
 SCENE_CUT=0.5   # a frame-to-frame scene score above this inside the cut is a camera cut: the take fails
 # A pinned seed plays the same take every time; retrying it buys nothing. Rough is one take.
 [[ "${CAPTURE}" == *--seed=* ]] && TAKES_MAX=1
@@ -156,9 +157,17 @@ $(ss_ps "${avi}")
 Set-Content -Path '${DIR}\\takes\\${tag}.txt' -Value \$line
 \$inv = [Globalization.CultureInfo]::InvariantCulture
 \$cuts = @(ffmpeg -hide_banner -nostats -ss \$ss -t ${TOTAL} -i '${avi}' -an -vf "scale=160:-2,select='gt(scene,${SCENE_CUT})',metadata=print:file=-" -f null - 2>\$null | Select-String 'pts_time:([0-9.]+)' | ForEach-Object { [math]::Round([double]::Parse(\$_.Matches[0].Groups[1].Value, \$inv) + ${IN}, 2) })
-\$lo = [double]${IN}; \$hi = [double]${IN} + [double]${TOTAL}; \$pov = ''; \$bad = @()
+\$lo = [double]${IN}; \$hi = [double]${IN} + [double]${TOTAL}; \$pov = ''; \$bad = @(); \$cam = \$null; \$jumps = @()
 foreach (\$l in (Get-Content '${log}' -EA SilentlyContinue)) {
-  if (\$l -match '^\[pov\]\s+([0-9.]+)\s+(ride|guard|ghost)\s+(\S+)') {
+  if (\$l -match '^\[cam\]\s+([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)\s+(\S+)\s+(\S+)\s+(\S+)') {
+    \$t = [double]::Parse(\$Matches[1], \$inv); \$xyz = @(4,5,6 | ForEach-Object { [double]::Parse(\$Matches[\$_], \$inv) })
+    if (\$cam -and \$t -gt \$lo -and \$t -le \$hi) {
+      \$d = [math]::Sqrt([math]::Pow(\$xyz[0]-\$cam[0],2) + [math]::Pow(\$xyz[1]-\$cam[1],2) + [math]::Pow(\$xyz[2]-\$cam[2],2))
+      \$cap = ${JUMP_SPEEDS} * [double]::Parse(\$Matches[3], \$inv) * [double]::Parse(\$Matches[2], \$inv)
+      if (\$d -gt \$cap -and \$jumps.Count -lt 5) { \$jumps += ('{0:N2} s ({1:N2} m in a frame, cap {2:N2})' -f \$t, \$d, \$cap) }
+    }
+    \$cam = \$xyz
+  } elseif (\$l -match '^\[pov\]\s+([0-9.]+)\s+(ride|guard|ghost)\s+(\S+)') {
     \$t = [double]::Parse(\$Matches[1], \$inv)
     if (\$t -gt \$lo -and \$t -lt \$hi -and \$pov -and \$pov -ne \$Matches[3]) { \$bad += "the camera changes body at \$t s (\$pov -> \$(\$Matches[3]))" }
     if (\$t -lt \$hi) { \$pov = \$Matches[3] }
@@ -169,6 +178,7 @@ foreach (\$l in (Get-Content '${log}' -EA SilentlyContinue)) {
   }
 }
 if (\$cuts.Count -gt 0) { Write-Output ('FAILED: the take cuts inside the shot (scene change at ' + (\$cuts -join ', ') + ' s); one continuous camera only') }
+elseif (\$jumps.Count -gt 0) { Write-Output ('FAILED: the POV camera jumps position at ' + (\$jumps -join ', ') + '; a POV moves only as a player can') }
 elseif (\$bad.Count -gt 0) { Write-Output ('FAILED: ' + (\$bad -join '; ')) }
 else { Write-Output \$line }
 EOF

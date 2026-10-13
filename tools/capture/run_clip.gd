@@ -299,6 +299,7 @@ func _process(delta: float) -> bool:
 		_ride_a_body()
 		_meet_the_eye(delta)
 		_crosshair_only_through_the_eye()
+		_log_the_lens(delta)
 	else:
 		if _plugin == null or not _plugin.lens(delta):
 			var progress: float = clampf((_elapsed - _delay) / _seconds, 0.0, 1.0)
@@ -931,6 +932,17 @@ func _log_the_rifle() -> void:
 
 
 ## Print the match's beats, so a take can be judged off its log.
+## One line per frame for shot.sh's jump gate: time, frame delta, the ridden body's top speed, the lens position.
+func _log_the_lens(delta: float) -> void:
+	var lens: Camera3D = root.get_viewport().get_camera_3d()
+	var body: PlayerController = _pov_body as PlayerController
+	if lens == null or body == null or not is_instance_valid(body):
+		return
+	var top: float = body.profile.ground_speed * body.speed_scale * body.run_speed_scale
+	var at: Vector3 = lens.global_position
+	print("[cam] %.4f %.4f %.3f %.4f %.4f %.4f" % [_elapsed, delta, top, at.x, at.y, at.z])
+
+
 func _log_events() -> void:
 	_controller.participant_shoved.connect(
 		func(shover: MatchParticipant, victim: MatchParticipant) -> void:
