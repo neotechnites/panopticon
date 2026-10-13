@@ -1,4 +1,4 @@
-"""beach_shore -- the resort's shore strip at true player scale: tiki huts, a beach bar, cabanas, a boardwalk,
+"""beach_shore -- the resort's shore strip at true player scale: a beach bar, cabanas, a boardwalk,
 torches, a lifeguard tower and Wuhu's lighthouse. Box-projected zones only (no uv). Pure Python."""
 
 import math
@@ -155,46 +155,6 @@ def _strips(fr, p0, p1, out, zhi, gaps=()):
 # =============================================================================
 # PIECES
 # =============================================================================
-
-def tiki_hut(m, uv, x, y, yaw, z0, seed, floor=0.05):
-    """A bamboo hut 5-7 m square, open doorway on +f into a dark vestibule, thatched hip or pyramid roof, a plank
-    floor whose top is `floor` over the base (the caller passes the terrain's spread + 0.05)."""
-    fr, r, n0 = Frame(m, uv, x, y, yaw, z0), Rng(seed * 7919 + 11), len(m.faces)
-    if r.f() < 0.5:
-        hf = r.u(2.5, 3.0)
-        hs = hf + r.u(0.4, 0.5)
-    else:
-        hf = hs = r.u(2.5, 3.5)
-    rise, eave = r.u(1.6, 2.2), 0.7
-    ds = r.u(-0.4, 0.4) * (hs - 1.2)
-    pitch = _thatch(fr, hf + eave, hs + eave, 2.4, rise, r)
-    zw = 2.4 + pitch * eave                        # walls rise to the roof's underside at the wall line
-    P = fr.poly
-    P([(-hf, hs, -0.5), (-hf, -hs, -0.5), (-hf, -hs, zw), (-hf, hs, zw)], (-1, 0, 0), "timber", BAMBOO)
-    for sg in (-1, 1):
-        P([(-hf, sg * hs, -0.5), (hf, sg * hs, -0.5), (hf, sg * hs, zw), (-hf, sg * hs, zw)], (0, sg, 0), "timber", BAMBOO)
-    d0, d1 = ds - 0.6, ds + 0.6
-    P([(hf, -hs, -0.5), (hf, d0, -0.5), (hf, d0, zw), (hf, -hs, zw)], (1, 0, 0), "timber", BAMBOO)
-    P([(hf, d1, -0.5), (hf, hs, -0.5), (hf, hs, zw), (hf, d1, zw)], (1, 0, 0), "timber", BAMBOO)
-    P([(hf, d0, 2.1 + floor + 0.15), (hf, d1, 2.1 + floor + 0.15), (hf, d1, zw), (hf, d0, zw)], (1, 0, 0), "timber", BAMBOO)
-    fi = hf - 1.0                                   # the dark vestibule a metre inside, over the floor
-    zf = floor + 0.15
-    P([(fi, d0, zf), (fi, d1, zf), (fi, d1, 2.1 + zf), (fi, d0, 2.1 + zf)], (1, 0, 0), "timber", DARK)
-    P([(fi, d0, zf), (hf, d0, zf), (hf, d0, 2.1 + zf), (fi, d0, 2.1 + zf)], (0, 1, 0), "timber", DARK)
-    P([(fi, d1, zf), (hf, d1, zf), (hf, d1, 2.1 + zf), (fi, d1, 2.1 + zf)], (0, -1, 0), "timber", DARK)
-    P([(fi, d0, 2.1 + zf), (hf, d0, 2.1 + zf), (hf, d1, 2.1 + zf), (fi, d1, 2.1 + zf)], (0, 0, -1), "timber", DARK)
-    P([(fi, d0, zf), (hf + 0.05, d0, zf), (hf + 0.05, d1, zf), (fi, d1, zf)], (0, 0, 1), "deck", DECK)   # the floor in the door
-    P([(hf + 0.05, d0, floor - 0.15), (hf + 0.05, d1, floor - 0.15), (hf + 0.05, d1, zf), (hf + 0.05, d0, zf)], (1, 0, 0), "deck", DECK)   # its front edge
-    for a in (-hf, hf):
-        for b in (-hs, hs):
-            fr.box(a - 0.125, a + 0.125, b - 0.125, b + 0.125, -0.5, zw, "timber", POST, "fblt")
-    zs = zw - 0.06
-    _strips(fr, (-hf, hs), (-hf, -hs), (-1, 0), zs)
-    _strips(fr, (-hf, -hs), (hf, -hs), (0, -1), zs)
-    _strips(fr, (hf, hs), (-hf, hs), (0, 1), zs)
-    _strips(fr, (hf, -hs), (hf, hs), (1, 0), zs, gaps=((d0 + hs, d1 + hs),))
-    return len(m.faces) - n0
-
 
 def beach_bar(m, uv, x, y, yaw, z0):
     """A 9 x 5 m thatched bar open to +f: counter, four stools, a back wall with shelves and bottles, a sign."""
@@ -494,8 +454,7 @@ def _check():
         return 0.3 * math.sin(x * 0.2) + 0.05 * y
 
     walk = [(0.0, 0.0), (3.0, 0.0), (6.0, 1.0), (8.5, 2.8), (10.5, 5.0), (12.0, 7.6)]
-    cases = [("tiki_hut%d" % s, 220, (lambda m, uv, s=s: tiki_hut(m, uv, 0.0, 0.0, 20.0, 0.0, s))) for s in range(1, 7)]
-    cases += [("beach_bar", 320, lambda m, uv: beach_bar(m, uv, 0.0, 0.0, 20.0, 0.0))]
+    cases = [("beach_bar", 320, lambda m, uv: beach_bar(m, uv, 0.0, 0.0, 20.0, 0.0))]
     cases += [("cabana%d" % s, 170, (lambda m, uv, s=s: cabana(m, uv, 0.0, 0.0, 20.0, 0.0, s))) for s in range(1, 5)]
     cases += [("boardwalk", 10 ** 6, lambda m, uv: boardwalk(m, uv, walk, zf)),
               ("torch", 40, lambda m, uv: torch(m, uv, 0.0, 0.0, 0.0)),
