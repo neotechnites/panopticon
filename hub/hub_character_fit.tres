@@ -4,12 +4,13 @@
 
 [resource]
 script = ExtResource("1_character_fit")
-shade = Color(0.5, 0.44, 0.38, 1)
-light = Color(1.05, 0.92, 0.8, 1)
+shade = Color(0.18, 0.18, 0.18, 1)
+light = Color(0.5, 0.5, 0.5, 1)
 light_from = Vector2(0.5, 0.87)
-wrap = 0.15
-sun = 0.0
+wrap = 0.0
+sun = 1.7
+sun_wrap = 0.0
 body = Color(1, 1, 1, 1)
 shirt = 1.2
 shirt_hue = 0.5
-rim = 0.25
+rim = 0.0

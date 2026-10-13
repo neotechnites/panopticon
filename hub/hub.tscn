@@ -82,12 +82,14 @@ visible = false
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
 [node name="KeyLight" type="DirectionalLight3D" parent="HubWorld/Tower"]
-transform = Transform3D(1, 0, 0, 0, 0.34202, 0.939693, 0, -0.939693, 0.34202, 0, 20, 0)
-light_color = Color(1, 0.45, 0.15, 1)
-light_energy = 0.0
-shadow_bias = 0.08
+transform = Transform3D(0, 0.8, -0.6, 0, 0.6, 0.8, 1, 0, 0, 0, 20, 0)
+light_color = Color(1, 1, 1, 1)
+light_energy = 0.03
+shadow_enabled = true
+shadow_bias = 0.01
+shadow_normal_bias = 0.2
 directional_shadow_mode = 0
-directional_shadow_max_distance = 180.0
+directional_shadow_max_distance = 12.0
 
 [node name="HellFlood" type="OmniLight3D" parent="HubWorld/Tower"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 300, 0)

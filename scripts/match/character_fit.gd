@@ -13,6 +13,8 @@ extends Resource
 @export_range(0.0, 1.0, 0.01) var wrap: float = 0.5
 ## What a full patch of the map's own sun adds on top, in the light's colour; 0 when no sun reaches players.
 @export_range(0.0, 2.0, 0.01) var sun: float = 0.0
+## How far a sun's light reaches round a body: 0 plain Lambert, so each facet keeps its own value.
+@export_range(0.0, 1.0, 0.01) var sun_wrap: float = 0.5
 ## What the map does to the body's own paint (skin, trousers), before the light.
 @export var body: Color = Color(1.0, 1.0, 1.0, 1.0)
 ## How bright a team shirt runs against the body, so its colour still reads.

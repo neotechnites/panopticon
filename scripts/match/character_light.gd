@@ -20,8 +20,6 @@ const FADE_SHADER: Shader = preload("res://characters/materials/character_light_
 ## The ground dapple shader's values the players share.
 const DAPPLE_PARAMS: Array[StringName] = [&"dapple_metres", &"dapple_strength", &"dapple_light", &"fleck_strength", &"fleck_bias", &"sway", &"sway_speed", &"dapple_top", &"dapple_top_fade", &"dapple_mean"]
 
-## Faces turned from a sun still take this much of it.
-const SUN_WRAP: float = 0.5
 ## Where [method apply] keeps the material it dressed, for [method base_of].
 const BASE_META: StringName = &"character_light_base"
 
@@ -49,6 +47,7 @@ static func for_arena(arena: Node) -> CharacterLight:
 	var arena_3d: Node3D = arena as Node3D
 	if arena_3d != null and arena_3d.is_inside_tree():
 		light.axis = Vector2(arena_3d.global_position.x, arena_3d.global_position.z)
+	var fit_sun_wrap: float = light.fit.sun_wrap
 	var energy: float = 0.0
 	var facing: float = 0.0
 	var suns: Array[Vector3] = []
@@ -62,7 +61,7 @@ static func for_arena(arena: Node) -> CharacterLight:
 		var toward: Vector3 = frame.basis.z.normalized()
 		energy = maxf(energy, e)
 		suns.append(toward)
-		facing = maxf(facing, e * maxf(Vector2(toward.x, toward.z).length(), SUN_WRAP))
+		facing = maxf(facing, e * maxf(Vector2(toward.x, toward.z).length(), fit_sun_wrap))
 	light.suns = suns
 	if energy > 0.0:
 		light.sun_energy = energy
@@ -124,7 +123,7 @@ func apply(material: Material) -> Material:
 	lit.set_shader_parameter(&"sun_lift", fit.sun if sun_facing_gain > 0.0 else 0.0)
 	lit.set_shader_parameter(&"sun_facing_gain", sun_facing_gain)
 	lit.set_shader_parameter(&"sun_energy", sun_energy)
-	lit.set_shader_parameter(&"sun_wrap", SUN_WRAP)
+	lit.set_shader_parameter(&"sun_wrap", fit.sun_wrap)
 	_dress_dapple(lit)
 	_cache[key] = lit
 	return lit
