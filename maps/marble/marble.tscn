@@ -374,6 +374,27 @@ editor_description = "Placed lane elements (2026-10-08): one lever-and-trapdoor 
 editor_description = "The trapdoor on the cell centred at 49.21875 deg (marble_build.TRAPDOOR_BEARINGS), r 46.8..52.0; its lever ~4 m before it at r 47.5 by the lip."
 transform = Transform3D(0.653173, 0, -0.757209, 0, 1, 0, 0.757209, 0, 0.653173, 32.2667, 23, 37.4061)
 
-[node name="Wall070" parent="Elements" instance=ExtResource("24_wall")]
+[node name="Wall072" parent="Elements" unique_id=2067318689 instance=ExtResource("24_wall")]
 editor_description = "A plain ashlar wall at 70 deg, r 53.5, long side along the lane: cover from the tower."
-transform = Transform3D(-0.939693, 0, -0.34202, 0, 1, 0, 0.34202, 0, -0.939693, 18.2981, 23, 50.2736)
+transform = Transform3D(-2.1090124, 0, -0.6530695, 0, 4.181416, 0, 1.0283941, 0, -1.3393029, 20.341284, 23, 42.33459)
+
+[node name="Wall073" parent="Elements" unique_id=919312521 instance=ExtResource("24_wall")]
+editor_description = "A plain ashlar wall at 70 deg, r 53.5, long side along the lane: cover from the tower."
+transform = Transform3D(-1.9221519, 0, 0.85455894, 0, 4.181416, 0, -1.3456817, 0, -1.2206397, -27.415274, 23, 37.94348)
+
+[node name="Wall074" parent="Elements" unique_id=1436176974 instance=ExtResource("24_wall")]
+editor_description = "A plain ashlar wall at 70 deg, r 53.5, long side along the lane: cover from the tower."
+transform = Transform3D(0.46488327, 0, 1.4605062, 0, 4.181416, 0, -2.299872, 0, 0.2952184, -46.067406, 23, -6.595539)
+
+[node name="Wall075" parent="Elements" unique_id=797365315 instance=ExtResource("24_wall")]
+editor_description = "A plain ashlar wall at 70 deg, r 53.5, long side along the lane: cover from the tower."
+transform = Transform3D(2.2407777, 0, 0.4419995, 0, 4.181416, 0, -0.69602025, 0, 1.422979, -13.929043, 23, -44.98459)
+
+[node name="Wall076" parent="Elements" unique_id=1182279347 instance=ExtResource("24_wall")]
+editor_description = "A plain ashlar wall at 70 deg, r 53.5, long side along the lane: cover from the tower."
+transform = Transform3D(1.8879163, 0, -0.8848019, 0, 4.181416, 0, 1.3933057, 0, 1.1988988, 27.73141, 23, -37.72571)
+
+[node name="Wall071" parent="Elements" unique_id=506088090 instance=ExtResource("24_wall")]
+editor_description = "A plain ashlar wall at 70 deg, r 53.5, long side along the lane: cover from the tower."
+transform = Transform3D(0.18330932, 0, -1.9510761, 0, 4.1929474, 0, -4.0560603, 0, -0.088176824, 46.47708, 23, 2.4905283)
+
