@@ -410,6 +410,11 @@ grade_hell: lift 2.6 3
 | g1 | cuts/12.mp4@0.15:3.1833 | | | beat 3.1833 | | |  |
 | e1 | cuts/end_v3.mp4@0.4:3.2 | | | beat 3.2 | | |  |
 
+## script rough_v42
+# v42 (Ryan on v41): "the shove half is fine, the sniper half jumps and snaps around like a robot". m1 is v41's; m2 the re-taped 10b (accel cap, 0.3 s aim blends).
+# Six real-time takes each dropped 4-10 frames in the capture (duplicates at random frames), so 10b was filmed --movie (frame exact, no drops).
+# v41's master with m2 1833-1987 <- cuts/10b.mp4 frames 0-154 (graph: final\master\rough_v42.graph.txt); psnr: only 1833-1987 differ.
+
 ## script rough_v41
 # v41 (Ryan): "we dont even see the fucking shove from the runners pov" and "the way the sniper tracks is comopletely and utterly unatural". m1: the shove at 1.25 s in, him 12 deg out by its end.
 # m2: the scope still on the wall's end 0.25 s, the shove, tracked (peak 54.8 deg/s), he breaks back 4.02, squeeze 4.37 1.98 m ahead along his run, hit 4.73 at 201.1 deg, 0.6 s of the drop.
