@@ -612,6 +612,93 @@ def _dome(m, coll=False):
 
 
 # =============================================================================
+# THE DRUM WINDOWS
+# =============================================================================
+
+def _window(m, i, bay, f0, f1):
+    """A round-headed window in drum bay i, the cells' arch language: the stone face
+    round it fanned onto the bay rectangle, a reveal WINDOW_D deep, and glazing at the
+    back -- WINDOW_BARS mullions and a transom in iron, the lights glass. Pier strips are
+    the caller's."""
+    u0, u1 = PW / 2.0, bay.L - PW / 2.0
+    c, hw = bay.L / 2.0, mb.WINDOW_W / 2.0
+    s = f0 + mb.WINDOW_SILL
+    sp = s + mb.WINDOW_JAMB
+    bw = mb.WINDOW_BAR_HW
+    tw = 2.0 * bw
+    n_in = bay.n_in
+    mull = [c - hw + mb.WINDOW_W * (k + 1) / (mb.WINDOW_BARS + 1) for k in range(mb.WINDOW_BARS)]
+    xs = [c - hw] + sorted([u - bw for u in mull] + [u + bw for u in mull]) + [c + hw]   # strip edges
+
+    def arc(th):
+        return (c + hw * math.cos(th), sp + hw * math.sin(th))
+
+    def th_of(x):
+        return math.acos(max(-1.0, min(1.0, (x - c) / hw)))
+
+    # the head's angles, right to left: the drawn segments, kept clear of the mullion edges
+    edge = sorted(th_of(x) for x in xs[1:-1])
+    head = list(edge)
+    for k in range(1, mb.HEAD_SEG):
+        t = math.pi * k / mb.HEAD_SEG
+        if all(abs(t - e) > 0.1 for e in edge):
+            head.append(t)
+    head.sort()
+    # the outline: sill left to right (the strip edges on it), up the right jamb, over the head, down the left jamb
+    out = [(x, s) for x in xs] + [(c + hw, sp - tw), (c + hw, sp)] + [arc(t) for t in head] \
+        + [(c - hw, sp), (c - hw, sp - tw)]
+    nl = len(out)
+    front = [m.v(bay.at(u, z)) for (u, z) in out]
+    back = [m.v(bay.at(u, z, mb.WINDOW_D)) for (u, z) in out]
+    pos = dict((k, j) for j, k in enumerate(out))     # outline point -> index
+
+    # THE FACE: the apron under the sill, each half fanned from its bottom corner up
+    # the jamb and from its top corner over the head, one bridge triangle at the crown
+    A_r, A_l = m.v(bay.at(u1, s)), m.v(bay.at(u0, s))
+    T_r, T_l = m.v(bay.at(u1, f1)), m.v(bay.at(u0, f1))
+    _plinth(m, m.v(bay.at(u0, f0)), m.v(bay.at(u1, f0)), [A_l] + front[:len(xs)] + [A_r], n_in, "frieze")
+    i_sp_r, i_sp_l = pos[(c + hw, sp)], pos[(c - hw, sp)]
+    crown = min(range(nl), key=lambda k: abs(out[k][0] - c) if out[k][1] > sp else 1e9)
+    right_jamb = list(range(len(xs) - 1, i_sp_r + 1))                 # sill corner .. springing
+    for a, b in zip(right_jamb, right_jamb[1:]):
+        m.tri(A_r, front[a], front[b], n_in, "frieze")
+    m.tri(A_r, front[i_sp_r], T_r, n_in, "frieze")
+    for k in range(i_sp_r, crown):
+        m.tri(T_r, front[k], front[k + 1], n_in, "frieze")
+    left_jamb = list(range(i_sp_l, nl)) + [0]                        # springing .. sill corner
+    for a, b in zip(left_jamb, left_jamb[1:]):
+        m.tri(A_l, front[a], front[b], n_in, "frieze")
+    m.tri(A_l, front[i_sp_l], T_l, n_in, "frieze")
+    for k in range(crown, i_sp_l):
+        m.tri(T_l, front[k], front[k + 1], n_in, "frieze")
+    m.tri(front[crown], T_r, T_l, n_in, "frieze")
+
+    # THE REVEAL: every outline segment WINDOW_D into the drum, facing the springing centre
+    for k in range(nl):
+        j = (k + 1) % nl
+        mu, mz = 0.5 * (out[k][0] + out[j][0]), 0.5 * (out[k][1] + out[j][1])
+        w = bay.dir(c - mu, sp - mz)
+        if abs(w[0]) + abs(w[1]) + abs(w[2]) < 1e-9:
+            w = UP
+        m.quad(front[k], front[j], back[j], back[k], w, "shade")
+
+    # THE GLAZING: strips between the edges in xs -- glass, iron, glass ... --
+    # under the transom, the transom, and over it up to the head
+    def bk(x, z):
+        return m.v(bay.at(x, z, mb.WINDOW_D))
+
+    for n in range(len(xs) - 1):
+        xa, xb = xs[n], xs[n + 1]
+        zone = "iron" if n % 2 else "glass"
+        m.quad(bk(xa, s), bk(xb, s), bk(xb, sp - tw), bk(xa, sp - tw), n_in, zone)
+        m.quad(bk(xa, sp - tw), bk(xb, sp - tw), bk(xb, sp), bk(xa, sp), n_in, "iron")
+        ta, tb = th_of(xa), th_of(xb)
+        ring = [bk(xa, sp), bk(xb, sp)] + [back[pos[arc(t)]] for t in head if tb - 1e-9 <= t <= ta + 1e-9]
+        _convex(m, ring, n_in, zone)
+    _STATS["windows"] = _STATS.get("windows", 0) + 1
+
+
+# =============================================================================
 # THE WALL
 # =============================================================================
 
@@ -660,13 +747,53 @@ def build(m):
     take("tris_ceiling")
 
     # the frieze and the great cornice over the top tier
+    # THE DRUM: its own DRUM_BAYS stations, zippered onto the wall's at its foot and head
     f0, f1 = mb.FRIEZE_Z
-    for i in range(mb.NSIDE_IN):
-        bay = _Bay(i, mb.WALL_IN_R, mb.NSIDE_IN)
-        for (ua, ub, zone) in ((0.0, PW / 2.0, "marble"), (PW / 2.0, bay.L - PW / 2.0, "frieze"),
-                               (bay.L - PW / 2.0, bay.L, "marble")):
-            m.quad(m.v(bay.at(ua, f0)), m.v(bay.at(ub, f0)), m.v(bay.at(ub, f1)),
-                   m.v(bay.at(ua, f1)), bay.n_in, zone)
+    zb0, zb1 = f0 + mb.DRUM_BAND, f1 - mb.DRUM_BAND
+
+    def wall_line(z):
+        out = []
+        for i in range(mb.NSIDE_IN):
+            bay = _Bay(i, mb.WALL_IN_R, mb.NSIDE_IN)
+            for u in (0.0, PW / 2.0, bay.L - PW / 2.0):
+                p = bay.at(u, z)
+                out.append((math.atan2(p[1], p[0]) % TWO_PI, m.v(p)))
+        out.sort()
+        return [v for (_a, v) in out], [a for (a, _v) in out]
+
+    def drum_line(z):
+        out = []
+        for i in range(mb.DRUM_BAYS):
+            bay = _Bay(i, mb.WALL_IN_R, mb.DRUM_BAYS)
+            for u in (0.0, PW / 2.0, bay.L - PW / 2.0):
+                p = bay.at(u, z)
+                out.append((math.atan2(p[1], p[0]) % TWO_PI, m.v(p)))
+        out.sort()
+        return [v for (_a, v) in out], [a for (a, _v) in out]
+
+    def inward(p, q, r):
+        return (-(p[0] + q[0] + r[0]), -(p[1] + q[1] + r[1]), 0.0)
+
+    lo, lo_a = wall_line(f0)
+    hi, hi_a = drum_line(zb0)
+    mb._zipper(m, lo, lo_a, hi, hi_a, inward, "plinth")
+    lo, lo_a = drum_line(zb1)
+    hi, hi_a = wall_line(f1)
+    mb._zipper(m, lo, lo_a, hi, hi_a, inward, "plinth")
+    for i in range(mb.DRUM_BAYS):
+        bay = _Bay(i, mb.WALL_IN_R, mb.DRUM_BAYS)
+        window = i % mb.WINDOW_EVERY == mb.WINDOW_PHASE
+        for (ua, ub) in ((0.0, PW / 2.0), (bay.L - PW / 2.0, bay.L)):
+            inner = PW / 2.0 if ua == 0.0 else bay.L - PW / 2.0
+            ring = [m.v(bay.at(ua, zb0)), m.v(bay.at(ub, zb0)), m.v(bay.at(ub, zb1)), m.v(bay.at(ua, zb1))]
+            if window:                                               # the window's sill line meets the inner edge
+                ring.insert(2 if ua == 0.0 else 4, m.v(bay.at(inner, zb0 + mb.WINDOW_SILL)))
+            _convex(m, ring, bay.n_in, "marble") if window else m.quad(ring[0], ring[1], ring[2], ring[3], bay.n_in, "marble")
+        if window:
+            _window(m, i, bay, zb0, zb1)
+        else:
+            m.quad(m.v(bay.at(PW / 2.0, zb0)), m.v(bay.at(bay.L - PW / 2.0, zb0)),
+                   m.v(bay.at(bay.L - PW / 2.0, zb1)), m.v(bay.at(PW / 2.0, zb1)), bay.n_in, "frieze")
     take("tris_frieze")
     g0, g1 = mb.CORNICE_Z
     for i in range(mb.NSIDE_IN):
@@ -678,7 +805,7 @@ def build(m):
     # the bars were built with their cells: count them apart
     counts["tris_bars"] = _STATS.get("tris_bars", 0)
     counts["tris_cells"] -= counts["tris_bars"]
-    info = {"cells": _STATS.get("cells", 0), "bars": _STATS.get("bars", 0),
+    info = {"cells": _STATS.get("cells", 0), "bars": _STATS.get("bars", 0), "windows": _STATS.get("windows", 0),
             "tiers": len(mb.TIER_BASE), "dome_apex": round(apex, 2)}
     info.update(counts)
     return info
