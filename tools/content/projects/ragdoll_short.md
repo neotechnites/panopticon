@@ -15,7 +15,7 @@ seconds: 10.6
 
 ## 5
 said: L5 "these are pretty janky..." -- Ryan: "replace the gameplay of the hitting shots montage to be in the forest": guard scope over seven live-brain runners on the forest lap, tracer rounds, the hits ragdolling them
-capture: --shot=s3_open_lane --stage=forest_hunt --pov=guard --bots=7 --seed=20261012 --shimmer=0 --set=lift=0
+capture: --shot=s3_open_lane --stage=forest_hunt --pov=guard --bots=7 --seed=20261012 --shimmer=0 --set=lift=0;scan=1
 hud: crosshair
 in: 1.5
 seconds: 6.8
