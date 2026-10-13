@@ -166,7 +166,7 @@ freeze: waive
 
 ## 10b
 said: v5 "Marble, guard scope, the same event: nobody in sight, one shoved out from behind the column, fires, hits"
-capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;omega=10;kick=0.1;back_pace=0.5 --seed=20261001
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;kick=0.1;back_pace=0.5;run_after=1.0 --seed=20261001
 tape: marble_column
 seconds: 3.4
 in: 2.5

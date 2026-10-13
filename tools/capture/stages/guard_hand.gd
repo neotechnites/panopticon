@@ -155,8 +155,9 @@ func _physics_process(delta: float) -> void:
 			body = _body_of(entry)
 	var aim: Vector3
 	# centre (false): ride the man himself, no round lead until the squeeze, and once he is limp his ragdoll's pelvis.
+	# follow (1.0): the share of his motion the hand anticipates; under 1 it trails him, as a hand does.
 	if bool(beat.get("centre", false)) and body != null and is_instance_valid(body):
-		aim = _centre_on(body, delta) + _centre_velocity * (2.0 * HAND_ZETA / omega)
+		aim = _centre_on(body, delta) + _centre_velocity * (2.0 * HAND_ZETA / omega) * float(beat.get("follow", 1.0))
 		_last_aim[k] = aim
 	elif _spent(k, beat) and bool(beat.get("watch", false)) and body != null and is_instance_valid(body) and body.is_visible_in_tree():
 		# watch (false): after the squeeze the hand stays ON the man and rides the
