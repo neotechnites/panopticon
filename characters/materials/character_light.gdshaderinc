@@ -39,6 +39,7 @@ vec3 to_srgb(vec3 c) {
 
 void fragment() {
 	vec4 painted = albedo_color * texture(albedo_texture, UV);
+	painted.rgb *= COLOR.rgb; // bake the mesh's vertex-colour AO in
 	vec3 normal = normalize((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	vec3 place = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	vec2 inward = normalize(arena_axis - place.xz + vec2(1e-4));
