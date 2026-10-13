@@ -45,10 +45,11 @@ in: 1.0
 refilm: v5
 
 ## 6
-said: v6: runners in the forest and a shove off the edge, ONE camera: the POV runner (3 runners + the guard) shoves the runner beside him into the ravine at ~4.5 s and watches him fall; nobody is shot, the POV never dies. haters_forest.gd.
+said: v6: runners in the forest and a shove off the edge, ONE camera: the POV runner (3 runners + the guard) shoves the runner beside him into the ravine at ~4.5 s and watches him fall; nobody is shot, the POV never dies. haters_forest.gd. The victim keeps pace ahead-inside so he is in view; the turn onto him is steered, not snapped.
 capture: --shot=s3_open_lane --stage=haters_forest --map=forest --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261012
-seconds: 5.0
+seconds: 5.5
 in: 1.0
+refilm: v6
 
 ## script v1
 captions: stack
@@ -168,4 +169,4 @@ music_fade: 0.01 1
 | r0 | cuts/04_v3.mp4 | 0 | | beat 0.6 | | | |
 | r1 | cuts/04_v3.mp4 | cont | | beat 2.2 | | Yeah... | |
 | r2 | cuts/04_v3.mp4 | cont | | beat 2.0 | | Thats kinda the point... | |
-| f0 | cuts/06.mp4 | 0 | | beat 5.0 | | | |
+| f0 | cuts/06_v6.mp4 | 0 | | beat 5.5 | | | |

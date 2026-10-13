@@ -69,7 +69,9 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		leg["glances"] = glances
 	shover_steps.append_array(legs)
 	shover_steps.append_array([
-		{"do": "chase", "victim": _victim, "range": 2.6, "timeout": 1.5, "speed": 1.0},
+		# Eased onto him through the mouse: an unsteered chase snaps the view round (reads as a cut).
+		{"do": "steer", "on": true, "rate": 220.0, "gain": 7.0},
+		{"do": "chase", "victim": _victim, "range": 2.6, "timeout": 2.5, "speed": 1.0},
 		{"do": "glance", "right": 15.0, "pitch": 26.0, "seconds": 0.3},    # watch him go over
 		{"do": "hold", "seconds": 60.0},
 	])
@@ -80,7 +82,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "human", "on": true},
 	]
 	victim_steps.append_array(_legs([[290.0, 48.75], [300.0, 51.5], [306.0, 52.75], [316.0, 51.5],
-		[322.0, 50.5], [345.0, 48.75]], pace * 0.9, 0.04))
+		[322.0, 50.5], [345.0, 48.75]], pace, 0.04))
 	victim_steps.append({"do": "hold", "seconds": 60.0})
 	drive(runners[1], victim_steps, 1, "ClipVictimDriver")
 
