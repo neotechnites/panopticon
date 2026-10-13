@@ -245,10 +245,10 @@ def _deck(m):
     n = len(ang)
     z = mb.DECK_Z
     rings = [_ring(m, ang, r, z) for r in mb.DECK_RS]
-    holes = mb.trapdoor_cells()
+    holes, outer = mb.trapdoor_cells(), mb.trapdoor_cells(outer=True)
     for k in range(len(rings) - 1):
         for i in range(n):
-            if k < 2 and i in holes:            # a trapdoor's two inner flags: the pit's mouth
+            if (k < 2 and i in holes) or (2 <= k < 4 and i in outer):   # a trapdoor's flags: the pit's mouth
                 continue
             j = (i + 1) % n
             m.quad(rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i], UP, "floor")
@@ -283,6 +283,24 @@ def _pits(m):
             m.tri(P(r1, a, top), P(rs, a, zl), P(rs, a, z0), want, "cellin")
             m.tri(P(r1, a, top), P(rs, a, z0), P(r1, a, z0), want, "cellin")
             m.quad(P(r1, a, top), P(r1, a, z0), P(r2, a, z0), P(r2, a, top), want, "cellin")
+    # the outer pits: a plain box under the three outer bands; neighbouring cells share one trough
+    r3, r4 = mb.DECK_RS[3], mb.DECK_RS[4]
+    outer = mb.trapdoor_cells(outer=True)
+    for i in sorted(outer):
+        a0, a1 = ang[i], ang[(i + 1) % n]
+        am = 0.5 * (a0 + (a1 if a1 > a0 else a1 + TWO_PI))
+        er = _er(am)
+        inward = (-er[0], -er[1], 0.0)
+
+        def P(r, a, z):
+            return m.v((r * math.cos(a), r * math.sin(a), z))
+
+        m.quad(P(r2, a0, top), P(r2, a1, top), P(r2, a1, z0), P(r2, a0, z0), er, "cellin")
+        m.quad(P(r4, a0, top), P(r4, a1, top), P(r4, a1, z0), P(r4, a0, z0), inward, "cellin")
+        m.quad(P(r2, a0, z0), P(r2, a1, z0), P(r4, a1, z0), P(r4, a0, z0), UP, "cellin")
+        for a, want, nb in ((a0, _et(a0), (i - 1) % n), (a1, tuple(-c for c in _et(a1)), (i + 1) % n)):
+            if nb not in outer:
+                m.fan([P(r2, a, z0), P(r2, a, top), P(r3, a, top), P(r4, a, top), P(r4, a, z0)], want, "cellin")
 
 
 def _stitch(m, a, b, want, zone):
@@ -366,29 +384,32 @@ def collider(c):
     ang = mb.lane_angles()
     n = len(ang)
     r_out = mb.WALL_R - mb.BAND_PROUD
-    rings = [_ring(c, ang, r, mb.DECK_Z) for r in (mb.INNER_R, 52.0, r_out)]
-    holes = mb.trapdoor_cells()
-    for k in range(2):
+    rings = [_ring(c, ang, r, mb.DECK_Z) for r in (mb.INNER_R, 52.0, mb.DECK_RS[4], r_out)]
+    holes, outer = mb.trapdoor_cells(), mb.trapdoor_cells(outer=True)
+    for k in range(3):
         for i in range(n):
-            if k == 0 and i in holes:
+            if (k == 0 and i in holes) or (k == 1 and i in outer):
                 continue
             j = (i + 1) % n
             c.quad(rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i], UP, "floor")
     # each trapdoor's pit: an open box under the hole, so a body that drops lands at PIT_Z
-    z0, z1, ra, rb = mb.PIT_Z, mb.DECK_Z, mb.INNER_R, 52.0
-    for i in sorted(holes):
-        a0, a1 = ang[i], ang[(i + 1) % n]
-        am = 0.5 * (a0 + (a1 if a1 > a0 else a1 + TWO_PI))
-        er = _er(am)
+    z0, z1 = mb.PIT_Z, mb.DECK_Z
+    for ra, rb, cells in ((mb.INNER_R, 52.0, holes), (52.0, mb.DECK_RS[4], outer)):
+        for i in sorted(cells):
+            a0, a1 = ang[i], ang[(i + 1) % n]
+            am = 0.5 * (a0 + (a1 if a1 > a0 else a1 + TWO_PI))
+            er = _er(am)
 
-        def P(r, a, z):
-            return c.v((r * math.cos(a), r * math.sin(a), z))
+            def P(r, a, z):
+                return c.v((r * math.cos(a), r * math.sin(a), z))
 
-        c.quad(P(ra, a0, z0), P(ra, a1, z0), P(rb, a1, z0), P(rb, a0, z0), UP, "floor")
-        c.quad(P(ra, a0, z1), P(ra, a1, z1), P(ra, a1, z0), P(ra, a0, z0), er, "floor")
-        c.quad(P(rb, a0, z1), P(rb, a1, z1), P(rb, a1, z0), P(rb, a0, z0), (-er[0], -er[1], 0.0), "floor")
-        c.quad(P(ra, a0, z1), P(ra, a0, z0), P(rb, a0, z0), P(rb, a0, z1), _et(a0), "floor")
-        c.quad(P(ra, a1, z1), P(ra, a1, z0), P(rb, a1, z0), P(rb, a1, z1), tuple(-x for x in _et(a1)), "floor")
+            c.quad(P(ra, a0, z0), P(ra, a1, z0), P(rb, a1, z0), P(rb, a0, z0), UP, "floor")
+            c.quad(P(ra, a0, z1), P(ra, a1, z1), P(ra, a1, z0), P(ra, a0, z0), er, "floor")
+            c.quad(P(rb, a0, z1), P(rb, a1, z1), P(rb, a1, z0), P(rb, a0, z0), (-er[0], -er[1], 0.0), "floor")
+            if (i - 1) % n not in cells:
+                c.quad(P(ra, a0, z1), P(ra, a0, z0), P(rb, a0, z0), P(rb, a0, z1), _et(a0), "floor")
+            if (i + 1) % n not in cells:
+                c.quad(P(ra, a1, z1), P(ra, a1, z0), P(rb, a1, z0), P(rb, a1, z1), tuple(-x for x in _et(a1)), "floor")
 
 
 if __name__ == "__main__":

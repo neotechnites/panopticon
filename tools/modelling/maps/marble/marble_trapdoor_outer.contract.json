@@ -1,0 +1,11 @@
+{
+  "_comment": "marble_trapdoor_outer: marble_trapdoor's moving parts for an OUTER lane cell (marble_build.TRAPDOOR_OUTER_BEARINGS, r 52.0..57.3, the cell's outer three paving bands) cut over its 1.4 m pit. Origin the deck point at r 54.65 on the hole's centre bearing, y 0 the deck, +X radial out, +Z toward increasing bearing. Same frame, leaves, hinges and spikes as marble_trapdoor; NO colliders: the scene gives the leaves their bodies.",
+  "node_paths": [
+    "TrapdoorFrame",
+    "TrapdoorLeafA",
+    "TrapdoorLeafB",
+    "TrapdoorSpikes"
+  ],
+  "surfaces": 6,
+  "max_tris": 700
+}

@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://maps/marble/models/marble_wall_arc.glb" id="1_wall_model"]
+
+[node name="MarbleWallArc" type="Node3D"]
+editor_description = "An ashlar wall curved with the lane at r 47.3 (its socle on the lip), 11.4 deg (9.4 m) long, 7.6 m tall, 0.75 thick: origin the base centre on the mid bearing, +X radial out, +Z along the lap; cover from the tower, the collider in the .glb."
+
+[node name="Model" parent="." instance=ExtResource("1_wall_model")]
