@@ -5,7 +5,8 @@
 #
 # Rough (the default): ONE take at real speed, the screen recorded (lib.sh pc_rough);
 # a portrait take is 810x1440, scaled to 1080x1920 at the cut. A failed gate prints why
-# and stops: no retry, no fallback. --movie (final only): Movie Maker, native 1080x1920.
+# and stops: no retry, no fallback. The gate also fails a take that cuts inside the shot
+# (a scene change, or the camera changing body). --movie (final only): Movie Maker, native 1080x1920.
 # --name: the cut is cuts\NAME.mp4 (default NN). A cut an earlier tag used is never overwritten.
 #
 # Entry fields it reads: capture (run_clip args) or still (shot.gd args), tape (a
@@ -59,6 +60,7 @@ AT=$(brief_field "${BRIEF}" "${N}" at)
 REF=$(brief_field "${BRIEF}" "${N}" ref)   # capture this one shot at a git ref, with that ref's own tools
 HOLD=$(brief_field "${BRIEF}" "${N}" hold 3)
 TAKES_MAX=$(brief_field "${BRIEF}" "${N}" takes "${TAKES_MAX}")
+SCENE_CUT=0.5   # a frame-to-frame scene score above this inside the cut is a camera cut: the take fails
 # A pinned seed plays the same take every time; retrying it buys nothing. Rough is one take.
 [[ "${CAPTURE}" == *--seed=* ]] && TAKES_MAX=1
 [ "${MODE}" = rough ] && TAKES_MAX=1
@@ -152,7 +154,19 @@ $(ss_ps "${avi}")
 \$f = ffmpeg -hide_banner -nostats -ss \$ss -t ${TOTAL} -i '${avi}' -an -vf "freezedetect=n=${FREEZE_NOISE_DB}dB:d=${FREEZE_MAX_SECONDS}" -f null - 2>&1 | Select-String 'freeze_duration' | Measure-Object
 \$line = ('motion={0:N4} freeze={1}' -f \$motion, \$f.Count)
 Set-Content -Path '${DIR}\\takes\\${tag}.txt' -Value \$line
-Write-Output \$line
+\$inv = [Globalization.CultureInfo]::InvariantCulture
+\$cuts = @(ffmpeg -hide_banner -nostats -ss \$ss -t ${TOTAL} -i '${avi}' -an -vf "scale=160:-2,select='gt(scene,${SCENE_CUT})',metadata=print:file=-" -f null - 2>\$null | Select-String 'pts_time:([0-9.]+)' | ForEach-Object { [math]::Round([double]::Parse(\$_.Matches[0].Groups[1].Value, \$inv) + ${IN}, 2) })
+\$lo = [double]${IN}; \$hi = [double]${IN} + [double]${TOTAL}; \$pov = ''; \$bad = @()
+foreach (\$l in (Get-Content '${log}' -EA SilentlyContinue)) {
+  if (\$l -match '^\[pov\]\s+([0-9.]+)\s+(ride|guard|ghost)\s+(\S+)') {
+    \$t = [double]::Parse(\$Matches[1], \$inv)
+    if (\$t -gt \$lo -and \$t -lt \$hi -and \$pov -and \$pov -ne \$Matches[3]) { \$bad += "the camera changes body at \$t s (\$pov -> \$(\$Matches[3]))" }
+    if (\$t -lt \$hi) { \$pov = \$Matches[3] }
+  }
+}
+if (\$cuts.Count -gt 0) { Write-Output ('FAILED: the take cuts inside the shot (scene change at ' + (\$cuts -join ', ') + ' s); one continuous camera only') }
+elseif (\$bad.Count -gt 0) { Write-Output ('FAILED: ' + (\$bad -join '; ')) }
+else { Write-Output \$line }
 EOF
   echo "  take ${tag}: gate $(since "$t0")" >&2
 }
