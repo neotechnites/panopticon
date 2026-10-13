@@ -33,7 +33,7 @@ said: v2: the SAME moment of the SAME game from the runner beside the one who ge
 capture: --shot=s3_open_lane --stage=haters_hell --pov=runner --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261012
 tape: haters_v3
 seconds: 5.2
-in: 4.36
+in: 3.7
 refilm: v3
 
 ## script v1
