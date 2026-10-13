@@ -7,8 +7,8 @@ rules: 16:9 1920x1080 (SIZE=1920x1080 shot.sh), no HUD except the guard's scope,
 v2 notes (Ryan on rough_v1): the guard stands at the tower's window, not deep inside; all runners run the course direction; the runner shot is the SAME event as the guard shot (same stage, same seed, two POVs), cut back ~1 s to the man directly behind the victim; clear line of sight when he looks up at the tower; title drops in HARD on the music's drop; music https://www.youtube.com/watch?v=OBPV0lsorwU; real-looking gameplay only (walkable deck and real cover, nobody on lava, nobody looking backwards); max 4 players a shot (1 guard + 3); spread across hell, forest and marble. Added: "EVERY shot is first-person POV -- either the guard's scope/tower view or a prisoner's first-person view. No third-person ... Title/end cards are the only non-POV frames."
 music: external\src\music_v2_OBPV0lsorwU.mp4 -> voice\sr20det.ogg (SOURCES.md). The drop: 0.35 s of silence from 5.36 s, the hit at 5.703 s (sample onset); 170 bpm after it (v3 measured).
 cards: cuts/title_hard.mp4 is v1's title frame looped from frame 0 (v1's title.mp4 opened on two black frames); cuts/end.mp4 is v1's.
-delivery: content\trailer_reveal\final\rough_v27.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
-tag: rough_v35
+delivery: content\trailer_reveal\final\rough_v37.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
+tag: rough_v37
 alt: rough_v24 (the SR20DET cut before Ryan's seven notes; ## script rough_v24)
 alt: rough_v26_vivaldi (rough_v25_vivaldi with the seven notes, every cut and event on the same beats; ## script rough_v26_vivaldi)
 kept: cuts\_v25\NN.mp4 are the shot files rough_v24 and rough_v25_vivaldi were cut from (every shot was refilmed for v26 on main 6547970).
@@ -154,11 +154,13 @@ freeze: waive
 
 ## 10a
 said: v5 "Marble, runner POV: two runners both behind the same column on the inner edge, hidden from the tower; he shoves the other out into the open; cut BEFORE the shot"
-capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=runner --look=social --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1 --seed=20261001
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=runner --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1 --seed=20261001
 tape: marble_column
 seconds: 2.6
 in: 1.2
 freeze: waive
+# v37 (Ryan): "the 3 columns for the shove wont work anymore, youll have to use the walls that are now in the map." Behind the map's ArcWall188 (r 47.2, 182.4-193.9 deg, 7.6 m),
+# the guard at the 193.5 window; the v11 staging turned -23.25 deg (edge 193.85): smoke shove 3.00, exposed 3.07 at 194.1, react 3.38, squeeze 4.37, hit 4.73 at 195.0. No --look=social.
 # v27 (Ryan): "the runner must NOT look over at the tower. They can't see it from behind cover." late=1: the rider's eyes stay low and follow the man out.
 # v6 (Ryan): "THREE marble_column instances next to each other ... a solid wall of cover wide enough for two runners". Spawned by the stage (marble_column.glb, r 47.5, 124.75/126.0/127.25 deg, shafts touching; maps/marble/marble.tscn untouched); both side by side in the wall's shadow from the 126 window, the victim at 126.53 r 48.55, the POV at 125.53 r 48.75; shoved along the ring out past the wall into the open
 
@@ -211,11 +213,12 @@ freeze: waive
 
 ## 12f
 said: v27 (Ryan) "Ending: the guard getting shoved out of the tower, including the guard's POV of being flung" -- the finisher's eyes
-capture: --map=marble --shot=portal --stage=trailer_finale_marble --bots=2 --pov=runner --look=social --rifle=projectile --set=wait=0.25 --seed=20261001
+capture: --map=marble --shot=portal --stage=trailer_finale_marble --bots=2 --pov=runner --rifle=projectile --set=wait=0.25 --seed=20261001
 tape: finale
 seconds: 5.2
 in: 0.9
 freeze: waive
+# v37: refilmed on the walled marble without --look=social; smoke unchanged numbers: arrives 2.85, finale shove 3.73.
 # corridor sprint from 320 deg into the portal (arrives 2.85), in the room behind the guard, scoped at the 126 window: 0.35 s, then
 # straight at him; the shipped finale shove at 3.83 throws him out of the open tower (2x an ordinary shove) and the game's
 # cinematic (FinaleView) takes every view for the 2.0 s kill beat. The cut ends on the shove.
@@ -320,6 +323,7 @@ freeze: waive
 # nears the 126 column, the round meets him in the gap at 128.0 deg (hit 2.97), the shipped ghost rule (he goes limp). 5b keeps its tape.
 # v26 (Ryan): "for like the marble shot, where its only the snipers pov, it should be the player in the front." The hand rides the LEAD (Runner_1) from the start:
 # squeeze 2.62, hit 2.97 in the gap at 128.4 deg; the two behind flinch, look up at the tower a beat apart and run past. Paths as 5b (note 2).
+# v37: ArcWall126 now stands on that stretch (smoke: the round struck it at 128.5). The stage turned +24 deg (turn dial) onto the clear 132-182 stretch, window 150: smoke squeeze 2.62, hit 2.97 at 152.4.
 
 ## 10v
 said: v25 "have the shove line up with a beat of the song. both shoves, and every shot."

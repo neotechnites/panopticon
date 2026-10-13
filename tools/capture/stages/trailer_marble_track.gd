@@ -3,7 +3,9 @@ extends "res://tools/capture/stages/stage.gd"
 ## trailer_marble_track (5b): the guard at marble's 126 deg window, scoped in, tracks three runners
 ## past five inner-edge columns (this shot's own, v5's set); swings from one to the next, no shot.
 ## probe_ring --map=marble --eye=126:5.6:5.8: r 48.6-52 open 118-140 bar the columns in front.
-## Dials: start (the lead's bearing at the deal, 107.7), zoom (0.8), swing (clip s the hand leaves the lead, 2.4), fire (clip s: the
+## v37: ArcWall126 (r 47.2, 120.2-131.6, 7.6 m) now stands on the old stretch; the smoke's round struck it at 128.5. The whole
+## stage turns +24 deg (turn) onto the clear 132-182 stretch: probe --eye=150:5.6:5.65, r 49.7/51.5 open 132-175.
+## Dials: turn (24), start (the lead's bearing at the deal, 107.7), zoom (0.8), swing (clip s the hand leaves the lead, 2.4), fire (clip s: the
 ## hand rides the lead from the start and squeezes on him then; -1 no shot: 5b), lead (1.0).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
@@ -82,7 +84,10 @@ func tune_rules(rules: MatchRules) -> void:
 func before_start() -> void:
 	LIB.disarm_pads(clip.root)
 	LIB.disarm_traps(clip.root)
-	COLUMNS.spawn_columns(controller().arena if controller().arena != null else clip.root, COLUMN_DEGREES)
+	var degrees: Array[float] = []
+	for deg: float in COLUMN_DEGREES:
+		degrees.append(deg + _turn())
+	COLUMNS.spawn_columns(controller().arena if controller().arena != null else clip.root, degrees)
 
 
 func cast(runners: Array[RunnerBrain]) -> bool:
@@ -91,8 +96,8 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	for brain: RunnerBrain in runners:
 		if brain.controller == null:
 			return false
-	var start: float = float(option("start", START))
-	var legs: Array = [LEAD_LEGS, SECOND_LEGS, THIRD_LEGS]
+	var start: float = float(option("start", START + _turn()))
+	var legs: Array = [_turned(LEAD_LEGS), _turned(SECOND_LEGS), _turned(THIRD_LEGS)]
 	for index: int in range(3):
 		var deg: float = start - BEHIND[index]
 		var steps: Array = [
@@ -138,14 +143,14 @@ func _raise_the_hand() -> void:
 	if shooter == null or shooter.controller == null:
 		return
 	_guard = shooter.controller
-	LIB.guard_to_window(_guard, float(option("window", 126.0)), 5.6)
+	LIB.guard_to_window(_guard, float(option("window", 126.0 + _turn())), 5.6)
 	LIB.open_the_scope(_guard, float(option("clear", 0.74)))
 	_hand = GUARD_HAND.new()
 	_hand.name = "ClipGuardHand"
 	clip.root.add_child(_hand)
 	_hand.install(_guard, controller(), elapsed())
 	_hand.start_at = elapsed() + 0.1
-	_hand.park = LIB.ring_point(float(option("start", START)), 50.0, 1.0)
+	_hand.park = LIB.ring_point(float(option("start", START + _turn())), 50.0, 1.0)
 	if _fires():
 		# One man from the start: the lead is read off a speed the eye has measured the whole way.
 		_hand.beats.append({"body": _bodies[FIRST], "seconds": 100.0, "watch": true,
@@ -156,6 +161,20 @@ func _raise_the_hand() -> void:
 	if OS.has_environment("STAGE_DEBUG") and controller().rifle != null:
 		controller().rifle.target_hit.connect(func(c: Node3D, at: Vector3, _n: Vector3) -> void:
 			say("round struck %s at %.1f deg r %.2f y %.2f" % [c.name if c != null else "?", LIB.bearing_of(at), LIB.radius_of(at), at.y]))
+
+
+func _turn() -> float:
+	return float(option("turn", 24.0))
+
+
+## [param legs] with every leg's bearing turned by the dial.
+func _turned(legs: Array) -> Array:
+	var out: Array = []
+	for leg: Dictionary in legs:
+		var copy: Dictionary = leg.duplicate()
+		copy["to"] = float(leg["to"]) + _turn()
+		out.append(copy)
+	return out
 
 
 func _fires() -> bool:

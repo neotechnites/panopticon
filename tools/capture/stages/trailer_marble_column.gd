@@ -1,12 +1,12 @@
 extends "res://tools/capture/stages/stage.gd"
 
-## trailer_marble_column (v11 10a/10b): two prisoners side by side behind a wall of three columns, hidden from the 216
-## window; one shoves the other along the ring out into the open and the guard drops him. Two POVs.
-## Columns are this shot's own (spawn_columns), never the map's: three at r 47.5, shafts touching (1.04 m, 1.2545 deg).
-## v11: the 216 section, 90 deg on from 5b's columns at 126 (lamps and fills repeat every 90: the v8 frame, turned).
-## Shadow: the 3.12 m shaft wall hides ~1.6 m each side of the window at r 48.6; victim 0.45 m along the ring (+), shover 0.4 m
-## back (-), 0.2 m further out; the swing runs 5 deg inboard of the ring and lands him past the wall in the open.
-## Dials: victim (216.531,48.55), pov (215.53,48.75), shove (clip s, 2.7), impulse (8.5), up (4.0), lead (0.7: he stops dead on landing), kick (0.3), edge (217.1).
+## trailer_marble_column (10a/10b): two prisoners side by side behind the map's ArcWall188, hidden from the 193.5
+## window; one shoves the other along the ring out past its leading end into the open and the guard drops him. Two POVs.
+## v37 (Ryan): "the 3 columns for the shove wont work anymore, youll have to use the walls that are now in the map." No spawned
+## columns: ArcWall188 (r 47.2, 182.4-193.9 deg, y 23.0-30.6, over the 28.65 eye). probe_ring --map=marble --eye=193.5:5.6:5.65:
+## r 48.6 h 0.3/1.0/1.7 BLOCKED to 193.8, open from 193.9; r 48.6-50.5 open 194-200; floor +0.00 r 47.8-55 at 188-208.
+## The v11 staging turned -23.25 deg (old edge 217.1 -> 193.85): victim 0.57 deg inside the edge, shover 1 deg behind him.
+## Dials: victim (193.281,48.55), pov (192.28,48.75), shove (clip s, 2.7), impulse (8.5), up (4.0), lead (0.7: he stops dead on landing), kick (0.3), edge (193.85).
 ## v8 (Ryan): "he needs to get shot WHILE he's being shoved out": no recovery; the squeeze the first frame he is in the open.
 ## v27 (Ryan): "the player gets shoved further, the sniper visibly reacts (re-aims), and then hits the shot" (late=1): the shipped
 ## shove, the scope resting on the wall's far side (rest, deg), he scrambles on (run_after s), the hand comes onto him react s after
@@ -14,10 +14,9 @@ extends "res://tools/capture/stages/stage.gd"
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const COLUMN_SCENE: String = "res://maps/marble/models/marble_column.glb"
-const COLUMN_DEGREES: Array[float] = [214.7455, 216.0, 217.2545]
 const COLUMN_R: float = 47.5
-## The window the guard stands at: centred between the tower room's columns at 115 and 137.5.
-const WINDOW: float = 216.0
+## The window the guard stands at, by the wall's leading end.
+const WINDOW: float = 193.5
 
 var _victim: PlayerController = null
 var _pov: PlayerController = null
@@ -67,7 +66,6 @@ func tune_rules(rules: MatchRules) -> void:
 func before_start() -> void:
 	LIB.disarm_pads(clip.root)
 	LIB.disarm_traps(clip.root)
-	spawn_columns(controller().arena if controller().arena != null else clip.root, COLUMN_DEGREES)
 
 
 func cast(runners: Array[RunnerBrain]) -> bool:
@@ -76,14 +74,14 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	for brain: RunnerBrain in runners:
 		if brain.controller == null:
 			return false
-	var v: Vector3 = LIB.polar(String(option("victim", "216.531,48.55")), LIB.ring_point(216.531, 48.55))
-	var p: Vector3 = LIB.polar(String(option("pov", "215.53,48.75")), LIB.ring_point(215.53, 48.75))
+	var v: Vector3 = LIB.polar(String(option("victim", "193.281,48.55")), LIB.ring_point(193.281, 48.55))
+	var p: Vector3 = LIB.polar(String(option("pov", "192.28,48.75")), LIB.ring_point(192.28, 48.75))
 	var v_deg: float = LIB.bearing_of(v)
 	var p_deg: float = LIB.bearing_of(p)
 	_victim = runners[0].controller
 	_pov = runners[1].controller
 	var tower: Vector3 = LIB.ring_point(WINDOW, 5.6, 6.0)
-	# The victim: in the column's shadow, half turned to peek round it at the tower; a slow sway.
+	# The victim: in the wall's shadow, half turned to peek round it at the tower; a slow sway.
 	var v_face: Vector3 = (-LIB.radial_at(v_deg) * 0.75 + LIB.tangent_at(v_deg) * 0.45).normalized()
 	_victim_driver = drive(runners[0], [
 		{"do": "place", "at": v + Vector3.UP * 0.1, "face": v_face},
@@ -95,7 +93,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "glance", "right": 30.0, "pitch": 4.0, "seconds": 0.45},
 		{"do": "hold", "seconds": 60.0, "sway": 4.0, "period": 2.3},
 	], 0, "ClipColumnVictim")
-	# The rider: tucked in behind him, eyes on the column and the edge of it, a look at him,
+	# The rider: tucked in behind him, eyes on the wall and the end of it, a look at him,
 	# then square up and shove him along the ring out of its shadow into the gap.
 	# Late: turned 60 deg off the wall toward him, so the gap to the tower is never in his eyes.
 	var p_face: Vector3 = (LIB.tangent_at(p_deg) * (0.87 if _late() else 0.34) - LIB.radial_at(p_deg) * (0.5 if _late() else 0.94)).normalized()
@@ -130,7 +128,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		LIB.hide_from_the_rifle(runners[index].controller)
 	victim_body(_victim)
 	stage_body(_pov)
-	say("trailer_marble_column: %s behind the %.1f column, %s behind him" % [_victim.name, v_deg, _pov.name])
+	say("trailer_marble_column: %s behind ArcWall188 at %.1f, %s behind him" % [_victim.name, v_deg, _pov.name])
 	return true
 
 
@@ -155,7 +153,7 @@ func tick(_delta: float) -> void:
 		if optic != null:
 			optic.set_zoomed(false)
 	# Exposed: his shoulder clears the wall's edge (edge, deg); the round is already led into the open.
-	if _shoved and not _exposed and is_instance_valid(_victim) and LIB.bearing_of(_victim.global_position) >= float(option("edge", 217.1)):
+	if _shoved and not _exposed and is_instance_valid(_victim) and LIB.bearing_of(_victim.global_position) >= float(option("edge", 193.85)):
 		_exposed = true
 		_exposed_at = elapsed()
 		if not _late():
@@ -174,7 +172,7 @@ func tick(_delta: float) -> void:
 		say("he breaks for the wall; squeeze at %.2f s" % elapsed())
 
 
-## The guard at the 216 window, a hand resting on the column he hides behind.
+## The guard at the 193.5 window, a hand resting on the wall he hides behind.
 func _raise_the_hand() -> void:
 	var shooter: TowerShooter = LIB.stand_down(seat())
 	if shooter == null or shooter.controller == null:
@@ -188,11 +186,11 @@ func _raise_the_hand() -> void:
 	_hand.install(_guard, controller(), elapsed())
 	if _late():
 		# Resting on the wall's far side where a man would peek; the shove comes out of the other.
-		_hand.beats.append({"at": LIB.ring_point(float(option("rest", 215.0)), 48.6, 1.3), "seconds": 100.0})
-		_hand.park = LIB.ring_point(float(option("rest", 215.0)), 48.6, 1.3)
+		_hand.beats.append({"at": LIB.ring_point(float(option("rest", 191.75)), 48.6, 1.3), "seconds": 100.0})
+		_hand.park = LIB.ring_point(float(option("rest", 191.75)), 48.6, 1.3)
 	else:
 		_hand.beats.append({"body": _victim, "seconds": 100.0, "fire_at": -1.0, "watch": true, "lead": float(option("lead", 0.7)), "now": true, "kick": float(option("kick", 0.3))})
-		_hand.park = LIB.ring_point(218.6, 48.6, 1.3)
+		_hand.park = LIB.ring_point(195.35, 48.6, 1.3)
 	_hand.start_at = elapsed() + 0.3
 	if OS.has_environment("STAGE_DEBUG") and controller().rifle != null:
 		controller().rifle.target_hit.connect(func(c: Node3D, at: Vector3, _n: Vector3) -> void:
@@ -211,7 +209,7 @@ func on_shove(_shover: MatchParticipant, victim: MatchParticipant) -> void:
 		# behind cover." He lies where the throw puts him until he is up (no input on a flopping body), then sprints back for the wall.
 		_victim_driver.retarget([
 			{"do": "hold", "seconds": float(option("run_after", 1.25))},
-			{"do": "lane", "to": float(option("cover", 216.9)), "dir": -1, "r": 48.6, "speed": float(option("back_pace", 1.0)), "timeout": 4.0,
+			{"do": "lane", "to": float(option("cover", 193.65)), "dir": -1, "r": 48.6, "speed": float(option("back_pace", 1.0)), "timeout": 4.0,
 				"glances": [{"t": 0.0, "right": 0.0, "pitch": -3.0}]},
 			{"do": "hold", "seconds": 60.0},
 		])

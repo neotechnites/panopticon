@@ -34,7 +34,7 @@ PC_LOG="${DIR}\\notes\\tape_${TAPE}.log"
 T0=$(now_ms)
 pc_layout "${DIR}"
 pc <<EOF
-cmd /c "${PC_GODOT} --headless --path ${PC_PROJECT} --fixed-fps ${FPS} --script res://tools/capture/run_clip.gd -- ${CAPTURE} --seconds=${SECS} --record=${PC_TAPE} > ${PC_LOG} 2>&1"
+cmd /c "start /belownormal /b /wait ${PC_GODOT} --headless --path ${PC_PROJECT} --fixed-fps ${FPS} --script res://tools/capture/run_clip.gd -- ${CAPTURE} --seconds=${SECS} --record=${PC_TAPE} > ${PC_LOG} 2>&1"
 Get-Content '${PC_LOG}' | Where-Object { \$_ -match '^(\\[event\\]|\\[tape\\]|\\[stage\\]|SCRIPT ERROR)' }
 EOF
 pc_pull "$(ff "${PC_TAPE}")" "${OUT_DIR}/${TAPE}.json"

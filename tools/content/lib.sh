@@ -193,9 +193,12 @@ do {
   \$kid = Get-CimInstance Win32_Process -Filter "ParentProcessId=\$(\$gp.Id)" | Where-Object Name -like 'godot*' | Select-Object -First 1
   \$win = if (\$kid) { (Get-Process -Id \$kid.ProcessId -ErrorAction SilentlyContinue).MainWindowHandle } else { 0 }
 } until ((\$win -ne 0) -or \$gp.HasExited -or ((Get-Date) -gt \$deadline))
+if (\$kid) { try { (Get-Process -Id \$kid.ProcessId).PriorityClass = 'BelowNormal' } catch {} }
 \$f = New-Object System.Diagnostics.ProcessStartInfo 'cmd.exe', '/c ffmpeg -hide_banner -loglevel error -y -f lavfi -i ddagrab=output_idx=0:framerate=${FPS}:video_size=${SIZE}:offset_x=0:offset_y=0:draw_mouse=0 -vf hwdownload,format=bgra,format=gbrp -c:v utvideo ${raw} 2> ${raw}.err'
 \$f.UseShellExecute = \$false; \$f.CreateNoWindow = \$true; \$f.RedirectStandardInput = \$true
 \$fp = [System.Diagnostics.Process]::Start(\$f)
+Start-Sleep -Milliseconds 300
+Get-CimInstance Win32_Process -Filter "ParentProcessId=\$(\$fp.Id)" | ForEach-Object { try { (Get-Process -Id \$_.ProcessId).PriorityClass = 'BelowNormal' } catch {} }
 if (-not \$gp.WaitForExit(600000) -and \$kid) { Stop-Process -Id \$kid.ProcessId -Force }
 \$fp.StandardInput.Write('q'); \$fp.StandardInput.Close()
 if (-not \$fp.WaitForExit(30000)) { Stop-Process -Id \$fp.Id -Force }
