@@ -3,7 +3,8 @@ class_name TrapDoor
 extends Node3D
 
 ## A hinged trapdoor in the walkway with its lever: a shove beside the lever, or a
-## rifle hit on its handle, drops both leaves into the spiked pit under them.
+## rifle hit on its handle, drops both leaves into the spiked pit under them. With no
+## lever, the trigger is a Plate on the wall that only the rifle can hit.
 ## The whole cycle is a pure function of the seconds since the pull, so the host
 ## sends one reliable (cycle, seconds) per pull and every peer animates the same.
 
@@ -133,9 +134,11 @@ func get_phase() -> Phase:
 	return _phase
 
 
-## The lever's world position, for bots and tests.
+## The lever's world position (the plate's, with no lever), for bots and tests.
 func get_lever_position() -> Vector3:
-	return _lever.global_position if _lever != null else global_position
+	if _lever != null:
+		return _lever.global_position
+	return _hitbox.global_position if _hitbox != null else global_position
 
 
 ## True when [param point] stands over the hole (within [param margin]) while it is open.
@@ -355,6 +358,11 @@ func _find_parts() -> void:
 		if _reach != null:
 			_reach.body_entered.connect(_on_reach_entered)
 			_reach.body_exited.connect(_on_reach_exited)
+	if _hitbox == null:
+		_hitbox = get_node_or_null(^"Plate/Hitbox") as StaticBody3D
+		if _hitbox != null:
+			_hitbox.collision_layer = SHOT_TARGET_LAYER
+			_hitbox.collision_mask = 0
 
 
 func _make_leaf_body(leaf: Node3D, rest: Transform3D) -> AnimatableBody3D:

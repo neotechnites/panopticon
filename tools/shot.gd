@@ -99,8 +99,8 @@ func _process(_delta: float) -> bool:
 	return false
 
 
-## --list=<file>: one shot per line, "name x,y,z x,y,z" (pos, look), each
-## written to <--out dir>/<name>.png from the same loaded scene.
+## --list=<file>: one shot per line, "name x,y,z x,y,z [fov]" (pos, look, degrees),
+## each written to <--out dir>/<name>.png from the same loaded scene.
 func _capture_list(camera: Camera3D, list_path: String, out_dir: String) -> void:
 	var text: String = FileAccess.get_file_as_string(list_path)
 	for line: String in text.split("\n"):
@@ -109,6 +109,8 @@ func _capture_list(camera: Camera3D, list_path: String, out_dir: String) -> void
 			continue
 		camera.global_position = _parse(parts[1], camera.global_position)
 		camera.look_at(_parse(parts[2], Vector3.ZERO), Vector3.UP)
+		if parts.size() > 3:
+			camera.fov = float(parts[3])
 		for _i in 6:
 			await process_frame
 		await RenderingServer.frame_post_draw
