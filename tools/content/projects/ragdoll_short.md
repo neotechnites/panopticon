@@ -49,6 +49,13 @@ in: 0
 seconds: 45
 refilm: v10
 
+## 10
+said: L5 -- Ryan on v7: "replace the gameplay of the hitting shots montage to be in the forest": the haters stage (forest, not a trailer stage) down the guard's scope, 3 runners; the leader dropped ~1.9 s, the shover ~7.4 s in the take
+capture: --map=forest --shot=s3_open_lane --stage=haters --pov=guard --bots=4 --seed=20261012 --shimmer=0
+hud: crosshair
+in: 1.6
+seconds: 8.2
+
 ## script v8
 # v8 as delivered (cp.render, rough_v8\edl.json): voice + 0.25 s per line, frame-snapped.
 # M2 plays rough_v8\lines\M2.mkv, v8's own picture with the gif already on it (no gif overlay in the cut).
@@ -69,3 +76,22 @@ captions_y: 0.72
 | L7 | v6_07_s1b.mp4@31.35 |  |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
 | L8 | v6_07_s1b.mp4@36.3167:0.7833,v6_05_s12.mp4@4.0 |  |  | line |  | Let me know what else I should add in the comments |  |
 
+
+## script v11
+# Built from v7 (ragdoll_short_rough_v7.mp4), not v8: L1-L3 are v7's own picture and sound to L4's start (12.72 s).
+# L4 the tower refilm alone after "not an animator" (hit 8.68 s into cuts/04 on "Ragdolls" 8.108 s), L5 the forest
+# guard scope (cut 10), L6 the pit shove with the eye on the POV (cut 06), L7+L8 the finale refilm (08_v10, shove 40.1 s).
+voice: en-US-AndrewNeural +5%
+pad: 0.25
+game: 1
+captions: pop
+captions_font: Impact
+captions_size: 76
+captions_y: 0.72
+| line | clip | in | len | fit | speed | text | card |
+| V7 | ragdoll_short_rough_v7.mp4@0:12.7167 |  |  | beat 12.7167 |  |  |  |
+| L4 | cuts/04.mp4@0.572 |  |  | line |  | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem. Ragdolls | cards/L4_card0.png w=940 y=0.2 |
+| L5 | cuts/10.mp4@0 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
+| L6 | cuts/06.mp4@0 |  |  | line |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
+| L7 | cuts/08_v10.mp4 | 37.0 |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
+| L8 | cuts/08_v10.mp4 | cont |  | line |  | Let me know what else I should add in the comments |  |
