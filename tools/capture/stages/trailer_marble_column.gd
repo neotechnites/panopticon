@@ -256,9 +256,9 @@ func _expect_in_the_open(label: String) -> void:
 ## ragdoll's pelvis once limp) must sit within SCOPE_INNER of the scope's radius and within AIM_DEG of the eye's line.
 func _watch_the_scope() -> void:
 	var t: float = elapsed()
-	if _scope_judged or t < float(option("scope_from", 2.95)) or _guard == null or not is_instance_valid(_victim):
+	if _scope_judged or t < float(option("scope_from", 3.05)) or _guard == null or not is_instance_valid(_victim):
 		return
-	if t > float(option("scope_to", 5.55)):
+	if t > float(option("scope_to", 5.65)):
 		_scope_judged = true
 		_expect(_worst_frac <= SCOPE_INNER, "runner within %.0f%% of the scope radius over the cut (worst %.0f%% at %.2f)" % [SCOPE_INNER * 100.0, _worst_frac * 100.0, _worst_at])
 		_expect(_worst_aim <= AIM_DEG, "guard's aim within %.1f deg of the runner over the cut (worst %.2f deg)" % [AIM_DEG, _worst_aim])
