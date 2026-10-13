@@ -67,10 +67,20 @@ shader_parameter/ripples = ExtResource("17_ripples")
 shader_parameter/caustics = ExtResource("15_water_tile")
 shader_parameter/foam_texture = ExtResource("18_foam")
 
+[sub_resource type="FastNoiseLite" id="SandNoise"]
+frequency = 0.02
+
+[sub_resource type="NoiseTexture2D" id="SandVariation"]
+width = 128
+height = 128
+seamless = true
+noise = SubResource("SandNoise")
+
 [sub_resource type="ShaderMaterial" id="SandMat"]
 shader = ExtResource("26_sand_shader")
 shader_parameter/albedo_texture = ExtResource("27_sand_tile")
 shader_parameter/caustics = ExtResource("15_water_tile")
+shader_parameter/variation = SubResource("SandVariation")
 
 [sub_resource type="ShaderMaterial" id="ReefMat"]
 shader = ExtResource("30_rock_shader")

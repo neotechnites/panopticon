@@ -1,6 +1,6 @@
 // The island's ground: grass, the crag's rock and the beaches' sand in ONE material, blended by per-vertex weights
 // (rock in UV2.y, sand in 1 - COLOR.a, baked by beach_build.py) with noise-driven soft edges; triplanar, the grass
-// at two scales so its repeat hides.
+// and the sand each at two scales so their repeat hides.
 shader_type spatial;
 
 #include "res://maps/beach/materials/beach_sea.gdshaderinc"
@@ -38,7 +38,9 @@ void fragment() {
 	vec3 rock = triplanar(rock_texture, wpos, wnrm, rock_metres) * rock_tint;
 	float n = texture(rock_texture, wpos.xz / 61.0).r;
 	float k = smoothstep(0.42, 0.58, rock_w + edge_noise * (n - 0.55));
-	vec3 sand = triplanar(sand_texture, wpos, wnrm, grass_metres);
+	vec3 s1 = triplanar(sand_texture, wpos, wnrm, grass_metres);
+	vec3 s2 = triplanar(sand_texture, wpos + vec3(19.0, 0.0, 7.0), wnrm, grass_metres * 3.1);
+	vec3 sand = mix(s1, s2, 0.45);
 	float ks = smoothstep(0.4, 0.6, sand_w + 0.25 * (n - 0.55));
 	ALBEDO = mix(mix(grass, rock, k), sand, ks) * srgb_to_linear(COLOR.rgb);
 	ROUGHNESS = 0.95;
