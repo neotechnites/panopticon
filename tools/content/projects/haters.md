@@ -84,10 +84,10 @@ music: voice/squeaky_clean_sprint.mp3
 music_db: 2   # the track's first 15.5 s measure -16.0 LUFS; +2 dB puts it at -14
 music_fade: 0.01 1
 | line | clip | in | len | fit | speed | text | card |
-| b0 | cuts/03.mp4 | 0 | | beat 1.2 | | | |
-| b1 | cuts/03.mp4 | cont | | beat 1.0 | | this is just halo reach duck hunt | |
-| b2 | cuts/03.mp4 | cont | | beat 1.0 | | you just wish you were crawl | |
-| b3 | cuts/03.mp4 | cont | | beat 0.8 | | Youre art looks like its from the n64/ps1 | |
-| r0 | cuts/04.mp4 | 0 | | beat 0.8 | | | |
-| r1 | cuts/04.mp4 | cont | | beat 2.0 | | Yeah... | |
-| r2 | cuts/04.mp4 | cont | | beat 2.3 | | Thats kinda the point... | |
+| b0 | cuts/03_v3.mp4 | 0 | | beat 1.2 | | | |
+| b1 | cuts/03_v3.mp4 | cont | | beat 1.0 | | this is just halo reach duck hunt | |
+| b2 | cuts/03_v3.mp4 | cont | | beat 1.0 | | you just wish you were crawl | |
+| b3 | cuts/03_v3.mp4 | cont | | beat 0.8 | | Youre art looks like its from the n64/ps1 | |
+| r0 | cuts/04_v3.mp4 | 0 | | beat 0.8 | | | |
+| r1 | cuts/04_v3.mp4 | cont | | beat 2.0 | | Yeah... | |
+| r2 | cuts/04_v3.mp4 | cont | | beat 2.3 | | Thats kinda the point... | |
