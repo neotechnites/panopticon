@@ -133,6 +133,10 @@ func _raise_the_hand() -> void:
 
 func on_hit(collider: Node3D) -> void:
 	say("hit %s" % (collider.name if collider != null else "nothing"))
+	# The smoke's framing check: the shot man's chest inside the lens at the hit.
+	var lens: Camera3D = clip.root.get_viewport().get_camera_3d()
+	if lens != null and _bodies.size() > VICTIM and lens.is_position_in_frustum(_bodies[VICTIM].global_position + Vector3.UP):
+		print("[event] %6.2f  in_frame  %s" % [elapsed(), _bodies[VICTIM].name])
 
 
 func on_out(participant: MatchParticipant) -> void:

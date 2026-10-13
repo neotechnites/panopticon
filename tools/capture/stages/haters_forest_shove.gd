@@ -6,7 +6,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## trees sit outside it both sides. Pit lip r 46-48 clean 74-86 deg bar BushLow_082 (82.1 r 47.5, 2.7 m: 80.8-83.4)
 ## and BushLow_071 (71.0): shove at 85.0-86.0 or 77-79. Tower eye (0, 28.9, 0) sees r 50 h 1.4 at 80 and 84 deg
 ## (canopy at 76 and 88). Deck y 23.0; the pit is below y 22.
-## Dials: go/go_victim/go_extra (driver seconds the feet start), pov_at, victim_at, extra_at ("deg,r"), lane_to,
+## Dials: go/go_victim/go_extra (driver seconds the feet start), pov_at, victim_at, extra_at ("deg,r"), lane_mid, lane_r, lane_to,
 ## victim_to, extra_to, victim_speed, range, watch, impulse, up, tail. Mac smoke (seed 20261012): chase from 80 deg so the
 ## head turns onto him as it closes (from 86 the shove whiffed); impulse 16 left him on the slope at r 44.8, 24 drops him.
 
@@ -56,19 +56,24 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	var victim_at: Vector2 = _at("victim_at", VICTIM_AT)
 	var extra_at: Vector2 = _at("extra_at", EXTRA_AT)
 
-	_pov_driver = drive(runners[0], [
+	var pov_steps: Array = [
 		{"do": "place", "deg": pov_at.x, "r": pov_at.y, "h": 0.1, "face": LIB.tangent_at(pov_at.x)},
 		{"do": "human", "on": true},
 		{"do": "steer", "on": true, "rate": 200.0, "gain": 8.0},
 		{"do": "until", "t": float(option("go", 0.6))},
-		{"do": "lane", "to": float(option("lane_to", 80.0)), "r": pov_at.y, "dir": 1, "speed": 1.0, "weave": 0.03,
-			"period": 1.2, "timeout": 8.0, "carry": true,
+		{"do": "lane", "to": float(option("lane_to", 80.0)), "r": float(option("lane_r", pov_at.y)), "dir": 1, "speed": 1.0,
+			"weave": 0.03, "period": 1.2, "timeout": 8.0, "carry": true,
 			"glances": [{"t": 0.7, "right": -18.0, "pitch": 3.0}, {"t": 1.8, "right": 6.0, "pitch": -1.0}]},
 		{"do": "chase", "victim": _victim, "range": float(option("range", 1.2)), "timeout": 2.0, "speed": 1.0},
 		{"do": "watch", "body": _victim, "seconds": float(option("watch", 1.0)), "height": 0.8},
 		{"do": "hold", "seconds": 0.5},
 		{"do": "hold", "seconds": 60.0},
-	], 0, "ClipShoverDriver")
+	]
+	# lane_mid (a longer run-up): hold pov r to that bearing, then lane in to lane_r (row 68's obstacle sits at r 48.5-50.0).
+	if String(option("lane_mid", "")) != "":
+		pov_steps.insert(4, {"do": "lane", "to": float(option("lane_mid", 69.0)), "r": pov_at.y, "dir": 1, "speed": 1.0,
+			"weave": 0.03, "period": 1.2, "timeout": 8.0, "carry": true, "glances": [{"t": 0.0, "right": 0.0, "pitch": 0.0}]})
+	_pov_driver = drive(runners[0], pov_steps, 0, "ClipShoverDriver")
 
 	_victim_driver = drive(runners[1], [
 		{"do": "place", "deg": victim_at.x, "r": victim_at.y, "h": 0.1, "face": LIB.tangent_at(victim_at.x)},

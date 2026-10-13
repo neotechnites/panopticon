@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Capture and render ONE shot of a project on the PC, from its entry in the brief.
 #
-#   tools/content/shot.sh <project> <n> [--crosshair] [--movie] [--name NAME]
+#   tools/content/shot.sh <project> <n> [--crosshair] [--movie] [--name NAME] [--smoke]
+#   --smoke: only the Mac headless smoke of the entry's expect: lines (required), then exit.
 #
 # Rough (the default): ONE take at real speed, the screen recorded (lib.sh pc_rough);
 # a portrait take is 810x1440, scaled to 1080x1920 at the cut. A failed gate prints why
@@ -35,13 +36,13 @@
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
-USAGE="usage: tools/content/shot.sh <project> <n> [--crosshair] [--movie] [--name NAME]"
+USAGE="usage: tools/content/shot.sh <project> <n> [--crosshair] [--movie] [--name NAME] [--smoke]"
 PROJECT="${1:?${USAGE}}"
 N="${2:?${USAGE}}"
-CROSSHAIR=0; MODE=rough; OUT=""
+CROSSHAIR=0; MODE=rough; OUT=""; SMOKE_ONLY=0
 set -- "${@:3}"
 while [ $# -gt 0 ]; do
-  case "$1" in --crosshair) CROSSHAIR=1 ;; --movie) MODE=movie ;; --name) OUT="$2"; shift ;; *) die "unknown flag $1" ;; esac
+  case "$1" in --crosshair) CROSSHAIR=1 ;; --movie) MODE=movie ;; --name) OUT="$2"; shift ;; --smoke) SMOKE_ONLY=1 ;; *) die "unknown flag $1" ;; esac
   shift
 done
 BRIEF=$(brief_path "${PROJECT}")
@@ -106,7 +107,9 @@ echo "shot ${NN} -> cuts\\${OUT}.mp4 (${MODE} ${SIZE}): ${SAID}"
 
 # expect: lines (expect.py): the same capture headless on the Mac first, fixed fps, same seed; a miss never reaches the PC.
 EXPECT=$(awk -v n="${N}" '/^## / { inside = ($2 == n); next } inside && /^expect:/ { sub("^expect:[ \t]*", ""); print }' "${BRIEF}")
-if [ -n "${EXPECT}" ] && [ -n "${CAPTURE}" ]; then
+[ "${SMOKE_ONLY}" = 0 ] || [ -n "${EXPECT}" ] || die "shot ${NN}: no expect: lines; every capture shot is smoked before a take"
+# short.sh smokes every shot before the first take and sets SMOKE_PASSED so a passed smoke is not run twice.
+if [ -n "${EXPECT}" ] && [ -n "${CAPTURE}" ] && [ "${SMOKE_PASSED:-0}" = 0 ]; then
   SMOKE_LOG=$(mktemp -t "smoke_${NAME}_${NN}")
   SMOKE_ARGS="${CAPTURE}"; [[ "${SMOKE_ARGS}" == *--seed=* ]] || SMOKE_ARGS="${SMOKE_ARGS} --seed=${SEED:-20260930}"
   T0=$(now_ms)
@@ -119,6 +122,7 @@ if [ -n "${EXPECT}" ] && [ -n "${CAPTURE}" ]; then
   echo "  smoke: passed on the Mac in $(since "$T0")"
   rm -f "${SMOKE_LOG}"
 fi
+[ "${SMOKE_ONLY}" = 0 ] || exit 0
 
 # Film only from this branch's own commit; the sync is outside the lock (it covers capture and assemble).
 if [ "$(pc <<< "git -C $(ff "${PC_PROJECT}") rev-parse HEAD" | tr -d '\r')" != "$(git -C "${REPO_DIR}" rev-parse HEAD)" ]; then

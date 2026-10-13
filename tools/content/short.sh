@@ -2,6 +2,7 @@
 # One version of a short, end to end: sync, voice, the shots it lacks, assemble, delivered to the Mac.
 # A shot is filmed when its cut is missing or its entry says `refilm: <tag>`; --final films every shot --movie.
 # --plan lists every shot (reuse / film / NO STAGE / REFUSED) and exits, non-zero on NO STAGE or REFUSED.
+# Before the first take every capture shot it films is smoked headless on the Mac (shot.sh --smoke).
 #
 #   tools/content/short.sh <project> [--tag vN] [--final] [--plan]
 set -euo pipefail
@@ -39,7 +40,7 @@ if [ "${PLAN}" = 1 ]; then
     if [ "${FINAL}" = 0 ] && [[ " ${REFILM} " != *" ${TAG} "* ]]; then
       if [ "${LISTED}" = 0 ]; then
         HAVE=$(pc <<PS | tr -d '\r'
-Get-ChildItem '${DIR}\\cuts' -Filter '*.mp4' -File -EA SilentlyContinue | ForEach-Object { \$_.BaseName }
+if (Test-Path '${DIR}\\cuts') { Get-ChildItem '${DIR}\\cuts' -Filter '*.mp4' -File | ForEach-Object { \$_.BaseName } }
 PS
 ) || die "short.sh --plan: cannot list the PC's cuts"
         LISTED=1
@@ -47,7 +48,10 @@ PS
       if grep -qx "${CUT}" <<< "${HAVE}"; then echo "shot ${NN}: reuse ${CUT}"; continue; fi
     fi
     LACK=$(stage_missing "${BRIEF}" "${ID}")
-    if [ -n "${LACK}" ]; then echo "shot ${NN}: NO STAGE (${LACK//$'\n'/, })"; BAD=1; else echo "shot ${NN}: film (stage exists)"; fi
+    if [ -n "${LACK}" ]; then echo "shot ${NN}: NO STAGE (${LACK//$'\n'/, })"; BAD=1
+    elif [ -n "$(brief_field "${BRIEF}" "${ID}" capture)" ] && [ -z "$(brief_field "${BRIEF}" "${ID}" expect)" ]; then
+      echo "shot ${NN}: REFUSED no expect: lines (every capture shot is smoked before a take)"; BAD=1
+    else echo "shot ${NN}: film (stage exists, smoke first)"; fi
   done <<< "$(${V} shots "${BRIEF}")"
   exit "${BAD}"
 fi
@@ -66,14 +70,16 @@ HAVE=$(pc <<PS | tr -d '\r'
 Get-ChildItem '${DIR}\\cuts' -Filter '*.mp4' -File -EA SilentlyContinue | ForEach-Object { \$_.BaseName }
 PS
 )
+# Every shot this run films: (id want flags) rows, decided before any take.
+FILMS=()
 while read -r ID REFILM; do
   [ -n "${ID}" ] || continue
   NN=$(pad2 "${ID}")
   CUT=$(${V} cut "${BRIEF}" "${TAG}" "${NN}")
   if [ -z "${CUT}" ]; then echo "shot ${NN}: not in the ${TAG} table, not filmed"; continue; fi
-  FLAGS=()
+  FLAGS=""
   if [ "${FINAL}" = 1 ]; then
-    WANT="${NN}_${TAG}_final"; FLAGS=(--movie)
+    WANT="${NN}_${TAG}_final"; FLAGS=--movie
   elif [[ " ${REFILM} " == *" ${TAG} "* ]]; then
     WANT="${NN}_${TAG}"
   elif grep -qx "${CUT}" <<< "${HAVE}"; then
@@ -82,11 +88,25 @@ while read -r ID REFILM; do
     WANT="${CUT}"
   fi
   if grep -qx "${WANT}" <<< "${HAVE}" && [ "${WANT}" = "${CUT}" ]; then continue; fi   # a resumed run
+  FILMS+=("${ID} ${WANT} ${CUT} ${FLAGS}")
+done <<< "$(${V} shots "${BRIEF}")"
+
+# The Mac smoke of every capture shot before the first take: expect: lines required, any miss stops the run.
+T0=$(now_ms)
+for ROW in "${FILMS[@]+"${FILMS[@]}"}"; do
+  read -r ID _ <<< "${ROW}"
+  [ -z "$(brief_field "${BRIEF}" "${ID}" capture)" ] || "${CONTENT_DIR}/shot.sh" "${BRIEF}" "${ID}" --smoke
+done
+[ "${#FILMS[@]}" = 0 ] || stage smoke "${T0}"
+
+for ROW in "${FILMS[@]+"${FILMS[@]}"}"; do
+  read -r ID WANT CUT FLAGS <<< "${ROW}"
+  NN=$(pad2 "${ID}")
   T0=$(now_ms)
-  "${CONTENT_DIR}/shot.sh" "${BRIEF}" "${ID}" --name "${WANT}" "${FLAGS[@]+"${FLAGS[@]}"}"
+  SMOKE_PASSED=1 "${CONTENT_DIR}/shot.sh" "${BRIEF}" "${ID}" --name "${WANT}" ${FLAGS}
   [ "${WANT}" = "${CUT}" ] || ${V} repoint "${BRIEF}" "${TAG}" "${NN}" "${WANT}"
   stage "shot ${NN}" "${T0}"
-done <<< "$(${V} shots "${BRIEF}")"
+done
 
 T0=$(now_ms); "${CONTENT_DIR}/assemble.sh" "${BRIEF}" --tag "${TAG}"; stage assemble "${T0}"
 

@@ -2,7 +2,8 @@
 """expect.py <log> <expect>...: check a smoke run's [event] lines against a brief entry's expect: clauses.
 
 Clauses (';'-separated): "<kind> [who] lo-hi" (absolute s), "<kind> [who] +lo-hi" (after the first clause's
-event), "alive <who>" (no out/ghosted), "max_yaw N" (every max_yaw event <= N). Exit 1 with the numbers on a miss.
+event), "<kind> [who]" (happened; never the anchor),
+"alive <who>" (no out/ghosted), "max_yaw N" (every max_yaw event <= N). Exit 1 with the numbers on a miss.
 """
 import re
 import sys
@@ -32,6 +33,10 @@ def main() -> int:
             seen = [float(e[2].split()[0]) for e in events if e[1] == "max_yaw"]
             if not seen or max(seen) > float(words[1]):
                 misses.append("%s: max_yaw %s" % (clause, max(seen) if seen else "never logged"))
+            continue
+        if not re.match(r"^\+?[0-9.]+-[0-9.]+$", words[-1]):
+            if not any(e[1] == kind and (len(words) < 2 or words[1] in e[2].split()) for e in events):
+                misses.append("%s: never happened" % clause)
             continue
         span = words[-1]
         who = words[1] if len(words) == 3 else ""
