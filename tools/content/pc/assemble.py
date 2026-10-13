@@ -334,6 +334,7 @@ def main():
             wins = []
             for i, part in enumerate(parse_parts(row["clip"])):
                 src = os.path.join(project, part["path"].replace("/", os.sep))
+                refuse_trailer(project, key, src)
                 if not os.path.exists(src):
                     raise SystemExit(f"assemble: {key}: no clip at {src}")
                 length = part["len"]
@@ -655,6 +656,15 @@ def main():
     print("\n".join(table))
     print(f"final: {out}")
     return 0
+
+
+def refuse_trailer(project, key, src):
+    """Trailer footage is trailer_reveal's alone: no clip under content\\trailer_reveal, no trailer_* cut."""
+    if os.path.basename(os.path.normpath(project)) == "trailer_reveal":
+        return
+    parts = os.path.normpath(os.path.abspath(src)).replace("\\", "/").split("/")
+    if "trailer_reveal" in parts or parts[-1].startswith("trailer_"):
+        raise SystemExit(f"assemble refuses {key}: {os.path.normpath(src)} is trailer footage (trailer_reveal only)")
 
 
 def caption_band(head, style):

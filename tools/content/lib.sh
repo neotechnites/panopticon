@@ -144,6 +144,28 @@ brief_field() {
   echo "${value:-${4:-}}"
 }
 
+# shot_refusal <brief> <n> : "<rule>: <why>" when Ryan's rules forbid filming shot n, else nothing.
+# shot.sh dies on it; short.sh --plan lists it.
+shot_refusal() {
+  local brief="$1" n="$2" name capture tape
+  name=$(basename "${brief}" .md)
+  capture=$(brief_field "${brief}" "${n}" capture)
+  tape=$(brief_field "${brief}" "${n}" tape)
+  if [ "${name}" != trailer_reveal ]; then
+    [[ " ${capture} " == *" --stage=trailer_"* ]] && { echo "trailer: --stage=trailer_* is trailer_reveal's footage"; return; }
+    [[ "${tape} ${capture}" == *trailer_reveal* ]] && { echo "trailer: a tape under projects/trailer_reveal is trailer_reveal's footage"; return; }
+    local f mine="${CONTENT_DIR}/projects/${name}/tapes/${tape}.json"
+    if [ -n "${tape}" ] && [ -f "${mine}" ]; then
+      for f in "${CONTENT_DIR}"/projects/trailer_reveal/tapes/*.json; do
+        cmp -s "${mine}" "${f}" && { echo "trailer: tape ${tape} is a copy of trailer_reveal's $(basename "${f}")"; return; }
+      done
+    fi
+    if [ -n "${capture}" ] && grep '^capture:' "${CONTENT_DIR}/projects/trailer_reveal.md" | sed 's/^capture:[ \t]*//; s/[ \t]*$//' | grep -qxF -- "$(echo "${capture}" | sed 's/[ \t]*$//')"; then
+      echo "trailer: this capture is a trailer_reveal shot"; return
+    fi
+  fi
+}
+
 # A shot id is a number with an optional letter (5b): 05b.
 pad2() { local n="${1%%[!0-9]*}"; printf '%02d%s' "$((10#${n}))" "${1#"${n}"}"; }
 

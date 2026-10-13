@@ -86,6 +86,8 @@ MASTER="${MASTER}:flags=lanczos,format=rgb24"
 VLOSSLESS="-c:v libx264rgb -preset veryfast -qp 0"
 TAGS="-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709"
 [ -n "${CAPTURE}${STILL}" ] || die "shot ${N} of ${NAME} has no capture: or still: line"
+REFUSED=$(shot_refusal "${BRIEF}" "${N}")
+[ -z "${REFUSED}" ] || die "shot.sh refuses shot ${N} of ${NAME}: ${REFUSED}"
 if [ -n "${TAPE}" ]; then CAPTURE="${CAPTURE} --tape=$(tape_res "${NAME}" "${TAPE}")"; fi
 if [ -n "${FLASH}" ]; then
   read -r FLASH_AT FLASH_LEN <<< "${FLASH}"
