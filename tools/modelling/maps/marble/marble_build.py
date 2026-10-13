@@ -183,6 +183,9 @@ BARS_B = 353.0
 # two paving bands (DECK_RS[0]..[2]) cut over a pit. WRITTEN FROM THE SCENE: drag marble_trapdoor.tscn
 # instances in maps/marble/marble.tscn, run `python3 marble_build.py --sync-trapdoors`, rebuild marble.
 TRAPDOOR_BEARINGS = (49.21875,)
+# ... and the OUTER pits, a cell's outer three bands (DECK_RS[2]..[4], r 52.0..57.3): the sections' trapdoors
+# behind a lane wall, synced the same way from marble_trapdoor_outer / marble_trapdoor_plate instances.
+TRAPDOOR_OUTER_BEARINGS = (91.40625, 94.21875, 97.03125, 277.03125, 279.84375, 282.65625)
 PIT_Z = 21.6                # the pit floor: over the lower tier's cell vaults (crown 21.5)
 PIT_LEDGE_Z = 22.05         # the inner side steps out under the cornice (bottom 22.0) ...
 PIT_STEP_R = 47.3           # ... to here, behind the inner tiers' face (47.15)
@@ -563,11 +566,17 @@ def lane_angles():
     return [TWO_PI * i / (NSIDE * DECK_SUB) for i in range(NSIDE * DECK_SUB)]
 
 
-def trapdoor_cells():
-    """Lane cell indices (between stations i and i+1, Blender angles) opened for TRAPDOOR_BEARINGS."""
+def pit_pivot_r(outer=False):
+    """The pit's centre radius: the trapdoor prop's origin."""
+    return 0.5 * (DECK_RS[2] + DECK_RS[4]) if outer else DECK_RS[1]
+
+
+def trapdoor_cells(outer=False):
+    """Lane cell indices (between stations i and i+1, Blender angles) opened for TRAPDOOR_BEARINGS
+    (outer: TRAPDOOR_OUTER_BEARINGS)."""
     step = 360.0 / (NSIDE * DECK_SUB)
     out = set()
-    for b in TRAPDOOR_BEARINGS:
+    for b in (TRAPDOOR_OUTER_BEARINGS if outer else TRAPDOOR_BEARINGS):
         k = ((-b) % 360.0) / step - 0.5
         assert abs(k - round(k)) < 1e-9, "trapdoor bearing %r is not a lane cell centre" % b
         out.add(int(round(k)) % (NSIDE * DECK_SUB))
@@ -1248,39 +1257,47 @@ import marble_wall_build as mw  # noqa: E402
 
 
 TRAPDOOR_SCENE = "maps/marble/marble.tscn"
-TRAPDOOR_PROP = "maps/marble/props/marble_trapdoor.tscn"
+TRAPDOOR_PROPS = {"maps/marble/props/marble_trapdoor.tscn": False,          # prop: cuts an outer pit
+                  "maps/marble/props/marble_trapdoor_outer.tscn": True,
+                  "maps/marble/props/marble_trapdoor_plate.tscn": True}
 
 
 def sync_trapdoors():
-    """--sync-trapdoors: TRAPDOOR_BEARINGS from the scene's trapdoor instances, each snapped to its
-    lane cell centre; prints the snapped transform for any instance that is off a cell."""
+    """--sync-trapdoors: TRAPDOOR_BEARINGS / TRAPDOOR_OUTER_BEARINGS from the scene's trapdoor instances,
+    each snapped to its lane cell centre; prints the snapped transform for any instance that is off a cell."""
     import re
     repo = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
     text = open(os.path.join(repo, TRAPDOOR_SCENE)).read()
-    ids = re.findall(r'\[ext_resource [^\]]*path="res://%s" id="([^"]+)"' % re.escape(TRAPDOOR_PROP), text)
+    kind = {}
+    for prop, outer in TRAPDOOR_PROPS.items():
+        for i in re.findall(r'\[ext_resource [^\]]*path="res://%s" id="([^"]+)"' % re.escape(prop), text):
+            kind[i] = outer
     step = 360.0 / (NSIDE * DECK_SUB)
-    found, ok = [], True
+    found, ok = {False: [], True: []}, True
     for block in re.split(r"\n(?=\[)", text):
-        if not ids or not any('instance=ExtResource("%s")' % i in block for i in ids):
+        hit = [i for i in kind if 'instance=ExtResource("%s")' % i in block]
+        if not hit:
             continue
+        outer, pivot = kind[hit[0]], pit_pivot_r(kind[hit[0]])
         name = re.search(r'name="([^"]+)"', block).group(1)
         t = re.search(r"transform = Transform3D\(([^)]*)\)", block)
         v = [float(x) for x in t.group(1).split(",")] if t else [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]
         b = math.degrees(math.atan2(v[11], v[9])) % 360.0
         snap = (math.floor(b / step) + 0.5) * step
-        found.append(round(snap, 6))
-        if abs(b - snap) > 0.01 or abs(math.hypot(v[9], v[11]) - DECK_RS[1]) > 0.01:
+        found[outer].append(round(snap, 6))
+        if abs(b - snap) > 0.01 or abs(math.hypot(v[9], v[11]) - pivot) > 0.01:
             ok = False
             a = math.radians(snap)
             c, s_ = math.cos(a), math.sin(a)
             print("%s is off its cell: set transform = Transform3D(%.6f, 0, %.6f, 0, 1, 0, %.6f, 0, %.6f, %.4f, %.1f, %.4f)"
-                  % (name, c, -s_, s_, c, DECK_RS[1] * c, DECK_Z, DECK_RS[1] * s_))
-        print("%s -> bearing %.5f" % (name, snap))
-    found = tuple(sorted(set(found)))
+                  % (name, c, -s_, s_, c, pivot * c, DECK_Z, pivot * s_))
+        print("%s -> bearing %.5f%s" % (name, snap, " (outer)" if outer else ""))
     src = open(__file__).read()
-    src = re.sub(r"^TRAPDOOR_BEARINGS = .*$", "TRAPDOOR_BEARINGS = %r" % (found,), src, count=1, flags=re.M)
+    for outer, const in ((False, "TRAPDOOR_BEARINGS"), (True, "TRAPDOOR_OUTER_BEARINGS")):
+        vals = tuple(sorted(set(found[outer])))
+        src = re.sub(r"^%s = .*$" % const, "%s = %r" % (const, vals), src, count=1, flags=re.M)
+        print("%s = %r%s" % (const, vals, "" if ok else "  (fix the transforms above)"))
     open(__file__, "w").write(src)
-    print("TRAPDOOR_BEARINGS = %r%s" % (found, "" if ok else "  (fix the transforms above)"))
     return ok
 
 

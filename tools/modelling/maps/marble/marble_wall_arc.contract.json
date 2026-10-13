@@ -1,0 +1,10 @@
+{
+  "_comment": "marble_wall_arc: a placeable ashlar wall curved with the lane -- faces concentric with the ring at VARIANTS[radius], arc_deg wide, height tall, thickness thick; a proud plain-ashlar socle and end piers, whole brick courses between, a fluted cap. Origin the base centre on the mid bearing at radius, +X radial out, +Z toward increasing bearing. MarbleWallArcCollision: one -colonly arc prism over the piers' footprint. Variants: '' (r 47.3, 11.4 deg, 7.6 m), long (19.7 deg), lane (r 51.45, 11.25 deg, 4.6 m).",
+  "node_paths": [
+    "MarbleWallArc",
+    "MarbleWallArcCollision",
+    "MarbleWallArcCollision/CollisionShape3D"
+  ],
+  "surfaces": 4,
+  "max_tris": 900
+}
