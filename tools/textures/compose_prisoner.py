@@ -4,7 +4,6 @@
 import json, os, struct, subprocess
 import numpy as np
 from PIL import Image
-from blur_eyes import blur_eyes
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 ASEPRITE = os.path.expanduser(
@@ -133,7 +132,7 @@ def main():
         fx, fy, fw, fh = SWATCHES[names[owner[y, x]]]
         sx, sy, sw, sh = round(fx * size), round(fy * size), round(fw * size), round(fh * size)
         out[y, x] = sheet[sy + y % sh, sx + x % sw]
-    Image.fromarray(blur_eyes(out)).save(ALBEDO)   # Ryan: soften the two eye squares
+    Image.fromarray(out).save(ALBEDO)
     old = {n: list(table["faces"].values()).count(n) for n in names}
     now = {n: face.count(n_i) for n_i, n in enumerate(names)}
     print("composed %d faces per face -> %s | old %s | now %s" % (len(tris), os.path.relpath(ALBEDO, ROOT), old, now))
