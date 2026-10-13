@@ -91,7 +91,7 @@ in: 1.0
 said: v10 (Ryan: "a shot of runners in a forest and a shove off the edge"): built like trailer shot 8 from the head's forest probe; POV runs the clear lane from 70 deg, closes on the pit-side runner and shoves him over the lip at ~84, eyes follow him down; cut from 0.4 s before the POV moves to 0.7 s after he drops below the rim. haters_forest_shove.gd.
 capture: --shot=s3_open_lane --stage=haters_forest_shove --map=forest --pov=runner --bots=3 --shimmer=0 --seed=20261012
 tape: forest_shove
-expect: shove Runner_2 2.0-2.6; airborne Runner_2 +0.0-0.2; below_rim Runner_2 +0.5-1.1; end +1.2-1.8; alive Runner_1; max_yaw 300
+expect: shove Runner_2 2.0-2.6; airborne Runner_2 +0.0-0.2; below_rim Runner_2 +0.5-1.1; end +1.2-1.8; alive Runner_1; max_yaw 300; lens_clear; lens_cover <= 0.4
 seconds: 3.0
 in: 0.8
 

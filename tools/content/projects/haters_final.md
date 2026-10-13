@@ -9,7 +9,7 @@ said: guard scope POV in hell (haters shot 3, tape haters_v3), the scope up on t
 capture: --shot=s3_open_lane --stage=haters_hell --pov=guard --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261012
 tape: haters_v3
 hud: crosshair
-expect: hit Runner_2 4.70-4.85; in_frame Runner_2 +0.0-0.05
+expect: hit Runner_2 4.70-4.85; in_frame Runner_2 +0.0-0.05; lens_clear; lens_cover <= 0.4
 seconds: 5.1
 in: 1.67
 motion: 0.012
@@ -18,14 +18,14 @@ motion: 0.012
 said: the SAME tape from the runner beside the shot runner (haters shot 4): the neighbour goes out at the hit, the POV lives, the window ends before the pillar (v9/v10's in 3.7, 3.25 s).
 capture: --shot=s3_open_lane --stage=haters_hell --pov=runner --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261012
 tape: haters_v3
-expect: hit Runner_2 4.70-4.85; out Runner_2 +0.0-0.3; alive Runner_3
+expect: hit Runner_2 4.70-4.85; out Runner_2 +0.0-0.3; alive Runner_3; lens_clear; lens_cover <= 0.4
 seconds: 3.25
 in: 3.7
 
 ## 3
 said: runners in a forest and a shove off the edge (haters shot 13) with a longer run-up: POV from 65.0 deg r 50.6 (clears row 68's obstacle at r 48.5-50.0), lanes in to r 49.6 by ~72, chases from 80; cut from 0.3 s before go to the end flag (below_rim + 0.7). Mac smoke: go 1.20, shove 2.82 at 85.1 deg, end 4.33.
 capture: --shot=s3_open_lane --stage=haters_forest_shove --map=forest --pov=runner --bots=3 --shimmer=0 --seed=20261012 --set=pov_at=65.0,50.6;lane_mid=69.0;lane_r=49.6;victim_speed=0.65
-expect: shove Runner_2 2.8-4.2; airborne Runner_2 +0.0-0.3; below_rim Runner_2 +0.5-1.2; go Runner_1; alive Runner_1; max_yaw 300; end +1.2-1.9
+expect: shove Runner_2 2.8-4.2; airborne Runner_2 +0.0-0.3; below_rim Runner_2 +0.5-1.2; go Runner_1; alive Runner_1; max_yaw 300; end +1.2-1.9; lens_clear; lens_cover <= 0.4
 seconds: 3.43
 in: 0.9
 
