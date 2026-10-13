@@ -34,6 +34,19 @@ capture: --shot=s3_open_lane --stage=rs_pitshove --pov=runner --bots=4 --seed=7 
 in: 0.6
 seconds: 5.2
 
+## 8
+said: L7+L8 -- Ryan on v7: "the last shot shows the gaurd clipping into the map after being chucked, and shouldnt": v6_07_s1b refilmed (rs_live, s3_open_lane, seed 1, riding Runner_3) on the current build, 3 runners + the guard
+capture: --shot=s3_open_lane --stage=rs_live --pov=runner --bots=3 --seed=1 --shimmer=0 --set=ride=Runner_3
+in: 0
+seconds: 50
+
+## 9
+said: L5 -- Ryan: "replace the gameplay of the hitting shots montage to be in the forest": a plain bot match on the forest, the shipped bot guard's scope, 3 runners
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --pov=guard --bots=3 --seed=20261012 --shimmer=0 --set=lift=0
+hud: crosshair
+in: 0
+seconds: 60
+
 ## script v8
 # v8 as delivered (cp.render, rough_v8\edl.json): voice + 0.25 s per line, frame-snapped.
 # M2 plays rough_v8\lines\M2.mkv, v8's own picture with the gif already on it (no gif overlay in the cut).
@@ -72,3 +85,22 @@ captions_y: 0.72
 | L6 | cuts/06.mp4@0 |  |  | line |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
 | L7 | v6_07_s1b.mp4@31.35 |  |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
 | L8 | v6_07_s1b.mp4@36.3167:0.7833,v6_05_s12.mp4@4.0 |  |  | line |  | Let me know what else I should add in the comments |  |
+
+## script v10
+# v7's cut (as ported in v8/v9) with Ryan's four v7 notes: L4 the tower refilm alone after "not an animator",
+# L5 a plain forest bot match (cut 09), L6 the pit shove with the eye on the POV, L7+L8 the refilmed finale (cut 08).
+voice: en-US-AndrewNeural +5%
+pad: 0.25
+captions: pop
+captions_font: Impact
+captions_size: 76
+captions_y: 0.72
+| line | clip | in | len | fit | speed | text | card |
+| L1 | v6_01_s13.mp4@4.0 |  |  | line |  | The death animation in my game was really bad. |  |
+| M2 | rough_v8/lines/M2.mkv@0:2.45 |  |  | beat 2.45 |  |  |  |
+| L3 | 03_old_hell_zoomout.mp4@4.15 |  |  | line |  | Yeaeeeeeeeh I needed something better, but if my art didnt make it clear, I'm a programmer, not an animator |  |
+| L4 | cuts/04.mp4@0.57 |  |  | line |  | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem. Ragdolls | cards/L4_card0.png w=940 y=0.2 |
+| L5 | cuts/09.mp4@999 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
+| L6 | cuts/06.mp4@0 |  |  | line |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
+| L7 | cuts/08.mp4@999 |  |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
+| L8 | cuts/08.mp4 | cont |  | line |  | Let me know what else I should add in the comments |  |
