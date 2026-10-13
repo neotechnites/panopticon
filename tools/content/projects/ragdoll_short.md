@@ -104,5 +104,5 @@ captions_y: 0.72
 | L4 | cuts/04.mp4@0.57 |  |  | line |  | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem. Ragdolls | cards/L4_card0.png w=940 y=0.2 |
 | L5 | cuts/05_forest.mp4@0 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
 | L6 | cuts/06.mp4@0 |  |  | line |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
-| L7 | cuts/08_v10.mp4@37.0 |  |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
+| L7 | cuts/08_v10.mp4 | 37.0 |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
 | L8 | cuts/08_v10.mp4 | cont |  | line |  | Let me know what else I should add in the comments |  |
