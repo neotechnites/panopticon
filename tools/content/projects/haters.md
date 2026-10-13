@@ -22,7 +22,7 @@ in: 3.0
 ## script v1
 captions: stack
 captions_size: 64
-captions_band: 0.50 0.95
+captions_band: 0.62 0.95
 captions_plain: r1 r2
 captions_reset: r0
 music: voice/squeaky_clean_sprint.mp3
