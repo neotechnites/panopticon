@@ -1173,3 +1173,6 @@ captions: none
 
 ## script rough_v43
 # v43 (Ryan): v42 picture, new Pineberry Rush bed from the master + melody stem (tools/content/music/pineberry_bed.py): 3 bars of the melody hook (song 1.069-5.379), the loud drum bar (17.918), the drop on the title at 5.703, melody stem alone under the end card from 39.13, 2.5 s fade.
+
+## script rough_v44
+# v44 (Ryan on v43: "the ending is sick though, just time it to the final title drop not some random clip cut. take that same melody without the drums, and stick it at the begginng before the drop"): v42 picture; melody stem alone before the drop (song 55.404-61.107, 4 bars ending on a bar line), master from the drop at 5.703, melody stem alone from the final title card at 43.033.
