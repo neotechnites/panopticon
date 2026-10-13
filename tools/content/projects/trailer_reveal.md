@@ -7,8 +7,8 @@ rules: 16:9 1920x1080 (SIZE=1920x1080 shot.sh), no HUD except the guard's scope,
 v2 notes (Ryan on rough_v1): the guard stands at the tower's window, not deep inside; all runners run the course direction; the runner shot is the SAME event as the guard shot (same stage, same seed, two POVs), cut back ~1 s to the man directly behind the victim; clear line of sight when he looks up at the tower; title drops in HARD on the music's drop; music https://www.youtube.com/watch?v=OBPV0lsorwU; real-looking gameplay only (walkable deck and real cover, nobody on lava, nobody looking backwards); max 4 players a shot (1 guard + 3); spread across hell, forest and marble. Added: "EVERY shot is first-person POV -- either the guard's scope/tower view or a prisoner's first-person view. No third-person ... Title/end cards are the only non-POV frames."
 music: external\src\music_v2_OBPV0lsorwU.mp4 -> voice\sr20det.ogg (SOURCES.md). The drop: 0.35 s of silence from 5.36 s, the hit at 5.703 s (sample onset); 170 bpm after it (v3 measured).
 cards: cuts/title_hard.mp4 is v1's title frame looped from frame 0 (v1's title.mp4 opened on two black frames); cuts/end.mp4 is v1's.
-delivery: content\trailer_reveal\final\rough_v39.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
-tag: rough_v39
+delivery: content\trailer_reveal\final\rough_v40.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
+tag: rough_v40
 alt: rough_v24 (the SR20DET cut before Ryan's seven notes; ## script rough_v24)
 alt: rough_v26_vivaldi (rough_v25_vivaldi with the seven notes, every cut and event on the same beats; ## script rough_v26_vivaldi)
 kept: cuts\_v25\NN.mp4 are the shot files rough_v24 and rough_v25_vivaldi were cut from (every shot was refilmed for v26 on main 6547970).
@@ -402,6 +402,12 @@ grade_hell: lift 2.6 3
 | k2 | cuts/14.mp4@0:1.7667 | | | beat 1.7667 | | | hell |
 | g1 | cuts/12.mp4@0.15:3.1833 | | | beat 3.1833 | | |  |
 | e1 | cuts/end_v3.mp4@0.4:3.2 | | | beat 3.2 | | |  |
+
+## script rough_v40
+# v40 (Ryan): "the sniper doesnt aim, the guy gets pushed out, and he just aim bots to a spots and shoot." The scope rests on the wall's end (197.0), comes onto him 0.22 s
+# after he clears it, trails the throw (follow 0.5) and overshoots 0.98 deg as he lands, corrects; onto the held-over mark, leads him as he breaks (run_after 1.0), sits on the mark
+# 0.25 s and squeezes (4.88, hit 5.25 at 198.4). Peak 47.3 deg/s, lag 0.067 s. Smoke expects on v39's aim: peak 218 deg/s, lag 0.000 s, settle 0.00 s (FAIL); v40 all ok.
+# v39's master with only m2 1833-1987 <- cuts/10b.mp4 frames 35-189 (graph: final\master\rough_v40.graph.txt); psnr against v39: only 1833-1987 differ.
 
 ## script rough_v39
 # v39 (Ryan): "the sniper pov sucks ... you see the runner get shoved for one frame, then they go out of frame, then the sniper pans over". The scope rides him
