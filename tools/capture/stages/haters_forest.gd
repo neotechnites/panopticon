@@ -59,7 +59,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "steer", "on": true, "rate": 160.0, "gain": 5.0},
 	]
 	shover_steps.append_array(_legs([[287.0, 53.0], [295.0, 51.5], [301.0, 51.5], [306.0, 53.0], [316.0, 52.0],
-		[322.0, 50.8], [334.0, 50.8]], pace, 0.04))
+		[322.0, 50.8], [330.0, 50.8]], pace, 0.04))   # v8: ends 330 so the shove lands in the gap
 	shover_steps.append_array([
 		{"do": "chase", "victim": _victim, "range": 2.6, "timeout": 2.5, "speed": 1.0},
 		{"do": "glance", "right": 40.0, "pitch": -8.0, "seconds": 0.5, "smooth": true},    # watch him go over

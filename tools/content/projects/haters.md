@@ -63,6 +63,12 @@ capture: --shot=s3_open_lane --stage=haters_forest --map=forest --pov=runner --b
 seconds: 6.5
 in: 1.0
 
+## 9
+said: v8 refilm of shot 8: the shover's lane ends at 330 (v7's ended at 334 and the shove hit at the 338.3 boulder, so the victim never fell); the shove lands in the 333.4-338.3 gap, the fall in frame, the cut ends 0.5-1 s after it. haters_forest.gd.
+capture: --shot=s3_open_lane --stage=haters_forest --map=forest --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261012
+seconds: 7.0
+in: 1.0
+
 ## script v1
 captions: stack
 captions_size: 64
@@ -205,3 +211,26 @@ music_fade: 0.01 1
 | r1 | cuts/04_v3.mp4 | cont | | beat 2.2 | | Yeah... | |
 | r2 | cuts/04_v3.mp4 | cont | | beat 0.45 | | Thats kinda the point... | |
 | f0 | cuts/08.mp4 | 0 | | beat 5.5 | | | |
+
+## script v8
+notes: youre right its not cuts, its the fucking runner moving camera positions instantaneously
+notes: for haters, literally what the fuck is the last scene. why do you keep giving me fucking scenes where the pov player dies and the camera just says there. also, you cut to fast after the 3rd quote drops, you put "thats kinda the point" on the screen too soon, and you cut away from hell to sson. oh cool i see you just did v5 and it just replaces the last clip with a fucking forest clip i have already said is fucking unusable because of all the fucking cuts
+notes: haters v3 is better, the shove shot though, has them running into a wall. also, for the shove, lets do that part in the forest and make it run a little longer. so it cuts from about the seven second mark, to a shot of runners in a forest and a shove off the edge. also, give more space to read the three quotes
+captions: stack
+captions_size: 72
+captions_band: 0.05 0.45
+captions_fade: 0
+captions_plain: r1 r2
+captions_reset: r0
+music: voice/squeaky_clean_sprint.mp3
+music_db: 2   # the track's first 15.5 s measure -16.0 LUFS; +2 dB puts it at -14
+music_fade: 0.01 1
+| line | clip | in | len | fit | speed | text | card |
+| b0 | cuts/03_v6.mp4 | 0 | | beat 1.2 | | | |
+| b1 | cuts/03_v6.mp4 | cont | | beat 1.2 | | this is just halo reach duck hunt | |
+| b2 | cuts/03_v6.mp4 | cont | | beat 1.2 | | you just wish you were crawl | |
+| b3 | cuts/03_v6.mp4 | cont | | beat 2.0 | | Youre art looks like its from the n64/ps1 | |
+| r0 | cuts/04_v3.mp4 | 0 | | beat 0.6 | | | |
+| r1 | cuts/04_v3.mp4 | cont | | beat 2.2 | | Yeah... | |
+| r2 | cuts/04_v3.mp4 | cont | | beat 0.45 | | Thats kinda the point... | |
+| f0 | cuts/09.mp4 | 0 | | beat 5.5 | | | |
