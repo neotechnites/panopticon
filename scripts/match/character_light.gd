@@ -133,9 +133,11 @@ func apply(material: Material) -> Material:
 
 
 ## [param base] as a plain per-pixel StandardMaterial3D: its paint, no vertex colour, no glow, the fit's fill for ambient.
+## Sampled without mipmaps, so small painted detail (the lips) keeps its contrast at range instead of averaging into skin.
 func _standard(base: BaseMaterial3D) -> BaseMaterial3D:
 	var plain: BaseMaterial3D = base.duplicate() as BaseMaterial3D
 	plain.set_meta(BASE_META, base)
+	plain.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
 	plain.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
 	plain.diffuse_mode = BaseMaterial3D.DIFFUSE_BURLEY
 	plain.vertex_color_use_as_albedo = false
