@@ -20,7 +20,8 @@ def main(src_dir, length, out, intro='melody'):
         intro = mel[s(intro_end - mel_len):s(intro_end)].copy()
         fi = s(0.1); intro[:fi] *= np.linspace(0, 1, fi)[:, None]
     else:                                               # the song itself from song time `intro`, starting before the picture
-        intro = mix[s(float(intro)):s(DROP_SONG - BAR)]
+        intro = mix[s(float(intro)):s(DROP_SONG - BAR)].copy()
+        fi = s(1.0); intro[:fi] *= np.linspace(0, 1, fi)[:, None]   # 1 s fade-in
     tail_t = TITLE_T + TAIL_BAR * BAR                   # picture time of that bar (the end card is re-timed onto it)
     body = mix[s(DROP_SONG - BAR):s(song(tail_t))]      # the drum bar, the drop, on to that beat
     tail = mel[s(song(tail_t)):s(song(tail_t) + length - END_TITLE_T)]   # under the end card for its full length

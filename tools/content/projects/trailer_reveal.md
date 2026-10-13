@@ -1186,3 +1186,6 @@ captions: none
 
 ## script rough_v48_songstart
 # v48 (Ryan on v47: "start half a second earlier. and the end is still not correct. youre going to have to add some black ... to get the end to hit at the right time"): the master from song 9.034 (4.55 s of black before v42's picture); all but the melody falls off on bar 28 after the drop (song 58.296), a 4-bar phrase line; 1.68 s of black inserted before the end card so the card lands on it.
+
+## script rough_v49_songstart
+# v49 (Ryan: "split the difference on the start. .25 seconds, and then, have it fade in"): v48 with the master from song 9.284 (4.30 s of black), 1 s fade-in.
