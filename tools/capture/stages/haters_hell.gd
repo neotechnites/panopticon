@@ -6,7 +6,7 @@ extends "res://tools/capture/stages/stage.gd"
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
 ## Lead (pit side), victim, POV: the victim a step ahead and inside the POV.
-const RADII: Array[float] = [47.9, 48.6, 49.3]
+const RADII: Array[float] = [47.3, 48.6, 49.3]
 const STAGGER: Array[float] = [4.4, 2.0, 0.0]
 const PACE: Array[float] = [0.70, 0.71, 0.70]
 const WEAVE: Array[float] = [0.02, 0.04, 0.03]
