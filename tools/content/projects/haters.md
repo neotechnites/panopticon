@@ -87,6 +87,13 @@ capture: --shot=s3_open_lane --stage=haters_forest_edge --map=forest --pov=runne
 seconds: 7.0
 in: 1.0
 
+## 13
+said: v10 (Ryan: "a shot of runners in a forest and a shove off the edge"): built like trailer shot 8 from the head's forest probe; POV runs the clear lane from 70 deg, closes on the pit-side runner and shoves him over the lip at ~84, eyes follow him down; cut from 0.4 s before the POV moves to 0.7 s after he drops below the rim. haters_forest_shove.gd.
+capture: --shot=s3_open_lane --stage=haters_forest_shove --map=forest --pov=runner --bots=3 --shimmer=0 --seed=20261012
+expect: shove Runner_2 2.0-2.6; airborne Runner_2 +0.0-0.2; below_rim Runner_2 +0.5-1.1; end +1.2-1.8; alive Runner_1; max_yaw 300
+seconds: 3.0
+in: 0.8
+
 ## script v1
 captions: stack
 captions_size: 64
@@ -276,3 +283,27 @@ music_fade: 0.01 1
 | r1 | cuts/04_v3.mp4 | cont | | beat 2.2 | | Yeah... | |
 | r2 | cuts/04_v3.mp4 | cont | | beat 0.45 | | Thats kinda the point... | |
 | f0 | cuts/11.mp4 | 0 | | beat 3.2 | | | |
+
+
+## script v10
+notes: youre right its not cuts, its the fucking runner moving camera positions instantaneously
+notes: for haters, literally what the fuck is the last scene. why do you keep giving me fucking scenes where the pov player dies and the camera just says there. also, you cut to fast after the 3rd quote drops, you put "thats kinda the point" on the screen too soon, and you cut away from hell to sson. oh cool i see you just did v5 and it just replaces the last clip with a fucking forest clip i have already said is fucking unusable because of all the fucking cuts
+notes: haters v3 is better, the shove shot though, has them running into a wall. also, for the shove, lets do that part in the forest and make it run a little longer. so it cuts from about the seven second mark, to a shot of runners in a forest and a shove off the edge. also, give more space to read the three quotes
+captions: stack
+captions_size: 72
+captions_band: 0.05 0.45
+captions_fade: 0
+captions_plain: r1 r2
+captions_reset: r0
+music: voice/squeaky_clean_sprint.mp3
+music_db: 2   # the track's first 15.5 s measure -16.0 LUFS; +2 dB puts it at -14
+music_fade: 0.01 1
+| line | clip | in | len | fit | speed | text | card |
+| b0 | cuts/03_v6.mp4 | 0 | | beat 1.2 | | | |
+| b1 | cuts/03_v6.mp4 | cont | | beat 1.2 | | this is just halo reach duck hunt | |
+| b2 | cuts/03_v6.mp4 | cont | | beat 1.2 | | you just wish you were crawl | |
+| b3 | cuts/03_v6.mp4 | cont | | beat 2.0 | | Youre art looks like its from the n64/ps1 | |
+| r0 | cuts/04_v3.mp4 | 0 | | beat 0.6 | | | |
+| r1 | cuts/04_v3.mp4 | cont | | beat 2.2 | | Yeah... | |
+| r2 | cuts/04_v3.mp4 | cont | | beat 0.45 | | Thats kinda the point... | |
+| f0 | cuts/13.mp4 | 0 | | beat 3.0 | | | |
