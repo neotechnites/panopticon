@@ -20,7 +20,8 @@
 # its own, in the brief's aspect, to final\<file>.mp4 -- a shot handed over as a
 # clip, not a timeline).
 #
-# A short is filmed PORTRAIT through a temporary override.cfg in C:\dev\verify; the
+# A short is filmed PORTRAIT through a temporary override.cfg in its own PC checkout
+# (C:\dev\worktrees\content_<project>, lib.sh pc_use_project); the
 # lens composes for it (Camera3D fov is vertical). Nothing is filmed landscape and cropped.
 # Output on the PC, under content\<project>\ (layout in lib.sh): cuts\NN.mp4, the
 # master cut to seconds+gap with game audio muted over the gap, plus final\<file>.mp4
@@ -45,6 +46,7 @@ BRIEF=$(brief_path "${PROJECT}")
 NAME=$(basename "${BRIEF}" .md)
 KIND=$(brief_head "${BRIEF}" kind short)
 DIR=$(project_dir "${NAME}")
+pc_use_project "${NAME}"
 NN=$(pad2 "${N}")
 OUT="${OUT:-${NN}}"
 
@@ -78,6 +80,7 @@ if [ "${ASPECT}" = 9:16 ]; then
 else
   MASTER="scale=${SIZE%%x*}:${SIZE##*x}"; GATE_SCALE="scale=160:90"
 fi
+[ "${MODE}" = rough ] && [[ " ${CAPTURE} " == *" --write-movie"* ]] && die "shot.sh refuses: a rough take never films Movie Maker (--write-movie is a final's --movie)"
 [ "${MODE}" = rough ] && [ "${SIZE##*x}" -gt 1440 ] && die "a ${SIZE} take does not fit the 2560x1440 screen in real time; only a final films --movie"
 # Both modes leave a lossless RGB take: rough records it, movie packs Movie Maker's PNG frames.
 TAKE_EXT=mkv; IN_SPEC="in_range=pc"
@@ -86,6 +89,8 @@ MASTER="${MASTER}:flags=lanczos,format=rgb24"
 VLOSSLESS="-c:v libx264rgb -preset veryfast -qp 0"
 TAGS="-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709"
 [ -n "${CAPTURE}${STILL}" ] || die "shot ${N} of ${NAME} has no capture: or still: line"
+REFUSED=$(shot_refusal "${BRIEF}" "${N}")
+[ -z "${REFUSED}" ] || die "shot.sh refuses shot ${N} of ${NAME}: ${REFUSED}"
 if [ -n "${TAPE}" ]; then CAPTURE="${CAPTURE} --tape=$(tape_res "${NAME}" "${TAPE}")"; fi
 if [ -n "${FLASH}" ]; then
   read -r FLASH_AT FLASH_LEN <<< "${FLASH}"
@@ -95,16 +100,18 @@ fi
 if [ -n "${HUD}" ] && [[ "${CAPTURE}" != *--hud=* ]]; then CAPTURE="${CAPTURE} --hud=${HUD}"; fi
 echo "shot ${NN} -> cuts\\${OUT}.mp4 (${MODE} ${SIZE}): ${SAID}"
 
-pc_lock "shot ${NAME} ${NN}"
-# The scratch checkout is shared: film only from this branch's own commit.
-if [ "$(pc <<< 'git -C C:/dev/verify rev-parse HEAD' | tr -d '\r')" != "$(git -C "${REPO_DIR}" rev-parse HEAD)" ]; then
+# Film only from this branch's own commit; the sync is outside the lock (it covers capture and assemble).
+if [ "$(pc <<< "git -C $(ff "${PC_PROJECT}") rev-parse HEAD" | tr -d '\r')" != "$(git -C "${REPO_DIR}" rev-parse HEAD)" ]; then
   "${CONTENT_DIR}/sync.sh"
 fi
+pc_lock "shot ${NAME} ${NN}"
 pc_layout "${DIR}"
 USED=$(pc <<EOF
 Select-String -Path '${DIR}\\cuts\\*_used.txt' -SimpleMatch -Pattern 'cuts/${OUT}.mp4' -List -EA SilentlyContinue | ForEach-Object { \$_.Filename }
+if ('${FILE}' -and (Test-Path '${DIR}\\final\\${FILE}.mp4')) { Write-Output 'final\\${FILE}.mp4 exists; delivery never overwrites' }
 EOF
 )
+[[ "${USED}" != *"delivery never overwrites"* ]] || die "shot.sh refuses: ${USED##*$'\n'}"
 [ -z "${USED}" ] || die "cuts\\${OUT}.mp4 is in an earlier cut (${USED//$'\n'/ }); film it under a new --name"
 pc_push "${BRIEF}" "$(ff "${DIR}")/notes/brief.md"
 

@@ -17,6 +17,7 @@ PC_SERVE_HOST=${PC_SERVE_HOST:-${PC_HOST#*@}}   # the PC's Tailscale address: da
 PC_RENDERS='C:\Users\ddd\Desktop\panopticon-renders'
 PC_CONTENT="${PC_RENDERS}\content"
 PC_BRANCH=${PC_BRANCH:-work-content}
+PC_INCOMING=${PC_INCOMING:-content-incoming}
 FPS=${FPS:-60}
 SIZE=${SIZE:-1280x720}
 MJPEG_QUALITY=${MJPEG_QUALITY:-0.95}
@@ -31,6 +32,12 @@ FREEZE_NOISE_DB=${FREEZE_NOISE_DB:--50}
 TAKES_MAX=${TAKES_MAX:-2}
 
 die() { echo "content: $*" >&2; exit 2; }
+
+# pc_use_project <name> : a short films in its own PC checkout, C:\dev\worktrees\content_<name>, on
+# its own branch, so parallel shorts never share C:\dev\verify (sync.sh makes it on first use).
+pc_use_project() {
+  export PC_PROJECT='C:\dev\worktrees\content_'"$1" PC_BRANCH="content_$1" PC_INCOMING="content-incoming-$1"
+}
 
 # ssh into the PC and run a PowerShell script read from stdin. Encoded, because
 # `-Command -` parses stdin line by line and drops a block with no blank line after it.
@@ -142,6 +149,77 @@ brief_field() {
     /^## / { inside = ($2 == n); next }
     inside && $0 ~ "^"key":" { sub("^"key":[ \t]*", ""); print; exit }' "$1")
   echo "${value:-${4:-}}"
+}
+
+# shot_refusal <brief> <n> : "<rule>: <why>" when Ryan's rules forbid filming shot n, else nothing.
+# shot.sh dies on it; short.sh --plan lists it.
+shot_refusal() {
+  local brief="$1" n="$2" name capture tape
+  name=$(basename "${brief}" .md)
+  capture=$(brief_field "${brief}" "${n}" capture)
+  tape=$(brief_field "${brief}" "${n}" tape)
+  if [ "${name}" != trailer_reveal ]; then
+    [[ " ${capture} " == *" --stage=trailer_"* ]] && { echo "trailer: --stage=trailer_* is trailer_reveal's footage"; return; }
+    [[ "${tape} ${capture}" == *trailer_reveal* ]] && { echo "trailer: a tape under projects/trailer_reveal is trailer_reveal's footage"; return; }
+    local f mine="${CONTENT_DIR}/projects/${name}/tapes/${tape}.json"
+    if [ -n "${tape}" ] && [ -f "${mine}" ]; then
+      for f in "${CONTENT_DIR}"/projects/trailer_reveal/tapes/*.json; do
+        cmp -s "${mine}" "${f}" && { echo "trailer: tape ${tape} is a copy of trailer_reveal's $(basename "${f}")"; return; }
+      done
+    fi
+    if [ -n "${capture}" ] && grep '^capture:' "${CONTENT_DIR}/projects/trailer_reveal.md" | sed 's/^capture:[ \t]*//; s/[ \t]*$//' | grep -qxF -- "$(echo "${capture}" | sed 's/[ \t]*$//')"; then
+      echo "trailer: this capture is a trailer_reveal shot"; return
+    fi
+  fi
+  # At most 4 players: --bots prisoners (run_clip's default 7, or more if the stage plugin asks) plus
+  # the tower guard. A guard POV is that guard; a runner POV body is one of the prisoners.
+  if [ -n "${capture}" ]; then
+    local bots
+    bots=$(python3 - "${capture}" "${REPO_DIR}/tools/capture/stages" <<'PY'
+import os, re, sys
+cap, stages = sys.argv[1], sys.argv[2]
+arg = lambda k: (re.findall(r"(?:^|\s)--%s=(\S+)" % k, cap) or [None])[-1]
+bots = int(arg("bots") or 7)
+sets = dict(kv.split("=", 1) for kv in (arg("set") or "").split(";") if "=" in kv)
+path = os.path.join(stages, "%s.gd" % (arg("stage") or "_none"))
+if os.path.exists(path):
+    m = re.search(r"func bots\(\)[^:]*:\s*\n\s*return (.+)", open(path, encoding="utf-8").read())
+    v = m.group(1).strip() if m else ""
+    o = re.match(r'int\(option\("(\w+)",\s*(\d+)\)\)', v)
+    if o:
+        bots = max(bots, int(sets.get(o.group(1), o.group(2))))
+    elif v.isdigit():
+        bots = max(bots, int(v))
+print(bots)
+PY
+)
+    [ "${bots}" -le 3 ] || { echo "players: ${bots} prisoners + the guard is $((bots + 1)) players; at most 4 (--bots=3)"; return; }
+  fi
+}
+
+# stage_missing <brief> <n> : what shot n's capture names that its ref (or HEAD) lacks, else nothing.
+stage_missing() {
+  local brief="$1" n="$2" name capture tape ref
+  name=$(basename "${brief}" .md)
+  capture=$(brief_field "${brief}" "${n}" capture)
+  tape=$(brief_field "${brief}" "${n}" tape)
+  ref=$(brief_field "${brief}" "${n}" ref HEAD)
+  [ -n "${capture}" ] || return 0
+  python3 - "${REPO_DIR}" "${ref}" "${capture}" <<'PY'
+import re, subprocess, sys
+repo, ref, cap = sys.argv[1:4]
+arg = lambda k: (re.findall(r"(?:^|\s)--%s=(\S+)" % k, cap) or [None])[-1]
+def show(path):
+    r = subprocess.run(["git", "-C", repo, "show", "%s:%s" % (ref, path)], capture_output=True, text=True)
+    return r.stdout if r.returncode == 0 else None
+stage, shot = arg("stage"), arg("shot")
+if stage and show("tools/capture/stages/%s.gd" % stage) is None and \
+        '"%s"' % stage not in (show("tools/capture/stage_driver.gd") or "") + (show("tools/capture/run_clip.gd") or ""):
+    print("--stage=%s at %s" % (stage, ref))
+elif not shot or '"%s"' % shot not in (show("tools/capture/shot_paths.gd") or ""):
+    print("--shot=%s at %s" % (shot or "(none)", ref))
+PY
+  [ -z "${tape}" ] || [ -f "${CONTENT_DIR}/projects/${name}/tapes/${tape}.json" ] || echo "tape ${tape}"
 }
 
 # A shot id is a number with an optional letter (5b): 05b.
@@ -288,10 +366,10 @@ Write-Output ('rough: take t=0 at ' + \$t0.ToString('0.000') + ' s of the record
 EOF
 }
 
-# PowerShell that imports C:\dev\verify. Godot never re-imports a .glb when only
+# PowerShell that imports the checkout (C:\dev\verify in the template; pc_import_ps puts in PC_PROJECT). Godot never re-imports a .glb when only
 # the import hook changed, so a changed tools\import\ drops every .glb's md5 and the
 # filesystem cache (which otherwise skips the test) and imports twice (stale UIDs).
-PC_IMPORT=$(cat <<'PS'
+PC_IMPORT_TEMPLATE=$(cat <<'PS'
 $hook = (Get-ChildItem C:\dev\verify\tools\import -Filter '*.gd' | Sort-Object Name | Get-FileHash | ForEach-Object Hash) -join ''
 $stamp = 'C:\dev\verify\.godot\import_hook.stamp'
 $passes = 1
@@ -316,13 +394,19 @@ if ($bent) {
 PS
 )
 
-# pc_checkout <ref> : put the scratch worktree at <ref> and import it. Only ever
-# C:\dev\verify; the real checkout is never touched.
+pc_import_ps() {
+  T="${PC_IMPORT_TEMPLATE}" P="${PC_PROJECT}" python3 -c 'import os; p = os.environ["P"]; print(os.environ["T"]
+      .replace("C:\\dev\\content_import.txt", p + ".import.txt").replace("C:\\dev\\verify", p)
+      .replace("C:/dev/verify", p.replace("\\", "/")))'
+}
+
+# pc_checkout <ref> : put the scratch checkout (PC_PROJECT) at <ref> and import it.
+# The real checkout is never touched.
 pc_checkout() {
   pc <<EOF
-git -C C:/dev/verify checkout -q $1
-${PC_IMPORT}
-Write-Output ('verify at ' + (git -C C:/dev/verify log --oneline -1))
+git -C $(ff "${PC_PROJECT}") checkout -q $1
+$(pc_import_ps)
+Write-Output ('checkout at ' + (git -C $(ff "${PC_PROJECT}") log --oneline -1))
 EOF
 }
 

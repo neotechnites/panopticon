@@ -232,6 +232,9 @@ func _initialize() -> void:
 		"sync": 0,
 	})
 	_sync_frames = int(_options.get("sync", 0))
+	if _sync_frames > 0 and OS.has_feature("movie"):
+		_fail("run_clip refuses: a rough take (--sync) never films Movie Maker; --write-movie is a final's.")
+		return
 	if _sync_frames > 0:
 		_sync_cover = CanvasLayer.new()
 		_sync_cover.layer = 128
