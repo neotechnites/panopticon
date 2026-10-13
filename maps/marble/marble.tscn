@@ -380,8 +380,8 @@ transform = Transform3D(0.653173, 0, -0.757209, 0, 1, 0, 0.757209, 0, 0.653173, 
 
 
 [node name="ArcWall003" parent="Elements" instance=ExtResource("25_wall_arc_long")]
-editor_description = "A curved ashlar wall on the lip at 3.07 deg, r 47.3, 16.3 m along the lane, 7.6 m tall: cover from the tower."
-transform = Transform3D(0.998565, 0, -0.053556, 0, 1, 0, 0.053556, 0, 0.998565, 47.2321, 23.0, 2.5332)
+editor_description = "A curved ashlar wall on the lip at 3.6 deg (clear of the bars at 353), r 47.3, 16.3 m along the lane, 7.6 m tall: cover from the tower."
+transform = Transform3D(0.998027, 0, -0.062791, 0, 1, 0, 0.062791, 0, 0.998027, 47.2067, 23.0, 2.9700)
 
 [node name="ArcWall064" parent="Elements" instance=ExtResource("24_wall_arc")]
 editor_description = "A curved ashlar wall on the lip at 64.33 deg, r 47.3, 9.4 m along the lane, 7.6 m tall: cover from the tower."
@@ -404,11 +404,11 @@ editor_description = "A curved ashlar wall on the lip at 306.32 deg, r 47.3, 9.4
 transform = Transform3D(0.592294, 0, 0.805722, 0, 1, 0, -0.805722, 0, 0.592294, 28.0155, 23.0, -38.1106)
 
 [node name="SectionA" type="Node3D" parent="Elements"]
-editor_description = "TWO PATHS, 88.6..99.8 deg: a 4.6 m wall at r 51.45 splits the lane -- the inner path by the drop is open to the tower, the outer path behind the wall is covered but floored with three trapdoors whose levers stand on the inner path (runners trigger them on each other; the sniper can shoot a lever)."
+editor_description = "TWO PATHS, 90.0..101.25 deg: a 4.6 m wall at r 51.45 splits the lane -- the inner path by the drop is open to the tower, the outer path behind the wall is covered but floored with three trapdoors whose levers stand on the inner path (runners trigger them on each other; the sniper can shoot a lever)."
 
 [node name="LaneWall094" parent="Elements/SectionA" instance=ExtResource("26_wall_arc_lane")]
-editor_description = "The screen wall, four lane cells centred on 94.21875 deg; its outer face on the pits' edge at r 52."
-transform = Transform3D(-0.073565, 0, -0.997290, 0, 1, 0, 0.997290, 0, -0.073565, -3.7849, 23.0, 51.3106)
+editor_description = "The screen wall, four lane cells from the first pit's leading edge (90.00000 deg) on; its outer face on the pits' edge at r 52."
+transform = Transform3D(-0.098017, 0, -0.995185, 0, 1, 0, 0.995185, 0, -0.098017, -5.0430, 23.0, 51.2023)
 
 [node name="Trapdoor091" parent="Elements/SectionA" instance=ExtResource("27_trapdoor_outer")]
 editor_description = "Outer pit on the cell centred at 91.40625 deg (marble_build.TRAPDOOR_OUTER_BEARINGS), r 52.0..57.3, behind LaneWall094; its lever on the inner path at r 49.4, 2.5 m before it."
@@ -423,11 +423,11 @@ editor_description = "Outer pit on the cell centred at 97.03125 deg (marble_buil
 transform = Transform3D(-0.122411, 0, -0.992480, 0, 1, 0, 0.992480, 0, -0.122411, -6.6897, 23.0, 54.2390)
 
 [node name="SectionB" type="Node3D" parent="Elements"]
-editor_description = "SNIPER-ONLY TRAPDOORS, 274.2..285.4 deg: the same wall and three outer pits behind it, but no levers -- each pit's release is a bronze plate high on the wall's tower-facing side that only the rifle can hit."
+editor_description = "SNIPER-ONLY TRAPDOORS, 275.6..286.9 deg: the same wall and three outer pits behind it, but no levers -- each pit's release is a bronze plate high on the wall's tower-facing side that only the rifle can hit."
 
 [node name="LaneWall280" parent="Elements/SectionB" instance=ExtResource("26_wall_arc_lane")]
-editor_description = "The screen wall, four lane cells centred on 279.84375 deg; its outer face on the pits' edge at r 52."
-transform = Transform3D(0.170962, 0, 0.985278, 0, 1, 0, -0.985278, 0, 0.170962, 8.7960, 23.0, -50.6925)
+editor_description = "The screen wall, four lane cells from the first pit's leading edge (275.62500 deg) on; its outer face on the pits' edge at r 52."
+transform = Transform3D(0.195090, 0, 0.980785, 0, 1, 0, -0.980785, 0, 0.195090, 10.0374, 23.0, -50.4614)
 
 [node name="Trapdoor277" parent="Elements/SectionB" instance=ExtResource("28_trapdoor_plate")]
 editor_description = "Outer pit on the cell centred at 277.03125 deg (marble_build.TRAPDOOR_OUTER_BEARINGS), r 52.0..57.3, behind LaneWall280; its plate on the wall's inner face, 3.1 m up."

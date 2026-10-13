@@ -3,12 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-path="res://.godot/imported/marble_trapdoor_outer.glb-47c7c45c53a3f88fe87d988c47879651.scn"
+uid="uid://dkuk2gty8hj6q"
+path="res://.godot/imported/marble_trapdoor_outer.glb-27d5e58c2a250d5f910b06622729e2bc.scn"
 
 [deps]
 
 source_file="res://maps/marble/models/marble_trapdoor_outer.glb"
-dest_files=["res://.godot/imported/marble_trapdoor_outer.glb-47c7c45c53a3f88fe87d988c47879651.scn"]
+dest_files=["res://.godot/imported/marble_trapdoor_outer.glb-27d5e58c2a250d5f910b06622729e2bc.scn"]
 
 [params]
 

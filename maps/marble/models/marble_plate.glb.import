@@ -3,12 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-path="res://.godot/imported/marble_plate.glb-4216b1c4aa419bc9dcdaf5ea74716774.scn"
+uid="uid://d33bapehyas4d"
+path="res://.godot/imported/marble_plate.glb-717ef8f739d590db126327748ca68c8b.scn"
 
 [deps]
 
 source_file="res://maps/marble/models/marble_plate.glb"
-dest_files=["res://.godot/imported/marble_plate.glb-4216b1c4aa419bc9dcdaf5ea74716774.scn"]
+dest_files=["res://.godot/imported/marble_plate.glb-717ef8f739d590db126327748ca68c8b.scn"]
 
 [params]
 

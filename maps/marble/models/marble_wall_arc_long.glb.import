@@ -3,12 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-path="res://.godot/imported/marble_wall_arc_long.glb-4216b1c4aa419bc9dcdaf5ea74716774.scn"
+uid="uid://djw1fql4kgl01"
+path="res://.godot/imported/marble_wall_arc_long.glb-1ee42934851accfaff81d35cbb1bbaa0.scn"
 
 [deps]
 
 source_file="res://maps/marble/models/marble_wall_arc_long.glb"
-dest_files=["res://.godot/imported/marble_wall_arc_long.glb-4216b1c4aa419bc9dcdaf5ea74716774.scn"]
+dest_files=["res://.godot/imported/marble_wall_arc_long.glb-1ee42934851accfaff81d35cbb1bbaa0.scn"]
 
 [params]
 
