@@ -119,7 +119,7 @@ func _raise_the_hand() -> void:
 	if shooter == null or shooter.controller == null:
 		return
 	_guard = shooter.controller
-	LIB.guard_to_window(_guard, float(option("window", 115.0)), 5.6)
+	LIB.guard_to_window(_guard, float(option("window", 99.0)), 5.6)
 	LIB.open_the_scope(_guard, float(option("clear", 0.74)))
 	_hand = GUARD_HAND.new()
 	_hand.name = "ClipGuardHand"
@@ -128,7 +128,7 @@ func _raise_the_hand() -> void:
 	_hand.start_at = float(option("hand_at", 0.8))
 	_hand.beats.append({"body": _bodies[VICTIM], "seconds": 100.0, "fire_at": float(option("fire_at", 4.4)) - _hand.start_at, "watch": true})
 	_hand.park = LIB.ring_point(_start + float(option("park", 10.0)), 49.0, 0.6)
-	say("guard at the window on %.0f deg; the hand from %.2f s, squeeze at %.2f s" % [float(option("window", 115.0)), _hand.start_at, float(option("fire_at", 4.4))])
+	say("guard at the window on %.0f deg; the hand from %.2f s, squeeze at %.2f s" % [float(option("window", 99.0)), _hand.start_at, float(option("fire_at", 4.4))])
 
 
 func on_hit(collider: Node3D) -> void:
