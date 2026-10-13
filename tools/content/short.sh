@@ -95,4 +95,20 @@ mkdir -p "${MAC_DIR}"
 [ ! -e "${MAC_COPY}" ] || die "short.sh refuses: ${MAC_COPY} exists; delivery never overwrites (cut a new tag)"
 pc_pull "$(ff "${DIR}")/final/${TAG}.mp4" "${MAC_COPY}"
 stage deliver "${T0}"
+
+# The base version beside this one, 1 fps, each cell base | new: <project>_<tag>_vs_<base>.png.
+BASE=$(${V} base "${BRIEF}" "${TAG}")
+BASE_MP4=""
+for c in "${MAC_DIR}/${NAME}_${BASE}.mp4" "${MAC_DIR}/${NAME}_rough_${BASE}.mp4"; do [ -n "${BASE}" ] && [ -f "${c}" ] && BASE_MP4="${c}" && break; done
+if [ -n "${BASE_MP4}" ]; then
+  SHEET="${MAC_DIR}/${NAME}_${TAG}_vs_${BASE}.png"
+  DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "${MAC_COPY}" "${BASE_MP4}" | sort -n | tail -1)
+  ROWS=$(python3 -c "import math; print(max(1, math.ceil(math.ceil(${DUR}) / 10)))")
+  ffmpeg -hide_banner -loglevel error -y -i "${BASE_MP4}" -i "${MAC_COPY}" -filter_complex \
+    "[0:v]fps=1,scale=160:-2[a];[1:v]fps=1,scale=160:-2[b];[a][b]hstack,pad=iw+8:ih+8:4:4[p];[p]tile=10x${ROWS}" \
+    -frames:v 1 "${SHEET}"
+  echo "sheet ${SHEET}"
+else
+  echo "no sheet: base ${BASE:-none} not delivered in ${MAC_DIR}"
+fi
 echo "short ${NAME} ${TAG}: ${MAC_COPY} in $(since "${T_ALL}") (${TIMES[*]/%/;})"

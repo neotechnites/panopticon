@@ -7,6 +7,7 @@
     versions.py cut <brief> <tag> <NN>            # the cut shot NN plays in <tag> (03, 03_v2) or ''
     versions.py repoint <brief> <tag> <NN> <name> # in <tag> only: cuts/NN*.mp4 -> cuts/<name>.mp4
     versions.py shots <brief>                     # "<id> <refilm tags>" per filmed shot entry
+    versions.py base <brief> <tag>                # the tag <tag> was copied from (its from: line, else the one before)
 """
 import re
 import sys
@@ -71,10 +72,16 @@ def main():
         if len(sys.argv) > 5:
             nl = open(sys.argv[5], encoding="utf-8").read().strip("\n").split("\n")
             notes = ["notes: " + nl[0]] + nl[1:]
-        lines += ["", "## script %s" % tag] + notes + body + [""]
+        body = [ln for ln in body if not ln.startswith("from: ")]
+        lines += ["", "## script %s" % tag, "from: %s" % src] + notes + body + [""]
         with open(path, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
         print("## script %s: copy of %s" % (tag, src))
+    elif cmd == "base":
+        i = [s[0] for s in secs].index(find(secs, sys.argv[3])[0])
+        _, a, b = secs[i]
+        m = [ln[6:].strip() for ln in lines[a:b] if ln.startswith("from: ")]
+        print(m[0] if m else (secs[i - 1][0] if i > 0 else ""))
     elif cmd == "cut":
         _, a, b = find(secs, sys.argv[3])
         rx = cut_re(sys.argv[4])
