@@ -35,8 +35,8 @@ in: 0.6
 seconds: 5.2
 
 ## 8
-said: L7+L8 -- Ryan on v7: "the last shot shows the gaurd clipping into the map after being chucked, and shouldnt": v6_07_s1b refilmed (rs_live, s3_open_lane, seed 1, riding Runner_3) on the current build, 3 runners + the guard
-capture: --shot=s3_open_lane --stage=rs_live --pov=runner --bots=3 --seed=1 --shimmer=0 --set=ride=Runner_3
+said: L7+L8 -- Ryan on v7: "the last shot shows the gaurd clipping into the map after being chucked, and shouldnt": v6_07_s1b refilmed (rs_live, s3_open_lane, seed 2 (seed 1 with 3 runners: all three shot before the tower), riding Runner_3) on the current build, 3 runners + the guard
+capture: --shot=s3_open_lane --stage=rs_live --pov=runner --bots=3 --seed=2 --shimmer=0 --set=ride=Runner_3
 in: 0
 seconds: 50
 
