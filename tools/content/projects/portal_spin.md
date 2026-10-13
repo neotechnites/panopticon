@@ -28,9 +28,11 @@ L7 "Let me know what else you think i should add in the comments and it just mig
 
 ## 7
 said: L7, Ryan on v1-v7: "for the gameplay at the end ... choose other hell runner pov gameplay from the most recent build"; "the gaemplay at the end has the eye looking down, which it shouldnt"; v7 "its cuts randomly all the time, and shows the fucking portal, not fuckign spinning" -- [mine] hell, current build, runner POV running S2's inner lane a step behind the man the tower drops (near hit), then up at the eye, which tracks this runner the whole take; one take, no cut
-capture: --shot=s3_open_lane --stage=trailer_open --pov=runner --bots=3 --rifle=projectile --shimmer=0 --set=fire_at=3.24 --seed=20261001
-in: 0.9
-seconds: 5.0
+capture: --map=bentham_ring --shot=s3_open_lane --pov=runner --bots=7 --shimmer=0 --seed=20261012
+in: 1.5
+seconds: 6.0
+refilm: v10
+# v10 (Ryan on v9: "trailer shots are off limits"; "it shouldnt even be the same coreography just get some different gameplay"): a plain real bot match, no stage, ridden down a runner's eyes; eye tracks the POV (run_clip default).
 
 ## script v8
 voice: en-US-AndrewNeural +5%
@@ -108,3 +110,24 @@ captions_y: 0.72
 | l5b | cuts/s4_editor.mp4 | cont |  | line |  | that rotate the texture around its centre a little more every frame, so the whole swirl turns. |  |
 | l6 | cuts/s5_orbit.mp4 | 0 |  | line |  | What do you think? Should I keep this in or not? |  |
 | l7 | cuts/07.mp4 | 0 |  | line |  | Let me know what else you think I should add in the comments, and it just might make it into the final game! |  |
+
+## script v10
+# v9 (Ryan on L7, v1-v7): hell runner POV, current build, one take, eye on the POV. Only l7 changed.
+voice: en-US-AndrewNeural +5%
+music: voice/windmill_isle_day.mp3
+music_db: -18
+music_fade: 1.0 1.5
+pad: 0.2
+captions: pop
+captions_font: Impact
+captions_size: 64
+captions_y: 0.72
+| line | clip | in | len | fit | speed | text | card |
+| l1 | cuts/s1_zoom.mp4 | 0 |  | line |  | Do you think this change to my game is an improvement, or should I scrap it? |  |
+| l2 | external/forest_scope_haters02.mp4 | 0 |  | line |  | This guy on my last two shorts asked the same thing: make the portal spin. | external/comment_placeholder.png w=900 y=0.33 in=0.35 out=0.30 |
+| l3 | external/forest_scope_haters02.mp4 | cont |  | nohold |  | And you know what? I think that's a great idea. |  |
+| l4 | cuts/s3_wave.mp4 | 0 |  | line |  | This was simple. I already had the portal waving, using a modified version of what I used to make the lava wave. |  |
+| l5a | cuts/s4_editor.mp4 | 0 |  | line |  | All I had to do was add a few lines to that shader |  |
+| l5b | cuts/s4_editor.mp4 | cont |  | line |  | that rotate the texture around its centre a little more every frame, so the whole swirl turns. |  |
+| l6 | cuts/s5_orbit.mp4 | 0 |  | line |  | What do you think? Should I keep this in or not? |  |
+| l7 | cuts/07_v10.mp4 | 0 |  | line |  | Let me know what else you think I should add in the comments, and it just might make it into the final game! |  |
