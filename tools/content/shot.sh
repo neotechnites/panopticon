@@ -19,7 +19,8 @@
 # line is the same as hud: crosshair -- a guard POV keeps the crosshair, nothing
 # else is drawn on any shot), and file (a name: the same cut is also written on
 # its own, in the brief's aspect, to final\<file>.mp4 -- a shot handed over as a
-# clip, not a timeline).
+# clip, not a timeline). expect: lines (tools/content/expect.py) run the capture headless on the
+# Mac first, fixed fps, same seed; any miss stops here with the numbers and the PC is never touched.
 #
 # A short is filmed PORTRAIT through a temporary override.cfg in its own PC checkout
 # (C:\dev\worktrees\content_<project>, lib.sh pc_use_project); the
@@ -102,6 +103,22 @@ fi
 # No HUD on any shot unless the entry asks: hud: crosshair (a guard POV) or hud: on.
 if [ -n "${HUD}" ] && [[ "${CAPTURE}" != *--hud=* ]]; then CAPTURE="${CAPTURE} --hud=${HUD}"; fi
 echo "shot ${NN} -> cuts\\${OUT}.mp4 (${MODE} ${SIZE}): ${SAID}"
+
+# expect: lines (expect.py): the same capture headless on the Mac first, fixed fps, same seed; a miss never reaches the PC.
+EXPECT=$(awk -v n="${N}" '/^## / { inside = ($2 == n); next } inside && /^expect:/ { sub("^expect:[ \t]*", ""); print }' "${BRIEF}")
+if [ -n "${EXPECT}" ] && [ -n "${CAPTURE}" ]; then
+  SMOKE_LOG=$(mktemp -t "smoke_${NAME}_${NN}")
+  SMOKE_ARGS="${CAPTURE}"; [[ "${SMOKE_ARGS}" == *--seed=* ]] || SMOKE_ARGS="${SMOKE_ARGS} --seed=${SEED:-20260930}"
+  T0=$(now_ms)
+  STAGE_DEBUG=1 "${MAC_GODOT:-godot}" --headless --path "${REPO_DIR}" --fixed-fps "${FPS}" --script res://tools/capture/run_clip.gd -- \
+    ${SMOKE_ARGS} --seconds="$(python3 -c "print(${IN} + ${SECONDS_WANTED} + ${GAP} + 1.0)")" > "${SMOKE_LOG}" 2>&1 || true
+  IFS=$'\n' read -r -d '' -a EXPECT_LINES <<< "${EXPECT}" || true
+  if ! python3 "${CONTENT_DIR}/expect.py" "${SMOKE_LOG}" "${EXPECT_LINES[@]}"; then
+    die "shot ${NN}: the Mac smoke missed its expect: lines (log ${SMOKE_LOG}); nothing was filmed"
+  fi
+  echo "  smoke: passed on the Mac in $(since "$T0")"
+  rm -f "${SMOKE_LOG}"
+fi
 
 # Film only from this branch's own commit; the sync is outside the lock (it covers capture and assemble).
 if [ "$(pc <<< "git -C $(ff "${PC_PROJECT}") rev-parse HEAD" | tr -d '\r')" != "$(git -C "${REPO_DIR}" rev-parse HEAD)" ]; then
