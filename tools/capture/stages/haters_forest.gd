@@ -72,7 +72,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		# Eased onto him through the mouse: an unsteered chase snaps the view round (reads as a cut).
 		{"do": "steer", "on": true, "rate": 220.0, "gain": 7.0},
 		{"do": "chase", "victim": _victim, "range": 2.6, "timeout": 2.5, "speed": 1.0},
-		{"do": "glance", "right": 15.0, "pitch": 26.0, "seconds": 0.3},    # watch him go over
+		{"do": "glance", "right": 40.0, "pitch": -8.0, "seconds": 0.5, "smooth": true},    # watch him go over
 		{"do": "hold", "seconds": 60.0},
 	])
 	drive(runners[0], shover_steps, 0, "ClipShoverDriver")

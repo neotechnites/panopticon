@@ -51,6 +51,12 @@ seconds: 5.5
 in: 1.0
 refilm: v6
 
+## 7
+said: v6 take 2 of shot 6: after the shove the POV's head comes round (eased, right 40, down 8) onto the drop so the fall is in frame. haters_forest.gd.
+capture: --shot=s3_open_lane --stage=haters_forest --map=forest --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261012
+seconds: 5.5
+in: 1.0
+
 ## script v1
 captions: stack
 captions_size: 64
@@ -169,4 +175,4 @@ music_fade: 0.01 1
 | r0 | cuts/04_v3.mp4 | 0 | | beat 0.6 | | | |
 | r1 | cuts/04_v3.mp4 | cont | | beat 2.2 | | Yeah... | |
 | r2 | cuts/04_v3.mp4 | cont | | beat 2.0 | | Thats kinda the point... | |
-| f0 | cuts/06_v6.mp4 | 0 | | beat 5.5 | | | |
+| f0 | cuts/07.mp4 | 0 | | beat 5.5 | | | |
