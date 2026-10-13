@@ -275,4 +275,4 @@ music_fade: 0.01 1
 | r0 | cuts/04_v3.mp4 | 0 | | beat 0.6 | | | |
 | r1 | cuts/04_v3.mp4 | cont | | beat 2.2 | | Yeah... | |
 | r2 | cuts/04_v3.mp4 | cont | | beat 0.45 | | Thats kinda the point... | |
-| f0 | cuts/12.mp4 | 0 | | beat 5.5 | | | |
+| f0 | cuts/11.mp4 | 0 | | beat 3.2 | | | |
