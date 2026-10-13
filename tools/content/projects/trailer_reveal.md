@@ -1179,3 +1179,7 @@ captions: none
 
 ## script rough_v45
 # v45 (Ryan on v44: "you dropped the 4 drum beats, keep those at the beggining. also you ruined the end, becasue it doesnt phase out on a beat like it used to."): drop-section melody stem (song 56.773-61.083, ends on a bar line), the master's drum bar (17.893), the drop at 5.703 (aligned to v27-v42 to the sample), melody stem alone from the beat at the final title card (42.971).
+
+## script rough_v46
+# v46 (Ryan on v45: "when the melody plays a note, is when all but the melody should fall off"): v45 with the melody-alone tail from the melody note at song 56.290 (trailer 42.706, 0.33 s before the final title card).
+# rough_v47_songstart (Ryan: "give me a version that starts at the beggining of the song, right when the melody fades out, right before the drums start to come in quietly"): the master from song 9.534 (a bar line, 0.9 s before the drums), 4.05 s of black before v42's picture so the drop stays on the title; same tail as v46. The black is a placeholder until the opening is re-cut.
