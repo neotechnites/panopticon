@@ -20,12 +20,13 @@ seconds: 7.8
 in: 3.0
 
 ## 3
-said: v2: guard scope POV in hell (current build) tracking 3 runners; the shot lands on a runner as the third comment appears. One match, 1 guard + 3 runners, taped. v5: in 1.17 -> 1.67, the scope up on the first frame.
+said: v2: guard scope POV in hell (current build) tracking 3 runners; the shot lands on a runner as the third comment appears. One match, 1 guard + 3 runners, taped. v5: in 1.17 -> 1.67, the scope up on the first frame; motion floor 0.012, a held scope tracking runners (0.0158 measured).
 capture: --shot=s3_open_lane --stage=haters_hell --pov=guard --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261012
 tape: haters_v3
 hud: crosshair
 seconds: 5.0
 in: 1.67
+motion: 0.012
 refilm: v5
 
 ## 4
