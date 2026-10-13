@@ -84,6 +84,7 @@ extends SceneTree
 const SHOTS := preload("res://tools/capture/shot_paths.gd")
 const CHAIN_STAGE := preload("res://tools/capture/chain_stage.gd")
 const CLIP_TAPE := preload("res://tools/capture/clip_tape.gd")
+const LENS_PROBE := preload("res://tools/capture/lens_probe.gd")
 const STAGE_DRIVER := preload("res://tools/capture/stage_driver.gd")
 const STAGE_LIB := preload("res://tools/capture/stages/lib.gd")
 const STAGES_DIR: String = "res://tools/capture/stages/"
@@ -198,6 +199,7 @@ var _dials: Dictionary = {}
 var _tape: RefCounted = null
 var _built: bool = false
 var _done: bool = false
+var _lens: RefCounted = null
 var _exit_code: int = EXIT_OK
 
 
@@ -305,9 +307,12 @@ func _process(delta: float) -> bool:
 			var progress: float = clampf((_elapsed - _delay) / _seconds, 0.0, 1.0)
 			_aim_camera(_key_start + progress * _key_span)
 		_turn_the_eye(delta)
+	_probe_the_lens()
 	if _elapsed >= _delay + _seconds:
 		if _tape != null:
 			_tape.finish()
+		if _lens != null:
+			_lens.free_space()
 		_hush()
 		_done = true
 	return false
@@ -941,6 +946,19 @@ func _log_the_lens(delta: float) -> void:
 	var top: float = body.profile.ground_speed * body.speed_scale * body.run_speed_scale
 	var at: Vector3 = lens.global_position
 	print("[cam] %.4f %.4f %.3f %.4f %.4f %.4f" % [_elapsed, delta, top, at.x, at.y, at.z])
+
+
+## One [lens] line per frame for expect.py's lens_clear and lens_cover: metres to the nearest thing, frame share within 2 m.
+func _probe_the_lens() -> void:
+	var viewer: Camera3D = root.get_camera_3d()
+	if viewer == null or _controller == null:
+		return
+	if _lens == null:
+		_lens = LENS_PROBE.new()
+		_lens.build(_controller.get_parent())
+		print("[lens] probe: %d meshes, %d triangles" % [_lens.meshes, _lens.triangles])
+	var seen: Dictionary = _lens.measure(viewer, _pov_body)
+	print("[lens] %.3f near=%.2f cover=%.2f" % [_elapsed, seen["near"], seen["cover"]])
 
 
 func _log_events() -> void:
