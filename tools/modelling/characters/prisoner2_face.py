@@ -290,4 +290,5 @@ def main():
     print("FACE wrote", GLB, "tris", len(me.polygons))
 
 
-main()
+if __name__ == "__main__":
+    main()
