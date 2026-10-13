@@ -139,17 +139,7 @@ BAR_D = 0.5                 # ... standing on the sill this far into the reveal,
 BAND_Z = (7.4, 8.0)         # the tier cornice, over the tier base; its top is the next tier's base
 SLAB_BAND_Z = (SLAB_Z0 - TIER_BASE[SLAB_TIER], TIER_H)   # (7.0, 8.0): the slab tier's, one metre thick
 BAND_PROUD = 0.45           # ... as proud as the pilasters, which run up into it
-DRUM_BAYS = 40              # the drum's own stations over the top tier (2026-10-09): 7.4 m bays, a window in every fifth
-DRUM_BAND = 0.6             # the courses that zipper the drum's 40 bays onto the wall's 50, foot and head
-WINDOW_EVERY, WINDOW_PHASE = 5, 2   # eight windows, every fifth drum bay, each under a dome rib
-WINDOW_W = 6.0              # window mouth ...
-WINDOW_JAMB = 8.0           # ... jamb height, sill to springing; head r 3.0: 11 m tall
-WINDOW_SILL = 1.0           # sill over the drum's foot band
-WINDOW_D = 1.0              # the glazing this far into the drum
-WINDOW_BARS = 3             # mullions, and a transom under the springing ...
-WINDOW_BAR_HW = 0.07        # ... 0.14 m square
-DRUM_H = 2.0 * DRUM_BAND + WINDOW_SILL + WINDOW_JAMB + WINDOW_W / 2.0 + 1.0   # 14.2: 55.0 .. 69.2
-FRIEZE_Z = (TIER_BASE[-1] + TIER_H, TIER_BASE[-1] + TIER_H + DRUM_H)  # the drum
+FRIEZE_Z = (TIER_BASE[-1] + TIER_H, TIER_BASE[-1] + TIER_H + 1.8)     # 55.0 .. 56.8, Greek key
 CORNICE_Z = (FRIEZE_Z[1], FRIEZE_Z[1] + 1.0)                          # 56.8 .. 57.8, the great cornice
 CORNICE_PROUD = 0.8
 # The corridor: the lane tier stays at WALL_R; the tiers under and over it stand in at WALL_IN_R,
@@ -353,7 +343,7 @@ SHEETS = {
                       roughness=ROUGHNESS, stem="marble_pit", mode="box"),   # the pit floor: its own tile, brick density
     "spike": stone("spike", mode="box", mpt=tx.MPT),
     "floor": tile("floor", "marble_floor", "fit", 64, 64, mpt=2.7 / 64.0),
-    "frieze": brick("frieze", **_WALL),          # the drum: ashlar, as the piers
+    "frieze": stone("frieze", ref_r=WALL_IN_R),   # unruled; the Greek key was tile("frieze", <its file>, "fit", 256, 64)
     "column": column_sheet(),
     "band": band_sheet(),
     "iron": iron_sheet(),
