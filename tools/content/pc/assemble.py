@@ -49,12 +49,13 @@ clip fits the line (the v6 retime of the shove short, generalised):
 Captions: pop = word by word under the voice; stack = each row's text as a quote
 ("..."), shown from the row's start to the end of the cut, each in its own slot of
 the band, top down, never overlapping (a band too full fails); none = no captions.
+Both appear and go instantly: no fade, scale, slide or alpha ramp. Stack fills from the top of the frame.
 
 A fit compares the clip's seconds ON SCREEN (source / speed) with the slot.
 
 Script header: music: <path under the project>  music_db: -18  music_fade: 1 1.5
 pad: 0.2  captions: pop|stack|none  captions_font: Impact  captions_size: 64 (stack 52)
-captions_y: 0.72 (pop, fraction of the height)  captions_band: 0.55 0.92 (stack)
+captions_y: 0.72 (pop, fraction of the height)  captions_band: 0.06 0.55 (stack; top <= 0.1)
 captions_plain: l4 l5 (stack rows shown without quote marks)  captions_reset: l3 (stack: at that
 row's start every earlier quote ends and the slots restart at the top of the band)
 size: 1920x1080 (default 1080x1920)  game: 0.25 (each take's own sound under the
@@ -92,6 +93,7 @@ LOSSLESS = ["-c:v", "libx264rgb", "-preset", "veryfast", "-qp", "0"]
 TAGS = ["-color_range", "tv", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709"]
 MUSIC_DUCK = 0.3      # music ramp-down before a window's audio
 MUSIC_BACK = 0.5      # music ramp-up after it
+STACK_TOP_MAX = 0.1   # a stack band starts within the top tenth of the frame
 WINDOW_FADE = 0.3     # the window audio's own fade-out, ending at `end`
 
 
@@ -670,7 +672,10 @@ def refuse_trailer(project, key, src):
 def caption_band(head, style):
     """The pixel rows captions may use: pop around captions_y, stack the captions_band."""
     if style == "stack":
-        a, b = (float(v) for v in head.get("captions_band", "0.55 0.92").split())
+        a, b = (float(v) for v in head.get("captions_band", "0.06 0.55").split())
+        if a > STACK_TOP_MAX:
+            raise SystemExit("assemble refuses captions_band %s: stack captions fill from the top of the frame (top <= %s)"
+                             % (head["captions_band"], STACK_TOP_MAX))
         return a * H, b * H
     size = int(head.get("captions_size", 64))
     y = H * float(head.get("captions_y", 0.72))
@@ -720,7 +725,7 @@ def build_stack(rows, starts, words_all, head, band, total):
         t_on = starts[key] + (max(0.0, ws[0]["t"]) if ws else 0.0)
         t_off = next((r for r in resets if r > t_on + 1e-6), total)
         body = "\\N".join(lines)
-        events.append("Dialogue: 0,%s,%s,Pop,,0,0,0,,{\\an8\\pos(%d,%d)\\fad(120,0)\\blur0.6}%s"
+        events.append("Dialogue: 0,%s,%s,Pop,,0,0,0,,{\\an8\\pos(%d,%d)\\blur0.6}%s"
                       % (ass_time(t_on), ass_time(t_off), W // 2, int(round(y)), body))
         y += height + gap
     info = "captions: stack, %d quotes, font %s %dpx, band %.0f-%.0f px, last slot ends %.0f px" % (
@@ -729,7 +734,7 @@ def build_stack(rows, starts, words_all, head, band, total):
 
 
 def build_ass(starts, words_all, head):
-    """Pop-in word captions: 2-3 word chunks, uppercase, the current word yellow with a scale pop."""
+    """Word captions: 2-3 word chunks, uppercase, the current word yellow; every change is instant."""
     font = head.get("captions_font", "Impact")
     size = int(head.get("captions_size", 64))
     y = int(H * float(head.get("captions_y", 0.72)))
@@ -794,7 +799,7 @@ def build_ass(starts, words_all, head):
                 parts = []
                 for k, x in enumerate(grp):
                     if k == j:
-                        parts.append("{\\c" + yellow + "\\fscx80\\fscy80\\t(0,60,\\fscx110\\fscy110)\\t(60,120,\\fscx100\\fscy100)}" + x["w"] + "{\\r}")
+                        parts.append("{\\c" + yellow + "}" + x["w"] + "{\\r}")
                     else:
                         parts.append("{\\c" + white + "}" + x["w"] + "{\\r}")
                 text = "{\\an5\\pos(%d,%d)\\blur0.6}" % (W // 2, y) + " ".join(parts)
