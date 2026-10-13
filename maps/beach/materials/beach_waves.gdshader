@@ -62,11 +62,11 @@ vec3 train(float s, float h, float t, float period, float travel, float seed, fl
 	float e = 0.24 * (noise2(vec2(s / 2.0, h / 0.9) + vec2(seed * 3.0 + t * 0.02, seed * 5.0)) - 0.5);   // the edge's scallops
 	float d = front - h + e;                               // metres behind the wave's front
 	float wash = smoothstep(-0.06, 0.12, d) * (1.0 - smoothstep(0.25, 1.1, d));
-	float lace = 0.0;   // the drawn wave foam behind the front, cut by a wandering threshold: patches, thin in places
-	if (d >= 0.0 && d <= 3.2) {
-		float cut = mix(0.18, 0.62, noise2(vec2(s / 2.4, h / 1.1) + vec2(seed * 9.0, t * 0.06)));
-		lace = smoothstep(cut - 0.12, cut + 0.12, texture(foam, vec2(u + seed, d / 3.2)).r);
-	}
+	// the drawn wave foam behind the front, cut by a wandering threshold: patches, thin in places,
+	// fading to 0 alpha over a soft band at each edge rather than stopping on a hard line
+	float cut = mix(0.18, 0.62, noise2(vec2(s / 2.4, h / 1.1) + vec2(seed * 9.0, t * 0.06)));
+	float lace = smoothstep(cut - 0.12, cut + 0.12, texture(foam, vec2(u + seed, d / 3.2)).r);
+	lace *= smoothstep(-0.3, 0.0, d) * (1.0 - smoothstep(3.2, 3.5, d));
 	float f = max(wash * 0.85, lace * 0.95) * fade;
 	float sheet = d >= 0.0 ? 0.32 * (1.0 - smoothstep(1.2, 3.0, d)) * max(fade, 0.3) : 0.0;
 	sheet *= smoothstep(-1.2, 0.1, h);
