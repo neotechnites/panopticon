@@ -10,3 +10,6 @@ for haters, literally what the fuck is the last scene. why do you keep giving me
 
 ## v6 | haters_v6.mp4 | 2026-10-12 19:50
 holy fuck. youre still fucking using the reatrded fucking forest shot with a million cuts in it. and i said hell runs longer, you made it run its full fucking length to the part where the fucking runner runs into the fucking wall
+
+## v6 | haters_v6.mp4 | 2026-10-12 19:52
+youre right its not cuts, its the fucking runner moving camera positions instantaneously
