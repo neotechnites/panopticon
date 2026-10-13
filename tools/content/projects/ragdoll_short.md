@@ -14,11 +14,19 @@ in: 1.0
 seconds: 10.6
 
 ## 5
-said: L5 "these are pretty janky..." -- Ryan: "replace the gameplay of the hitting shots montage to be in the forest": guard scope over seven live-brain runners on the forest lap, tracer rounds, the hits ragdolling them
-capture: --shot=s3_open_lane --stage=forest_hunt --pov=guard --bots=7 --seed=20261012 --shimmer=0 --set=lift=0;scan=1
+said: L5 "these are pretty janky..." -- Ryan: "replace the gameplay of the hitting shots montage to be in the forest": part 1, the trailer's forest pack (F2) from the guard's scope at the 45 deg window, the victim dropped in the trunk gap (squeeze 3.55 s)
+# forest_hunt (scope_hunt's live brains on the forest) came back blind: its windows and kill stretch are map 1's.
+capture: --map=forest --shot=pack_lead --stage=trailer_forest_pack --pov=guard --bots=3 --seed=20261012 --shimmer=0
 hud: crosshair
 in: 1.5
-seconds: 6.8
+seconds: 3.4
+
+## 7
+said: L5 part 2: the same pack stage at the 92 deg window (zone 2, trailer 5g's args), a second runner dropped (squeeze 3.15 s)
+capture: --map=forest --shot=pack_lead --stage=trailer_forest_pack --pov=guard --bots=3 --seed=20261012 --shimmer=0 --set=lift=1;fire=3.15;zone=2
+hud: crosshair
+in: 1.2
+seconds: 3.4
 
 ## 6
 said: L6 "Now when you shove someone, they also ragdoll." -- Ryan: "run that exactly how it was and just fix the eye thing": v6_06_pit5's stage, args and seed, the tower eye on the POV runner (run_clip's own POV eye tracking)
@@ -60,7 +68,7 @@ captions_y: 0.72
 | M2 | rough_v8/lines/M2.mkv@0:2.45 |  |  | beat 2.45 |  |  |  |
 | L3 | 03_old_hell_zoomout.mp4@4.15 |  |  | line |  | Yeaeeeeeeeh I needed something better, but if my art didnt make it clear, I'm a programmer, not an animator |  |
 | L4 | cuts/04.mp4@0.57 |  |  | line |  | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem. Ragdolls | cards/L4_card0.png w=940 y=0.2 |
-| L5 | cuts/05.mp4@0 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
+| L5 | cuts/05.mp4@0:3.2,cuts/07.mp4@0 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
 | L6 | cuts/06.mp4@0 |  |  | line |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
 | L7 | v6_07_s1b.mp4@31.35 |  |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
 | L8 | v6_07_s1b.mp4@36.3167:0.7833,v6_05_s12.mp4@4.0 |  |  | line |  | Let me know what else I should add in the comments |  |
