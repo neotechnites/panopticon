@@ -46,5 +46,5 @@ music_fade: 0.01 1
 | b3 | cuts/01.mp4 | cont | | beat 2.0 | | Youre art looks like its from the n64/ps1 | |
 | r0 | cuts/02.mp4 | 0 | | beat 0.6 | | | |
 | r1 | cuts/02.mp4 | cont | | beat 2.2 | | Yeah... | |
-| r2 | cuts/02.mp4 | cont | | beat 0.9 | | Thats kinda the point... | |
+| r2 | cuts/02.mp4 | cont | | beat 0.45 | | Thats kinda the point... | |
 | f0 | cuts/03.mp4 | 0 | | beat 3.43 | | | |
