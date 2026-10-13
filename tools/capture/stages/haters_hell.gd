@@ -6,8 +6,8 @@ extends "res://tools/capture/stages/stage.gd"
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
 ## Lead (pit side, just ahead of the POV), victim (outside, a step ahead), POV: the tower look stays clear.
-const RADII: Array[float] = [47.4, 49.6, 48.4]
-const STAGGER: Array[float] = [2.6, 1.2, 0.0]
+const RADII: Array[float] = [47.3, 48.9, 48.1]
+const STAGGER: Array[float] = [2.2, 1.0, 0.0]
 const PACE: Array[float] = [0.70, 0.71, 0.70]
 const WEAVE: Array[float] = [0.02, 0.04, 0.03]
 const PERIOD: Array[float] = [1.3, 1.5, 1.7]
@@ -56,7 +56,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			"weave": WEAVE[index], "period": PERIOD[index], "timeout": 30.0,
 		}
 		if index == LEAD:
-			lane["timeout"] = hit + float(option("lead_stop", 3.8)) - cast_at
+			lane["timeout"] = hit + float(option("lead_stop", 3.4)) - cast_at
 		if index == POV:
 			# Eyes up the lane and on the men ahead; never back. On the hit: a jerk, then up at the tower.
 			lane["glances"] = [
@@ -76,7 +76,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 				{"t": 0.32, "right": up_right, "pitch": up_pitch},
 				{"t": 1.9, "right": 16.0, "pitch": -6.0},
 			]
-			lane["timeout"] = hit + float(option("shove_go", 3.1)) - cast_at
+			lane["timeout"] = hit + float(option("shove_go", 2.6)) - cast_at
 		var steps: Array = [
 			{"do": "place", "at": LIB.ring_point(deg, RADII[index], 0.1), "face": LIB.tangent_at(deg)},
 			{"do": "human", "on": true},
@@ -84,7 +84,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			{"do": "hold", "seconds": 60.0, "fidget": true},
 		]
 		if index == POV:
-			steps[3] = {"do": "chase", "victim": runners[LEAD].controller, "range": 1.5, "timeout": 4.0}
+			steps[3] = {"do": "chase", "victim": runners[LEAD].controller, "range": 2.0, "timeout": 4.0}
 			steps.append({"do": "hold", "seconds": 60.0})
 		drive(runners[index], steps, index)
 		_bodies.append(runners[index].controller)
