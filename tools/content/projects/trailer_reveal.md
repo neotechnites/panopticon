@@ -1176,3 +1176,6 @@ captions: none
 
 ## script rough_v44
 # v44 (Ryan on v43: "the ending is sick though, just time it to the final title drop not some random clip cut. take that same melody without the drums, and stick it at the begginng before the drop"): v42 picture; melody stem alone before the drop (song 55.404-61.107, 4 bars ending on a bar line), master from the drop at 5.703, melody stem alone from the final title card at 43.033.
+
+## script rough_v45
+# v45 (Ryan on v44: "you dropped the 4 drum beats, keep those at the beggining. also you ruined the end, becasue it doesnt phase out on a beat like it used to."): drop-section melody stem (song 56.773-61.083, ends on a bar line), the master's drum bar (17.893), the drop at 5.703 (aligned to v27-v42 to the sample), melody stem alone from the beat at the final title card (42.971).
