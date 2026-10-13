@@ -1,29 +1,60 @@
 #!/usr/bin/env bash
 # One version of a short, end to end: sync, voice, the shots it lacks, assemble, delivered to the Mac.
 # A shot is filmed when its cut is missing or its entry says `refilm: <tag>`; --final films every shot --movie.
+# --plan lists every shot (reuse / film / NO STAGE / REFUSED) and exits, non-zero on NO STAGE or REFUSED.
 #
-#   tools/content/short.sh <project> [--tag vN] [--final]
+#   tools/content/short.sh <project> [--tag vN] [--final] [--plan]
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
-USAGE="usage: tools/content/short.sh <project> [--tag vN] [--final]"
+USAGE="usage: tools/content/short.sh <project> [--tag vN] [--final] [--plan]"
 BRIEF=$(brief_path "${1:?${USAGE}}")
 NAME=$(basename "${BRIEF}" .md)
 DIR=$(project_dir "${NAME}")
 V="python3 ${CONTENT_DIR}/versions.py"
-TAG=""; FINAL=0
+TAG=""; FINAL=0; PLAN=0
 shift
 while [ $# -gt 0 ]; do
-  case "$1" in --tag) TAG="$2"; shift ;; --final) FINAL=1 ;; *) die "unknown option $1 (${USAGE})" ;; esac
+  case "$1" in --tag) TAG="$2"; shift ;; --final) FINAL=1 ;; --plan) PLAN=1 ;; *) die "unknown option $1 (${USAGE})" ;; esac
   shift
 done
 TAG="${TAG:-$(${V} last "${BRIEF}")}"
 TAG="${TAG:-v1}"
-${V} has "${BRIEF}" "${TAG}" || "${CONTENT_DIR}/version.sh" "${BRIEF}" "${TAG}"
+${V} has "${BRIEF}" "${TAG}" || die "short.sh refuses: no ## script ${TAG}; make it with tools/content/version.sh ${NAME} ${TAG} --from <tag Ryan watched>"
+MAC_DIR="${HOME}/Desktop/panopticon-renders/content/shorts/${NAME}"
+MAC_COPY="${MAC_DIR}/${NAME}_${TAG}.mp4"
+[ ! -e "${MAC_COPY}" ] || die "short.sh refuses: ${MAC_COPY} exists; delivery never overwrites (cut a new tag)"
+
+# --plan: what each shot of ${TAG} would do, before anything runs.
+if [ "${PLAN}" = 1 ]; then
+  HAVE=""; LISTED=0; BAD=0
+  while read -r ID REFILM; do
+    [ -n "${ID}" ] || continue
+    NN=$(pad2 "${ID}")
+    CUT=$(${V} cut "${BRIEF}" "${TAG}" "${NN}")
+    [ -n "${CUT}" ] || continue
+    WHY=$(shot_refusal "${BRIEF}" "${ID}")
+    [ "${FINAL}" = 1 ] || [[ " $(brief_field "${BRIEF}" "${ID}" capture) " != *" --write-movie"* ]] || WHY="movie: a rough take never films Movie Maker"
+    if [ -n "${WHY}" ]; then echo "shot ${NN}: REFUSED ${WHY}"; BAD=1; continue; fi
+    if [ "${FINAL}" = 0 ] && [[ " ${REFILM} " != *" ${TAG} "* ]]; then
+      if [ "${LISTED}" = 0 ]; then
+        HAVE=$(pc <<PS | tr -d '\r'
+Get-ChildItem '${DIR}\\cuts' -Filter '*.mp4' -File -EA SilentlyContinue | ForEach-Object { \$_.BaseName }
+PS
+) || die "short.sh --plan: cannot list the PC's cuts"
+        LISTED=1
+      fi
+      if grep -qx "${CUT}" <<< "${HAVE}"; then echo "shot ${NN}: reuse ${CUT}"; continue; fi
+    fi
+    LACK=$(stage_missing "${BRIEF}" "${ID}")
+    if [ -n "${LACK}" ]; then echo "shot ${NN}: NO STAGE (${LACK//$'\n'/, })"; BAD=1; else echo "shot ${NN}: film (stage exists)"; fi
+  done <<< "$(${V} shots "${BRIEF}")"
+  exit "${BAD}"
+fi
 T_ALL=$(now_ms); TIMES=()
 stage() { TIMES+=("$1 $(since "$2")"); echo "== $1: $(since "$2")"; }
 
-pc_lock "short ${NAME}"   # one short owns C:\dev\verify from sync to assemble
+pc_use_project "${NAME}"   # its own PC checkout; the lock is taken per capture and per assemble
 T0=$(now_ms); "${CONTENT_DIR}/sync.sh"; stage sync "${T0}"
 
 if python3 -c "import sys; sys.path.insert(0, '${CONTENT_DIR}/pc'); import brief as b; p = b.parse('${BRIEF}'); s = p['scripts'].get('${TAG}') or p['script']; sys.exit(0 if b.voice_rows(s) else 1)"; then
@@ -60,8 +91,8 @@ done <<< "$(${V} shots "${BRIEF}")"
 T0=$(now_ms); "${CONTENT_DIR}/assemble.sh" "${BRIEF}" --tag "${TAG}"; stage assemble "${T0}"
 
 T0=$(now_ms)
-MAC_DIR="${HOME}/Desktop/panopticon-renders/content/shorts/${NAME}"
 mkdir -p "${MAC_DIR}"
-pc_pull "$(ff "${DIR}")/final/${TAG}.mp4" "${MAC_DIR}/${NAME}_${TAG}.mp4"
+[ ! -e "${MAC_COPY}" ] || die "short.sh refuses: ${MAC_COPY} exists; delivery never overwrites (cut a new tag)"
+pc_pull "$(ff "${DIR}")/final/${TAG}.mp4" "${MAC_COPY}"
 stage deliver "${T0}"
-echo "short ${NAME} ${TAG}: ${MAC_DIR}/${NAME}_${TAG}.mp4 in $(since "${T_ALL}") (${TIMES[*]/%/;})"
+echo "short ${NAME} ${TAG}: ${MAC_COPY} in $(since "${T_ALL}") (${TIMES[*]/%/;})"

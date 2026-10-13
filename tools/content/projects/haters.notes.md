@@ -1,0 +1,3 @@
+## v1 | haters_v1.mp4 | 2026-10-12 18:30
+that gameplay for hater is the worst shit ive ever seen, and they way you phase in words looks retarded. they should just slam on screen, and they should start at the top and go to the bottom. gameplay should not have more than 4 players total, including the gaurd. ... you just strated a match with a shit ton of runners, and i think the pov cam gets shot, but his cam doesnt follow his body ... we need to have sniper footage on the second half, and the runner footage and sniper footage should be two perspectives of the same game.
+dont take slam to mean anything other than not phasing in.
