@@ -35,17 +35,19 @@ in: 0.6
 seconds: 5.2
 
 ## 8
-said: L7+L8 -- Ryan on v7: "the last shot shows the gaurd clipping into the map after being chucked, and shouldnt": v6_07_s1b refilmed (rs_live, s3_open_lane, seed 2 (seed 1 with 3 runners: all three shot before the tower), riding Runner_3) on the current build, 3 runners + the guard
-capture: --shot=s3_open_lane --stage=rs_live --pov=runner --bots=3 --seed=2 --shimmer=0 --set=ride=Runner_3
+said: L7+L8 -- Ryan on v7: "the last shot shows the gaurd clipping into the map after being chucked, and shouldnt": v6_07_s1b refilmed (rs_live, s3_open_lane, seed 2 (seed 1 with 3 runners: all three shot before the tower), riding Runner_1, who takes the tower with seed 2) on the current build, 3 runners + the guard
+capture: --shot=s3_open_lane --stage=rs_live --pov=runner --bots=3 --seed=2 --shimmer=0 --set=ride=Runner_1
 in: 0
 seconds: 50
+refilm: v10
 
 ## 9
 said: L5 -- Ryan: "replace the gameplay of the hitting shots montage to be in the forest": a plain bot match on the forest, the shipped bot guard's scope, 3 runners
-capture: --map=forest --shot=s3_open_lane --stage=rs_live --pov=guard --bots=3 --seed=20261012 --shimmer=0 --set=lift=0
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --pov=guard --bots=3 --seed=7 --shimmer=0 --set=lift=1
 hud: crosshair
 in: 0
-seconds: 60
+seconds: 45
+refilm: v10
 
 ## script v8
 # v8 as delivered (cp.render, rough_v8\edl.json): voice + 0.25 s per line, frame-snapped.
@@ -100,7 +102,7 @@ captions_y: 0.72
 | M2 | rough_v8/lines/M2.mkv@0:2.45 |  |  | beat 2.45 |  |  |  |
 | L3 | 03_old_hell_zoomout.mp4@4.15 |  |  | line |  | Yeaeeeeeeeh I needed something better, but if my art didnt make it clear, I'm a programmer, not an animator |  |
 | L4 | cuts/04.mp4@0.57 |  |  | line |  | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem. Ragdolls | cards/L4_card0.png w=940 y=0.2 |
-| L5 | cuts/09.mp4@999 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
+| L5 | cuts/09_v10.mp4@999 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
 | L6 | cuts/06.mp4@0 |  |  | line |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
-| L7 | cuts/08.mp4@999 |  |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
-| L8 | cuts/08.mp4 | cont |  | line |  | Let me know what else I should add in the comments |  |
+| L7 | cuts/08_v10.mp4@999 |  |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
+| L8 | cuts/08_v10.mp4 | cont |  | line |  | Let me know what else I should add in the comments |  |
