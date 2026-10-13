@@ -197,6 +197,31 @@ PY
   fi
 }
 
+# stage_missing <brief> <n> : what shot n's capture names that its ref (or HEAD) lacks, else nothing.
+stage_missing() {
+  local brief="$1" n="$2" name capture tape ref
+  name=$(basename "${brief}" .md)
+  capture=$(brief_field "${brief}" "${n}" capture)
+  tape=$(brief_field "${brief}" "${n}" tape)
+  ref=$(brief_field "${brief}" "${n}" ref HEAD)
+  [ -n "${capture}" ] || return 0
+  python3 - "${REPO_DIR}" "${ref}" "${capture}" <<'PY'
+import re, subprocess, sys
+repo, ref, cap = sys.argv[1:4]
+arg = lambda k: (re.findall(r"(?:^|\s)--%s=(\S+)" % k, cap) or [None])[-1]
+def show(path):
+    r = subprocess.run(["git", "-C", repo, "show", "%s:%s" % (ref, path)], capture_output=True, text=True)
+    return r.stdout if r.returncode == 0 else None
+stage, shot = arg("stage"), arg("shot")
+if stage and show("tools/capture/stages/%s.gd" % stage) is None and \
+        '"%s"' % stage not in (show("tools/capture/stage_driver.gd") or "") + (show("tools/capture/run_clip.gd") or ""):
+    print("--stage=%s at %s" % (stage, ref))
+elif not shot or '"%s"' % shot not in (show("tools/capture/shot_paths.gd") or ""):
+    print("--shot=%s at %s" % (shot or "(none)", ref))
+PY
+  [ -z "${tape}" ] || [ -f "${CONTENT_DIR}/projects/${name}/tapes/${tape}.json" ] || echo "tape ${tape}"
+}
+
 # A shot id is a number with an optional letter (5b): 05b.
 pad2() { local n="${1%%[!0-9]*}"; printf '%02d%s' "$((10#${n}))" "${1#"${n}"}"; }
 
