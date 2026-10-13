@@ -69,6 +69,12 @@ capture: --shot=s3_open_lane --stage=haters_forest --map=forest --pov=runner --b
 seconds: 7.0
 in: 1.0
 
+## 10
+said: v8 take 2 of shot 9: shot 9's shove (333.8 deg) only pushed the victim along the lip; impulse 32, up 7 so he goes over.
+capture: --shot=s3_open_lane --stage=haters_forest --map=forest --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261012 --set=impulse=32;up=7
+seconds: 7.0
+in: 1.0
+
 ## script v1
 captions: stack
 captions_size: 64
@@ -233,4 +239,4 @@ music_fade: 0.01 1
 | r0 | cuts/04_v3.mp4 | 0 | | beat 0.6 | | | |
 | r1 | cuts/04_v3.mp4 | cont | | beat 2.2 | | Yeah... | |
 | r2 | cuts/04_v3.mp4 | cont | | beat 0.45 | | Thats kinda the point... | |
-| f0 | cuts/09.mp4 | 0 | | beat 5.5 | | | |
+| f0 | cuts/10.mp4 | 0 | | beat 5.5 | | | |
