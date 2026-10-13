@@ -403,6 +403,11 @@ grade_hell: lift 2.6 3
 | g1 | cuts/12.mp4@0.15:3.1833 | | | beat 3.1833 | | |  |
 | e1 | cuts/end_v3.mp4@0.4:3.2 | | | beat 3.2 | | |  |
 
+## script rough_v37
+# v37 (Ryan): "make the next version of the trailer, by reshooting the marble map scenes only." v36's lossless master (final\master\rough_v36.mkv, 2769 frames at 60,
+# its flac bed copied) with only the marble frames replaced, same in/len: m0 844-952 <- cuts/05h.mp4@0.624, m1 1713-1832 <- cuts/10a.mp4@0, m2 1833-1987 <- cuts/10b.mp4@0.7,
+# g1 2443-2581 <- cuts/12f.mp4@2.05 (graph: final\master\rough_v37.graph.txt). psnr against v36: every other frame identical. 46.15 s.
+
 ## script rough_v35
 size: 1920x1080
 music: voice/pineberry_rush_v27.flac
