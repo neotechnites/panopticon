@@ -4,16 +4,16 @@ extends "res://tools/capture/stages/stage.gd"
 ## running close ahead and beside are dropped in turn by the guard's hand; the POV is hidden from the rifle. Dials: pace (0.5).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
-## Start bearing, radius, then the radius after the 46.5-48 trunk (r 49.5-52): beside-inner, beside-outer, lead, POV.
-const STARTS: Array = [Vector3(42.0, 51.4, 52.3), Vector3(43.6, 53.2, 53.1), Vector3(45.6, 52.7, 52.7), Vector3(40.0, 52.6, 52.6)]
-const POV: int = 3
+## Start bearing, radius, then the radius after the 46.5-48 trunk (r 49.5-52): beside-inner, lead, POV.
+const STARTS: Array = [Vector3(42.0, 51.4, 52.3), Vector3(44.6, 53.1, 53.0), Vector3(40.0, 52.5, 52.5)]
+const POV: int = 2
 
 var _bodies: Array[PlayerController] = []
 var _hand: Node = null
 
 
 func bots() -> int:
-	return 4
+	return 3
 
 
 func needs_pov() -> String:
@@ -57,7 +57,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	LIB.hide_from_the_rifle(_bodies[POV])
 	stage_body(_bodies[POV])
 	victim_body(_bodies[0])
-	say("forest_pov_kills: POV %s behind %s, %s, %s; pace %.2f" % [_bodies[POV].name, _bodies[0].name, _bodies[1].name, _bodies[2].name, pace])
+	say("forest_pov_kills: POV %s behind %s, %s; pace %.2f" % [_bodies[POV].name, _bodies[0].name, _bodies[1].name, pace])
 	return true
 
 
@@ -76,8 +76,7 @@ func tick(_delta: float) -> void:
 	_hand.install(guard, controller(), elapsed())
 	_hand.beats = [
 		{"body": _bodies[0], "seconds": 1.4, "fire_at": float(option("fire1", 0.8)), "watch": true, "clear": true},
-		{"body": _bodies[1], "seconds": 1.4, "fire_at": float(option("fire2", 0.8)), "watch": true, "clear": true},
-		{"body": _bodies[2], "seconds": 4.0, "fire_at": float(option("fire3", 0.8)), "watch": true, "clear": true},
+		{"body": _bodies[1], "seconds": 4.0, "fire_at": float(option("fire2", 1.0)), "watch": true, "clear": true},
 	]
 	_hand.park = LIB.ring_point(44.0, 52.0, 1.0)
 	_hand.start_at = elapsed() + float(option("hand_start", 0.6))

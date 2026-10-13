@@ -87,8 +87,8 @@ in: 1.0
 seconds: 9.0
 
 ## 15
-said: L5 -- Ryan on v7: "replace the gameplay of the hitting shots montage to be in the forest": the forest sniper's kills seen from the runner side (forest_pov_kills): a runner POV on the open stretch (41-60 deg), three close ahead and beside dropped in turn by the guard at the 32 deg window
-capture: --map=forest --shot=s3_open_lane --stage=forest_pov_kills --pov=runner --bots=4 --seed=20261012 --shimmer=0
+said: L5 -- Ryan on v7: "replace the gameplay of the hitting shots montage to be in the forest": the forest sniper's kills seen from the runner side (forest_pov_kills): a runner POV on the open stretch (41-60 deg), two close beside and ahead dropped in turn by the guard at the 32 deg window (3 bots is the cap)
+capture: --map=forest --shot=s3_open_lane --stage=forest_pov_kills --pov=runner --bots=3 --seed=20261012 --shimmer=0
 in: 0.8
 seconds: 10
 
