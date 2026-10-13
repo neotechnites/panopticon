@@ -6,6 +6,9 @@ extends "res://tools/capture/stages/stage.gd"
 ## columns: ArcWall188 (r 47.2, 182.4-193.9 deg, y 23.0-30.6, over the 28.65 eye). probe_ring --map=marble --eye=193.5:5.6:5.65:
 ## r 48.6 h 0.3/1.0/1.7 BLOCKED to 193.8, open from 193.9; r 48.6-50.5 open 194-200; floor +0.00 r 47.8-55 at 188-208.
 ## The v11 staging turned -23.25 deg (old edge 217.1 -> 193.85): victim 0.57 deg inside the edge, shover 1 deg behind him.
+## v38 (Ryan): "he needs to get shoved further out so that when he gets shot during him running back, his ragdoll doesnt fly behind cover."
+## late impulse 16 -> 28: he lands ~206 deg (was 200.6), is hit at 200.6 running back (was 195.0, 1 m off the wall), 6.7 deg clear of the wall's 193.9 end.
+## probe_ring --eye=193.5:5.6:5.65: r 48.5 h 0.4/1.0 open from 194.0 on. Smoke fails (expect) if the hit or the rest is inside the cover arc or out of the guard's LoS.
 ## Dials: victim (193.281,48.55), pov (192.28,48.75), shove (clip s, 2.7), impulse (8.5), up (4.0), lead (0.7: he stops dead on landing), kick (0.3), edge (193.85).
 ## v8 (Ryan): "he needs to get shot WHILE he's being shoved out": no recovery; the squeeze the first frame he is in the open.
 ## v27 (Ryan): "the player gets shoved further, the sniper visibly reacts (re-aims), and then hits the shot" (late=1): the shipped
@@ -29,6 +32,11 @@ var _exposed: bool = false
 var _exposed_at: float = 0.0
 var _reacted: bool = false
 var _squeezed: bool = false
+var _hit_at: float = -1.0
+var _rest_checked: bool = false
+## Wall's leading end (deg) and the clear margin past it (deg) the hit and the rest must keep.
+const WALL_END: float = 193.9
+const CLEAR_DEG: float = 3.0
 
 
 ## Marble columns at [param degrees] on the inner edge for one shot only; the map scene is untouched.
@@ -55,7 +63,7 @@ func _late() -> bool:
 
 func tune_rules(rules: MatchRules) -> void:
 	rules.map_id = &"marble"
-	rules.shove_impulse = float(option("impulse", 16.0 if _late() else 8.5))
+	rules.shove_impulse = float(option("impulse", 28.0 if _late() else 8.5))
 	rules.shove_up_impulse = float(option("up", 7.0 if _late() else 4.0))
 	rules.guard_projectile_speed = 0.0
 	rules.base_reload_seconds = 1.0
@@ -147,6 +155,9 @@ func tick(_delta: float) -> void:
 	if _hand == null:
 		_raise_the_hand()
 		return
+	if _hit_at >= 0.0 and not _rest_checked and elapsed() >= _hit_at + 1.2:
+		_rest_checked = true
+		_expect_in_the_open("rest")
 	_hand.hold_scope = elapsed() >= float(option("zoom", 1.0))
 	if not _hand.hold_scope:
 		var optic: WeaponOptic = _guard.get_node_or_null(^"Optic") as WeaponOptic
@@ -219,7 +230,28 @@ func on_shove(_shover: MatchParticipant, victim: MatchParticipant) -> void:
 	say("shove landed on %s" % victim.body.name)
 
 
+## Fail the smoke when [param ok] is false.
+func _expect(ok: bool, what: String) -> void:
+	print("[expect] %s: %s" % ["ok" if ok else "FAIL", what])
+	if not ok:
+		clip._fail("expect failed: %s" % what)
+
+
+## The victim outside the wall's cover arc by [constant CLEAR_DEG] and seen from the guard's eye at the window.
+func _expect_in_the_open(label: String) -> void:
+	var at: Vector3 = _victim.global_position
+	var deg: float = LIB.bearing_of(at)
+	_expect(deg >= WALL_END + CLEAR_DEG, "%s at %.1f deg is %.1f deg past the wall's end (need %.1f)" % [label, deg, deg - WALL_END, CLEAR_DEG])
+	var query := PhysicsRayQueryParameters3D.create(LIB.ring_point(float(option("window", WINDOW)), 5.6, 5.65), at + Vector3.UP * 0.9)
+	query.exclude = [_victim.get_rid(), _guard.get_rid()]
+	var blocker: Dictionary = clip.root.get_world_3d().direct_space_state.intersect_ray(query)
+	_expect(blocker.is_empty(), "%s in the guard's line of sight%s" % [label, "" if blocker.is_empty() else " (blocked by %s)" % blocker["collider"].name])
+
+
 func on_hit(collider: Node3D) -> void:
+	if collider == _victim and _hit_at < 0.0:
+		_hit_at = elapsed()
+		_expect_in_the_open("hit")
 	say("round hit %s" % (collider.name if collider != null else "nothing"))
 
 
