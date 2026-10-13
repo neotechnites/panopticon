@@ -6,7 +6,7 @@
 # Rough (the default): ONE take at real speed, the screen recorded (lib.sh pc_rough);
 # a portrait take is 810x1440, scaled to 1080x1920 at the cut. A failed gate prints why
 # and stops: no retry, no fallback. The gate also fails a take that cuts inside the shot
-# (a scene change, or the camera changing body). --movie (final only): Movie Maker, native 1080x1920.
+# (a scene change, or the camera changing body) or whose POV body is out or shoved in it. --movie (final only): Movie Maker, native 1080x1920.
 # --name: the cut is cuts\NAME.mp4 (default NN). A cut an earlier tag used is never overwritten.
 #
 # Entry fields it reads: capture (run_clip args) or still (shot.gd args), tape (a
@@ -162,6 +162,10 @@ foreach (\$l in (Get-Content '${log}' -EA SilentlyContinue)) {
     \$t = [double]::Parse(\$Matches[1], \$inv)
     if (\$t -gt \$lo -and \$t -lt \$hi -and \$pov -and \$pov -ne \$Matches[3]) { \$bad += "the camera changes body at \$t s (\$pov -> \$(\$Matches[3]))" }
     if (\$t -lt \$hi) { \$pov = \$Matches[3] }
+  } elseif (\$pov -and \$l -match '^\[event\]\s+([0-9.]+)\s+(out|shove|catch|ghosted)\s+(.*)$') {
+    \$t = [double]::Parse(\$Matches[1], \$inv); \$kind = \$Matches[2]; \$rest = \$Matches[3]
+    \$who = switch (\$kind) { 'shove' { (\$rest -split '->')[1].Trim().Split(' ')[0] } 'catch' { (\$rest -split 'took')[1].Trim().Split(' ')[0] } default { \$rest.Trim().Split(' ')[0] } }
+    if (\$t -ge \$lo -and \$t -le \$hi -and \$who -eq \$pov) { \$bad += "the POV body \$pov is \$kind at \$t s" }
   }
 }
 if (\$cuts.Count -gt 0) { Write-Output ('FAILED: the take cuts inside the shot (scene change at ' + (\$cuts -join ', ') + ' s); one continuous camera only') }
