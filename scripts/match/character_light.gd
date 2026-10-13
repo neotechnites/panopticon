@@ -11,6 +11,7 @@ const FITS: Dictionary[String, String] = {
 	"res://maps/marble/marble.tscn": "res://maps/marble/marble_character_fit.tres",
 	"res://maps/ice/ice.tscn": "res://maps/ice/ice_character_fit.tres",
 	"res://maps/beach/beach.tscn": "res://maps/beach/beach_character_fit.tres",
+	"res://hub/hub.tscn": "res://hub/hub_character_fit.tres",
 }
 
 const SHADER: Shader = preload("res://characters/materials/character_light.gdshader")
@@ -41,9 +42,10 @@ var _cache: Dictionary[int, ShaderMaterial] = {}
 ## The lighting [param arena] gives its players: its scene's fit, the sun gain solved from its suns.
 static func for_arena(arena: Node) -> CharacterLight:
 	var light: CharacterLight = CharacterLight.new()
-	if arena == null or not FITS.has(arena.scene_file_path):
+	var scene: String = _scene_of(arena)
+	if not FITS.has(scene):
 		return light
-	light.fit = load(FITS[arena.scene_file_path]) as CharacterFit
+	light.fit = load(FITS[scene]) as CharacterFit
 	var arena_3d: Node3D = arena as Node3D
 	if arena_3d != null and arena_3d.is_inside_tree():
 		light.axis = Vector2(arena_3d.global_position.x, arena_3d.global_position.z)
@@ -67,6 +69,14 @@ static func for_arena(arena: Node) -> CharacterLight:
 		# An upright body faces a sun at its elevation, so that facing reaches the full lift.
 		light.sun_facing_gain = energy / facing
 	return light
+
+
+## The scene [param arena] was authored in: its own, or its owner's when it is built in place (the hub).
+static func _scene_of(arena: Node) -> String:
+	var node: Node = arena
+	while node != null and node.scene_file_path.is_empty():
+		node = node.owner
+	return "" if node == null else node.scene_file_path
 
 
 ## True when this map lights its players at all.
