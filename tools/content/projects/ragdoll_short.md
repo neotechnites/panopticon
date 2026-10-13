@@ -79,6 +79,13 @@ hud: crosshair
 in: 1.0
 seconds: 9.0
 
+## 14
+said: L5 -- Ryan on v7: "replace the gameplay of the hitting shots montage to be in the forest": forest_window (shot 13) at a much tighter scope (fov 10) so each runner fills a good part of the scope as it drops
+capture: --map=forest --shot=s3_open_lane --stage=forest_window --pov=guard --bots=3 --seed=20261012 --shimmer=0 --set=scope_fov=10
+hud: crosshair
+in: 1.0
+seconds: 9.0
+
 ## script v8
 # v8 as delivered (cp.render, rough_v8\edl.json): voice + 0.25 s per line, frame-snapped.
 # M2 plays rough_v8\lines\M2.mkv, v8's own picture with the gif already on it (no gif overlay in the cut).
@@ -141,7 +148,7 @@ captions_y: 0.72
 
 ## script v13
 from: v12
-# v12's rows; L4 = v7's own tower take refilmed with a longer lead-in (cut 12), L5 = forest_window (cut 13).
+# v12's rows; L4 = v7's own tower take refilmed with a longer lead-in (cut 12), L5 = forest_window at scope fov 10 (cut 14).
 notes: ragdoll is ok i think, the last shot shows the gaurd clipping into the map after being chucked, and shouldnt. also this sint youre fault, bur we now have a forest map we should be using for some gameplay clips. lets replace the gameplay of the hitting shots montage to be in the forest. also, we should cut after "not an animator" and then the shot of the person getting shoved off and ragdolling, is geniunely, a perfect shot, with the execption that the eye isnt looking at the pov player, and needs to be. so please run that exactly how it was and just fix the eye thing.
 # Built from v7 (ragdoll_short_rough_v7.mp4), not v8: L1-L3 are v7's own picture and sound to L4's start (12.72 s).
 # L4 the tower refilm alone after "not an animator" (hit 8.68 s into cuts/04 on "Ragdolls" 8.108 s), L5 the forest
@@ -156,7 +163,7 @@ captions_y: 0.72
 | line | clip | in | len | fit | speed | text | card |
 | V7 | ragdoll_short_rough_v7.mp4@0:12.7167 |  |  | beat 12.7167 |  |  |  |
 | L4 | cuts/12.mp4@0.572 |  |  | line |  | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem. Ragdolls | cards/L4_card0.png w=940 y=0.2 from=this to=Ragdolls+0.6 |
-| L5 | cuts/13.mp4@0 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
+| L5 | cuts/14.mp4@0 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
 | L6 | cuts/06.mp4@0 |  |  | line |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
 | L7 | cuts/08_v10.mp4 | 37.0 |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
 | L8 | cuts/08_v10.mp4 | cont |  | line |  | Let me know what else I should add in the comments |  |

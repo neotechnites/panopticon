@@ -55,6 +55,7 @@ func tick(_delta: float) -> void:
 	guard.global_position = Vector3(stand.x, guard.global_position.y, stand.z)
 	guard.velocity = Vector3.ZERO
 	LIB.open_the_scope(guard, 0.74)
+	_tighten(guard, float(option("scope_fov", 0.0)))
 	_hand = GUARD_HAND.new()
 	_hand.name = "ClipGuardHand"
 	clip.root.add_child(_hand)
@@ -67,6 +68,15 @@ func tick(_delta: float) -> void:
 	_hand.park = LIB.ring_point(44.0, 51.0, 1.0)
 	_hand.start_at = float(option("hand_start", 1.0))
 	say("forest_window: hand on %s at the %.0f deg window, starts %.1f s" % [guard.name, float(option("guard_deg", 32.0)), _hand.start_at])
+
+
+## scope_fov > 0 narrows the zoomed lens to that many degrees so a runner fills the scope.
+func _tighten(guard: PlayerController, fov: float) -> void:
+	var optic: WeaponOptic = guard.get_node_or_null(^"Optic") as WeaponOptic
+	if fov <= 0.0 or optic == null or optic.profile == null or optic.base_fov <= 0.0:
+		return
+	optic.profile.zoom_factor = clampf(fov / optic.base_fov, 0.05, 1.0)
+	say("forest_window: scope fov %.1f (base %.1f)" % [fov, optic.base_fov])
 
 
 func on_hit(collider: Node3D) -> void:
