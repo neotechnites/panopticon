@@ -34,7 +34,7 @@ var suns: Array[Vector3] = []
 ## The strongest sun's luminous energy: a patch is one sun through the leaves, so that sun alone gives the full lift.
 var sun_energy: float = 1.0
 
-var _cache: Dictionary[int, ShaderMaterial] = {}
+var _cache: Dictionary[int, Material] = {}
 
 
 ## The lighting [param arena] gives its players: its scene's fit, the sun gain solved from its suns.
@@ -85,7 +85,7 @@ func is_lit() -> bool:
 
 ## The authored or tinted material [param material] was dressed from; [param material] itself when it is one.
 static func base_of(material: Material) -> BaseMaterial3D:
-	if material is ShaderMaterial and material.has_meta(BASE_META):
+	if material != null and material.has_meta(BASE_META):
 		return material.get_meta(BASE_META) as BaseMaterial3D
 	return material as BaseMaterial3D
 
@@ -97,6 +97,9 @@ func apply(material: Material) -> Material:
 		return material
 	var key: int = base.get_instance_id()
 	if _cache.has(key):
+		return _cache[key]
+	if fit.standard:
+		_cache[key] = _standard(base)
 		return _cache[key]
 	var lit: ShaderMaterial = ShaderMaterial.new()
 	var fading: bool = base.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED
@@ -127,6 +130,22 @@ func apply(material: Material) -> Material:
 	_dress_dapple(lit)
 	_cache[key] = lit
 	return lit
+
+
+## [param base] as a plain per-pixel StandardMaterial3D: its paint, no vertex colour, no glow, the fit's fill for ambient.
+func _standard(base: BaseMaterial3D) -> BaseMaterial3D:
+	var plain: BaseMaterial3D = base.duplicate() as BaseMaterial3D
+	plain.set_meta(BASE_META, base)
+	plain.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+	plain.diffuse_mode = BaseMaterial3D.DIFFUSE_BURLEY
+	plain.vertex_color_use_as_albedo = false
+	plain.disable_ambient_light = true
+	plain.emission_enabled = true
+	plain.emission = Color(base.albedo_color.r, base.albedo_color.g, base.albedo_color.b)
+	plain.emission_energy_multiplier = fit.standard_fill
+	plain.emission_texture = base.albedo_texture
+	plain.emission_operator = BaseMaterial3D.EMISSION_OP_ADD
+	return plain
 
 
 ## The ground's leaf dapple on [param lit]: the fit's texture, every other value read off the ground's shader.

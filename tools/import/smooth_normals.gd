@@ -5,11 +5,13 @@ extends RefCounted
 
 const HOME := "res://characters/"
 const SNAP := 10000.0
+## Modelled faceted and shown as modelled: their flat normals are kept.
+const FLAT := ["res://characters/models/prisoner2.glb"]
 
 
 ## Smooths every mesh under [param scene] when it comes from the characters' home; returns how many.
 static func smooth(scene: Node, source_file: String) -> int:
-	if not source_file.begins_with(HOME):
+	if not source_file.begins_with(HOME) or source_file in FLAT:
 		return 0
 	var done := 0
 	for node: Node in scene.find_children("*", "MeshInstance3D", true, false):

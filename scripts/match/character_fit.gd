@@ -3,6 +3,10 @@ extends Resource
 ## How one map lights its players, as on-screen multiples of their painted colour.
 ## One .tres per map scene, registered in [constant CharacterLight.FITS].
 
+## Wear a plain StandardMaterial3D lit by the scene's own lights (vertex colour unused) instead of the fit shader.
+@export var standard: bool = false
+## With [member standard]: the flat fill each surface keeps in place of the scene's ambient, as a share of its paint.
+@export_range(0.0, 1.0, 0.01) var standard_fill: float = 0.3
 ## Faces turned from the map's light.
 @export var shade: Color = Color(1.0, 1.0, 1.0, 1.0)
 ## Faces turned to it.
