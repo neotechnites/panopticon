@@ -78,6 +78,7 @@ if [ "${ASPECT}" = 9:16 ]; then
 else
   MASTER="scale=${SIZE%%x*}:${SIZE##*x}"; GATE_SCALE="scale=160:90"
 fi
+[ "${MODE}" = rough ] && [[ " ${CAPTURE} " == *" --write-movie"* ]] && die "shot.sh refuses: a rough take never films Movie Maker (--write-movie is a final's --movie)"
 [ "${MODE}" = rough ] && [ "${SIZE##*x}" -gt 1440 ] && die "a ${SIZE} take does not fit the 2560x1440 screen in real time; only a final films --movie"
 # Both modes leave a lossless RGB take: rough records it, movie packs Movie Maker's PNG frames.
 TAKE_EXT=mkv; IN_SPEC="in_range=pc"
