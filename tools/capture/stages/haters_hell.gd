@@ -5,9 +5,9 @@ extends "res://tools/capture/stages/stage.gd"
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
-## Lead (pit side, just ahead of the POV), victim (outside, a step ahead), POV: the tower look stays clear.
-const RADII: Array[float] = [47.3, 48.9, 48.1]
-const STAGGER: Array[float] = [2.2, 1.0, 0.0]
+## Lead (pit side, just ahead of the POV), victim (inside, a step behind), POV: the tower look stays clear.
+const RADII: Array[float] = [47.4, 47.9, 48.5]
+const STAGGER: Array[float] = [2.2, -2.2, 0.0]
 const PACE: Array[float] = [0.70, 0.71, 0.70]
 const WEAVE: Array[float] = [0.02, 0.04, 0.03]
 const PERIOD: Array[float] = [1.3, 1.5, 1.7]
