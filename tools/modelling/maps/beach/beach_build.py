@@ -2281,15 +2281,13 @@ def build_geometry():
 # SHEETS -- one tiling tile per class (lib/texel.py), world-projected
 # =============================================================================
 
-def _ref(centre):
-    return max(30.0, math.hypot(centre[0], centre[1]))
-
-
 # One photo tile per family (wood, foliage, rock, roof, plastic); tint = old tile / family tile, linear.
 TEAK = (0.813, 0.428, 0.185)
 CANVAS = (1.0, 0.964, 0.894)
 SHEETS = {
-    "sand": tx.Sheet("sand", ref_r=_ref, roughness=0.95),
+    # World-XY, not cylindrical: a per-face reference radius gives every face its own arc scale and its
+    # own whole-repeat period, so the UV breaks at each quad edge (the beach read as a patchwork).
+    "sand": tx.Sheet("sand", mode="box", roughness=0.95),
     "rock": tx.Sheet("rock", mode="box", roughness=0.9),
     "grass": tx.Sheet("grass", mode="custom", roughness=0.95),                    # world-XY, turned per 25.6 m cell (grass_uvs)
     "terrain": tx.Sheet("terrain", stem="beach_grass", mode="box", roughness=0.95),   # the island: beach_terrain.gdshader in Godot
