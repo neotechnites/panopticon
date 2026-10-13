@@ -1189,3 +1189,6 @@ captions: none
 
 ## script rough_v49_songstart
 # v49 (Ryan: "split the difference on the start. .25 seconds, and then, have it fade in"): v48 with the master from song 9.284 (4.30 s of black), 1 s fade-in.
+
+## script rough_v50_songstart
+# v50: Pineberry Rush is 174 BPM (measured from the drum stem; the 0.3483 s beat used since v28 was wrong and drifted ~0.39 s by the end). Bar lines at n*1.37931 s from the file start, the drop on bar 14. v49's start (song 9.284, 1 s fade-in); all but the melody falls off on song bar 42 (57.931 s), the end card moved onto it with 1.314 s of black.
