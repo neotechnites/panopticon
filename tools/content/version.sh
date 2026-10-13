@@ -9,4 +9,10 @@ USAGE="usage: tools/content/version.sh <project> <newtag> --from <tag Ryan watch
 BRIEF=$(brief_path "${1:?${USAGE}}")
 NEW="${2:?${USAGE}}"
 [ "${3:-}" = --from ] && [ -n "${4:-}" ] || die "version.sh refuses: --from <tag> is required (the version Ryan watched and gave notes on)"
-python3 "${CONTENT_DIR}/versions.py" new "${BRIEF}" "${NEW}" "$4"
+NAME=$(basename "${BRIEF}" .md)
+LEDGER="${CONTENT_DIR}/projects/${NAME}.notes.md"
+[ -f "${LEDGER}" ] || die "no notes recorded for ${NAME}"
+NOTES=$(mktemp)
+python3 "${CONTENT_DIR}/versions.py" ledger "${LEDGER}" "$4" > "${NOTES}" || { rm -f "${NOTES}"; exit 2; }
+python3 "${CONTENT_DIR}/versions.py" new "${BRIEF}" "${NEW}" "$4" "${NOTES}"
+rm -f "${NOTES}"

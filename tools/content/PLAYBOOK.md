@@ -53,6 +53,7 @@ the header of `shot.sh` (shot entries) and `pc/assemble.py` (table, header keys)
 - `version.sh <project> v2 --from v1` appends `## script v2`, a copy of v1 (the cut Ryan watched;
   required, never the newest by default). Edit only
   the rows Ryan noted. Every other row hits the segment cache and is frame-identical.
+- Notes are recorded with `notes.sh <project> <tag> <file>` (stdin) before any new version; `version.sh` refuses otherwise.
 - A refilm never overwrites: the new cut is `cuts/NN_v2.mp4` and only v2's table is
   repointed to it. `shot.sh` refuses a cut name any earlier tag's `cuts\<tag>_used.txt` lists.
 - Voice lines are re-spoken only when their text changed.
