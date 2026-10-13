@@ -85,6 +85,14 @@ var _picked: Array = []
 var _centre_body: PlayerController = null
 var _centre_at: Vector3 = Vector3.ZERO
 var _centre_velocity: Vector3 = Vector3.ZERO
+var _centre_limp: bool = false
+## blend: what the aim was built from last tick, the aim point it gave, and the offset easing out of a change.
+var _mode: Array = []
+var _out: Vector3 = Vector3.ZERO
+var _omega_out: float = HAND_OMEGA
+var _blend_offset: Vector3 = Vector3.ZERO
+var _blend_omega: float = HAND_OMEGA
+var _blend_t: float = -1.0
 
 
 ## [param clock] is the clip's elapsed time now, so start_at and the log are in clip seconds.
@@ -111,6 +119,7 @@ func _physics_process(delta: float) -> void:
 			var angles: Vector2 = _angles_to(park)
 			_yaw = angles.x
 			_pitch = angles.y
+			_out = park
 		_rate = Vector2.ZERO
 		# Parked, the eye still reads every man it is about to be on: a lead needs his speed from the first frame.
 		for waiting: Dictionary in beats:
@@ -156,8 +165,9 @@ func _physics_process(delta: float) -> void:
 	var aim: Vector3
 	# centre (false): ride the man himself, no round lead until the squeeze, and once he is limp his ragdoll's pelvis.
 	# follow (1.0): the share of his motion the hand anticipates; under 1 it trails him, as a hand does.
+	var blend: float = float(beat.get("blend", 0.0))
 	if bool(beat.get("centre", false)) and body != null and is_instance_valid(body):
-		aim = _centre_on(body, delta) + _centre_velocity * (2.0 * HAND_ZETA / omega) * float(beat.get("follow", 1.0))
+		aim = _centre_on(body, delta, blend > 0.0) + _centre_velocity * (2.0 * HAND_ZETA / omega) * float(beat.get("follow", 1.0))
 		_last_aim[k] = aim
 	elif _spent(k, beat) and bool(beat.get("watch", false)) and body != null and is_instance_valid(body) and body.is_visible_in_tree():
 		# watch (false): after the squeeze the hand stays ON the man and rides the
@@ -196,6 +206,23 @@ func _physics_process(delta: float) -> void:
 		var next_body: PlayerController = beats[later].get("body") as PlayerController
 		if next_body != body and (later == k + 1 or next_body != beats[later - 1].get("body")):
 			_measure(next_body, delta)
+	# blend (0 s): a change of what the aim is built from (onto him, the lead, the squeeze) eases over blend s, never a switch.
+	if blend > 0.0:
+		var mode: Array = [k, beat.get("centre", false), beat.get("lead", 1.0), beat.get("follow", 1.0), _spent(k, beat), _centre_limp]
+		if mode != _mode:
+			_blend_offset = (_out - aim) if _out != Vector3.ZERO else Vector3.ZERO
+			_blend_omega = _omega_out if not _mode.is_empty() else omega
+			_blend_t = 0.0
+			_mode = mode
+		if _blend_t >= 0.0:
+			_blend_t += delta
+			var gone: float = smoothstep(0.0, blend, _blend_t)
+			aim += _blend_offset * (1.0 - gone)
+			omega = lerpf(_blend_omega, omega, gone)
+			if _blend_t >= blend:
+				_blend_t = -1.0
+	_out = aim
+	_omega_out = omega
 	var wanted: Vector2 = _angles_to(aim)
 	if not _spent(k, beat):
 		var settling: float = 1.0 if fire_at < 0.0 else clampf((fire_at - into) / SETTLE_SECONDS, 0.0, 1.0)
@@ -203,6 +230,10 @@ func _physics_process(delta: float) -> void:
 		wanted += Vector2(sin(t * TAU * SWAY_HZ) * sway, sin(t * TAU * SWAY_HZ * 1.7 + 1.0) * sway * 0.6)
 	var error := Vector2(angle_difference(_yaw, wanted.x), wanted.y - _pitch)
 	var accel: Vector2 = error * (omega * omega) - _rate * (2.0 * HAND_ZETA * omega)
+	# max_accel (0: none): the arm's top angular acceleration, deg/s^2, so the eye's speed ramps up and down.
+	var max_accel: float = float(beat.get("max_accel", 0.0))
+	if max_accel > 0.0:
+		accel = accel.limit_length(deg_to_rad(max_accel))
 	_rate += accel * delta
 	# max_rate (140): the wrist's top speed on this beat, deg/s.
 	_rate = _rate.limit_length(deg_to_rad(float(beat.get("max_rate", rad_to_deg(HAND_MAX_RATE)))))
@@ -240,12 +271,16 @@ func _physics_process(delta: float) -> void:
 
 
 ## Where the eye sees [param body] (his chest, or the ragdoll's pelvis once limp), its fast-averaged velocity kept.
-func _centre_on(body: PlayerController, delta: float) -> Vector3:
+## [param steady]: the frame he goes limp or gets up is not read as speed (the point jumps chest to pelvis).
+func _centre_on(body: PlayerController, delta: float, steady: bool = false) -> Vector3:
 	var point: Vector3 = body.global_position + Vector3.UP * AIM_HEIGHT
 	var ragdoll: Node = body.get_node_or_null(^"Avatar/Ragdoll")
-	if ragdoll != null and (ragdoll.is_active() or ragdoll.is_flopping()):
+	var limp: bool = ragdoll != null and (ragdoll.is_active() or ragdoll.is_flopping())
+	if limp:
 		point = ragdoll.centre()
-	if _centre_body == body and delta > 0.0:
+	var switched: bool = steady and limp != _centre_limp
+	_centre_limp = limp
+	if _centre_body == body and delta > 0.0 and not switched:
 		_centre_velocity = _centre_velocity.lerp((point - _centre_at) / delta, clampf(delta / FAST_WINDOW, 0.0, 1.0))
 	_centre_body = body
 	_centre_at = point

@@ -19,6 +19,8 @@ extends "res://tools/capture/stages/stage.gd"
 ## the throw), hold_over (0.9: onto the held-over mark), settle_omega (25), settle (0.22 s on the mark, then the squeeze), give_up (1.0).
 ## v41 (Ryan): "we dont even see the fucking shove from the runners pov" and the scope must rest "at the edge of the cover", track, then lead
 ## him as he runs back. Rest on the wall's end (193.9); expects judge the cuts: m1 (m1_from/m1_to) and m2 (scope_from/scope_to), take s.
+## v42 (Ryan): "the sniper half jumps and snaps around like a robot". Dials max_accel (260 deg/s^2: speed ramps), react 0.15 and blend (0.3 s: each
+## change of aim, from the rest onto him and onto the lead, eases); expects: acceleration cap, no speed jump at a beat, a new aim every frame.
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const COLUMN_SCENE: String = "res://maps/marble/models/marble_column.glb"
@@ -56,6 +58,16 @@ const LAG_S: float = 0.05
 const MOVING_RATE: float = 2.0
 const SETTLE_DEG: float = 0.35
 const SETTLE_S: float = 0.2
+## v42: the eye's angular acceleration stays under ACCEL_CAP deg/s^2 (the squeeze's kick excepted); across a beat change
+## (the hand coming on, the lead going on) its speed changes under BEAT_JUMP deg/s a frame; every frame of the motion a new aim.
+const ACCEL_CAP: float = 300.0
+const BEAT_JUMP: float = 2.5
+const BEAT_FRAMES: int = 3
+var _rates: Array = []
+var _repeats: int = 0
+var _repeat_at: float = -1.0
+var _off_tick: int = 0
+var _last_tick: int = -1
 var _peak_rate: float = 0.0
 var _peak_rate_at: float = -1.0
 var _last_eye: Vector3 = Vector3.ZERO
@@ -221,7 +233,7 @@ func tick(delta: float) -> void:
 		say("victim exposed %.2f s after the shove at %.1f deg r %.2f%s" % [elapsed() - _shoved_at, LIB.bearing_of(_victim.global_position), LIB.radius_of(_victim.global_position), "" if _late() else "; squeeze now"])
 	# Late: the hand comes onto him react s after he clears the wall; as he breaks back for it the lead goes on, settle s, squeeze.
 	if _late() and _exposed and _hand.start_at == INF:
-		_hand.start_at = _exposed_at + float(option("react", 0.2))
+		_hand.start_at = _exposed_at + float(option("react", 0.15))
 	# Late: once he is down, the hand comes off his ragdoll onto the mark (his chest, held over for the drop).
 	if _late() and _shoved and not _held and elapsed() >= _shoved_at + float(option("hold_over", 0.9)):
 		_held = true
@@ -259,7 +271,8 @@ func _raise_the_hand() -> void:
 		# v40 (Ryan): "the sniper doesnt aim ... he just aim bots to a spots and shoot". 5h's hand (omega 6): resting on the
 		# wall's end, onto him react s after he clears it, tracked unled; the lead goes on as he breaks, settle s, squeeze.
 		_hand.beats.append({"body": _victim, "seconds": 100.0, "fire_at": -1.0, "watch": true, "centre": true, "omega": float(option("omega", 10.0)),
-			"follow": float(option("follow", 0.5)), "max_rate": float(option("max_rate", 140.0)), "lead": 0.0, "now": int(option("now", 0)) == 1, "kick": float(option("kick", 0.3))})
+			"follow": float(option("follow", 0.5)), "max_rate": float(option("max_rate", 140.0)), "lead": 0.0, "now": int(option("now", 0)) == 1, "kick": float(option("kick", 0.3)),
+			"max_accel": float(option("max_accel", 260.0)), "blend": float(option("blend", 0.3))})
 		_hand.park = LIB.ring_point(float(option("rest", WALL_END)), 48.6, 1.3)
 		_hand.start_at = INF
 	else:
@@ -365,6 +378,19 @@ func _watch_the_scope() -> void:
 		# How far the eye is off the point the squeeze will send the round to: the settle is this held small.
 		var mark: Vector3 = _hand._mark_for(_hand.beats[0], _victim) if not _hand.beats.is_empty() else point
 		_offsets.append([t, atan2(-look.x, -look.z), atan2(-line.x, -line.z), rad_to_deg(look.angle_to(mark - view.origin))])
+	# v42: the eye's yaw/pitch speed this frame (deg/s), and whether the frame brought a new aim and exactly one tick.
+	var tick_now: int = Engine.get_physics_frames()
+	if _last_t >= 0.0 and dt > 0.0:
+		var yaw_rate: float = rad_to_deg(angle_difference(atan2(-_last_eye.x, -_last_eye.z), atan2(-look.x, -look.z))) / dt
+		var pitch_rate: float = rad_to_deg(asin(clampf(look.y, -1.0, 1.0)) - asin(clampf(_last_eye.y, -1.0, 1.0))) / dt
+		_rates.append([t, Vector2(yaw_rate, pitch_rate), dt])
+		if _moved_at >= 0.0 and (_hit_at < 0.0 or t <= _hit_at):
+			if look == _last_eye:
+				_repeats += 1
+				_repeat_at = t
+			if tick_now - _last_tick != 1:
+				_off_tick += 1
+	_last_tick = tick_now
 	if OS.has_environment("STAGE_DEBUG"):
 		say("scope %.2f: runner %.0f%% of the radius, %.2f deg off (yaw %+.2f), %.2f off the mark" % [t, frac * 100.0, aim, off, float(_offsets[-1][3]) if not _offsets.is_empty() else -1.0])
 	_last_eye = look
@@ -444,11 +470,37 @@ func _judge_the_hand() -> void:
 	_expect(_hit_at >= 0.0 and to - _hit_at >= 0.3, "m2: the round hits him at %.2f, %.2f s before the cut ends (need 0.3 of the drop in the scope)" % [_hit_at, to - _hit_at])
 	_expect(_peak_rate < HUMAN_RATE, "peak eye speed %.1f deg/s at %.2f under a hand's %.0f" % [_peak_rate, _peak_rate_at, HUMAN_RATE])
 	_expect(_corrected > OVERSHOOT_DEG, "an overshoot past him corrected (%.2f deg past, need %.2f)" % [_corrected, OVERSHOOT_DEG])
+	_judge_the_motion()
 	var lag: float = _lag()
 	_expect(lag >= LAG_S, "the eye trails his line while tracking (best fit %.3f s behind, need %.2f)" % [lag, LAG_S])
 	_expect(_settle >= SETTLE_S, "crosshair settled %.2f s before the shot at %.2f (need %.2f)" % [_settle, _fired_at, SETTLE_S])
 	say("hand: exposed %.2f, first move %.2f (reaction %.2f s), overshoot %.2f deg, peak %.1f deg/s, lag %.3f s, settle %.2f s, fired %.2f" % [
 		_exposed_at, _moved_at, _moved_at - _exposed_at, _corrected, _peak_rate, lag, _settle, _fired_at])
+
+
+## v42 (Ryan): "jumps and snaps around like a robot": the eye's acceleration under a cap, no speed jump where a beat changes, no frozen frame.
+func _judge_the_motion() -> void:
+	var worst: float = 0.0
+	var worst_at: float = -1.0
+	for i: int in range(1, _rates.size()):
+		var t: float = float(_rates[i][0])
+		# The squeeze snaps the last of the error out and kicks: the shot's recoil, not the hand.
+		if _fired_at >= 0.0 and t >= _fired_at - 0.001 and t <= _fired_at + 0.05:
+			continue
+		var accel: float = ((_rates[i][1] as Vector2) - (_rates[i - 1][1] as Vector2)).length() / float(_rates[i][2])
+		if accel > worst:
+			worst = accel
+			worst_at = t
+	_expect(worst < ACCEL_CAP, "m2: the eye's angular acceleration peaks %.0f deg/s^2 at %.2f (need under %.0f; the squeeze's kick excepted)" % [worst, worst_at, ACCEL_CAP])
+	var beats: Array = [["the hand comes on", _hand.start_at], ["off his ragdoll", _shoved_at + float(option("hold_over", 0.9))], ["the lead goes on", _led_at]]
+	for beat: Array in beats:
+		var at: float = float(beat[1])
+		var jump: float = 0.0
+		for i: int in range(1, _rates.size()):
+			if absf(float(_rates[i][0]) - at) <= BEAT_FRAMES / 60.0 + 0.001:
+				jump = maxf(jump, ((_rates[i][1] as Vector2) - (_rates[i - 1][1] as Vector2)).length())
+		_expect(at >= 0.0 and at < INF and jump < BEAT_JUMP, "m2: %s at %.2f: the eye's speed changes %.2f deg/s in a frame (need under %.1f)" % [beat[0], at, jump, BEAT_JUMP])
+	_expect(_repeats == 0 and _off_tick == 0, "m2: a new aim every frame from the first move to the hit (%d repeats, last %.2f; %d frames without exactly one tick)" % [_repeats, _repeat_at, _off_tick])
 
 
 ## The delay (s) that best lays the eye's yaw over his line's, from the first move to the lead (or the squeeze): zero is an aim bot.
