@@ -1,8 +1,8 @@
 shader_type spatial;
-render_mode unshaded, cull_disabled, blend_mix, depth_draw_never, fog_disabled;
+render_mode unshaded, cull_disabled, blend_mix, depth_draw_never;
 
-// The pit's mist on ForestFog's discs (forest_pit_build.fog_mesh): COLOR.a is the proven column,
-// this adds the colour, cloud drifting per layer, and a soft fade wherever a layer meets bank, trunk or thorn.
+// The pit mist on ForestFog's discs (forest_pit_build.fog_mesh): COLOR.a is the proven column; this adds colour, drift per
+// layer and a soft fade where a layer meets bank, trunk or thorn. Takes the Environment fog, so it continues the hazed bank.
 
 uniform sampler2D mist_noise : hint_default_white, filter_linear_mipmap, repeat_enable;
 uniform sampler2D scene_depth : hint_depth_texture, filter_nearest;

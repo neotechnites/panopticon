@@ -152,7 +152,16 @@ func _build_phase() -> void:
 	_button(row, "DEBUG_RESTART_MATCH", _act.bind(_controller.restart))
 	if multiplayer.multiplayer_peer == null or multiplayer.multiplayer_peer is OfflineMultiplayerPeer:
 		_build_bots(_controller)
+	elif multiplayer.is_server():
+		_build_net_bots()
 	_build_tower_choice(settings)
+	_toggle("DEBUG_TOWER_BRAWL", settings.tower_brawl, func(on: bool) -> void:
+		settings.tower_brawl = on
+		if on:
+			settings.skip_opening_race = false
+			rules.open_with_race = true
+		rules.open_with_tower_brawl = on
+		SettingsStore.instance().save_to_disk())
 	var clock: HBoxContainer = _row()
 	_toggle("DEBUG_PAUSE_CLOCK", _controller.debug_clock_paused, _pause_clock, clock)
 	_button(clock, "DEBUG_EXTEND_CLOCK", _extend_clock)
@@ -225,6 +234,47 @@ func _build_bots(controller: MatchController) -> void:
 			_fill_tower_choice()
 			_refresh_readout())
 	row.add_child(spin)
+
+
+## Host of a networked match: which seats hold bots and who opens in the tower, applied by
+## relaunching this map for everyone via the hub.
+func _build_net_bots() -> void:
+	var net: NetMatch = get_tree().current_scene.get_node_or_null(^"NetMatch") as NetMatch
+	var session: NetSession = get_tree().root.get_node_or_null(NetMatch.SESSION_PATH) as NetSession
+	if net == null or not net.has_started() or session == null or session.lobby == null:
+		return
+	var settings: GameSettings = SettingsStore.instance().settings
+	var lobby: NetLobby = session.lobby
+	_heading("DEBUG_SECTION_SEATS")
+	var bots: Dictionary[int, bool] = {}
+	var tower_titles: PackedStringArray = [tr("DEBUG_TOWER_RACE")]
+	for seat: LobbySeat in lobby.seats:
+		var title: String = tr("DEBUG_SEAT").format({"n": seat.index + 1, "name": seat.display_name})
+		tower_titles.append(title)
+		var row: HBoxContainer = _row()
+		row.add_child(_row_label(title))
+		if seat.is_human():
+			var human: Label = Label.new()
+			human.text = "DEBUG_SEAT_HUMAN"
+			row.add_child(human)
+			continue
+		bots[seat.index] = seat.is_bot()
+		var index: int = seat.index
+		_toggle("DEBUG_SEAT_BOT", seat.is_bot(), func(on: bool) -> void: bots[index] = on, row)
+	var tower: Array[int] = [settings.tower_seat_index + 1 if settings.skip_opening_race else 0]
+	_choice("DEBUG_OPENING_TOWER", tower_titles, tower[0], func(item: int) -> void: tower[0] = item)
+	_button(_row(), "DEBUG_BOTS_RELAUNCH", func() -> void:
+		var wanted: PackedInt32Array = PackedInt32Array()
+		for index: int in bots:
+			if bots[index]:
+				wanted.append(index)
+		settings.skip_opening_race = tower[0] > 0
+		settings.tower_seat_index = maxi(tower[0] - 1, 0)
+		SettingsStore.instance().save_to_disk()
+		HubLobby.relaunch_bot_seats = wanted
+		HubLobby.relaunch_on_arrival = true
+		closed.emit()
+		net.return_all_to_hub())
 
 
 ## Write [param count] bots as the prisoner count, clamped, with the shutout pulled under it.

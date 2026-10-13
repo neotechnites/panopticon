@@ -131,6 +131,8 @@ var _sight: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.new()
 var _body: PhysicsShapeQueryParameters3D = PhysicsShapeQueryParameters3D.new()
 
 var _lethal: Array[Lethal] = []
+## Trapdoors: lethal only while open, so asked live rather than carved.
+var _doors: Array[TrapDoor] = []
 var _links: Array[Link] = []
 var _link_by_owner: Dictionary = {}
 var _dead_pads: Array[BoostPad] = []
@@ -252,6 +254,8 @@ func bake_from(root: Node) -> void:
 	NavigationServer3D.parse_source_geometry_data(mesh, source, root)
 	_lethal.clear()
 	_collect_lethal(root)
+	_doors.clear()
+	_collect_doors(root)
 	_all_pads.clear()
 	_collect_pads(root, _all_pads)
 	var carved: int = _carve_lethal(root, source, into_root)
@@ -379,7 +383,27 @@ func is_lethal(point: Vector3, margin: float = 0.0) -> bool:
 		var top: float = 0.05 + margin if box.feet_only else box.half.y + margin
 		if local.y <= top and local.y >= -box.half.y - margin:
 			return true
+	return is_hazard_live(point, margin)
+
+
+## True when [param point] is over a trapdoor that is open or about to open.
+func is_hazard_live(point: Vector3, margin: float = 0.0) -> bool:
+	for door: TrapDoor in _doors:
+		if is_instance_valid(door) and door.is_lethal_at(point, margin):
+			return true
 	return false
+
+
+func has_doors() -> bool:
+	return not _doors.is_empty()
+
+
+func _collect_doors(node: Node) -> void:
+	var door: TrapDoor = node as TrapDoor
+	if door != null:
+		_doors.append(door)
+	for child: Node in node.get_children():
+		_collect_doors(child)
 
 
 func _carve_lethal(node: Node, source: NavigationMeshSourceGeometryData3D, into_root: Transform3D) -> int:

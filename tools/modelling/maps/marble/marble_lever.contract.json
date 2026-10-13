@@ -1,0 +1,11 @@
+{
+  "_comment": "marble_lever: the trapdoor's lever. Origin the post's base centre, y 0 the deck, +Z the direction of travel. MarbleLeverPost: 0.40 m square ashlar shaft to 0.90, a 0.52 m plinth cap to 1.00. MarbleLeverHandle: near-black iron boss, 0.80 m bar and knob; node origin AT THE PIVOT (0, 1.0, 0), bar up local +Y at rest, tilted about local X by the scene. MarbleLeverCollision: one -boxcol over the post (0.4 x 1.0 x 0.4); the handle's shot hitbox is the scene's.",
+  "node_paths": [
+    "MarbleLeverPost",
+    "MarbleLeverHandle",
+    "MarbleLeverCollision",
+    "MarbleLeverCollision/MarbleLeverCollisionShape"
+  ],
+  "surfaces": 4,
+  "max_tris": 100
+}

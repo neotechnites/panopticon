@@ -58,6 +58,10 @@ const OVERLAY_KEY: Key = KEY_TAB
 ## menu's direct match entry, which is the one way into a match that did not
 ## come through here.
 static var returns_to_hub: bool = false
+## Set by the host's in-match Bots change: back in the hub, relaunch the same map at once.
+static var relaunch_on_arrival: bool = false
+## With the relaunch: the seats to fill with bots (the rest emptied), or null to go by the bot count.
+static var relaunch_bot_seats: Variant = null
 
 ## The hub's controller, in [member MatchController.hub_mode].
 @export var controller: MatchController
@@ -138,6 +142,8 @@ var _vote_seed: int = 0
 var _vote_counts: PackedInt32Array = PackedInt32Array()
 var _vote_winner: MapWedge = null
 var _vote_tied: bool = false
+## The maps a launch from this hub can go to, loaded in the background while it stands.
+static var _warm: Dictionary[String, Resource] = {}
 
 
 func _ready() -> void:
@@ -151,6 +157,7 @@ func _ready() -> void:
 				_wedges.append(wedge)
 				_wedge_triggers.append(wedge.get_trigger())
 	_vote_counts.resize(_wedges.size())
+	_preload_launch_scenes.call_deferred()
 	if vote_label != null:
 		vote_label.visible = false
 	if _session != null and _session.is_established():
@@ -189,6 +196,44 @@ func _bind_lobby(lobby: NetLobby) -> void:
 			_lobby.return_to_lobby()
 	# So a client knows how the map gets picked before the host presses anything.
 	_publish_rules()
+	if relaunch_on_arrival:
+		relaunch_on_arrival = false
+		_relaunch.call_deferred()
+
+
+## Loads every decided wedge's map off the main thread, so a launch instantiates it from the cache.
+## Maps only: the match scene's own resources are mutated in play and must load fresh.
+func _preload_launch_scenes() -> void:
+	_warm.clear()
+	var paths: PackedStringArray = PackedStringArray()
+	for wedge: MapWedge in _wedges:
+		if wedge.is_decided():
+			paths.append(MapCatalog.scene_path_for(wedge.map_id))
+	for path: String in paths:
+		if path.is_empty() or _warm.has(path) or ResourceLoader.has_cached(path):
+			continue
+		if ResourceLoader.load_threaded_request(path) != OK:
+			continue
+		while ResourceLoader.load_threaded_get_status(path) == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+			await get_tree().process_frame
+			if not is_inside_tree():
+				return
+		_warm[path] = ResourceLoader.load_threaded_get(path)
+
+
+func _relaunch() -> void:
+	if relaunch_bot_seats is PackedInt32Array and _lobby != null:
+		var wanted: PackedInt32Array = relaunch_bot_seats
+		for seat: LobbySeat in _lobby.seats:
+			_lobby.set_bot(seat.index, wanted.has(seat.index))
+		# The count the launch fills and trims to is the seats as they stand now.
+		_store.settings.prisoner_count = clampi(_lobby.get_occupant_count() - 1,
+				GameSettings.MIN_PRISONER_COUNT, GameSettings.MAX_PRISONER_COUNT)
+	relaunch_bot_seats = null
+	for wedge: MapWedge in _wedges:
+		if wedge.is_decided() and wedge.map_id == _store.settings.map_id:
+			_start_on(wedge)
+			return
 
 
 func _process(_delta: float) -> void:
@@ -523,6 +568,12 @@ func _start_on(wedge: MapWedge) -> bool:
 	for seat: LobbySeat in _lobby.get_occupied_seats():
 		_lobby.set_ready(seat.index, true)
 	_lobby.fill_with_bots(_store.settings.prisoner_count + 1)
+	# Fewer bots than last match: the seats left over from it are emptied.
+	for i: int in range(_lobby.seats.size() - 1, -1, -1):
+		if _lobby.get_occupant_count() <= _store.settings.prisoner_count + 1:
+			break
+		if _lobby.seats[i].is_bot():
+			_lobby.remove_occupant(i)
 	if _rules.open_with_race:
 		_lobby.clear_roles()
 	else:

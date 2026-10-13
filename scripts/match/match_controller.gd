@@ -148,6 +148,8 @@ enum Phase {
 	## The hub lobby. Bodies and shoves, no rounds, no tower, no clock. Only a
 	## controller in [member hub_mode] ever reaches it.
 	HUB,
+	## The tower shove fight that opens a match in place of the race; see [method start_brawl].
+	BRAWL,
 }
 
 ## What a round has come to, from the shooter's point of view. Exhaustive.
@@ -170,6 +172,10 @@ signal armed()
 
 ## Emitted when the opening race is armed: no shooter, everyone on the ring.
 signal race_started()
+## The opening tower shove fight began.
+signal brawl_started()
+## [param participant] was shoved out of the fight (thrown at [param throw]) or fell out of it.
+signal brawler_out(participant: MatchParticipant, throw: Vector3)
 
 ## Emitted when a round is armed, after the shooter is on the tower and the
 ## prisoners are on the start line. A seat change emits it again, because a seat
@@ -393,6 +399,25 @@ const DEFAULT_SHOOTER_PROFILE_PATH: String = "res://characters/bots/default_shoo
 
 ## The finale shove's force against an ordinary shove's: Ryan's "turned up 3x".
 const FINALE_SHOVE_SCALE: float = 2.0
+## The tower fight: the ring the brawlers start on, how far below the floor is out,
+## the beat before the winner's round, and the open floor's edge inside the walls.
+const BRAWL_RING_METRES: float = 1.3
+const BRAWL_FALL_METRES: float = 3.0
+const BRAWL_END_SECONDS: float = 1.5
+const BRAWL_EDGE_INSET_METRES: float = 0.3
+## No shove lands for this long; each bot then joins in turn, this far apart.
+const BRAWL_GRACE_SECONDS: float = 1.5
+const BRAWL_BOT_STAGGER_SECONDS: float = 0.6
+## A brawling bot: where it stands off its target, how close it shoves from, how near the
+## edge it lets itself go, how fast it turns (rad/s) and how long it keeps one target.
+const BRAWL_STATION_METRES: float = 1.1
+const BRAWL_SHOVE_REACH: float = 1.8
+const BRAWL_BOT_EDGE_METRES: float = 0.9
+const BRAWL_BOT_TURN_RATE: float = 6.0
+const BRAWL_BOT_COMMIT_SECONDS: float = 2.0
+## Share of full run speed a brawling bot moves at: a walk in a small room, not a sprint.
+const BRAWL_BOT_SLOWEST: float = 0.2
+const BRAWL_BOT_FASTEST: float = 0.5
 
 ## Where the finale parks the tower's colliders: a layer no mask in the game
 ## reaches, so nothing collides with it, while the tracking shot can still see it.
@@ -564,6 +589,16 @@ var _centre: Vector3 = Vector3.ZERO
 var _start_point: Vector3 = Vector3.ZERO
 var _end_point: Vector3 = Vector3.ZERO
 var _tower_point: Vector3 = Vector3.ZERO
+## The tower fight's closing beat, or below zero while it is still being fought.
+var _brawl_end_remaining: float = -1.0
+var _brawl_winner: MatchParticipant = null
+var _brawl_elapsed: float = 0.0
+## Per bot in the tower fight: its target, how long it keeps it, and last tick's shove key.
+var _brawl_bots: Dictionary = {}
+## The open tower's stand-in floor for the fight, and its top.
+var _brawl_floor: StaticBody3D = null
+var _brawl_floor_y: float = 0.0
+var _brawl_floor_radius: float = 0.0
 
 ## The route the field is running. Never null once [method _cache_geometry] has
 ## succeeded: either the arena's own, or a flat one built here and parented to
@@ -708,6 +743,7 @@ func _physics_process(delta: float) -> void:
 	_tick_respawn_holds(delta)
 	_tick_ghosts(delta)
 	_tick_shoves(delta)
+	_tick_brawl(delta)
 	# BEFORE the hold: a beat ending this tick resolves the round the killing
 	# shot already won, and a resolved round is not one the siege can also win.
 	_tick_kill_beat(delta)
@@ -854,7 +890,9 @@ func start_match() -> void:
 	if _mirror:
 		return
 
-	if active.open_with_race and _participants.size() > 1:
+	if active.open_with_tower_brawl and _participants.size() > 1:
+		start_brawl()
+	elif active.open_with_race and _participants.size() > 1:
 		start_race()
 	else:
 		# No race: the seat the rules name opens the match in the tower on turn
@@ -994,6 +1032,293 @@ func start_race() -> void:
 	var racers: Array[MatchParticipant] = _participants.duplicate()
 	_place_runners(racers)
 	race_started.emit()
+
+
+## Open with everybody in the tower room and only the shove. Whoever is shoved out or falls
+## is out; the last one standing takes the tower for the first round.
+func start_brawl() -> void:
+	_phase = Phase.BRAWL
+	_outcome = Outcome.IN_PROGRESS
+	_removed_count = 0
+	_hold_remaining = 0.0
+	_seat = null
+	_stow_rifle()
+	_disarm_finisher()
+	_silence_all_tower_brains()
+	_publish_the_seat()
+	_brawl_end_remaining = -1.0
+	_brawl_winner = null
+	_brawl_elapsed = 0.0
+	_brawl_bots.clear()
+	_open_for_brawl()
+	_settle_frames = SETTLE_PHYSICS_FRAMES
+	for index: int in _participants.size():
+		_place_in_brawl(_participants[index], index, _participants.size())
+	brawl_started.emit()
+
+
+func _place_in_brawl(participant: MatchParticipant, index: int, count: int) -> void:
+	var active: MatchRules = get_rules()
+	participant.is_shooter = false
+	participant.is_running = true
+	participant.is_finisher = false
+	participant.lives = 1
+	participant.health = 1
+	var body: PlayerController = participant.body
+	body.is_guard = false
+	_apply_runner_multipliers(body, active)
+	_unmake_ghost(participant)
+	_tint_body(participant, participant.home_body_material)
+	_hold_body(participant)
+	var ability: RunnerPower = RunnerPower.of(body)
+	if ability != null:
+		# Only the shove: no rules, no power.
+		ability.arm(null, self)
+	_silence_tower_brain(participant)
+	_silence_brain(participant)
+	if participant.brain != null and participant.brain.input != null:
+		# This fight's bots shove when lined up, not on the lap's reflex.
+		participant.brain.input.shove_enabled = false
+	participant.tracker.stop()
+	var angle: float = TAU * float(index) / float(maxi(count, 1))
+	# A body and a half apart round the ring, kept a body clear of the edge.
+	var ring: float = clampf(float(count) * 1.2 / TAU, BRAWL_RING_METRES, maxf(_brawl_floor_radius - 0.8, BRAWL_RING_METRES))
+	var offset: Vector3 = Vector3(cos(angle), 0.0, sin(angle)) * ring
+	body.global_position = _tower_point + offset
+	body.velocity = Vector3.ZERO
+	# Facing out, so nobody starts with a shove lined up.
+	body.rotation = Vector3(0.0, _heading_of(offset), 0.0)
+	body.add_to_group(RUNNER_GROUP)
+
+
+## The host's tower fight, each tick: falls, the bots' shoving, and the end.
+func _tick_brawl(delta: float) -> void:
+	if _phase != Phase.BRAWL:
+		return
+	_brawl_elapsed += delta
+	if _brawl_end_remaining >= 0.0:
+		_brawl_end_remaining -= delta
+		if _brawl_end_remaining < 0.0:
+			_end_brawl()
+		return
+	var standing: Array[MatchParticipant] = []
+	for participant: MatchParticipant in _participants:
+		if not participant.is_running or participant.body == null:
+			continue
+		if participant.body.global_position.y < _brawl_floor_y - BRAWL_FALL_METRES:
+			# Off the tower: the only way out of the fight. Limp from the fall.
+			_brawl_out(participant, participant.body.velocity)
+			continue
+		standing.append(participant)
+	for participant: MatchParticipant in standing:
+		_drive_brawl_bot(participant, standing)
+	if standing.size() <= 1:
+		if standing.size() == 1:
+			_brawl_winner = standing[0]
+		_brawl_end_remaining = BRAWL_END_SECONDS
+
+
+## A bot in the tower fight: it keeps one target a while (spread so the field does not all
+## pick one), circles to the middle side of it, faces it, and shoves once lined up to send it
+## at the nearest edge; it backs off the edge itself and keeps a body's room from the rest.
+func _drive_brawl_bot(participant: MatchParticipant, standing: Array[MatchParticipant]) -> void:
+	if participant.is_human() or participant.brain == null or participant.brain.input == null:
+		return
+	var input: BotIntentSource = participant.brain.input
+	var command: MoveIntent = input.command
+	command.move_direction = Vector2.ZERO
+	command.look_delta = Vector2.ZERO
+	var joins_at: float = BRAWL_GRACE_SECONDS + BRAWL_BOT_STAGGER_SECONDS * float(participant.index)
+	if _brawl_elapsed < joins_at or standing.size() < 2:
+		return
+	var state: Dictionary = _brawl_bots.get(participant.index, {})
+	_brawl_bots[participant.index] = state
+	var body: PlayerController = participant.body
+	var here: Vector3 = _flat(body.global_position)
+	var centre: Vector3 = _flat(_tower_point)
+	var targets: Array[MatchParticipant] = []
+	for other: MatchParticipant in standing:
+		# Only somebody still standing on the floor: never chase a body already going over.
+		if other != participant and other.body.is_on_floor() \
+				and _flat(other.body.global_position).distance_to(centre) < _brawl_floor_radius - 0.2:
+			targets.append(other)
+	var target: MatchParticipant = _brawl_target(participant, targets, state)
+	if target == null:
+		# Nobody to go for: hold the middle.
+		var home: Vector3 = (centre - here) * 0.5
+		if home.length() > 0.3:
+			home = home.normalized() * 0.3
+			command.move_direction = Vector2(home.dot(_flat(body.global_transform.basis.x).normalized()), home.dot(_flat(-body.global_transform.basis.z).normalized()))
+		return
+	var there: Vector3 = _flat(target.body.global_position)
+	var outward: Vector3 = there - centre
+	outward = outward.normalized() if outward.length() > 0.2 else (there - here).normalized()
+	# Stand on the middle side of the target, so the shove carries it outward.
+	var station: Vector3 = there - outward * BRAWL_STATION_METRES
+	var to_station: Vector3 = station - here
+	var to_target: Vector3 = there - here
+	var want: Vector3 = to_station
+	if to_station.length() > 0.5 and to_target.length() < to_station.length():
+		# The target is in the way: go round it rather than into it.
+		var side: Vector3 = Vector3.UP.cross(to_target.normalized())
+		if side.dot(to_station) < 0.0:
+			side = -side
+		want = want.normalized() + side * 0.8
+	# Keep a body's room from everybody but the target.
+	for other: MatchParticipant in standing:
+		if other == participant or other == target:
+			continue
+		var away: Vector3 = here - _flat(other.body.global_position)
+		if away.length() < 1.0 and away.length() > 0.01:
+			want += away.normalized() * (1.0 - away.length()) * 1.5
+	var forward: Vector3 = _flat(-body.global_transform.basis.z).normalized()
+	var right: Vector3 = _flat(body.global_transform.basis.x).normalized()
+	var speed: float = clampf(to_station.length() / 2.0, BRAWL_BOT_SLOWEST, BRAWL_BOT_FASTEST)
+	if want.length() > 0.05:
+		want = want.normalized() * speed
+	# Off the edge before anything else: straight back toward the middle.
+	var from_centre: Vector3 = here - centre
+	var near_edge: bool = from_centre.length() > _brawl_floor_radius - BRAWL_BOT_EDGE_METRES
+	if near_edge:
+		want = -from_centre.normalized() * BRAWL_BOT_FASTEST
+	if want.length() > 0.05:
+		command.move_direction = Vector2(want.dot(right), want.dot(forward))
+	# Face the target, at a turn rate a hand could manage.
+	var turn: float = forward.signed_angle_to(to_target.normalized(), Vector3.UP)
+	var limit: float = BRAWL_BOT_TURN_RATE * get_physics_process_delta_time()
+	command.look_delta = Vector2(-clampf(turn, -limit, limit), 0.0)
+	# Shove once lined up: in reach, facing it, and the push points outward.
+	var lined_up: bool = (
+		to_target.length() <= BRAWL_SHOVE_REACH and absf(turn) < 0.3
+		and forward.dot(outward) > 0.3 and participant.shove_cooldown_remaining <= 0.0
+		and not near_edge
+	)
+	var pressed_last: bool = bool(state.get("pressed", false))
+	command.shove_pressed = lined_up and not pressed_last
+	state["pressed"] = command.shove_pressed
+
+
+## The bot's target: kept for a while once chosen, and chosen by distance plus how many
+## other bots are already on it.
+func _brawl_target(participant: MatchParticipant, standing: Array[MatchParticipant], state: Dictionary) -> MatchParticipant:
+	var kept: int = int(state.get("target", -1))
+	var until: float = float(state.get("until", 0.0))
+	for other: MatchParticipant in standing:
+		if other.index == kept and other != participant and _brawl_elapsed < until:
+			return other
+	var best: MatchParticipant = null
+	var best_score: float = INF
+	for other: MatchParticipant in standing:
+		if other == participant:
+			continue
+		var crowd: int = 0
+		for index: int in _brawl_bots:
+			if index != participant.index and int(_brawl_bots[index].get("target", -1)) == other.index:
+				crowd += 1
+		var score: float = participant.body.global_position.distance_to(other.body.global_position) + 2.0 * float(crowd)
+		if score < best_score:
+			best_score = score
+			best = other
+	if best != null:
+		state["target"] = best.index
+		state["until"] = _brawl_elapsed + BRAWL_BOT_COMMIT_SECONDS
+	return best
+
+
+func _flat(point: Vector3) -> Vector3:
+	return Vector3(point.x, 0.0, point.z)
+
+
+## [param participant] is out of the fight: held where it stood, dead, and thrown at
+## [param throw] (zero for a fall). Every machine's half; the host decides it.
+func _brawl_out(participant: MatchParticipant, throw: Vector3) -> void:
+	if participant == null or participant.body == null or not participant.is_running:
+		return
+	participant.is_running = false
+	_snapshot_death(participant)
+	_hold_body(participant)
+	participant.body.remove_from_group(RUNNER_GROUP)
+	_silence_brain(participant)
+	participant.body.died.emit()
+	var avatar: PrisonerAvatar = PrisonerAvatar.of(participant.body)
+	if avatar != null and throw != Vector3.ZERO:
+		avatar.throw_out(throw)
+	brawler_out.emit(participant, throw)
+
+
+## Open the tower for the fight: its walls go, and a bare floor stands where its floor was,
+## out to just inside the walls, so a shove can put somebody over the edge.
+func _open_for_brawl() -> void:
+	_free_brawl_floor()
+	var space: PhysicsDirectSpaceState3D = arena.get_world_3d().direct_space_state
+	var down: Dictionary = space.intersect_ray(PhysicsRayQueryParameters3D.create(
+		_tower_point + Vector3.UP * 0.5, _tower_point + Vector3.DOWN * 3.0, 1))
+	_brawl_floor_y = (down["position"] as Vector3).y if not down.is_empty() else _tower_point.y
+	var radius: float = maxf(_tower_room_radius() - BRAWL_EDGE_INSET_METRES, BRAWL_RING_METRES + 1.0)
+	_open_tower()
+	var floor_body: StaticBody3D = StaticBody3D.new()
+	floor_body.name = "BrawlFloor"
+	floor_body.collision_layer = 1
+	floor_body.collision_mask = 0
+	var shape: CollisionShape3D = CollisionShape3D.new()
+	var cylinder: CylinderShape3D = CylinderShape3D.new()
+	cylinder.radius = radius
+	_brawl_floor_radius = radius
+	cylinder.height = 0.4
+	shape.shape = cylinder
+	floor_body.add_child(shape)
+	arena.add_child(floor_body)
+	floor_body.global_position = Vector3(_tower_point.x, _brawl_floor_y - 0.2, _tower_point.z)
+	_brawl_floor = floor_body
+
+
+func _free_brawl_floor() -> void:
+	if is_instance_valid(_brawl_floor):
+		_brawl_floor.queue_free()
+		_brawl_floor.collision_layer = 0
+	_brawl_floor = null
+
+
+## How far the tower's walls stand from the spawn's axis, off its own collider, within a body's height.
+func _tower_room_radius() -> float:
+	var tower: Node = _tower_node()
+	var radius: float = 0.0
+	if tower == null:
+		return radius
+	for node: Node in tower.find_children("*", "CollisionShape3D", true, false):
+		var shape: CollisionShape3D = node as CollisionShape3D
+		var faces: ConcavePolygonShape3D = shape.shape as ConcavePolygonShape3D
+		if faces == null or shape.disabled:
+			continue
+		var frame: Transform3D = shape.global_transform
+		for vertex: Vector3 in faces.get_faces():
+			var at: Vector3 = frame * vertex
+			if at.y < _tower_point.y + 0.3 or at.y > _tower_point.y + 2.0:
+				continue
+			var reach: float = Vector2(at.x - _tower_point.x, at.z - _tower_point.z).length()
+			if radius == 0.0 or reach < radius:
+				# The nearest wall face above the floor: the inside of the room.
+				radius = reach
+	return radius if radius > 0.0 else 3.0
+
+
+## The fight is over: its winner takes the tower and the first round begins.
+func _end_brawl() -> void:
+	_brawl_end_remaining = -1.0
+	var winner: MatchParticipant = _brawl_winner if _brawl_winner != null else _participants[0]
+	_brawl_winner = null
+	take_seat(winner)
+	start_round()
+
+
+func net_start_brawl() -> void:
+	_applying = true
+	start_brawl()
+	_applying = false
+
+
+func net_brawl_out(index: int, throw: Vector3) -> void:
+	_brawl_out(_participant_at(index), throw)
 
 
 ## Arm a round with the current seat holder in the tower.
@@ -1287,6 +1612,8 @@ func configure_net(
 ## themselves belong to [NetMatch], which frees them; this only drops the
 ## controller's hold on them.
 func release_roster() -> void:
+	# The caller frees these bodies next; the rifle must not go with one.
+	_stow_rifle()
 	# A body still held by an arming leaves with its authored collision, or the next roster reads 0 as home.
 	for participant: MatchParticipant in _participants:
 		if participant.body != null:
@@ -1419,6 +1746,11 @@ func net_kill_beat(guard_index: int, throw: Vector3) -> void:
 		return
 	if _finisher != null and _finisher == get_human_participant():
 		net_shove_felt(Vector3(throw.x, 0.0, throw.z).normalized())
+	# Held here as on the host: a body this client predicts would fall through the opened tower.
+	_kill_beat_guard = guard
+	_kill_beat_scorer = _finisher
+	_freeze_for_kill_beat(guard)
+	_freeze_for_kill_beat(_finisher)
 	_throw_guard_out(guard, throw)
 	kill_beat_started.emit(guard, maxf(get_rules().kill_beat_seconds, 0.0), throw)
 
@@ -2029,7 +2361,7 @@ func _tick_shoves(delta: float) -> void:
 func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 	if shover == null or is_resolved() or _refuses_local_decision():
 		return null
-	if _phase != Phase.RACE and _phase != Phase.ROUND and _phase != Phase.HUB:
+	if _phase != Phase.RACE and _phase != Phase.ROUND and _phase != Phase.HUB and _phase != Phase.BRAWL:
 		return null
 	if shover.body == null:
 		return null
@@ -2681,6 +3013,8 @@ func _build_participants() -> void:
 	if _participants.size() == wanted:
 		return
 
+	# The rifle may sit on a bot's head; off it before that body is freed.
+	_stow_rifle()
 	for participant: MatchParticipant in _participants:
 		# The human's body belongs to the scene and is only borrowed.
 		if not participant.is_human() and participant.body != null:
@@ -2838,6 +3172,7 @@ func _participant_of_brain(brain: RunnerBrain) -> MatchParticipant:
 # --- Placement ----------------------------------------------------------------
 
 func _cache_geometry() -> void:
+	_start_places.clear()
 	var start_marker: Marker3D = arena.get_node_or_null(start_marker_path) as Marker3D
 	var end_marker: Marker3D = arena.get_node_or_null(end_marker_path) as Marker3D
 	var spawn_marker: Marker3D = arena.get_node_or_null(spawn_marker_path) as Marker3D
@@ -2985,6 +3320,8 @@ func _place_on_track(participant: MatchParticipant, start_point: Vector3) -> voi
 	# A body on the track runs; it does not play the tower. The outgoing shooter
 	# arrives here on every seat change with its tower brain still loaded.
 	_silence_tower_brain(participant)
+	if participant.brain != null and participant.brain.input != null:
+		participant.brain.input.shove_enabled = true
 	if participant.brain != null and not _mirror:
 		# The brain reads pace from the rules and geometry from its profile. The
 		# split is the seam: "walk or sprint" is a rule of the round, "how hard
@@ -3655,6 +3992,7 @@ func _hunt_the_guard(participant: MatchParticipant) -> void:
 ## Idempotent, and safe to call on a match that never armed a finisher.
 func _disarm_finisher() -> void:
 	_close_tower()
+	_free_brawl_floor()
 	if _finisher == null:
 		return
 	_finisher.is_finisher = false
@@ -3946,6 +4284,72 @@ func _track_tangent(angle: float) -> Vector3:
 ## adding a body widens the line symmetrically instead of pushing everybody
 ## outward towards the wall.
 func _start_place_for(index: int, count: int) -> Vector3:
+	if _start_places.size() < count:
+		_start_places = _lay_out_start(count)
+	if index < _start_places.size():
+		return _start_places[index]
+	return _line_place_for(index, count)
+
+
+## Start places checked against the map: rows across the lane from its middle out, further
+## rows behind the line, each on floor, clear of walls and of the places before it.
+var _start_places: Array[Vector3] = []
+const START_ACROSS_METRES: float = 1.4
+const START_ROW_METRES: float = 1.6
+const START_ROWS: int = 6
+const START_ACROSS_STEPS: int = 2
+
+
+func _lay_out_start(count: int) -> Array[Vector3]:
+	var out: Array[Vector3] = []
+	if not _geometry_ready or arena == null or not arena.is_inside_tree():
+		return out
+	var space: PhysicsDirectSpaceState3D = arena.get_world_3d().direct_space_state
+	var exclude: Array[RID] = []
+	for participant: MatchParticipant in _participants:
+		if participant.body != null:
+			exclude.append(participant.body.get_rid())
+	var capsule: CapsuleShape3D = CapsuleShape3D.new()
+	capsule.radius = 0.4
+	capsule.height = 1.6
+	var angle: float = _angle_of(_start_point)
+	var back: Vector3 = -_track_tangent(angle)
+	var lane: float = _route.lane_radius(0)
+	var deck: float = _route.deck_height(0)
+	for row: int in START_ROWS:
+		for step: int in START_ACROSS_STEPS * 2 + 1:
+			# 0, +1, -1, +2, -2 ...: the middle of the lane first.
+			var across: float = float((step + 1) / 2) * (1.0 if step % 2 == 1 else -1.0) * START_ACROSS_METRES
+			var place: Vector3 = _point_on_track(lane + across, angle) + back * START_ROW_METRES * float(row)
+			place.y = deck
+			var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+				place + Vector3.UP * 1.5, place + Vector3.DOWN * 1.5, 1, exclude)
+			var hit: Dictionary = space.intersect_ray(ray)
+			if hit.is_empty() or (hit["normal"] as Vector3).y < 0.7:
+				continue
+			place.y = (hit["position"] as Vector3).y
+			var query: PhysicsShapeQueryParameters3D = PhysicsShapeQueryParameters3D.new()
+			query.shape = capsule
+			query.transform = Transform3D(Basis.IDENTITY, place + Vector3.UP * 0.95)
+			query.collision_mask = 1
+			query.exclude = exclude
+			if not space.intersect_shape(query, 1).is_empty():
+				continue
+			var crowded: bool = false
+			for taken: Vector3 in out:
+				if taken.distance_to(place) < START_ACROSS_METRES - 0.05:
+					crowded = true
+					break
+			if crowded:
+				continue
+			out.append(place)
+			if out.size() >= count:
+				return out
+	return out
+
+
+## The old straight line across the lane: the fallback when the map gives no checked place.
+func _line_place_for(index: int, count: int) -> Vector3:
 	var active: MatchRules = get_rules()
 	var middle: float = float(maxi(count, 1) - 1) * 0.5
 	var offset: float = (float(index) - middle) * active.start_line_spacing_metres
@@ -4053,7 +4457,8 @@ func debug_skip_phase(tower: int = GameSettings.DEBUG_TOWER_BOT) -> void:
 	if _mirror or hub_mode or _participants.is_empty():
 		return
 	match _phase:
-		Phase.RACE:
+		Phase.RACE, Phase.BRAWL:
+			_brawl_end_remaining = -1.0
 			take_seat(_debug_tower(tower, _opening_seat()))
 			start_round()
 		Phase.ROUND:

@@ -66,3 +66,79 @@ rock 3 bands, fronds 2) instead of gradients. Banded water is a switch: `banded`
 
 Textures: `maps/beach/textures/beach.ase`, 256 px tiles at 0.05 m per texel, placeholders for Ryan to
 repaint; the table is in `docs/TEXTURES.md`.
+
+## Fish
+
+34 2D fish in 13 schools and singles swim loose loops under the bay (`maps/beach/fish/beach_fish.gd`, one MultiMesh,
+one draw call, no collision). Loops come from the sculpt's own bed, kept off the shore, the yacht and the coral:
+`python3 tools/modelling/maps/beach/beach_fish_paths.py` rewrites `beach_fish_paths.gd`. Each fish is a sprite card
+turned round its swim line to face the camera, a 3-frame tail wiggle from `beach_fish_albedo` (Ryan repaints).
+`beach_fish.gdshader` tints them by depth as the bed is and fades them by the water's own view-path see-through,
+drawn where the sight line meets the surface so the water does not hide them. A school swims off from a runner in the water within 5 m.
+
+## The island (Wuhu, Delfino, Destiny Islands)
+
+Designed top-down at real scale before it was modelled: `tools/modelling/maps/beach/beach_island_plan.py` (the build
+imports it; `--diagram out.png` draws the plan with 25 m contours and the skylines from the lane and the flybridge).
+An oval 1.45 x 1.05 km with the bay in the middle of its east coast: the massif is a N-S ridge straight behind the
+bay with ONE peak dead centre (340 m at (-640, 10), 570 m from the lane, 28 deg up: a forested cone under a bare
+crag of spires with cliffs and two ledges, `PEAK`/`SPIRES`/`CROWN`, shoulders of 238 and 246 m on the spine, ribs
+and gullies down the cone); two spurs run east to the two headlands flanking the bay, so the bay valley is an
+amphitheatre with the HOTEL low in the valley on the south side at (-254, -32), yaw 50 (chosen so every play eye
+sees its whole pad and no lane palm crosses its tower) and the VILLAGE on the north spur's flank, both inside the headlands from the yacht, a road rounding the valley head between them on a cut shelf. The coast (`COAST`: one
+closed outline, each point starting a sand, rock or cliff segment) carries South Beach, the north cove and Lookout
+Point (the capsule cam's view), a west beach and sea cliffs on the unseen side. The plan's land is eased in over 32 m
+behind the wall's lip, which stays exactly as the lane's sculpt had it.
+
+Ground: ONE blended material, `beach_terrain.gdshader`: sunlit stepped grass measured from Wuhu (`beach_grass`,
+triplanar at two scales), the crag's cliff rock (`beach_crag`, ledges, gullies and scree fans at 0.4 m/texel) and
+the beaches' sand (`beach_sand`), blended by per-vertex weights baked by the build (rock in UV2.y, sand in
+1 - COLOR.a: `rock_w`, `sand_w`) with noise-driven soft edges 18 m wide, albedo only (no tone darkening), so no rock/grass or sand/grass sawtooth exists
+anywhere. Vertex tones: fold/mid/crest grass, dry-meadow patches, scree greying under the rock line, the hotel's
+lawn, worn paths from the hotel and the village down to the wall. Scree boulders (`crag_boulder`, the crag's tile
+and tones, a third sunk on the mesh and deeper on a slope, never on a face over 37 deg) cluster on the blend under
+the rock line; nothing on the open grass.
+
+No tree stands on a play eye's sightline to the hotel's belfry (`hides_belfry`). Trees are few and the game's own: palms (the existing model, 9.5-12 m everywhere, on the mesh; no palm geometry enters the lane's eye corridor,
+`in_corridor`: a palm stands straighter, then grows, then goes) in groves on the flats, and a
+tropical broadleaf derived from the forest map's tree (`beach_broadleaf.py`: its trunk, patches and clumps at a short
+trunk and full crown, wearing `beach_trunk` bark and the `beach_crown` leaf-cluster tile; 294 and 139 tris) in groves
+behind the wall, on the valley's first rise and behind the beaches, singles on the lower slopes; leaf-dome bushes
+(`bush`, 36 tris) as a hedge the whole length of the wall and in scrub patches within 180 m of it; ~165 trees and bushes, 14 m clear of
+palms, no cards anywhere. Buildings at true player scale (`beach_buildings.py`: doors 2.1 m, storeys 3.2 m, facades
+at 0.05 m/texel with UVs from each building's base): the hotel 40 x 15 x 13 m with an arcaded ground floor, a recessed 2.1 m entrance
+door under the portico, balconies, a cornice, a tiled hip roof and a 9 x 9 x 30 m tower with a closed belfry; 26
+houses (rectangles and L-shapes, 1-2 storeys, shutters, a recessed 2.1 m door mid-front, tiled roofs, chimneys); a 7 x 7 x 32 m clock tower with a face per side. The hill is cut
+to two benches (`resort_pads`: planes with the hill's fall capped at 4 % and 16 %) and every building stands on its
+own terrace (`beach_buildings.terrace`: grass top, `beach_ashlar` retaining skirt and lip, a door gap); low ashlar
+walls round the hotel's pool terrace and six houses. Horizon islands are painted backdrops: one unshaded
+alpha-blended quad each (`beach_horizon_albedo`, hill feet on the sea line, the card 7 m under the sea; `BackdropMat`)
+at 2.75-2.95 km; the fog colour is the horizon band's, depth fog 400..3200 m.
+Behind the wall a SHORE STRIP a runner looks at over the rocks (`beach_shore.py`, true scale, the beach's thatch,
+drift, teak and canvas tiles): four tiki huts (2.1 m doorways, bamboo walls, thatch hips), a beach bar, three canvas
+cabanas (open timber frames, striped pyramids in the umbrellas' colours), a lifeguard tower, ten torches, and a
+2.4 m boardwalk the whole length at 10.5 m behind the lip (`STRIP`, `WALK`); hedge, bushes and groves keep off it.
+Every piece stands on a flat pad cut into the sculpt itself (`_island_z`: a disc of the piece's radius + 1 m at the
+piece's own ground, a 5 m ramp; terrain spread under the built pieces <= 0.32 m), huts on a plank floor 0.2 m up, every
+base skirted 0.5 m down. Thatch and canvas are single-sided per zone (`TWO_SIDED`): no coplanar doubled faces, the
+thatch underside 0.1 m under the course; cabana corner blocks and lifeguard rails are offset so no two faces share a
+plane (`scratchpad coplanar.py` scan: 0 same-facing pairs in every piece).
+Points of interest: a 25 m LIGHTHOUSE (white 12-sided tower, gallery, lantern, red cap) on the north headland's
+knoll (`LIGHTHOUSE`; the two headlands keep rock knolls the coast cap never flattens, grassed with crag outcrops),
+0 m hidden from every play eye. It stands on a flat pad (`resort_pads`, r 7 m) with a stepped ashlar plinth sized
+from the terrain under its footprint (24 samples at r 3.6 and 4.6: base at the lowest - 0.5, the plinth top 0.6 over
+the highest, so 1.5 m+ of foundation under the highest corner). A WATERFALL down the crag's deepest bay-facing gully
+(`WATERFALL`): a 6 m ribbon in the `fall` zone (`beach_fall.gdshader` scrolls `beach_fall_albedo`, white streaks on
+blue-white with alpha, down it) from a lip at the cliff top, 0.6 m off the gully, its last row ON the water of a
+round plunge pool cut INTO the ground (`Sculpt._pool_patch`: the coarse far-ring triangles round the gully's foot
+come out and a fine Delaunay patch over the hole's rim goes in; a rock basin 2.4 m deep, its water 1 m under the
+lowest rim, the rim the ground itself with a 0.3 m lip on the cliff side, baked rock by `ROCK_VERTS`), a foam ring
+and a foam fan on the water, mist cards fading up, and a 1.2 m stream out through a notch at water level down a 0.7 m
+channel the same patch dips to (`CHANNEL`, `stream_path`), 0.3 m over the channel's floor, fading where the channel
+does. The pool's surface is above every play eye (125 m up): from the lane the fall, the notch and the stream read;
+the water shows from the hill. The ROAD is a built bed (`_road`): its top 0.2 m over the
+highest terrain sample across its width at each station, an ashlar riser down 0.6 m into the ground each side (a
+retaining wall downhill, a kerb uphill), never below the ground, never dipping. A marina in the north cove
+was tried on paper and dropped: the headland hides it from every lane eye.
+Counts: island 12.4k tris, palms+broadleafs+scrub 39k, rocks 23.5k, resort (buildings, terraces, walls, road,
+backdrops, the shore strip, lighthouse, waterfall) 9.7k. Lane frame time on the PC at 1080p: 0.72 ms (main before this island: 0.91 ms).

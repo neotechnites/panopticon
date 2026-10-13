@@ -2,6 +2,10 @@ extends Node
 
 ## Host or client through the real MultiplayerScreen into the hub; the host starts the first decided wedge
 ## once --humans are in, --win ends it, --back returns to the hub, --again starts the next map from it.
+## --relaunch-bots=3,1: at --win of match k the host relaunches with the k-th count, as the debug menu does.
+## --relaunch-seats=2,5 / --relaunch-tower=seat: the first relaunch by seat, as the debug menu's Seats.
+## --shove-at=s: the host, in the hub, stands behind the client's body and shoves it, every 3 s from s.
+## --rematch presses Rematch on the result; --hub-all makes the host's Back take everyone to the hub.
 ## --loss/--delay-ms condition the wire. Logs every body's position and snapshots taken. Stdout.
 
 const SCREEN_SCENE: String = "res://ui/multiplayer_screen.tscn"
@@ -24,13 +28,17 @@ var _hub_again_ms: int = -1
 var _hub_visits: int = 0
 var _snaps: int = 0
 var _matches: int = 0
+var _rematched: int = 0
+var _was_showing: bool = false
+var _relaunched: int = 0
+var _last_frame_ms: int = 0
 
 
 func _ready() -> void:
 	_o = BotHarness.parse_arguments({"role": "server", "address": "127.0.0.1", "port": 27960,
 		"seconds": 20.0, "humans": 2, "wait": 3.0, "limit": 120.0, "map": "", "walk": false, "name": "", "press": true, "press_key": true,
 		"win": -1.0, "back": -1.0, "hub_seconds": 6.0, "trace": 1.5, "guard": -1,
-		"again": false, "loss": 0.0, "delay-ms": 0})
+		"again": false, "loss": 0.0, "delay-ms": 0, "rematch": false, "hub-all": false, "relaunch-bots": "", "matches": 2, "relaunch-seats": "", "relaunch-tower": -1, "shove-at": -1.0})
 	_t0 = Time.get_ticks_msec()
 	_boot.call_deferred()
 
@@ -72,6 +80,10 @@ func _boot() -> void:
 func _process(_delta: float) -> void:
 	if _lobby == null:
 		return
+	var frame_ms: int = Time.get_ticks_msec()
+	if _last_frame_ms > 0 and frame_ms - _last_frame_ms > 50:
+		_line("HITCH %d ms scene=%s" % [frame_ms - _last_frame_ms, _last_scene.get_file()])
+	_last_frame_ms = frame_ms
 	var tree: SceneTree = get_tree()
 	var scene_node: Node = tree.current_scene
 	var scene: String = scene_node.scene_file_path if scene_node != null else "<none>"
@@ -93,6 +105,8 @@ func _process(_delta: float) -> void:
 	var elapsed: float = (Time.get_ticks_msec() - _t0) / 1000.0
 	if bool(_o.walk):
 		_walk(elapsed)
+	if String(_o.role) == "server" and float(_o["shove-at"]) >= 0.0 and elapsed > float(_o["shove-at"]) and scene == "res://hub/hub.tscn":
+		_shove_client(scene_node, elapsed)
 	if String(_o.role) == "server" and not _started and scene_node != null:
 		var hub: HubLobby = null
 		for n: Node in scene_node.find_children("*", "Node", true, false):
@@ -112,7 +126,7 @@ func _process(_delta: float) -> void:
 	var seconds: float = float(_o.hub_seconds) if float(_o.back) >= 0.0 else float(_o.seconds)
 	var since: int = _hub_again_ms if float(_o.back) >= 0.0 else _match_ms
 	if bool(_o.again):
-		since = _match_ms if _matches >= 2 else -1
+		since = _match_ms if _matches >= int(_o.matches) else -1
 	if since >= 0 and (Time.get_ticks_msec() - since) / 1000.0 > seconds:
 		_line("END ok phase=%s" % String(NetLobby.Phase.keys()[_lobby.get_phase()]))
 		tree.quit(0)
@@ -183,6 +197,20 @@ func _physics_process(_delta: float) -> void:
 ## Host: --win seconds into the match, seat 0 wins. Anyone: --back seconds after the win, Back to hub.
 func _finish_match(scene_node: Node) -> void:
 	var now: int = Time.get_ticks_msec()
+	var counts: PackedStringArray = String(_o["relaunch-bots"]).split(",", false)
+	if String(_o.role) == "server" and not counts.is_empty() and float(_o.win) >= 0.0:
+		if _relaunched < _matches and _relaunched < counts.size() and (now - _match_ms) / 1000.0 > float(_o.win):
+			var count: int = int(counts[_relaunched])
+			_relaunched = _matches
+			DebugMenu.write_bot_count(SettingsStore.instance().settings, count)
+			HubLobby.relaunch_on_arrival = true
+			if _relaunched == 1 and not String(_o["relaunch-seats"]).is_empty():
+				HubLobby.relaunch_bot_seats = PackedInt32Array(Array(String(_o["relaunch-seats"]).split(",")).map(func(x: String) -> int: return int(x)))
+				SettingsStore.instance().settings.skip_opening_race = int(_o["relaunch-tower"]) >= 0
+				SettingsStore.instance().settings.tower_seat_index = maxi(int(_o["relaunch-tower"]), 0)
+			(scene_node.get_node(^"NetMatch") as NetMatch).return_all_to_hub()
+			_line("RELAUNCH bots=%d" % count)
+		return
 	if String(_o.role) == "server" and not _won and float(_o.win) >= 0.0 and (now - _match_ms) / 1000.0 > float(_o.win):
 		var controller: MatchController = scene_node.get_node_or_null(^"MatchController") as MatchController
 		if controller != null and controller.get_phase() != MatchController.Phase.MATCH_OVER and not controller.get_participants().is_empty():
@@ -190,12 +218,26 @@ func _finish_match(scene_node: Node) -> void:
 			controller._win_match(controller.get_participants()[0])
 			_line("WIN forced")
 	var screen: MatchResultScreen = scene_node.get_node_or_null(^"ResultScreen") as MatchResultScreen
+	if screen != null and screen.is_showing() != _was_showing:
+		_was_showing = screen.is_showing()
+		var mc: MatchController = scene_node.get_node_or_null(^"MatchController") as MatchController
+		_line("RESULT showing=%s phase=%s votes=%s" % [str(_was_showing), mc.get_phase_name() if mc != null else "?",
+			screen.get_node(^"%RematchVotes").text])
+	if bool(_o.rematch) and screen != null and screen.is_showing() and _rematched < _matches:
+		_rematched = _matches
+		_line("REMATCH pressed")
+		screen.request_rematch()
+		return
 	if _back_ms == -1 and screen != null and screen.is_showing() and float(_o.back) >= 0.0:
 		_back_ms = now
 	if _back_ms >= 0 and screen != null and (now - _back_ms) / 1000.0 > float(_o.back):
 		_back_ms = -2
 		_line("BACK pressed")
-		screen.play_again()
+		if bool(_o["hub-all"]):
+			if String(_o.role) == "server":
+				screen._on_hub_all_pressed()
+		else:
+			screen.play_again()
 
 
 ## Every body this scene's NetMatch drives: seat, position, shown, simulating. Each physics
@@ -223,3 +265,33 @@ func _trace() -> void:
 			" floor" if body.is_on_floor() else ""])
 	_line("POS %s%s epoch=%d snaps=%d %s" % [scene_node.scene_file_path.get_file(), " 3d-off" if get_viewport().disable_3d else "",
 		_session.replicator.get_scene(), _snaps, " ".join(parts)])
+
+
+var _next_shove: float = 0.0
+
+
+func _shove_client(scene_node: Node, elapsed: float) -> void:
+	var net: NetMatch = scene_node.get_node_or_null(^"NetMatch") as NetMatch
+	if net == null:
+		return
+	var mine: PlayerController = null
+	var theirs: PlayerController = null
+	for child: Node in net.get_children():
+		var link: PlayerNetLink = child as PlayerNetLink
+		if link == null or link.controller == null:
+			continue
+		if link.seat_index == 0:
+			mine = link.controller
+		else:
+			theirs = link.controller
+	if mine == null or theirs == null:
+		return
+	var press: bool = elapsed >= _next_shove
+	if press:
+		_next_shove = elapsed + 3.0
+		var ahead: Vector3 = -theirs.global_transform.basis.z
+		mine.global_position = theirs.global_position - Vector3(ahead.x, 0.0, ahead.z).normalized() * 1.0
+		mine.velocity = Vector3.ZERO
+		mine.look_at(theirs.global_position, Vector3.UP)
+		_line("SHOVE try")
+	_hold(&"shove", press)

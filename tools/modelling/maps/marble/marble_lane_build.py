@@ -245,10 +245,44 @@ def _deck(m):
     n = len(ang)
     z = mb.DECK_Z
     rings = [_ring(m, ang, r, z) for r in mb.DECK_RS]
+    holes = mb.trapdoor_cells()
     for k in range(len(rings) - 1):
         for i in range(n):
+            if k < 2 and i in holes:            # a trapdoor's two inner flags: the pit's mouth
+                continue
             j = (i + 1) % n
             m.quad(rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i], UP, "floor")
+
+
+def _pits(m):
+    """Under each trapdoor cell a closed pit welded to the deck's own hole: floor PIT_Z, the
+    inner side stepped out to PIT_STEP_R under the cornice so nothing shows below it. Near-black
+    inside, the cells' back-wall tone, so the open pit reads as a drop."""
+    ang = mb.lane_angles()
+    n = len(ang)
+    top, z0, zl = mb.DECK_Z, mb.PIT_Z, mb.PIT_LEDGE_Z
+    r0, r1, r2, rs = mb.DECK_RS[0], mb.DECK_RS[1], mb.DECK_RS[2], mb.PIT_STEP_R
+    for i in sorted(mb.trapdoor_cells()):
+        a0, a1 = ang[i], ang[(i + 1) % n]
+        am = 0.5 * (a0 + (a1 if a1 > a0 else a1 + TWO_PI))
+        er = _er(am)
+        inward = (-er[0], -er[1], 0.0)
+
+        def P(r, a, z):
+            return m.v((r * math.cos(a), r * math.sin(a), z))
+
+        m.quad(P(r0, a0, top), P(r0, a1, top), P(r0, a1, zl), P(r0, a0, zl), er, "cellin")
+        m.quad(P(r0, a0, zl), P(r0, a1, zl), P(rs, a1, zl), P(rs, a0, zl), UP, "cellin")
+        m.quad(P(rs, a0, zl), P(rs, a1, zl), P(rs, a1, z0), P(rs, a0, z0), er, "cellin")
+        m.quad(P(r2, a0, top), P(r2, a1, top), P(r2, a1, z0), P(r2, a0, z0), inward, "cellin")
+        m.quad(P(rs, a0, z0), P(rs, a1, z0), P(r1, a1, z0), P(r1, a0, z0), UP, "cellin")
+        m.quad(P(r1, a0, z0), P(r1, a1, z0), P(r2, a1, z0), P(r2, a0, z0), UP, "cellin")
+        for a, want in ((a0, _et(a0)), (a1, tuple(-c for c in _et(a1)))):
+            m.tri(P(r0, a, top), P(r0, a, zl), P(rs, a, zl), want, "cellin")
+            m.tri(P(r0, a, top), P(rs, a, zl), P(r1, a, top), want, "cellin")
+            m.tri(P(r1, a, top), P(rs, a, zl), P(rs, a, z0), want, "cellin")
+            m.tri(P(r1, a, top), P(rs, a, z0), P(r1, a, z0), want, "cellin")
+            m.quad(P(r1, a, top), P(r1, a, z0), P(r2, a, z0), P(r2, a, top), want, "cellin")
 
 
 def _stitch(m, a, b, want, zone):
@@ -299,7 +333,7 @@ def _margin(m):
 # =============================================================================
 
 def _stages(m, sp):
-    return (("floor", lambda: _floor(m, sp)), ("deck", lambda: _deck(m)), ("edge", lambda: _edge(m)),
+    return (("floor", lambda: _floor(m, sp)), ("deck", lambda: _deck(m)), ("pits", lambda: _pits(m)), ("edge", lambda: _edge(m)),
             ("margin", lambda: _margin(m)))
 
 
@@ -333,10 +367,28 @@ def collider(c):
     n = len(ang)
     r_out = mb.WALL_R - mb.BAND_PROUD
     rings = [_ring(c, ang, r, mb.DECK_Z) for r in (mb.INNER_R, 52.0, r_out)]
+    holes = mb.trapdoor_cells()
     for k in range(2):
         for i in range(n):
+            if k == 0 and i in holes:
+                continue
             j = (i + 1) % n
             c.quad(rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i], UP, "floor")
+    # each trapdoor's pit: an open box under the hole, so a body that drops lands at PIT_Z
+    z0, z1, ra, rb = mb.PIT_Z, mb.DECK_Z, mb.INNER_R, 52.0
+    for i in sorted(holes):
+        a0, a1 = ang[i], ang[(i + 1) % n]
+        am = 0.5 * (a0 + (a1 if a1 > a0 else a1 + TWO_PI))
+        er = _er(am)
+
+        def P(r, a, z):
+            return c.v((r * math.cos(a), r * math.sin(a), z))
+
+        c.quad(P(ra, a0, z0), P(ra, a1, z0), P(rb, a1, z0), P(rb, a0, z0), UP, "floor")
+        c.quad(P(ra, a0, z1), P(ra, a1, z1), P(ra, a1, z0), P(ra, a0, z0), er, "floor")
+        c.quad(P(rb, a0, z1), P(rb, a1, z1), P(rb, a1, z0), P(rb, a0, z0), (-er[0], -er[1], 0.0), "floor")
+        c.quad(P(ra, a0, z1), P(ra, a0, z0), P(rb, a0, z0), P(rb, a0, z1), _et(a0), "floor")
+        c.quad(P(ra, a1, z1), P(ra, a1, z0), P(rb, a1, z0), P(rb, a1, z1), tuple(-x for x in _et(a1)), "floor")
 
 
 if __name__ == "__main__":

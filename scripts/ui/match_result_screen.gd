@@ -130,6 +130,10 @@ signal main_menu_requested()
 @onready var _detail_label: Label = %Detail
 @onready var _play_again_button: Button = %PlayAgainButton
 @onready var _main_menu_button: Button = %MainMenuButton
+@onready var _net_buttons: Control = %NetButtons
+@onready var _rematch_button: Button = %RematchButton
+@onready var _hub_all_button: Button = %HubAllButton
+@onready var _rematch_votes_label: Label = %RematchVotes
 @onready var _beat: Control = %Beat
 @onready var _beat_verdict_label: Label = %BeatVerdict
 @onready var _beat_headline_label: Label = %BeatHeadline
@@ -176,6 +180,9 @@ func _ready() -> void:
 	controller.match_started.connect(_on_match_started)
 	if net_match != null:
 		net_match.host_lost.connect(show_host_lost)
+		net_match.rematch_votes_changed.connect(_on_rematch_votes)
+	_rematch_button.pressed.connect(request_rematch)
+	_hub_all_button.pressed.connect(_on_hub_all_pressed)
 
 	# A screen added to a match that is ALREADY over -- a scene reload, a test
 	# that drives the controller before wiring this up -- still shows itself.
@@ -203,6 +210,7 @@ func show_result() -> void:
 		_is_showing = true
 		_release_mouse()
 		_apply_visibility(true)
+		_show_net_buttons()
 		result_shown.emit(controller.get_match_winner())
 	_play_again_button.grab_focus()
 
@@ -214,6 +222,8 @@ func show_host_lost() -> void:
 	_headline_label.text = tr("RESULT_HOST_LOST_DETAIL")
 	_detail_label.text = ""
 	_play_again_button.visible = false
+	_net_buttons.visible = false
+	_rematch_votes_label.visible = false
 	if not _is_showing:
 		_is_showing = true
 		_release_mouse()
@@ -294,6 +304,34 @@ func play_again() -> void:
 	# down. If a controller ever stops emitting it, a stuck result screen over a
 	# live match is the worst failure available here.
 	hide_result()
+
+
+## Ask for a rematch on this map; the host restarts it once every player has asked.
+func request_rematch() -> void:
+	if net_match == null:
+		return
+	_rematch_button.disabled = true
+	net_match.request_rematch()
+
+
+func _on_hub_all_pressed() -> void:
+	if net_match != null:
+		hide_result()
+		_restore_mouse()
+		net_match.return_all_to_hub()
+
+
+func _show_net_buttons() -> void:
+	var networked: bool = net_match != null and net_match.is_active() and net_match.has_started()
+	_net_buttons.visible = networked
+	_rematch_button.disabled = false
+	_hub_all_button.visible = networked and net_match.is_authority()
+	_rematch_votes_label.visible = false
+
+
+func _on_rematch_votes(names: PackedStringArray) -> void:
+	_rematch_votes_label.visible = not names.is_empty()
+	_rematch_votes_label.text = tr("RESULT_REMATCH_VOTES").format({"names": ", ".join(names)})
 
 
 ## Leave the match for the main menu.
@@ -546,6 +584,10 @@ func _on_match_won(_participant: MatchParticipant) -> void:
 ## restart and the Play Again button all leave it in the same state.
 func _on_match_started(_participant_count: int) -> void:
 	hide_result()
+	# A rematch restarts under this screen: its claim on the cursor ends with it.
+	_restore_mouse()
+	_rematch_votes_label.visible = false
+	_rematch_button.disabled = false
 
 
 ## Put a cursor on screen.

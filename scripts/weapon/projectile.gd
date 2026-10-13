@@ -39,11 +39,8 @@ extends Node3D
 ##
 ## A peer that is not the authority still has to SHOW the round, and the host
 ## has already told it where the shot ended. Such a round is configured
-## [code]cosmetic[/code]: no collision mask, no areas, no gravity. It is a
-## straight line to a point somebody else resolved, and bending it a second
-## time would walk the picture off that line -- the streak would arrive
-## somewhere the hit was not. It still flies through the same [method advance]
-## as a live round, so the two cannot drift apart by having two flight paths.
+## [code]cosmetic[/code]: no collision mask and no areas; it keeps the shooter's drop, so it
+## flies the live round's arc, and the authority's hit or miss ends it ([method land_at]).
 
 ## Where the streak this round leaves should start: the muzzle as it stood on
 ## the tick the trigger broke, not wherever the barrel has swung since. [Rifle]
@@ -150,9 +147,10 @@ static func launch(
 	profile: WeaponProfile,
 	exclude: Array[RID],
 	cosmetic: bool = false,
+	gravity: float = -1.0,
 ) -> WeaponProjectile:
 	var round_shot: WeaponProjectile = WeaponProjectile.new()
-	round_shot.configure(origin, direction, speed, travel_range, profile, exclude, cosmetic)
+	round_shot.configure(origin, direction, speed, travel_range, profile, exclude, cosmetic, gravity)
 	parent.add_child(round_shot)
 	return round_shot
 
@@ -167,11 +165,13 @@ func configure(
 	profile: WeaponProfile,
 	exclude: Array[RID],
 	cosmetic: bool = false,
+	gravity: float = -1.0,
 ) -> void:
 	top_level = true
 	_cosmetic = cosmetic
 	_velocity = direction.normalized() * maxf(speed, 0.001)
-	_gravity = maxf(profile.projectile_gravity, 0.0)
+	# [param gravity] at or above 0 is the shooter's drop, sent with a replayed shot.
+	_gravity = maxf(profile.projectile_gravity if gravity < 0.0 else gravity, 0.0)
 	_range_left = maxf(travel_range, 0.0)
 	_step_metres = maxf(profile.projectile_step_metres, 0.05)
 	_max_flight = maxf(profile.projectile_max_flight_seconds, 0.05)
@@ -184,13 +184,9 @@ func configure(
 	global_transform = Transform3D(Basis.IDENTITY, origin)
 
 	if _cosmetic:
-		# Stripped here rather than branched on in flight: the round is aimed at
-		# an end point the authority has already resolved, so a mask that could
-		# stop it short and a gravity that could bend it off that line are not
-		# softened, they are removed.
+		# No mask: the authority's hit or miss ends it. Drop is kept, so it flies the live round's arc.
 		_mask = 0
 		_hit_areas = false
-		_gravity = 0.0
 
 	if profile.draws_projectile_streak():
 		_build_visual(direction, profile)
@@ -254,6 +250,14 @@ func advance(delta: float) -> bool:
 			return true
 
 	return false
+
+
+## End a cosmetic round where the authority says its twin landed.
+func land_at(point: Vector3) -> void:
+	if _resolved:
+		return
+	global_position = point
+	_resolve(point, {})
 
 
 ## True once the round has stopped flying, whether it hit or not.

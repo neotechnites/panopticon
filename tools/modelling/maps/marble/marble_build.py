@@ -84,6 +84,7 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
         break
 import texel as tx  # noqa: E402  one tiling sheet per class, world-projected
 import glb_textures  # noqa: E402
+import vertex_ao  # noqa: E402  contact shadow baked into COLOR_0
 if bpy is not None:
     import mdl  # noqa: E402
     mdl.DEFAULTS["ground"] = False
@@ -138,7 +139,17 @@ BAR_D = 0.5                 # ... standing on the sill this far into the reveal,
 BAND_Z = (7.4, 8.0)         # the tier cornice, over the tier base; its top is the next tier's base
 SLAB_BAND_Z = (SLAB_Z0 - TIER_BASE[SLAB_TIER], TIER_H)   # (7.0, 8.0): the slab tier's, one metre thick
 BAND_PROUD = 0.45           # ... as proud as the pilasters, which run up into it
-FRIEZE_Z = (TIER_BASE[-1] + TIER_H, TIER_BASE[-1] + TIER_H + 1.8)     # 55.0 .. 56.8, Greek key
+DRUM_BAYS = 40              # the drum's own stations over the top tier (2026-10-09): 7.4 m bays, a window in every fifth
+DRUM_BAND = 0.6             # the courses that zipper the drum's 40 bays onto the wall's 50, foot and head
+WINDOW_EVERY, WINDOW_PHASE = 5, 2   # eight windows, every fifth drum bay, each under a dome rib
+WINDOW_W = 6.0              # window mouth ...
+WINDOW_JAMB = 8.0           # ... jamb height, sill to springing; head r 3.0: 11 m tall
+WINDOW_SILL = 1.0           # sill over the drum's foot band
+WINDOW_D = 1.0              # the glazing this far into the drum
+WINDOW_BARS = 3             # mullions, and a transom under the springing ...
+WINDOW_BAR_HW = 0.07        # ... 0.14 m square
+DRUM_H = 2.0 * DRUM_BAND + WINDOW_SILL + WINDOW_JAMB + WINDOW_W / 2.0 + 1.0   # 14.2: 55.0 .. 69.2
+FRIEZE_Z = (TIER_BASE[-1] + TIER_H, TIER_BASE[-1] + TIER_H + DRUM_H)  # the drum
 CORNICE_Z = (FRIEZE_Z[1], FRIEZE_Z[1] + 1.0)                          # 56.8 .. 57.8, the great cornice
 CORNICE_PROUD = 0.8
 # The corridor: the lane tier stays at WALL_R; the tiers under and over it stand in at WALL_IN_R,
@@ -158,7 +169,7 @@ DOME_Z0 = CORNICE_Z[1]      # 57.8
 DOME_K = WALL_IN_R / WALL_R # the dome scaled whole to the inner tiers' radius
 DOME_RISE = 27.0 * DOME_K
 DOME_RINGS = 8
-DOME_CAP_R = 4.2 * DOME_K   # flat medallion at the crown
+DOME_CAP_R = 14.0 * DOME_K  # the crown ring the oculus opens in (was 4.2: a flat medallion)
 
 # ---- the spike floor ------------------------------------------------------
 SPIKE_SEED = 7702141
@@ -176,6 +187,15 @@ LANE_R = 52.0
 # the start line to the portal are a scene node (RockBars, as on Map 1), at
 # this bearing, and the lane's stations are even.
 BARS_B = 353.0
+
+# ---- the trapdoor pits ----------------------------------------------------------
+# Game bearings of the trapdoors: each a lane cell's centre (2.8125 * (k + 0.5)), the cell's inner
+# two paving bands (DECK_RS[0]..[2]) cut over a pit. WRITTEN FROM THE SCENE: drag marble_trapdoor.tscn
+# instances in maps/marble/marble.tscn, run `python3 marble_build.py --sync-trapdoors`, rebuild marble.
+TRAPDOOR_BEARINGS = (49.21875,)
+PIT_Z = 21.6                # the pit floor: over the lower tier's cell vaults (crown 21.5)
+PIT_LEDGE_Z = 22.05         # the inner side steps out under the cornice (bottom 22.0) ...
+PIT_STEP_R = 47.3           # ... to here, behind the inner tiers' face (47.15)
 
 # ---- texture ------------------------------------------------------------------
 TEX_SEED = 9021131          # the window unwrap's random stream
@@ -268,7 +288,7 @@ def column_sheet(stem="marble_column"):
 
 
 # Linear multipliers over the brick: each class's old mean colour.
-TINT_SHADE = (0.85, 0.68, 0.42)        # warm: the undersides see only the cool ambient
+TINT_SHADE = (0.85, 0.85, 0.85)        # a crease, not a shadow: the olive ambient does the rest
 TINT_PLINTH_WALL = (0.8106, 0.8086, 0.8369)
 TINT_PLINTH = (0.8285, 0.8293, 0.8617)
 TINT_MARBLE2 = (0.7939, 0.7923, 0.8147)
@@ -278,7 +298,24 @@ TOWER_PLAIN_STEM = "marble_tower_stone"   # the guard room's centre: his stone p
 TOWER_COLUMN_STEM = "marble_tower_column"   # the arcade's columns: his column pixels, lit by the ambient alone
 TINT_BARS = None
 TINT_CELL = (0.021, 0.026, 0.023)        # the back walls near black, as before the colour passes (Ryan, 2026-10-08)
-TINT_IRON = (0.060, 0.065, 0.075)        # the plain stone darkened to the drawing's dark bars
+TINT_IRON = (0.1557, 0.1445, 0.1382)       # the plain stone darkened to the drawing's dark bars
+
+
+OCULUS_RGB = (0.86, 0.88, 0.90)   # the skylight's glass: daylight, the brightest thing in the room
+
+
+def glass_material(name):
+    """The oculus glass: a flat daylight glow, albedo and emission, no texture."""
+    mat = bpy.data.materials.new(name)
+    mat.use_nodes = True
+    bsdf = mat.node_tree.nodes.get("Principled BSDF")
+    rgba = OCULUS_RGB + (1.0,)
+    bsdf.inputs["Base Color"].default_value = rgba
+    bsdf.inputs["Emission Color"].default_value = rgba
+    bsdf.inputs["Emission Strength"].default_value = 1.0   # exactly 1.0: no KHR warning
+    bsdf.inputs["Roughness"].default_value = ROUGHNESS
+    mat.diffuse_color = rgba
+    return mat
 
 
 def iron_sheet():
@@ -316,7 +353,7 @@ SHEETS = {
                       roughness=ROUGHNESS, stem="marble_pit", mode="box"),   # the pit floor: its own tile, brick density
     "spike": stone("spike", mode="box", mpt=tx.MPT),
     "floor": tile("floor", "marble_floor", "fit", 64, 64, mpt=2.7 / 64.0),
-    "frieze": stone("frieze", ref_r=WALL_IN_R),   # unruled; the Greek key was tile("frieze", <its file>, "fit", 256, 64)
+    "frieze": brick("frieze", **_WALL),          # the drum: ashlar, as the piers
     "column": column_sheet(),
     "band": band_sheet(),
     "iron": iron_sheet(),
@@ -534,6 +571,17 @@ def lane_angles():
     """The lane system's stations, 128 even. Used by the deck, both podium
     walls, the trough's inner rings and the inner bed's outer band."""
     return [TWO_PI * i / (NSIDE * DECK_SUB) for i in range(NSIDE * DECK_SUB)]
+
+
+def trapdoor_cells():
+    """Lane cell indices (between stations i and i+1, Blender angles) opened for TRAPDOOR_BEARINGS."""
+    step = 360.0 / (NSIDE * DECK_SUB)
+    out = set()
+    for b in TRAPDOOR_BEARINGS:
+        k = ((-b) % 360.0) / step - 0.5
+        assert abs(k - round(k)) < 1e-9, "trapdoor bearing %r is not a lane cell centre" % b
+        out.add(int(round(k)) % (NSIDE * DECK_SUB))
+    return out
 
 
 def wall_stations(rad=WALL_R, n=NSIDE):
@@ -1152,11 +1200,15 @@ def build():
     a = audit(stone, "stone")
     ob = stone.object(OBJECT_NAME)
     classes = [_CLASS.get(z, z) for z in stone.zones]
-    tx.unwrap(ob, classes, SHEETS, seed=1, face_uv=stone.face_uv, groups=stone.groups)
+    tx.unwrap(ob, classes, SHEETS, seed=1, face_uv=stone.face_uv, groups=stone.groups,
+              custom={"glass": lambda me, uvl, poly: None})
     mats = tx.materials(NAME, SHEETS)
     for mat in mats.values():
         mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
+    mats["glass"] = glass_material(NAME + "_glass")
     order = tx.finish(ob, classes, mats)
+    vertex_ao.apply(ob, vertex_ao.bake(ob, dist=1.5, floor=0.6), keep=("glass",),
+                    only=("shade", "cellin", "iron", "field", "floor", "spike"))   # the cell fronts keep their grey
     tx.report(SHEETS)
     print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))
     coll_ob = coll.object(COLLIDER_NAME)
@@ -1205,7 +1257,46 @@ import marble_lane_build as ml  # noqa: E402
 import marble_wall_build as mw  # noqa: E402
 
 
+TRAPDOOR_SCENE = "maps/marble/marble.tscn"
+TRAPDOOR_PROP = "maps/marble/props/marble_trapdoor.tscn"
+
+
+def sync_trapdoors():
+    """--sync-trapdoors: TRAPDOOR_BEARINGS from the scene's trapdoor instances, each snapped to its
+    lane cell centre; prints the snapped transform for any instance that is off a cell."""
+    import re
+    repo = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
+    text = open(os.path.join(repo, TRAPDOOR_SCENE)).read()
+    ids = re.findall(r'\[ext_resource [^\]]*path="res://%s" id="([^"]+)"' % re.escape(TRAPDOOR_PROP), text)
+    step = 360.0 / (NSIDE * DECK_SUB)
+    found, ok = [], True
+    for block in re.split(r"\n(?=\[)", text):
+        if not ids or not any('instance=ExtResource("%s")' % i in block for i in ids):
+            continue
+        name = re.search(r'name="([^"]+)"', block).group(1)
+        t = re.search(r"transform = Transform3D\(([^)]*)\)", block)
+        v = [float(x) for x in t.group(1).split(",")] if t else [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]
+        b = math.degrees(math.atan2(v[11], v[9])) % 360.0
+        snap = (math.floor(b / step) + 0.5) * step
+        found.append(round(snap, 6))
+        if abs(b - snap) > 0.01 or abs(math.hypot(v[9], v[11]) - DECK_RS[1]) > 0.01:
+            ok = False
+            a = math.radians(snap)
+            c, s_ = math.cos(a), math.sin(a)
+            print("%s is off its cell: set transform = Transform3D(%.6f, 0, %.6f, 0, 1, 0, %.6f, 0, %.6f, %.4f, %.1f, %.4f)"
+                  % (name, c, -s_, s_, c, DECK_RS[1] * c, DECK_Z, DECK_RS[1] * s_))
+        print("%s -> bearing %.5f" % (name, snap))
+    found = tuple(sorted(set(found)))
+    src = open(__file__).read()
+    src = re.sub(r"^TRAPDOOR_BEARINGS = .*$", "TRAPDOOR_BEARINGS = %r" % (found,), src, count=1, flags=re.M)
+    open(__file__, "w").write(src)
+    print("TRAPDOOR_BEARINGS = %r%s" % (found, "" if ok else "  (fix the transforms above)"))
+    return ok
+
+
 if __name__ == "__main__":
+    if "--sync-trapdoors" in sys.argv:
+        sys.exit(0 if sync_trapdoors() else 1)
     if bpy is None or "--check" in sys.argv:
         sys.exit(0 if _check() else 1)
     else:

@@ -33,6 +33,9 @@ var _camo_saved: Material = null
 ## What a client is DRAWING, off the snapshot. Never set on the authority, where
 ## [member _active] is the truth.
 var _presented: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE
+## When a mirrored decoy was last placed, for its drawn velocity; 0 when not moving.
+var _decoy_seen_msec: int = 0
+const DECOY_STILL_MSEC: int = 300
 
 
 ## A decoy's intent: straight ahead at run speed, nothing else.
@@ -333,10 +336,26 @@ func present_decoy(position: Vector3, yaw: float) -> void:
 	if get_decoy() == null:
 		_decoy = null
 		_spawn_decoy(true)
+		_decoy_seen_msec = 0
 	if _decoy == null:
 		return
+	# Its avatar animates off velocity and floor, which a mirrored decoy never simulates.
+	var now: int = Time.get_ticks_msec()
+	if _decoy_seen_msec > 0 and now > _decoy_seen_msec:
+		var moved: Vector3 = position - _decoy.global_position
+		_decoy.velocity = moved / (float(now - _decoy_seen_msec) / 1000.0)
+	_decoy_seen_msec = now
+	_decoy.net_floor = 1
 	_decoy.global_position = position
 	_decoy.rotation.y = yaw
+
+
+func _process(_delta: float) -> void:
+	# A mirrored decoy that stopped being moved has stopped.
+	if _decoy_seen_msec > 0 and Time.get_ticks_msec() - _decoy_seen_msec > DECOY_STILL_MSEC:
+		_decoy_seen_msec = 0
+		if is_instance_valid(_decoy):
+			_decoy.velocity = Vector3.ZERO
 
 
 ## Drop the mirrored hologram: the authority's expiry, or a shot that shattered

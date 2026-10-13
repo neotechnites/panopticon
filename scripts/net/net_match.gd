@@ -12,6 +12,9 @@ signal match_bound(authority: bool)
 ## is listening is being told the match is over, not asked to take it over.
 signal host_lost()
 
+## Who has asked for a rematch since the match ended, by display name.
+signal rematch_votes_changed(names: PackedStringArray)
+
 const SESSION_PATH: NodePath = ^"/root/NetSession"
 const LINK_SCENE_PATH: String = "res://match/net/player_net_link.tscn"
 
@@ -49,8 +52,12 @@ var _fire_was_held: bool = false
 ## object every time, so [method Signal.is_connected] cannot answer this.
 var _watched_rifles: Dictionary[int, bool] = {}
 var _bound: bool = false
+## Over the scene until the world has drawn and frame times settle; null once lifted.
+var _cover: LoadingCover = null
 ## The lobby epoch this scene was loaded for, or 0 before the lobby has named it.
 var _epoch: int = 0
+## Authority: peers that have pressed Rematch on this result.
+var _rematch_peers: Dictionary[int, bool] = {}
 
 
 func _ready() -> void:
@@ -66,6 +73,8 @@ func _ready() -> void:
 	controller.auto_start = false
 	_bound = true
 	# Nothing of this scene is drawn until this machine's body has been placed in it.
+	_cover = LoadingCover.new()
+	add_child(_cover)
 	_show_world(false)
 	_lobby.roster_changed.connect(_bind_epoch)
 	_bind_epoch()
@@ -74,6 +83,9 @@ func _ready() -> void:
 		# decides nothing, so there is nothing for a client to wait for.
 		set_physics_process(false)
 		_build_bodies()
+		if _session.is_authority():
+			# A shove's flop is drawn off this cue; without it a client never sees a hub shove land.
+			controller.participant_shoved.connect(_on_participant_shoved)
 		controller.start_hub()
 		_started = true
 		_bind_placed()
@@ -131,6 +143,8 @@ func _show_world(shown: bool) -> void:
 	var viewport: Viewport = get_viewport()
 	if viewport != null:
 		viewport.disable_3d = not shown
+	if shown and is_instance_valid(_cover):
+		_cover.release()
 
 
 func _on_local_placed() -> void:
@@ -289,8 +303,15 @@ func _apply_opening() -> void:
 # --- Server -------------------------------------------------------------------
 
 func _subscribe_server() -> void:
-	controller.match_started.connect(func(_count: int) -> void: _event(&"_ev_match_started"))
+	controller.match_started.connect(func(_count: int) -> void:
+		_rematch_peers.clear()
+		_event(&"_ev_match_started"))
 	controller.race_started.connect(func() -> void: _event(&"_ev_race_started"))
+	controller.brawl_started.connect(func() -> void: _event(&"_ev_brawl_started"))
+	controller.brawler_out.connect(
+		func(participant: MatchParticipant, throw: Vector3) -> void:
+			_event(&"_ev_brawl_out", [participant.index, throw])
+	)
 	controller.round_started.connect(_on_round_started)
 	controller.participant_converted.connect(
 		func(participant: MatchParticipant) -> void: _event(&"_ev_removed", [participant.index])
@@ -334,6 +355,12 @@ func _start_now() -> void:
 		return
 	_started = true
 	controller.start_match()
+	# A seat that turned bot while LAUNCHING was skipped by the handover; its body gets a brain now.
+	for seat_index: int in _slot_of_seat:
+		var seat: LobbySeat = _lobby.get_seat(seat_index)
+		var link: PlayerNetLink = _link_for_seat(seat_index)
+		if seat != null and seat.is_bot() and link != null and link.owner_peer_id != 0:
+			_on_seat_occupancy_changed(seat_index, LobbySeat.Occupancy.BOT)
 	_bind_placed()
 	_begin_if_launched()
 	match_bound.emit(true)
@@ -411,13 +438,67 @@ func _on_round_started() -> void:
 	_event(&"_ev_round_started", [seat.index if seat != null else 0, controller.get_round_number()])
 
 
+## Ask for a rematch on this map; the host restarts once every human in the match has asked.
+func request_rematch() -> void:
+	if not _started or hub_mode:
+		return
+	if is_authority():
+		_vote_rematch(NetTransport.AUTHORITY_PEER_ID)
+	else:
+		rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_rq_rematch")
+
+
+## Host only: every peer back to the hub together, still connected.
+func return_all_to_hub() -> void:
+	if not is_authority() or hub_mode:
+		return
+	if _lobby.get_phase() != NetLobby.Phase.POST_MATCH:
+		_lobby.conclude_match(-1)
+	_lobby.return_to_lobby()
+
+
+@rpc("any_peer", "reliable", "call_remote", 0)
+func _rq_rematch() -> void:
+	if is_authority():
+		_vote_rematch(multiplayer.get_remote_sender_id())
+
+
+func _vote_rematch(peer: int) -> void:
+	if not controller.is_match_over() or _rematch_peers.has(peer):
+		return
+	_rematch_peers[peer] = true
+	_send_rematch_votes()
+	for seat: LobbySeat in _lobby.seats:
+		if seat.is_human() and seat.peer_id > 0 and not _rematch_peers.has(seat.peer_id):
+			return
+	_rematch_peers.clear()
+	_lobby.resume_match()
+	controller.restart()
+
+
+func _send_rematch_votes() -> void:
+	var names: PackedStringArray = PackedStringArray()
+	for seat: LobbySeat in _lobby.seats:
+		if seat.is_human() and _rematch_peers.has(seat.peer_id):
+			names.append(seat.display_name)
+	_event(&"_ev_rematch_votes", [names])
+	rematch_votes_changed.emit(names)
+
+
+@rpc("authority", "reliable", "call_remote", 0)
+func _ev_rematch_votes(names: PackedStringArray) -> void:
+	if _replays():
+		rematch_votes_changed.emit(names)
+
+
 func _on_match_won(participant: MatchParticipant) -> void:
 	_event(&"_ev_match_won", [participant.index])
 	_lobby.conclude_match(_seat_index_of(participant.index))
 
 
 func _on_rifle_fired(origin: Vector3, end_point: Vector3, weapon: Rifle, which: int) -> void:
-	_event(&"_ev_rifle_fired", [which, origin, end_point, weapon.reload_seconds])
+	var gravity: float = weapon.profile.projectile_gravity if weapon.profile != null else -1.0
+	_event(&"_ev_rifle_fired", [which, origin, end_point, weapon.reload_seconds, weapon.get_last_launch_speed(), gravity])
 
 
 func _on_rifle_hit(collider: Node3D, at: Vector3, normal: Vector3, which: int) -> void:
@@ -430,7 +511,7 @@ func _on_rifle_hit(collider: Node3D, at: Vector3, normal: Vector3, which: int) -
 ## [method _catch_up] when it acknowledges the launch.
 func _event(method: StringName, args: Array = []) -> void:
 	for peer: int in _session.get_peer_ids():
-		if peer != NetTransport.AUTHORITY_PEER_ID and _lobby.has_launched(peer):
+		if peer != NetTransport.AUTHORITY_PEER_ID and (hub_mode or _lobby.has_launched(peer)):
 			callv(&"rpc_id", [peer, method] + args)
 
 
@@ -616,12 +697,14 @@ func _ev_ghost_caught(ghost_index: int, caught_index: int) -> void:
 
 
 @rpc("authority", "reliable", "call_remote", 0)
-func _ev_rifle_fired(which: int, origin: Vector3, end_point: Vector3, reload: float) -> void:
+func _ev_rifle_fired(
+	which: int, origin: Vector3, end_point: Vector3, reload: float, speed: float, gravity: float
+) -> void:
 	if not _replays():
 		return
 	var weapon: Rifle = _weapon_of(which)
 	if weapon != null:
-		weapon.show_remote_shot(origin, end_point, reload)
+		weapon.show_remote_shot(origin, end_point, reload, speed, gravity)
 
 
 @rpc("authority", "reliable", "call_remote", 0)
@@ -658,6 +741,18 @@ func _ev_kill_beat(guard_index: int, throw: Vector3) -> void:
 	if not _replays() or not throw.is_finite():
 		return
 	controller.net_kill_beat(guard_index, throw)
+
+
+@rpc("authority", "reliable", "call_remote", 0)
+func _ev_brawl_started() -> void:
+	if _replays():
+		controller.net_start_brawl()
+
+
+@rpc("authority", "reliable", "call_remote", 0)
+func _ev_brawl_out(index: int, throw: Vector3) -> void:
+	if _replays() and throw.is_finite():
+		controller.net_brawl_out(index, throw)
 
 
 @rpc("authority", "reliable", "call_remote", 0)

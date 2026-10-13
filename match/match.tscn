@@ -504,7 +504,8 @@ pause_menu = NodePath("../PauseMenu")
 net_match = NodePath("../NetMatch")
 announcements = ExtResource("20_announcements")
 
-[node name="PauseMenu" parent="." node_paths=PackedStringArray("camera") instance=ExtResource("8_pause_menu")]
+[node name="PauseMenu" parent="." node_paths=PackedStringArray("camera", "net_match") instance=ExtResource("8_pause_menu")]
+net_match = NodePath("../NetMatch")
 editor_description = "Escape, and everything behind it. Last child of the root and on CanvasLayer 128, so it draws over the HUD (layer 1) and is offered GUI input before it; the HUD cannot swallow a click meant for a menu button because HUD/Root is mouse_filter 2 and its Labels ignore the mouse anyway. movement_profile is the SAME .tres instance Player uses for its own profile export -- Godot returns one cached object per resource path and this one is not local_to_scene -- so mouse sensitivity and invert-Y written by the settings screen land on the profile the body actually reads; point it anywhere else and the setting appears to save and does nothing. camera is named in node_paths in the header above: without that entry the NodePath resolves to null at load with no error, and the display-FOV setting silently stops working."
 movement_profile = ExtResource("9_movement_profile")
 camera = NodePath("../Player/Head/Camera")

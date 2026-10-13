@@ -80,11 +80,15 @@ const DEBUG_MENU_SCENE: PackedScene = preload("res://ui/debug_menu.tscn")
 ## is resolved only when the player asks.
 @export_file("*.tscn") var main_menu_scene_path: String = "res://ui/main_menu.tscn"
 
+## The match's net layer, when it has one: the host can take everyone back to the hub.
+@export var net_match: NetMatch
+
 var _store: SettingsStore = null
 var _root: Control = null
 var _main_panel: PanelContainer = null
 var _settings_screen: SettingsScreen = null
 var _resume_button: Button = null
+var _hub_all_button: Button = null
 var _debug_menu: DebugMenu = null
 
 var _is_open: bool = false
@@ -150,6 +154,8 @@ func open() -> void:
 	if not _is_networked():
 		get_tree().paused = true
 	_apply_visibility(true)
+	_hub_all_button.visible = net_match != null and net_match.is_authority() \
+		and net_match.has_started() and not net_match.hub_mode
 	_show_main()
 	opened.emit()
 
@@ -220,6 +226,8 @@ func _build() -> void:
 	_add_button(column, tr("PAUSE_SETTINGS"), _open_settings)
 	if OS.is_debug_build():
 		_add_button(column, tr("MENU_DEBUG"), _open_debug)
+	_hub_all_button = _add_button(column, tr("RESULT_ALL_TO_HUB"), _take_all_to_hub)
+	_hub_all_button.visible = false
 	_add_button(column, tr("PAUSE_LEAVE_MATCH"), return_to_main_menu)
 
 	_settings_screen = SETTINGS_SCREEN_SCENE.instantiate()
@@ -286,6 +294,12 @@ func _close_settings() -> void:
 	_settings_screen.visible = false
 	_store.save_to_disk()
 	_show_main()
+
+
+## Host: every peer back to the hub together, the session kept.
+func _take_all_to_hub() -> void:
+	close()
+	net_match.return_all_to_hub()
 
 
 ## Tear the match down and go back to the main menu.

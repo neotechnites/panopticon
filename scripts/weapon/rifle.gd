@@ -304,6 +304,8 @@ var restore_world: Callable
 ## are already on the wire and the speed is a rule both machines share, so the
 ## flight is reconstructed locally for zero extra bytes.
 var _visual_rounds: Array[WeaponProjectile] = []
+## The speed of the last round launched, sent with its replay.
+var _last_launch_speed: float = -1.0
 
 ## The shooter's speed in m/s, sampled from the aim source's own motion so that
 ## no extra wiring is needed to know whether the tower is walking. Stays 0.0
@@ -712,6 +714,11 @@ func get_shot_speed(charge: float = 0.0) -> float:
 	return rules.get_projectile_speed(speed)
 
 
+## The last launched round's speed, m/s, or -1 when none was launched (hitscan).
+func get_last_launch_speed() -> float:
+	return _last_launch_speed
+
+
 ## How many rounds are currently in the air. Always 0 under hitscan, which is
 ## the shipped model, so this doubles as the assertion that the default weapon
 ## allocates nothing.
@@ -842,7 +849,9 @@ func _resolve_shot(charge: float) -> void:
 ## line and the speed are enough to rebuild the flight locally. The round
 ## resolves into a trail and nothing else: the hit and the miss are the host's
 ## and arrive on their own messages.
-func show_remote_shot(origin: Vector3, end_point: Vector3, reload: float) -> void:
+func show_remote_shot(
+	origin: Vector3, end_point: Vector3, reload: float, speed: float = -1.0, gravity: float = -1.0
+) -> void:
 	if profile == null:
 		return
 	var muzzle_node: Node3D = muzzle if muzzle != null else (aim_source if aim_source != null else self)
@@ -851,7 +860,7 @@ func show_remote_shot(origin: Vector3, end_point: Vector3, reload: float) -> voi
 	_last_shot_origin = origin
 	_has_shot_origin = true
 	if is_travelling_shot():
-		_launch_visual(origin, end_point, muzzle_node.global_position)
+		_launch_visual(origin, end_point, muzzle_node.global_position, speed, gravity)
 	else:
 		_spawn_tracer(muzzle_node.global_position, end_point)
 	_note_shot(origin, end_point)
@@ -866,6 +875,7 @@ func show_remote_hit(collider: Node3D, at: Vector3, normal: Vector3) -> void:
 		direction = (at - _last_shot_origin).normalized()
 	if collider != null:
 		_note_hit(collider, at, direction)
+	_land_visual(at)
 	target_hit.emit(collider, at, normal)
 
 
@@ -922,7 +932,20 @@ static func recent_hit_direction(slot: int) -> Vector3:
 ## Cosmetic replay of a miss the authority resolved. The twin of
 ## [method show_remote_hit]: a miss is just as loud.
 func show_remote_miss(end_point: Vector3) -> void:
+	_land_visual(end_point)
 	missed.emit(end_point)
+
+
+## The oldest replayed round in the air ends where the authority's round did, trail and all.
+func _land_visual(at: Vector3) -> void:
+	while not _visual_rounds.is_empty():
+		var visual: WeaponProjectile = _visual_rounds.pop_front()
+		if not is_instance_valid(visual):
+			continue
+		visual.land_at(at)
+		_spawn_tracer(visual.muzzle_origin, at)
+		visual.queue_free()
+		return
 
 
 func _rewind(ticks: int) -> void:
@@ -1142,6 +1165,7 @@ func _launch(
 	)
 	round_shot.muzzle_origin = muzzle_position
 	round_shot.lag_ticks = lag_ticks
+	_last_launch_speed = speed
 	_projectiles.append(round_shot)
 	projectile_launched.emit(origin, direction, speed)
 
@@ -1152,7 +1176,9 @@ func _launch(
 ## information, which is the entire trick: the replay costs no bytes. `cosmetic`
 ## is what tells the round it owns no outcome -- it sweeps nothing and strikes
 ## nothing -- so a client cannot invent a hit the host never scored.
-func _launch_visual(origin: Vector3, end_point: Vector3, muzzle_position: Vector3) -> void:
+func _launch_visual(
+	origin: Vector3, end_point: Vector3, muzzle_position: Vector3, speed: float = -1.0, gravity: float = -1.0
+) -> void:
 	var travel_range: float = origin.distance_to(end_point)
 	if travel_range <= 0.0:
 		# A zero-length shot has no flight to show and no direction to normalise.
@@ -1164,11 +1190,12 @@ func _launch_visual(origin: Vector3, end_point: Vector3, muzzle_position: Vector
 		_world_parent(),
 		origin,
 		(end_point - origin) / travel_range,
-		get_shot_speed(),
+		speed if speed > 0.0 else get_shot_speed(),
 		travel_range,
 		profile,
 		exclude,
-		true
+		true,
+		gravity
 	)
 	visual.muzzle_origin = muzzle_position
 	_visual_rounds.append(visual)

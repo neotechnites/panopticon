@@ -206,6 +206,13 @@ const HAZARD_BOOST_PAD: StringName = &"hazard.boost_pad"
 ## The portal's looping drone. Positional, at the portal.
 const HAZARD_PORTAL: StringName = &"hazard.portal"
 
+## TrapDoor's four beats, posted at the lever or the door. No cue in the bank
+## yet (foley pending), so they are left out of [constant ALL] until there is.
+const HAZARD_LEVER_THROWN: StringName = &"hazard.lever_thrown"
+const HAZARD_TRAPDOOR_RATTLE: StringName = &"hazard.trapdoor_rattle"
+const HAZARD_TRAPDOOR_DROP: StringName = &"hazard.trapdoor_drop"
+const HAZARD_TRAPDOOR_SHUT: StringName = &"hazard.trapdoor_shut"
+
 # --- UI -----------------------------------------------------------------------
 #
 # Wired by UIAudioListener, which walks a Control subtree and subscribes to

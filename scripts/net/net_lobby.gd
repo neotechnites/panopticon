@@ -360,6 +360,24 @@ func add_bot(display_name: String = "") -> int:
 	return seat.index
 
 
+## Put a bot in [param seat_index] or take it out; humans are left alone. Authority, gathering only.
+func set_bot(seat_index: int, on: bool) -> bool:
+	var seat: LobbySeat = get_seat(seat_index)
+	if not _is_authority() or _phase != Phase.GATHERING or seat == null or seat.is_human():
+		return false
+	if not on:
+		return seat.is_bot() and remove_occupant(seat_index)
+	if seat.is_occupied():
+		return true
+	seat.occupancy = LobbySeat.Occupancy.BOT
+	seat.peer_id = 0
+	seat.display_name = _clean("Bot %d" % (seat_index + 1))
+	seat.is_ready = true
+	seat_occupancy_changed.emit(seat_index, seat.occupancy)
+	_publish()
+	return true
+
+
 ## Empty a seat. Authority only. Refuses the host's own seat -- leaving is
 ## [method NetSession.leave], not un-seating yourself and carrying on hosting.
 func remove_occupant(seat_index: int) -> bool:
@@ -544,6 +562,16 @@ func conclude_match(winning_seat_index: int = -1) -> bool:
 		return false
 	_last_winning_seat = winning_seat_index
 	_set_phase(Phase.POST_MATCH)
+	_publish()
+	return true
+
+
+## A rematch: the finished match restarts on the same map. Authority only.
+func resume_match() -> bool:
+	if not _is_authority() or _phase != Phase.POST_MATCH:
+		return false
+	_last_winning_seat = -1
+	_set_phase(Phase.IN_MATCH)
 	_publish()
 	return true
 

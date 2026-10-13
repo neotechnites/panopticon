@@ -39,9 +39,10 @@ extends TestCase
 ## those were never the thing that was wrong.
 const TOWER_PATH: String = "res://maps/marble/models/marble_tower.glb"
 
-## How many distinct albedo sheets the tower ships: since Marble's tile set was cut to six
-## (14e63eb, the dome brick since 3a8223c) its classes share four tile PNGs.
-const SHEET_COUNT: int = 4
+## How many distinct albedo sheets the tower ships: since the skylight pass (3643b58c,
+## the tower lit by the ambient alone) its own tiles -- marble_tower, marble_tower_column,
+## marble_tower_floor, marble_tower_stone -- plus the iron's marble_stone: five.
+const SHEET_COUNT: int = 5
 
 ## The only filter the tower may ship: mipmapped minification, bilinear magnification,
 ## by Ryan's standing order of a soft filter on every map (582fc02).

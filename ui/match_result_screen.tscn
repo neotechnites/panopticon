@@ -134,6 +134,31 @@ text = ""
 horizontal_alignment = 1
 editor_description = "The match's numbers, every one of them read back off MatchController rather than tallied here: the tower holder's turn and rounds held, rounds played, prisoners cleared out of the field, and ghost swaps when the rules have ghosts in them."
 
+[node name="RematchVotes" type="Label" parent="Root/Frame/Dialog/Padding/Layout"]
+unique_name_in_owner = true
+visible = false
+text = ""
+horizontal_alignment = 1
+autowrap_mode = 3
+editor_description = "Who has pressed Rematch, written by scripts/ui/match_result_screen.gd from NetMatch.rematch_votes_changed. Networked matches only."
+
+[node name="NetButtons" type="HBoxContainer" parent="Root/Frame/Dialog/Padding/Layout"]
+unique_name_in_owner = true
+visible = false
+theme_override_constants/separation = 12
+alignment = 1
+editor_description = "Networked matches only: Rematch (every human presses it, then the host restarts this map for all) and, for the host, Everyone to the hub."
+
+[node name="RematchButton" type="Button" parent="Root/Frame/Dialog/Padding/Layout/NetButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 40)
+text = "RESULT_REMATCH"
+
+[node name="HubAllButton" type="Button" parent="Root/Frame/Dialog/Padding/Layout/NetButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 40)
+text = "RESULT_ALL_TO_HUB"
+
 [node name="Buttons" type="HBoxContainer" parent="Root/Frame/Dialog/Padding/Layout"]
 theme_override_constants/separation = 12
 alignment = 1

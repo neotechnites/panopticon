@@ -432,6 +432,10 @@ enum MapPickMode {
 ## a player who is testing something and will not run the lap first.
 @export var open_with_race: bool = true
 
+## Open in the tower instead of the race: everybody in the tower room with only the shove,
+## and the last one standing takes the tower for the first round.
+@export var open_with_tower_brawl: bool = false
+
 ## Who is already in the tower when a match does not open with a race.
 ## [b]LIVE[/b], default 0 = the first participant, which is the human whenever
 ## there is one.

@@ -140,6 +140,8 @@ const BodyMotion: GDScript = preload("res://scripts/player/body_motion.gd")
 ## how far a dead body moves before it counts as reused.
 const RAGDOLL_WAIT_MSEC: int = 400
 const REUSED_DISTANCE: float = 1.5
+## After a death, the replicated run (snapshots still in flight) cannot revive the body.
+const DEATH_SETTLE_SECONDS: float = 0.6
 ## A shove lands on the drawn body nearest its point, within this, metres.
 const SHOVE_CLAIM_METRES: float = 2.5
 ## Metres above the feet the finale shove strikes a thrown body.
@@ -419,6 +421,7 @@ var _ragdoll: DeathRagdoll = null
 ## Waiting, after a death, for the rifle hit that caused it; see [constant RAGDOLL_WAIT_MSEC].
 var _ragdoll_pending: bool = false
 var _death_msec: int = 0
+var _dead_seconds: float = 0.0
 var _death_velocity: Vector3 = Vector3.ZERO
 var _death_position: Vector3 = Vector3.ZERO
 ## The body's velocity as drawn, so a mirror's kill carries its run too.
@@ -586,6 +589,7 @@ func throw_out(throw: Vector3) -> void:
 	_ragdoll_pending = false
 	_death_position = body.global_position
 	animation.pause()
+	_restore_hidden_bones()
 	# Struck high along the throw, so he tumbles and flails rather than sailing out standing.
 	_ragdoll.start(throw, body.global_position + Vector3.UP * THROWN_STRIKE_HEIGHT, throw)
 
@@ -756,7 +760,12 @@ func _process(delta: float) -> void:
 	# again -- a respawned ghost picking the chase back up -- rather than on a
 	# timer, because nothing else here knows how long the respawn hold lasts.
 	if _has_death and _dead:
-		if body.get_horizontal_speed() >= run_resume_speed or _is_reused():
+		_dead_seconds += delta
+		var settled: bool = _dead_seconds >= DEATH_SETTLE_SECONDS
+		if not settled:
+			# A mirror's body still slides on to where the authority froze it: that is where it died.
+			_death_position = body.global_position
+		if settled and (body.get_horizontal_speed() >= run_resume_speed or _is_reused()):
 			_dead = false
 			_in_death = false
 			_ragdoll_pending = false
@@ -961,6 +970,7 @@ func _on_body_jumped() -> void:
 ## is cleared.
 func _on_body_died() -> void:
 	_dead = true
+	_dead_seconds = 0.0
 	_shove_remaining = 0.0
 	_flop_wait = -1.0
 	if _ragdoll == null or _ragdoll.is_active():
@@ -978,6 +988,7 @@ func _try_ragdoll() -> void:
 	if slot >= 0:
 		_ragdoll_pending = false
 		animation.pause()
+		_restore_hidden_bones()
 		_ragdoll.start(_death_velocity, Rifle.recent_hit_point(slot), Rifle.recent_hit_direction(slot))
 	elif Time.get_ticks_msec() - _death_msec > RAGDOLL_WAIT_MSEC:
 		_ragdoll_pending = false
@@ -1076,6 +1087,20 @@ func tick_first_person() -> void:
 		_arms_hidden = hide_arms
 		for hider: FirstPersonHead in _arm_hiders:
 			hider.set_hidden(hide_arms)
+
+
+## Full-scale bones before the parts start simulating: a part posed at 0.001 scale is a degenerate body.
+func _restore_hidden_bones() -> void:
+	if _head_hider == null:
+		return
+	_first_person = false
+	_spine_hidden = false
+	_arms_hidden = false
+	_head_hider.set_hidden(false)
+	if _spine_hider != null:
+		_spine_hider.set_hidden(false)
+	for hider: FirstPersonHead in _arm_hiders:
+		hider.set_hidden(false)
 
 
 ## Hang a [FirstPersonHead] off the skeleton for each bone first person hides,
