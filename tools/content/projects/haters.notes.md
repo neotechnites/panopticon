@@ -7,3 +7,6 @@ haters v3 is better, the shove shot though, has them running into a wall. also, 
 
 ## v5 | haters_v5.mp4 | 2026-10-12 19:31
 for haters, literally what the fuck is the last scene. why do you keep giving me fucking scenes where the pov player dies and the camera just says there. also, you cut to fast after the 3rd quote drops, you put "thats kinda the point" on the screen too soon, and you cut away from hell to sson. oh cool i see you just did v5 and it just replaces the last clip with a fucking forest clip i have already said is fucking unusable because of all the fucking cuts
+
+## v6 | haters_v6.mp4 | 2026-10-12 19:50
+holy fuck. youre still fucking using the reatrded fucking forest shot with a million cuts in it. and i said hell runs longer, you made it run its full fucking length to the part where the fucking runner runs into the fucking wall
