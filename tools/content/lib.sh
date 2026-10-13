@@ -17,6 +17,7 @@ PC_SERVE_HOST=${PC_SERVE_HOST:-${PC_HOST#*@}}   # the PC's Tailscale address: da
 PC_RENDERS='C:\Users\ddd\Desktop\panopticon-renders'
 PC_CONTENT="${PC_RENDERS}\content"
 PC_BRANCH=${PC_BRANCH:-work-content}
+PC_INCOMING=${PC_INCOMING:-content-incoming}
 FPS=${FPS:-60}
 SIZE=${SIZE:-1280x720}
 MJPEG_QUALITY=${MJPEG_QUALITY:-0.95}
@@ -31,6 +32,12 @@ FREEZE_NOISE_DB=${FREEZE_NOISE_DB:--50}
 TAKES_MAX=${TAKES_MAX:-2}
 
 die() { echo "content: $*" >&2; exit 2; }
+
+# pc_use_project <name> : a short films in its own PC checkout, C:\dev\worktrees\content_<name>, on
+# its own branch, so parallel shorts never share C:\dev\verify (sync.sh makes it on first use).
+pc_use_project() {
+  export PC_PROJECT='C:\dev\worktrees\content_'"$1" PC_BRANCH="content_$1" PC_INCOMING="content-incoming-$1"
+}
 
 # ssh into the PC and run a PowerShell script read from stdin. Encoded, because
 # `-Command -` parses stdin line by line and drops a block with no blank line after it.
@@ -334,10 +341,10 @@ Write-Output ('rough: take t=0 at ' + \$t0.ToString('0.000') + ' s of the record
 EOF
 }
 
-# PowerShell that imports C:\dev\verify. Godot never re-imports a .glb when only
+# PowerShell that imports the checkout (C:\dev\verify in the template; pc_import_ps puts in PC_PROJECT). Godot never re-imports a .glb when only
 # the import hook changed, so a changed tools\import\ drops every .glb's md5 and the
 # filesystem cache (which otherwise skips the test) and imports twice (stale UIDs).
-PC_IMPORT=$(cat <<'PS'
+PC_IMPORT_TEMPLATE=$(cat <<'PS'
 $hook = (Get-ChildItem C:\dev\verify\tools\import -Filter '*.gd' | Sort-Object Name | Get-FileHash | ForEach-Object Hash) -join ''
 $stamp = 'C:\dev\verify\.godot\import_hook.stamp'
 $passes = 1
@@ -362,13 +369,19 @@ if ($bent) {
 PS
 )
 
-# pc_checkout <ref> : put the scratch worktree at <ref> and import it. Only ever
-# C:\dev\verify; the real checkout is never touched.
+pc_import_ps() {
+  T="${PC_IMPORT_TEMPLATE}" P="${PC_PROJECT}" python3 -c 'import os; p = os.environ["P"]; print(os.environ["T"]
+      .replace("C:\\dev\\content_import.txt", p + ".import.txt").replace("C:\\dev\\verify", p)
+      .replace("C:/dev/verify", p.replace("\\", "/")))'
+}
+
+# pc_checkout <ref> : put the scratch checkout (PC_PROJECT) at <ref> and import it.
+# The real checkout is never touched.
 pc_checkout() {
   pc <<EOF
-git -C C:/dev/verify checkout -q $1
-${PC_IMPORT}
-Write-Output ('verify at ' + (git -C C:/dev/verify log --oneline -1))
+git -C $(ff "${PC_PROJECT}") checkout -q $1
+$(pc_import_ps)
+Write-Output ('checkout at ' + (git -C $(ff "${PC_PROJECT}") log --oneline -1))
 EOF
 }
 

@@ -20,7 +20,8 @@
 # its own, in the brief's aspect, to final\<file>.mp4 -- a shot handed over as a
 # clip, not a timeline).
 #
-# A short is filmed PORTRAIT through a temporary override.cfg in C:\dev\verify; the
+# A short is filmed PORTRAIT through a temporary override.cfg in its own PC checkout
+# (C:\dev\worktrees\content_<project>, lib.sh pc_use_project); the
 # lens composes for it (Camera3D fov is vertical). Nothing is filmed landscape and cropped.
 # Output on the PC, under content\<project>\ (layout in lib.sh): cuts\NN.mp4, the
 # master cut to seconds+gap with game audio muted over the gap, plus final\<file>.mp4
@@ -45,6 +46,7 @@ BRIEF=$(brief_path "${PROJECT}")
 NAME=$(basename "${BRIEF}" .md)
 KIND=$(brief_head "${BRIEF}" kind short)
 DIR=$(project_dir "${NAME}")
+pc_use_project "${NAME}"
 NN=$(pad2 "${N}")
 OUT="${OUT:-${NN}}"
 
@@ -98,11 +100,11 @@ fi
 if [ -n "${HUD}" ] && [[ "${CAPTURE}" != *--hud=* ]]; then CAPTURE="${CAPTURE} --hud=${HUD}"; fi
 echo "shot ${NN} -> cuts\\${OUT}.mp4 (${MODE} ${SIZE}): ${SAID}"
 
-pc_lock "shot ${NAME} ${NN}"
-# The scratch checkout is shared: film only from this branch's own commit.
-if [ "$(pc <<< 'git -C C:/dev/verify rev-parse HEAD' | tr -d '\r')" != "$(git -C "${REPO_DIR}" rev-parse HEAD)" ]; then
+# Film only from this branch's own commit; the sync is outside the lock (it covers capture and assemble).
+if [ "$(pc <<< "git -C $(ff "${PC_PROJECT}") rev-parse HEAD" | tr -d '\r')" != "$(git -C "${REPO_DIR}" rev-parse HEAD)" ]; then
   "${CONTENT_DIR}/sync.sh"
 fi
+pc_lock "shot ${NAME} ${NN}"
 pc_layout "${DIR}"
 USED=$(pc <<EOF
 Select-String -Path '${DIR}\\cuts\\*_used.txt' -SimpleMatch -Pattern 'cuts/${OUT}.mp4' -List -EA SilentlyContinue | ForEach-Object { \$_.Filename }
