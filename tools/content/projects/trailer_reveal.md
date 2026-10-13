@@ -408,6 +408,12 @@ grade_hell: lift 2.6 3
 | g1 | cuts/12.mp4@0.15:3.1833 | | | beat 3.1833 | | |  |
 | e1 | cuts/end_v3.mp4@0.4:3.2 | | | beat 3.2 | | |  |
 
+## script rough_v41
+# v41 (Ryan): "we dont even see the fucking shove from the runners pov" and "the way the sniper tracks is comopletely and utterly unatural". m1: the shove at 1.25 s in, him 12 deg out by its end.
+# m2: the scope still on the wall's end 0.25 s, the shove, tracked (peak 54.8 deg/s), he breaks back 4.02, squeeze 4.37 1.98 m ahead along his run, hit 4.73 at 201.1 deg, 0.6 s of the drop.
+# Expects on the v40 tape: m1 shove 0.20 s before the cut's end (FAIL), m2 scope on the wall's end (FAIL: opened after the shove, rest 3.5 deg off); v40's lead was 1.98 m (ok). v41 all ok.
+# v40's master with m1 1713-1832 <- cuts/10a.mp4 frames 0-119 and m2 1833-1987 <- cuts/10b.mp4 frames 0-154 (graph: final\master\rough_v41.graph.txt); psnr: only 1713-1987 differ.
+
 ## script rough_v40
 # v40 (Ryan): "the sniper doesnt aim, the guy gets pushed out, and he just aim bots to a spots and shoot." The scope rests on the wall's end (197.0), comes onto him 0.22 s
 # after he clears it, trails the throw (follow 0.5) and overshoots 0.98 deg as he lands, corrects; onto the held-over mark, leads him as he breaks (run_after 1.0), sits on the mark
