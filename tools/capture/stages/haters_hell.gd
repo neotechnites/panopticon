@@ -46,7 +46,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	for index: int in RADII.size():
 		if runners[index].controller == null:
 			return false
-	_start = float(option("start", 88.0))
+	_start = float(option("start", 72.0))
 	var hit: float = float(option("fire_at", 4.4)) + HIT_LAG
 	var cast_at: float = elapsed()
 	for index: int in RADII.size():
