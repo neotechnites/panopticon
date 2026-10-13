@@ -51,7 +51,7 @@ refilm: v10
 
 ## 10
 said: L5 -- Ryan on v7: "replace the gameplay of the hitting shots montage to be in the forest": the haters stage (forest, not a trailer stage) down the guard's scope, 3 runners; the leader dropped ~1.9 s, the shover ~7.4 s in the take
-capture: --map=forest --shot=s3_open_lane --stage=haters --pov=guard --bots=4 --seed=20261012 --shimmer=0
+capture: --map=forest --shot=s3_open_lane --stage=haters --pov=guard --bots=3 --seed=20261012 --shimmer=0
 hud: crosshair
 in: 1.6
 seconds: 8.2

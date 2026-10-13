@@ -7,7 +7,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## runner's POV: being shot at (tracers past him), then shoving another runner
 ## off the lane into the pit" / "the shover turns back and gets sniped".
 ##
-## [code]--stage=haters --shot=s3_open_lane --map=forest --bots=4 --seconds=8.6 --seed=20261012[/code]
+## [code]--stage=haters --shot=s3_open_lane --map=forest --bots=3 --seconds=8.6 --seed=20261012[/code]
 ##
 ## The beat, clip seconds: three runners on the lane's last leg to the portal
 ## (bearing rising, 320 -> 340 deg; the portal at 345). The tower brain is
@@ -43,7 +43,7 @@ var _first_point: Vector3 = Vector3.ZERO
 
 
 func bots() -> int:
-	return 4
+	return 3
 
 
 func tune_rules(rules: MatchRules) -> void:
@@ -66,7 +66,7 @@ func _legs(legs: Array, pace: float, weave: float, extra: Dictionary = {}) -> Ar
 
 
 func cast(runners: Array[RunnerBrain]) -> bool:
-	if runners.size() < 4:
+	if runners.size() < 3:
 		return false
 	for brain: RunnerBrain in runners:
 		if brain.controller == null:
