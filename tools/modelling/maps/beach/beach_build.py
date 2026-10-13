@@ -8,7 +8,7 @@ wadeable shelf, then deep teal water (the pit); a yacht anchored in the bay is t
     beach_island.glb   the island of beach_island_plan.py: flats, folds, ridge, peak, coasts  BeachIsland
     beach_rocks.glb    the wall's stacked boulders, and rocks in sand, shallows, heads  BeachRocks
     beach_palms.glb    palms planted in the sand and on the island                      BeachPalms
-    beach_props.glb    beach sets, driftwood, shells, the tiki bar by the portal        BeachProps
+    beach_props.glb    driftwood, shells (towels, the shore strip and the portal's tiki bar: struck)  BeachProps
     beach_water.glb    the sea to the horizon, moved by its shader (no collider)        BeachWater
     beach_waves.glb    the shore's wave strips, timed by beach_waves.gdshader            BeachWaves
     beach_resort.glb   the landmarks: hotel, village, clock tower, road, horizon islands  BeachResort
@@ -270,25 +270,6 @@ def jungle_mask(x, y, d):
     return ramp(d, 20.0, 34.0) * ramp(main_coast(x, y), 14.0, 34.0)
 
 
-_STRIP_PADS = []
-
-
-def _island_z(b, r):
-    """The island's ground behind the wall, with a flat pad (5 m ramp) under every built piece of the shore strip."""
-    if not _STRIP_PADS:
-        for sx, sy, _yaw, kind in strip_spots():
-            sb = bearing_of((sx, sy, 0.0))
-            _STRIP_PADS.append((sx, sy, STRIP_R[kind] + (0.5 if kind == "torch" else 1.0), _island_raw(sb, math.hypot(sx, sy))))
-    z = _island_raw(b, r)
-    x, y, _z = pol(b, r, 0.0)
-    best = (0.0, z)                 # where two pads' ramps cross, the pad the point is deeper inside wins
-    for sx, sy, r_in, zp in _STRIP_PADS:
-        w = 1.0 - ramp(math.hypot(x - sx, y - sy), r_in, r_in + 5.0)
-        if w > best[0]:
-            best = (w, zp)
-    return lerp(z, best[1], best[0])
-
-
 def _island_raw(b, r):
     """The island's ground behind the wall: the jetty's strip, or the island of the plan, and their fall into the sea."""
     d = r - top_r(b)
@@ -472,7 +453,7 @@ def sand_z(b, r):
 
 
 def island_z(b, r):
-    return mouth_cap(b, r, _island_z(b, r))
+    return mouth_cap(b, r, _island_raw(b, r))
 
 
 def ground_z(b, r):
@@ -1406,27 +1387,6 @@ def tube(m, uv, pts, radii, sides, zone, col, caps=(True, True)):
                 uv[(len(m.faces) - 1, vi)] = (0.5 + (pp[0] - p[0]) / 12.8, 0.5 + (pp[1] - p[1]) / 12.8)
 
 
-def towel(m, b, r, length, width, yaw, stripes):
-    """A towel laid on the sand, following it, a thin hem down into it; striped across its length."""
-    o, t, n = frame(b, r, yaw)
-    bands = len(stripes)
-    pts = lambda a, d: (lambda q: (q[0], q[1], ground_z(bearing_of(q), math.hypot(q[0], q[1])) + 0.035))(at(o, t, n, a, d, 0.0))
-    for k in range(bands):
-        a0, a1 = -length / 2 + length * k / bands, -length / 2 + length * (k + 1) / bands
-        col = stripes[k]
-        q = [m.v(pts(a, d), col) for a, d in ((a0, -width / 2), (a1, -width / 2), (a1, width / 2), (a0, width / 2))]
-        m.quad(q[0], q[1], q[2], q[3], UP, "canvas", "props")
-        for (aa, dd), (ab, db) in ((((a0, -width / 2)), (a1, -width / 2)), ((a1, width / 2), (a0, width / 2))):
-            p0, p1 = pts(aa, dd), pts(ab, db)
-            h = [m.v(p0, col), m.v(p1, col), m.v((p1[0], p1[1], p1[2] - 0.08), col), m.v((p0[0], p0[1], p0[2] - 0.08), col)]
-            m.quad(h[0], h[1], h[2], h[3], tuple(n[i] * (1 if dd > 0 else -1) for i in range(3)), "canvas", "props")
-        if k in (0, bands - 1):
-            a = a0 if k == 0 else a1
-            p0, p1 = pts(a, -width / 2), pts(a, width / 2)
-            h = [m.v(p0, col), m.v(p1, col), m.v((p1[0], p1[1], p1[2] - 0.08), col), m.v((p0[0], p0[1], p0[2] - 0.08), col)]
-            m.quad(h[0], h[1], h[2], h[3], tuple(t[i] * (1 if k else -1) for i in range(3)), "canvas", "props")
-
-
 def driftwood(m, uv, b, r, length, rad, yaw, seed):
     """A bleached log a third sunk in the sand, bent, tapering, a broken branch stub."""
     rr = Rng(seed)
@@ -1469,94 +1429,6 @@ def shell(m, b, r, seed):
     m.tri(rim[-1], hinge, crown, UP, "shell", "props")
 
 
-def tiki_hut(m, uv, b, r):
-    """The tiki bar by the portal: four log posts, a thatched hip roof with a ragged fringe, a plank counter
-    facing the bay. Footprint 2.8 x 2.2 m against the wall; roof from 2.35 m to 4.3 m."""
-    o, t, n = frame(b, r)
-    half_a, half_d = 1.4, 1.1
-    post_col = (0.86, 0.66, 0.46)
-    posts = []
-    for a in (-half_a, half_a):
-        for d in (-half_d, half_d):
-            base = at(o, t, n, a, d, 0.0)
-            g = ground_z(bearing_of(base), math.hypot(base[0], base[1]))
-            tube(m, uv, [(base[0], base[1], g - 0.3), (base[0], base[1], o[2] + 2.5)], [0.11, 0.1], 6, "drift", post_col)
-            posts.append((base[0], base[1], 0.14))
-    eave, apex_h, over = 2.36, 4.3, 0.55
-    ea, ed = half_a + over, half_d + over
-    corners = [at(o, t, n, -ea, -ed, eave), at(o, t, n, ea, -ed, eave), at(o, t, n, ea, ed, eave), at(o, t, n, -ea, ed, eave)]
-    ridge = [at(o, t, n, -(ea - ed) - 0.05, 0.0, apex_h), at(o, t, n, (ea - ed) + 0.05, 0.0, apex_h)]
-    thatch = (1.0, 0.97, 0.9)
-
-    def face(e0, e1, r0, r1):
-        """One roof plane from its eave (e0, e1) to its ridge (r0, r1; one point on a hip) in three
-        overlapping courses of thatch, each course's foot standing proud of the one below."""
-        ed_ = il.unit(il.sub(e1, e0))
-        mid = lerp3(lerp3(e0, e1, 0.5), lerp3(r0, r1, 0.5), 0.5)
-        nrm = il.unit(il.cross(il.sub(e1, e0), il.sub(lerp3(r0, r1, 0.5), lerp3(e0, e1, 0.5))))
-        if il.dot(nrm, il.sub(mid, (o[0], o[1], o[2] + eave - 1.0))) < 0.0:
-            nrm = il.scale(nrm, -1.0)
-        ts = (0.0, 0.36, 0.68, 1.0)
-        for i in range(3):
-            lift = 0.0 if i == 0 else 0.08
-            lo = [il.add(lerp3(e, rr_, ts[i]), il.scale(nrm, lift)) for e, rr_ in ((e0, r0), (e1, r1))]
-            hi = [lerp3(e, rr_, ts[i + 1] + (0.04 if i < 2 else 0.0)) for e, rr_ in ((e0, r0), (e1, r1))]
-            vs = [m.v(p, thatch) for p in (lo[0], lo[1], hi[1], hi[0])]
-            f0 = len(m.faces)
-            if math.dist(hi[0], hi[1]) < 1e-6:
-                m.tri(vs[0], vs[1], vs[2], nrm, "thatch", "props")
-            else:
-                m.quad(vs[0], vs[1], vs[2], vs[3], nrm, "thatch", "props")
-            for fi in range(f0, len(m.faces)):
-                for vi in m.faces[fi]:
-                    q = m.verts[vi]
-                    u = il.dot(il.sub(q, e0), ed_)
-                    foot = tuple(e0[k] + ed_[k] * u for k in range(3))
-                    uv[(fi, vi)] = (u / 12.8, math.dist(q, foot) / 12.8)
-
-    face(corners[0], corners[1], ridge[0], ridge[1])
-    face(corners[2], corners[3], ridge[1], ridge[0])
-    face(corners[1], corners[2], ridge[1], ridge[1])
-    face(corners[3], corners[0], ridge[0], ridge[0])
-    # the ragged fringe hanging from the eave: a strip of straw tongues
-    rr = Rng(SEED + 990)
-    for k in range(4):
-        e0, e1 = corners[k], corners[(k + 1) % 4]
-        el = math.dist(e0, e1)
-        steps = int(el / 0.32)
-        for j in range(steps):
-            p0 = lerp3(e0, e1, j / float(steps))
-            p1 = lerp3(e0, e1, (j + 1) / float(steps))
-            tipp = lerp3(p0, p1, 0.5)
-            drop_ = rr.u(0.22, 0.36)
-            out = il.unit(il.sub((tipp[0], tipp[1], 0.0), (o[0], o[1], 0.0)))
-            tipp = (tipp[0] + out[0] * 0.04, tipp[1] + out[1] * 0.04, tipp[2] - drop_)
-            vs = [m.v(p0, thatch), m.v(p1, thatch), m.v(tipp, thatch)]
-            m.tri(vs[0], vs[1], vs[2], out, "thatch", "props")
-            fi = len(m.faces) - 1
-            for vi in m.faces[fi]:
-                p = m.verts[vi]
-                uv[(fi, vi)] = (math.dist(p, e0) / 12.8, (eave - (p[2] - o[2])) / 12.8 + 0.3)
-    # the counter along the bay side, between the front posts
-    T = lambda s: tuple(t[k] * s for k in range(3))
-    N = lambda s: tuple(n[k] * s for k in range(3))
-    Z = lambda s: (0.0, 0.0, s)
-    wood = (0.94, 0.86, 0.76)
-    box(m, at(o, t, n, 0.0, -half_d + 0.12, 0.5), T(half_a - 0.12), N(0.1), Z(0.56), "teak", wood)
-    box(m, at(o, t, n, 0.0, -half_d + 0.06, 1.1), T(half_a + 0.02), N(0.24), Z(0.04), "teak", (1.0, 0.92, 0.82), bottom=True)
-    return o, t, n, posts, (half_a, half_d)
-
-
-SETS = (     # (bearing, towel count -- 2 laid side by side, or 1 alone)
-    (104.0, 2),
-    (138.0, 1),
-    (214.0, 2),
-    (234.0, 1),
-    (285.0, 2),
-)
-TOWELS = (((0.95, 0.45, 0.6), (0.96, 0.95, 0.92)), ((0.18, 0.62, 0.78), (0.98, 0.84, 0.3)),
-          ((0.96, 0.95, 0.92), (0.86, 0.2, 0.18)), ((0.98, 0.55, 0.16), (0.98, 0.84, 0.3)))
-HUT_B = 294.5               # the tiki bar, 7 m short of the portal on the wall side
 DRIFT = ((66.0, 1.4, 3.2), (99.0, 1.5, 2.4), (126.0, 1.3, 3.6), (150.0, 1.5, 2.2), (190.0, 1.4, 3.0),
          (222.0, 1.5, 2.6), (247.0, 1.3, 3.4), (267.0, 1.5, 2.0))     # (bearing, metres in from the wall foot, length)
 DRIFT_SHORE = ((57.0, 2.0, 2.6), (303.5, 2.1, 2.2))                    # (bearing, metres above the waterline, length)
@@ -1564,21 +1436,12 @@ SHELLS = 70
 
 
 def build_props():
-    """Every prop; returns (mesh, uv, logs, hut)."""
+    """Every prop; returns (mesh, uv, logs). Driftwood and shells only -- the sand's towels and the portal's
+    tiki bar were struck (see beach-declutter2)."""
     m = Mesh()
     uv = {}
     rr = Rng(SEED + 800)
     edge = lambda b: wf(b) - 1.75          # the props' outer edge: clear of the wall's foot stones
-    for k, (b, count) in enumerate(SETS):
-        rad = math.radians(1.0) * 72.0
-        lie = lambda: -90.0 + rr.u(-8.0, 8.0)          # radial, the head end toward the wall
-        if count == 2:
-            for j, side in enumerate((-1.0, 1.0)):
-                tw = TOWELS[(k + j) % len(TOWELS)]
-                towel(m, b + side * 0.78 / rad, edge(b) - 0.9, 1.75, 0.85, lie(), [tw[s % 2] for s in range(5)])
-        else:
-            tw = TOWELS[k % len(TOWELS)]
-            towel(m, b + 0.82 / rad, edge(b) - 0.9, 1.75, 0.85, lie(), [tw[s % 2] for s in range(5)])
     logs = []
     for k, (b, inset, length) in enumerate(DRIFT):
         logs.append(driftwood(m, uv, b, wf(b) - inset, length, rr.u(0.18, 0.25), rr.u(-12.0, 12.0), SEED + 830 + k))
@@ -1587,20 +1450,13 @@ def build_props():
     for k in range(SHELLS):
         b = rr.u(ENTRY_B - 4.0, EXIT_B + 4.0)
         shell(m, b, lerp(wl(b) + 0.4, edge(b), rr.f()), SEED + 900 + k)
-    hut = tiki_hut(m, uv, HUT_B, edge(HUT_B) - 1.1)
     INFO["props"] = len(m.faces)
-    return m, uv, logs, hut
+    return m, uv, logs
 
 
-def build_prop_collider(logs, hut):
-    """Hut posts, the counter, and logs as prisms."""
+def build_prop_collider(logs):
+    """Driftwood logs as prisms."""
     c = Mesh()
-    o, t, n, posts, (ha, hd) = hut
-    for x, y, rad in posts:
-        g = ground_z(bearing_of((x, y, 0.0)), math.hypot(x, y))
-        box(c, (x, y, g + 1.1), (rad, 0.0, 0.0), (0.0, rad, 0.0), (0.0, 0.0, 1.4), "c", (1.0, 1.0, 1.0), bottom=True)
-    box(c, (lambda p: (p[0], p[1], p[2]))(at(o, t, n, 0.0, -hd + 0.06, 0.55)), tuple(t[k] * ha for k in range(3)),
-        tuple(n[k] * 0.24 for k in range(3)), (0.0, 0.0, 0.62), "c", (1.0, 1.0, 1.0), bottom=True)
     for p0, p1, rad in logs:
         mid = lerp3(p0, p1, 0.5)
         along = il.scale(il.sub(p1, p0), 0.5)
@@ -1893,7 +1749,7 @@ def on_landmark(x, y):
     if _road_dist(x, y) < plan.ROAD_W + 5.0:
         return True
     hx, hy = plan.HOTEL["x"], plan.HOTEL["y"]
-    if math.hypot(x - hx - 16.0, y - hy) < 34.0 or on_strip(x, y):
+    if math.hypot(x - hx - 16.0, y - hy) < 34.0:
         return True
     return any(math.hypot(x - h[0], y - h[1]) < 0.7 * max(h[2], h[3]) + 5.0 for h in _houses())
 
@@ -2185,7 +2041,7 @@ def build_trees(m, surf, uv):
     while b < 264.0:                                                      # the hedge right behind the rocks
         r = top_r(b) + rr.u(3.5, 7.5)
         x, y, _z = pol(b, r, 0.0)
-        if plan.land_h(x, y) > 1.5 and not on_landmark(x, y) and not on_strip(x, y):
+        if plan.land_h(x, y) > 1.5 and not on_landmark(x, y):
             spots.append((x, y, surf.z(x, y), "bush"))
         b += rr.u(4.5, 7.5) / (math.radians(1.0) * r)
     spots = [sp for sp in spots if not hides_belfry(sp[0], sp[1], sp[2])]
@@ -2202,73 +2058,20 @@ def build_trees(m, surf, uv):
     INFO["tree_tris"] = tris
 
 
-# -- the shore strip a runner looks at over the wall: (bearing, kind, metres behind the lip); the boardwalk at d 10.5
-STRIP = ((104.0, "torch"), (122.0, "torch"), (128.0, "cabana"), (136.0, "torch"), (144.0, "lifeguard"),
-         (152.0, "torch"), (160.0, "bar"), (170.0, "torch"), (188.0, "torch"), (196.0, "cabana"),
-         (204.0, "torch"), (222.0, "torch"), (232.0, "cabana"), (240.0, "torch"),
-         (256.0, "torch"))
-STRIP_D = {"torch": 12.4, "bar": 15.5, "cabana": 15.0, "lifeguard": 14.0}
-STRIP_R = {"torch": 1.0, "bar": 6.5, "cabana": 4.0, "lifeguard": 3.5}
-WALK = (100.0, 260.0, 10.5, 2.4)      # the boardwalk: bearings, metres behind the lip, width
-LIGHTHOUSE = (-10.0, 104.0, 25.0)     # on the north headland's knoll: x, y, height
+# -- the shore strip (beach bar, cabanas, torches, lifeguard tower, boardwalk) was struck entire; only
+# Wuhu's lighthouse, on the north headland's knoll, still stands over the wall.
+LIGHTHOUSE = (-10.0, 104.0, 25.0)     # x, y, height
 WATERFALL = (-15.0, 122.0, 160.0, 6.0)   # down the crag's bay face: angle from the peak (deg, Blender), from d, to d, width
 
 
-def b_of(x, y):
-    return bearing_of((x, y, 0.0))
-
-
-def strip_spots():
-    """(x, y, yaw toward the bay, kind) of every piece of the shore strip."""
-    out = []
-    for b, kind in STRIP:
-        r = top_r(b) + STRIP_D[kind]
-        x, y, _z = pol(b, r, 0.0)
-        out.append((x, y, math.degrees(math.atan2(-y, -x)), kind))
-    return out
-
-
-def on_strip(x, y):
-    """Inside a strip piece's footprint or on the boardwalk: no hedge, bush, palm or grove there."""
-    b, r = bearing_of((x, y, 0.0)), math.hypot(x, y)
-    d = r - top_r(b)
-    if WALK[0] - 2.0 < b < WALK[1] + 2.0 and WALK[2] - 1.8 < d < WALK[2] + 1.8:
-        return True
-    return any(math.hypot(x - sx, y - sy) < STRIP_R[k] + 1.5 for sx, sy, _yaw, k in strip_spots())
-
-
-def _strip(m, uv, surf):
-    """The shore strip (beach_shore.py) on the sculpt's own ground, and the boardwalk along it."""
-    tris = 0
-    spreads = []
-    for k, (x, y, yaw, kind) in enumerate(strip_spots()):
-        rad = STRIP_R[kind]
-        zs = [surf.z(x + math.cos(a) * rad, y + math.sin(a) * rad) for a in [j * TWO_PI / 8 for j in range(8)]] + [surf.z(x, y)]
-        z0, spread = min(zs), max(zs) - min(zs)              # the base under the lowest corner: nothing floats
-        spreads.append((round(spread, 2), kind, round(b_of(x, y))))
-        if kind == "torch":
-            tris += sh.torch(m, uv, x, y, z0)
-        elif kind == "bar":
-            tris += sh.beach_bar(m, uv, x, y, yaw, z0)
-        elif kind == "cabana":
-            tris += sh.cabana(m, uv, x, y, yaw, z0, SEED + 2200 + k)
-        else:
-            tris += sh.lifeguard_tower(m, uv, x, y, yaw, z0)
-    pts = []
-    b = WALK[0]
-    while b <= WALK[1]:
-        r = top_r(b) + WALK[2]
-        pts.append(pol(b, r, 0.0)[:2])
-        b += 3.0 / (math.radians(1.0) * r)
-    tris += sh.boardwalk(m, uv, pts, surf.z, WALK[3])
-    INFO["strip_spread"] = sorted(spreads)[-3:]
+def _lighthouse(m, uv, surf):
+    """Wuhu's lighthouse (beach_shore.py) on the sculpt's own ground."""
     x, y, h = LIGHTHOUSE
     corners = [surf.z(x + math.cos(a) * r, y + math.sin(a) * r) for r in (3.6, 4.6) for a in [math.radians(15.0 + 30.0 * j) for j in range(12)]]
     lo, hi = min(corners), max(corners)
     base = min(lo - 0.5, hi - 1.5)                           # the foundation 0.5 m under the lowest corner, 1.5 m under the highest
     INFO["lighthouse_base"] = (round(lo, 2), round(hi, 2), round(base, 2))
-    tris += sh.lighthouse(m, uv, x, y, base, h, plinth=hi + 0.6 - base, step=min(1.0, hi + 0.6 - base))
-    return tris
+    return sh.lighthouse(m, uv, x, y, base, h, plinth=hi + 0.6 - base, step=min(1.0, hi + 0.6 - base))
 
 
 def _fall_uv(m, uv, f0, along, width):
@@ -2391,7 +2194,7 @@ def build_resort(m):
     _buildings(r, ruv)
     _walls(r, surf)
     _road(r, surf)
-    INFO["strip_tris"] = _strip(r, ruv, surf)
+    INFO["lighthouse_tris"] = _lighthouse(r, ruv, surf)
     INFO["waterfall_tris"] = _waterfall(r, ruv, surf)
     _horizon(r, ruv)
     INFO["resort"] = len(r.faces)
@@ -2465,12 +2268,12 @@ def build_geometry():
     crag_uvs(rocks, rockuv)
     palms, uv, trunks = build_palms(surf)
     build_trees(palms, surf, uv)
-    props, puv, logs, hut = build_props()
+    props, puv, logs = build_props()
     waves, wuv = build_waves()
     sea = build_sea([p for p in placed if ground_z(bearing_of((p[0], p[1], 0.0)), math.hypot(p[0], p[1])) < WATER_Z + 0.3]
                     + yacht_foam())
     cols = {"ground": build_ground_collider(), "rocks": build_rock_collider(placed),
-            "palms": build_trunk_collider(trunks), "props": build_prop_collider(logs, hut)}
+            "palms": build_trunk_collider(trunks), "props": build_prop_collider(logs)}
     return s, m, rocks, palms, uv, sea, cols, props, puv, waves, wuv, resort, ruv, iuv, rockuv
 
 
@@ -2628,7 +2431,7 @@ def build():
             line += " collision_tris=%d" % len(cf)
         print(line)
     tx.report(SHEETS)
-    print("MDL STATS palms=%d trees=%d tree_tris=%d building_tris=%d strip_tris=%d waterfall_tris=%d strip_spread=%s lighthouse_base=%s" % (INFO.get("palms", 0), INFO.get("trees", 0), INFO.get("tree_tris", 0), INFO.get("building_tris", 0), INFO.get("strip_tris", 0), INFO.get("waterfall_tris", 0), INFO.get("strip_spread"), INFO.get("lighthouse_base")))
+    print("MDL STATS palms=%d trees=%d tree_tris=%d building_tris=%d lighthouse_tris=%d waterfall_tris=%d lighthouse_base=%s" % (INFO.get("palms", 0), INFO.get("trees", 0), INFO.get("tree_tris", 0), INFO.get("building_tris", 0), INFO.get("lighthouse_tris", 0), INFO.get("waterfall_tris", 0), INFO.get("lighthouse_base")))
     return out
 
 
@@ -2675,10 +2478,10 @@ def _check():
     il.report(sea, "water")
     il.report(resort, "resort")
     print("resort surfaces in order:", sorted(set(resort.zones)))
-    print("strip_spread=%s lighthouse_base=%s" % (INFO.get("strip_spread"), INFO.get("lighthouse_base")))
+    print("lighthouse_base=%s" % (INFO.get("lighthouse_base"),))
     for k, c in cols.items():
         il.report(c, k + "_collider")
-    print("palms=%d trees=%d tree_tris=%d building_tris=%d strip_tris=%d waterfall_tris=%d lane r=%.1f lap=%.0f m" % (INFO["palms"], INFO.get("trees", 0), INFO.get("tree_tris", 0), INFO.get("building_tris", 0), INFO.get("strip_tris", 0), INFO.get("waterfall_tris", 0), LANE_R, math.radians(EXIT_B - ENTRY_B) * LANE_R))
+    print("palms=%d trees=%d tree_tris=%d building_tris=%d lighthouse_tris=%d waterfall_tris=%d lane r=%.1f lap=%.0f m" % (INFO["palms"], INFO.get("trees", 0), INFO.get("tree_tris", 0), INFO.get("building_tris", 0), INFO.get("lighthouse_tris", 0), INFO.get("waterfall_tris", 0), LANE_R, math.radians(EXIT_B - ENTRY_B) * LANE_R))
 
 
 if __name__ == "__main__":
