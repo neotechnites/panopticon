@@ -164,6 +164,30 @@ shot_refusal() {
       echo "trailer: this capture is a trailer_reveal shot"; return
     fi
   fi
+  # At most 4 players: --bots prisoners (run_clip's default 7, or more if the stage plugin asks) plus
+  # the tower guard. A guard POV is that guard; a runner POV body is one of the prisoners.
+  if [ -n "${capture}" ]; then
+    local bots
+    bots=$(python3 - "${capture}" "${REPO_DIR}/tools/capture/stages" <<'PY'
+import os, re, sys
+cap, stages = sys.argv[1], sys.argv[2]
+arg = lambda k: (re.findall(r"(?:^|\s)--%s=(\S+)" % k, cap) or [None])[-1]
+bots = int(arg("bots") or 7)
+sets = dict(kv.split("=", 1) for kv in (arg("set") or "").split(";") if "=" in kv)
+path = os.path.join(stages, "%s.gd" % (arg("stage") or "_none"))
+if os.path.exists(path):
+    m = re.search(r"func bots\(\)[^:]*:\s*\n\s*return (.+)", open(path, encoding="utf-8").read())
+    v = m.group(1).strip() if m else ""
+    o = re.match(r'int\(option\("(\w+)",\s*(\d+)\)\)', v)
+    if o:
+        bots = max(bots, int(sets.get(o.group(1), o.group(2))))
+    elif v.isdigit():
+        bots = max(bots, int(v))
+print(bots)
+PY
+)
+    [ "${bots}" -le 3 ] || { echo "players: ${bots} prisoners + the guard is $((bots + 1)) players; at most 4 (--bots=3)"; return; }
+  fi
 }
 
 # A shot id is a number with an optional letter (5b): 05b.
