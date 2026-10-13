@@ -58,6 +58,8 @@ pad: 0.2  captions: pop|stack|none  captions_font: Impact  captions_size: 64 (st
 captions_y: 0.72 (pop, fraction of the height)  captions_band: 0.06 0.55 (stack; top <= 0.1)
 captions_plain: l4 l5 (stack rows shown without quote marks)  captions_reset: l3 (stack: at that
 row's start every earlier quote ends and the slots restart at the top of the band)
+captions_at: b1 0.05; r1 0.55 96 (stack: that row's top at a fraction of the height, optional size;
+a placed row overlapping another quote on screen fails)
 size: 1920x1080 (default 1080x1920)  game: 0.25 (each take's own sound under the
 voice, linear, tempo-matched to the picture; 0 or absent is silent)  copy_720: yes (also write final\<tag>_720.mp4).
 
@@ -712,8 +714,14 @@ def build_stack(rows, starts, words_all, head, band, total):
     line_h, gap = size * 1.2, size * 0.45
     plain = set(head.get("captions_plain", "").split())
     resets = sorted(starts[k] for k in head.get("captions_reset", "").split() if k in starts)
+    placed = {}
+    for item in head.get("captions_at", "").split(";"):
+        parts = item.split()
+        if parts:
+            placed[parts[0]] = (float(parts[1]) * H, int(parts[2]) if len(parts) > 2 else size)
     y = band[0]
     events = []
+    shown = []   # (t_on, t_off, top, bottom, key) of every quote drawn
     for row in rows:
         key = row["line"]
         if key in head.get("captions_reset", "").split():
@@ -721,7 +729,21 @@ def build_stack(rows, starts, words_all, head, band, total):
         text = (row.get("text") or "").strip()
         if not text or key not in starts:
             continue
-        lines = textwrap.wrap(text if key in plain else "\u201c%s\u201d" % text, per_line)
+        quote = text if key in plain else "\u201c%s\u201d" % text
+        if key in placed:
+            top, fs = placed[key]
+            lines = textwrap.wrap(quote, max(8, int((W - 120) / (fs * 0.5))))
+            height = len(lines) * fs * 1.2
+            if top < 0 or top + height > H:
+                raise SystemExit("assemble: stack captions: %s placed at %.0f px runs off the frame" % (key, top))
+            ws = words_all.get(key, {}).get("words", [])
+            t_on = starts[key] + (max(0.0, ws[0]["t"]) if ws else 0.0)
+            t_off = next((r for r in resets if r > t_on + 1e-6), total)
+            events.append("Dialogue: 0,%s,%s,Pop,,0,0,0,,{\\an8\\pos(%d,%d)\\fs%d\\blur0.6}%s"
+                          % (ass_time(t_on), ass_time(t_off), W // 2, int(round(top)), fs, "\\N".join(lines)))
+            shown.append((t_on, t_off, top, top + height, key))
+            continue
+        lines = textwrap.wrap(quote, per_line)
         height = len(lines) * line_h
         if y + height > band[1] + 0.5:
             raise SystemExit("assemble: stack captions: {}'s quote does not fit the band ({:.0f}-{:.0f} px); "
@@ -732,7 +754,12 @@ def build_stack(rows, starts, words_all, head, band, total):
         body = "\\N".join(lines)
         events.append("Dialogue: 0,%s,%s,Pop,,0,0,0,,{\\an8\\pos(%d,%d)\\blur0.6}%s"
                       % (ass_time(t_on), ass_time(t_off), W // 2, int(round(y)), body))
+        shown.append((t_on, t_off, y, y + height, key))
         y += height + gap
+    for i, a in enumerate(shown):
+        for b in shown[i + 1:]:
+            if a[0] < b[1] and b[0] < a[1] and a[2] < b[3] + gap and b[2] < a[3] + gap:
+                raise SystemExit("assemble: stack captions: %s and %s share screen space; move captions_at" % (a[4], b[4]))
     info = "captions: stack, %d quotes, font %s %dpx, band %.0f-%.0f px, last slot ends %.0f px" % (
         len(events), font, size, band[0], band[1], y - gap)
     return ass_head(font, size) + "\n".join(events) + "\n", info
