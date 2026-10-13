@@ -54,7 +54,7 @@ A fit compares the clip's seconds ON SCREEN (source / speed) with the slot.
 
 Script header: music: <path under the project>  music_db: -18  music_fade: 1 1.5
 pad: 0.2  captions: pop|stack|none  captions_font: Impact  captions_size: 64 (stack 52)
-captions_y: 0.72 (pop, fraction of the height)  captions_band: 0.55 0.92 (stack)
+captions_y: 0.72 (pop, fraction of the height)  captions_band: 0.55 0.92 (stack)  captions_fade: 120 (stack, ms; 0 none)
 captions_plain: l4 l5 (stack rows shown without quote marks)  captions_reset: l3 (stack: at that
 row's start every earlier quote ends and the slots restart at the top of the band)
 size: 1920x1080 (default 1080x1920)  game: 0.25 (each take's own sound under the
@@ -692,6 +692,8 @@ def build_stack(rows, starts, words_all, head, band, total):
     line_h, gap = size * 1.2, size * 0.45
     plain = set(head.get("captions_plain", "").split())
     resets = sorted(starts[k] for k in head.get("captions_reset", "").split() if k in starts)
+    fade = int(head.get("captions_fade", 120))   # ms; 0 = the quote is simply there (a slam)
+    fad = "\\fad(%d,0)" % fade if fade > 0 else ""
     y = band[0]
     events = []
     for row in rows:
@@ -710,8 +712,8 @@ def build_stack(rows, starts, words_all, head, band, total):
         t_on = starts[key] + (max(0.0, ws[0]["t"]) if ws else 0.0)
         t_off = next((r for r in resets if r > t_on + 1e-6), total)
         body = "\\N".join(lines)
-        events.append("Dialogue: 0,%s,%s,Pop,,0,0,0,,{\\an8\\pos(%d,%d)\\fad(120,0)\\blur0.6}%s"
-                      % (ass_time(t_on), ass_time(t_off), W // 2, int(round(y)), body))
+        events.append("Dialogue: 0,%s,%s,Pop,,0,0,0,,{\\an8\\pos(%d,%d)%s\\blur0.6}%s"
+                      % (ass_time(t_on), ass_time(t_off), W // 2, int(round(y)), fad, body))
         y += height + gap
     info = "captions: stack, %d quotes, font %s %dpx, band %.0f-%.0f px, last slot ends %.0f px" % (
         len(events), font, size, band[0], band[1], y - gap)
