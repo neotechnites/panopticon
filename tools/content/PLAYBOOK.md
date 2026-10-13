@@ -8,7 +8,7 @@ note on. A second agent only when a new stage or tape has to be authored.
 
 ```
 tools/content/short.sh <project> [--tag vN] [--final]   # the whole version, delivered
-tools/content/version.sh <project> <newtag>             # vN+1 = copy of vN's table
+tools/content/version.sh <project> <newtag> --from vN   # vN+1 = copy of the vN Ryan watched
 ```
 
 `short.sh` does, in order, timing each stage:
@@ -50,7 +50,8 @@ the header of `shot.sh` (shot entries) and `pc/assemble.py` (table, header keys)
 
 ## Versions
 
-- `version.sh <project> v2` appends `## script v2`, a copy of the newest table. Edit only
+- `version.sh <project> v2 --from v1` appends `## script v2`, a copy of v1 (the cut Ryan watched;
+  required, never the newest by default). Edit only
   the rows Ryan noted. Every other row hits the segment cache and is frame-identical.
 - A refilm never overwrites: the new cut is `cuts/NN_v2.mp4` and only v2's table is
   repointed to it. `shot.sh` refuses a cut name any earlier tag's `cuts\<tag>_used.txt` lists.

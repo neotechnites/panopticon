@@ -2,7 +2,7 @@
 
     versions.py last <brief>                      # the newest tag ('' when only a plain ## script)
     versions.py has <brief> <tag>                 # exit 0 when ## script <tag> exists
-    versions.py new <brief> <tag>                 # append ## script <tag>, a copy of the newest table
+    versions.py new <brief> <tag> <from>          # append ## script <tag>, a copy of ## script <from>
     versions.py cut <brief> <tag> <NN>            # the cut shot NN plays in <tag> (03, 03_v2) or ''
     versions.py repoint <brief> <tag> <NN> <name> # in <tag> only: cuts/NN*.mp4 -> cuts/<name>.mp4
     versions.py shots <brief>                     # "<id> <refilm tags>" per filmed shot entry
@@ -48,12 +48,10 @@ def main():
     elif cmd == "has":
         sys.exit(0 if any(s[0] == sys.argv[3] for s in secs) else 1)
     elif cmd == "new":
-        tag = sys.argv[3]
-        if not secs:
-            sys.exit("versions: the brief has no ## script table to copy")
+        tag, src = sys.argv[3], sys.argv[4]
         if any(s[0] == tag for s in secs):
             sys.exit("versions: ## script %s already exists" % tag)
-        _, a, b = secs[-1]
+        _, a, b = find(secs, src)
         body = lines[a + 1:b]
         while body and not body[-1].strip():
             body.pop()
@@ -62,7 +60,7 @@ def main():
         lines += ["", "## script %s" % tag] + body + [""]
         with open(path, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
-        print("## script %s: copy of %s" % (tag, secs[-1][0] or "## script"))
+        print("## script %s: copy of %s" % (tag, src))
     elif cmd == "cut":
         _, a, b = find(secs, sys.argv[3])
         rx = cut_re(sys.argv[4])

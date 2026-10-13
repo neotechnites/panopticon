@@ -19,7 +19,7 @@ while [ $# -gt 0 ]; do
 done
 TAG="${TAG:-$(${V} last "${BRIEF}")}"
 TAG="${TAG:-v1}"
-${V} has "${BRIEF}" "${TAG}" || "${CONTENT_DIR}/version.sh" "${BRIEF}" "${TAG}"
+${V} has "${BRIEF}" "${TAG}" || die "short.sh refuses: no ## script ${TAG}; make it with tools/content/version.sh ${NAME} ${TAG} --from <tag Ryan watched>"
 T_ALL=$(now_ms); TIMES=()
 stage() { TIMES+=("$1 $(since "$2")"); echo "== $1: $(since "$2")"; }
 
