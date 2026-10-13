@@ -112,3 +112,5 @@ deliver 6 s. End to end 117 s.
 Compare it with the previous cut at 1 fps
 (`ffmpeg -i X.mp4 -vf "fps=1,scale=240:-2,tile=15x3" -frames:v 1 sheet.png`): same shot
 in every cell, game filling the frame. No other checks unless he asks.
+
+- Shorts agents are launched only with `tools/content/agent_brief.sh <project> <newtag>` output; never a hand-typed brief or base.
