@@ -204,7 +204,8 @@ func _physics_process(delta: float) -> void:
 	var error := Vector2(angle_difference(_yaw, wanted.x), wanted.y - _pitch)
 	var accel: Vector2 = error * (omega * omega) - _rate * (2.0 * HAND_ZETA * omega)
 	_rate += accel * delta
-	_rate = _rate.limit_length(HAND_MAX_RATE)
+	# max_rate (140): the wrist's top speed on this beat, deg/s.
+	_rate = _rate.limit_length(deg_to_rad(float(beat.get("max_rate", rad_to_deg(HAND_MAX_RATE)))))
 	_yaw = wrapf(_yaw + _rate.x * delta, -PI, PI)
 	_pitch += _rate.y * delta
 	if body != null and is_instance_valid(body) and fire_at >= 0.0 and not _spent(k, beat) and into >= fire_at and _rifle_ready():

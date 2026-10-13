@@ -17,6 +17,8 @@ extends "res://tools/capture/stages/stage.gd"
 ## v39 (Ryan): "the sniper pov sucks": late, the scope rides him (beat centre) from the shove to the ragdoll.
 ## v40 (Ryan): "the sniper doesnt aim". Late dials: rest (deg the scope waits on, 197.0), react (0.2), omega/follow (10, 0.5: he trails
 ## the throw), hold_over (0.9: onto the held-over mark), settle_omega (25), settle (0.22 s on the mark, then the squeeze), give_up (1.0).
+## v41 (Ryan): "we dont even see the fucking shove from the runners pov" and the scope must rest "at the edge of the cover", track, then lead
+## him as he runs back. Rest on the wall's end (193.9); expects judge the cuts: m1 (m1_from/m1_to) and m2 (scope_from/scope_to), take s.
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const COLUMN_SCENE: String = "res://maps/marble/models/marble_column.glb"
@@ -40,8 +42,12 @@ var _rest_checked: bool = false
 ## Wall's leading end (deg) and the clear margin past it (deg) the hit and the rest must keep.
 const WALL_END: float = 193.9
 const CLEAR_DEG: float = 3.0
-## v39: over the m2 cut (scope_from/scope_to, clip s) the runner stays inside half the scope's radius (7.4 deg).
-const SCOPE_INNER: float = 0.5
+## v41: in m2 the shoved man stays inside IN_FRAME of the scope's radius from the shove on; in m1 inside IN_FRAME of the runner's frame.
+const IN_FRAME: float = 0.9
+## v41: before the shove the scope sits within EDGE_DEG of the wall's end; the squeeze leads his chest by LEAD_MIN m along his run.
+const EDGE_DEG: float = 1.0
+const LEAD_MIN: float = 0.6
+const WALL_R: float = 47.2
 ## v40 (Ryan): "the sniper doesnt aim ... he just aim bots". A human hand: eye speed under HUMAN_RATE deg/s, an overshoot past
 ## him of OVERSHOOT_DEG corrected, the eye LAG_S behind his line while tracking, and within SETTLE_DEG of the squeeze's mark for SETTLE_S.
 const HUMAN_RATE: float = 60.0
@@ -50,8 +56,6 @@ const LAG_S: float = 0.05
 const MOVING_RATE: float = 2.0
 const SETTLE_DEG: float = 0.35
 const SETTLE_S: float = 0.2
-var _worst_frac: float = 0.0
-var _worst_at: float = -1.0
 var _peak_rate: float = 0.0
 var _peak_rate_at: float = -1.0
 var _last_eye: Vector3 = Vector3.ZERO
@@ -66,6 +70,19 @@ var _led_at: float = -1.0
 var _on_mark_at: float = -1.0
 var _settle: float = -1.0
 var _scope_judged: bool = false
+var _rest_off: float = 0.0
+var _rest_rate: float = 0.0
+var _rest_rows: int = 0
+var _view_worst: float = 0.0
+var _view_worst_at: float = -1.0
+var _m1_worst: float = 0.0
+var _m1_worst_at: float = -1.0
+var _m1_judged: bool = false
+var _run_at: Vector3 = Vector3.ZERO
+var _run_velocity: Vector3 = Vector3.ZERO
+var _lead: float = -INF
+var _lead_speed: float = 0.0
+var _lead_deg_rate: float = 0.0
 
 
 ## Marble columns at [param degrees] on the inner edge for one shot only; the map scene is untouched.
@@ -176,9 +193,11 @@ static func _right_of(from: Vector3, to: Vector3) -> float:
 	return -rad_to_deg(wrapf(yaw_to - yaw_from, -PI, PI))
 
 
-func tick(_delta: float) -> void:
+func tick(delta: float) -> void:
 	if _victim == null:
 		return
+	_measure_run(delta)
+	_watch_the_runner()
 	if OS.has_environment("STAGE_DEBUG") and Engine.get_physics_frames() % 15 == 0 and is_instance_valid(_victim):
 		say("victim %.1f deg r %.2f y %.2f; pov %.1f r %.2f" % [LIB.bearing_of(_victim.global_position), LIB.radius_of(_victim.global_position), _victim.global_position.y, LIB.bearing_of(_pov.global_position), LIB.radius_of(_pov.global_position)])
 	if _hand == null:
@@ -240,8 +259,8 @@ func _raise_the_hand() -> void:
 		# v40 (Ryan): "the sniper doesnt aim ... he just aim bots to a spots and shoot". 5h's hand (omega 6): resting on the
 		# wall's end, onto him react s after he clears it, tracked unled; the lead goes on as he breaks, settle s, squeeze.
 		_hand.beats.append({"body": _victim, "seconds": 100.0, "fire_at": -1.0, "watch": true, "centre": true, "omega": float(option("omega", 10.0)),
-			"follow": float(option("follow", 0.5)), "lead": 0.0, "now": int(option("now", 0)) == 1, "kick": float(option("kick", 0.3))})
-		_hand.park = LIB.ring_point(float(option("rest", 197.0)), 48.6, 1.3)
+			"follow": float(option("follow", 0.5)), "max_rate": float(option("max_rate", 140.0)), "lead": 0.0, "now": int(option("now", 0)) == 1, "kick": float(option("kick", 0.3))})
+		_hand.park = LIB.ring_point(float(option("rest", WALL_END)), 48.6, 1.3)
 		_hand.start_at = INF
 	else:
 		_hand.beats.append({"body": _victim, "seconds": 100.0, "fire_at": -1.0, "watch": true, "lead": float(option("lead", 0.7)), "now": true, "kick": float(option("kick", 0.3))})
@@ -276,11 +295,11 @@ func on_shove(_shover: MatchParticipant, victim: MatchParticipant) -> void:
 	say("shove landed on %s" % victim.body.name)
 
 
-## Fail the smoke when [param ok] is false.
+## Fail the smoke when [param ok] is false; the take plays on so every expect is read.
 func _expect(ok: bool, what: String) -> void:
 	print("[expect] %s: %s" % ["ok" if ok else "FAIL", what])
 	if not ok:
-		clip._fail("expect failed: %s" % what)
+		clip._exit_code = clip.EXIT_BROKEN
 
 
 ## The victim outside the wall's cover arc by [constant CLEAR_DEG] and seen from the guard's eye at the window.
@@ -294,13 +313,13 @@ func _expect_in_the_open(label: String) -> void:
 	_expect(blocker.is_empty(), "%s in the guard's line of sight%s" % [label, "" if blocker.is_empty() else " (blocked by %s)" % blocker["collider"].name])
 
 
-## v39 (Ryan): "you see the runner get shoved for one frame, then they go out of frame". Over the cut, his body (the
-## ragdoll's pelvis once limp) must sit within SCOPE_INNER of the scope's radius; v40 adds the human-hand expects.
+## v39 (Ryan): "you see the runner get shoved for one frame, then they go out of frame". Over m2: the rest on the wall's end
+## before the shove, then his body (the ragdoll's pelvis once limp) inside the scope; v40 adds the human-hand expects.
 func _watch_the_scope() -> void:
 	var t: float = elapsed()
-	if _scope_judged or t < float(option("scope_from", 3.05)) or _guard == null or not is_instance_valid(_victim):
+	if _scope_judged or t < float(option("scope_from", 2.75)) or _guard == null or not is_instance_valid(_victim):
 		return
-	if t > float(option("scope_to", 5.65)):
+	if t > float(option("scope_to", 5.33)):
 		_scope_judged = true
 		_judge_the_hand()
 		return
@@ -316,9 +335,15 @@ func _watch_the_scope() -> void:
 	var line: Vector3 = (point - view.origin).normalized()
 	var aim: float = rad_to_deg(look.angle_to(line))
 	var frac: float = INF if aim >= 90.0 else tan(deg_to_rad(aim)) / tan(deg_to_rad(eye.fov) * 0.5) / clear
-	if frac > _worst_frac:
-		_worst_frac = frac
-		_worst_at = t
+	if _shoved and frac > _view_worst:
+		_view_worst = frac
+		_view_worst_at = t
+	# Before the shove: how far the eye is off the wall's end, and how fast it moves.
+	if not _shoved:
+		_rest_off = maxf(_rest_off, rad_to_deg(look.angle_to(LIB.ring_point(WALL_END, WALL_R, 1.3) - view.origin)))
+		if _last_t >= 0.0 and t > _last_t:
+			_rest_rate = maxf(_rest_rate, rad_to_deg(_last_eye.angle_to(look)) / (t - _last_t))
+		_rest_rows += 1
 	# Yaw of the crosshair off him (deg, + right): the sign the swing comes from, the far side an overshoot.
 	var off: float = rad_to_deg(angle_difference(atan2(-line.x, -line.z), atan2(-look.x, -look.z)))
 	var dt: float = t - _last_t
@@ -347,12 +372,23 @@ func _watch_the_scope() -> void:
 
 
 ## The shot: how long before it the eye had been within SETTLE_DEG of the point the round was sent to.
-func _on_fired(_origin: Vector3, _end: Vector3) -> void:
+func _on_fired(origin: Vector3, end: Vector3) -> void:
 	if _fired_at >= 0.0 or _offsets.is_empty():
 		return
 	_fired_at = elapsed()
+	# The lead: the launch line's nearest pass to his chest, metres ahead of it along his run (flat).
+	var line: Vector3 = (end - origin).normalized()
+	var chest: Vector3 = _victim.global_position + Vector3.UP * 1.0
+	var ahead: Vector3 = origin + line * (chest - origin).dot(line) - chest
+	var run := Vector3(_run_velocity.x, 0.0, _run_velocity.z)
+	_lead_speed = run.length()
+	_lead = Vector3(ahead.x, 0.0, ahead.z).dot(run.normalized()) if _lead_speed > 0.1 else 0.0
+	_lead_deg_rate = rad_to_deg(angle_difference(deg_to_rad(LIB.bearing_of(chest - run * 0.1)), deg_to_rad(LIB.bearing_of(chest)))) / 0.1
+	say("squeeze: the aim %.2f m ahead of him along his run, %.1f m/s, %.1f deg/s" % [_lead, _lead_speed, _lead_deg_rate])
 	if _late():
+		# Back onto him to watch it land, at the tracking hand's pace, not the settle's.
 		_hand.beats[0]["centre"] = true
+		_hand.beats[0]["omega"] = float(option("omega", 10.0))
 	_settle = _fired_at - float(_offsets[0][0])
 	for i: int in range(_offsets.size() - 1, -1, -1):
 		if float(_offsets[i][3]) > SETTLE_DEG:
@@ -360,8 +396,52 @@ func _on_fired(_origin: Vector3, _end: Vector3) -> void:
 			break
 
 
+## His velocity off his own steps, averaged over a tenth of a second.
+func _measure_run(delta: float) -> void:
+	if not is_instance_valid(_victim) or delta <= 0.0:
+		return
+	var here: Vector3 = _victim.global_position
+	if _run_at != Vector3.ZERO:
+		_run_velocity = _run_velocity.lerp((here - _run_at) / delta, clampf(delta / 0.1, 0.0, 1.0))
+	_run_at = here
+
+
+## v41 (Ryan): "we dont even see the fucking shove from the runners pov". Over m1, from the shove on, the man he shoves
+## stays inside IN_FRAME of the runner's frame and is out past the wall's end by CLEAR_DEG when the cut ends.
+func _watch_the_runner() -> void:
+	if _m1_judged or not is_instance_valid(_pov) or not is_instance_valid(_victim):
+		return
+	var t: float = elapsed()
+	var to: float = float(option("m1_to", 3.75))
+	if t > to:
+		_m1_judged = true
+		var deg: float = LIB.bearing_of(_victim.global_position)
+		_expect(_shoved and _shoved_at >= float(option("m1_from", 1.75)) and to - _shoved_at >= 0.5, "m1: the shove at %.2f, %.2f s before the cut ends (need 0.5)" % [_shoved_at if _shoved else -1.0, to - _shoved_at if _shoved else -1.0])
+		_expect(_shoved and _m1_worst <= IN_FRAME, "m1: the shoved man inside %.0f%% of the runner's frame from the shove to the cut's end (worst %.0f%% at %.2f)" % [IN_FRAME * 100.0, _m1_worst * 100.0, _m1_worst_at])
+		_expect(deg >= WALL_END + CLEAR_DEG, "m1: at the cut's end he is %.1f deg past the wall's end (need %.1f)" % [deg - WALL_END, CLEAR_DEG])
+		return
+	if not _shoved:
+		return
+	var eye: Camera3D = _pov.get_node_or_null(^"Head/Camera") as Camera3D
+	if eye == null:
+		return
+	# Where he sits in the 16:9 frame, as a share of the half-width or half-height, whichever is worse.
+	var local: Vector3 = eye.get_camera_transform().affine_inverse() * seen_point(_victim)
+	var half: float = tan(deg_to_rad(eye.fov) * 0.5)
+	var share: float = INF if local.z >= -0.01 else maxf(absf(local.x / -local.z) / (half * 16.0 / 9.0), absf(local.y / -local.z) / half)
+	if share > _m1_worst:
+		_m1_worst = share
+		_m1_worst_at = t
+	if OS.has_environment("STAGE_DEBUG"):
+		say("m1 %.2f: he is %.0f%% of the runner's frame out, %.1f deg" % [t, share * 100.0, LIB.bearing_of(_victim.global_position)])
+
+
 func _judge_the_hand() -> void:
-	_expect(_worst_frac <= SCOPE_INNER, "runner within %.0f%% of the scope radius over the cut (worst %.0f%% at %.2f)" % [SCOPE_INNER * 100.0, _worst_frac * 100.0, _worst_at])
+	_expect(_rest_rows > 0 and _rest_off <= EDGE_DEG and _rest_rate < MOVING_RATE, "m2: the scope still on the wall's end from the cut's open to the shove (%d frames, off %.2f deg, need %.1f; peak %.2f deg/s, need under %.0f)" % [_rest_rows, _rest_off, EDGE_DEG, _rest_rate, MOVING_RATE])
+	_expect(_view_worst <= IN_FRAME, "m2: the runner inside %.0f%% of the scope radius from the shove to the cut's end (worst %.0f%% at %.2f)" % [IN_FRAME * 100.0, _view_worst * 100.0, _view_worst_at])
+	_expect(_fired_at >= 0.0 and _lead >= LEAD_MIN and _lead_deg_rate < 0.0, "m2: at the squeeze (%.2f) the aim leads his chest %.2f m along his run (need %.1f), %.1f m/s, %.1f deg/s toward the wall" % [_fired_at, _lead, LEAD_MIN, _lead_speed, _lead_deg_rate])
+	var to: float = float(option("scope_to", 5.33))
+	_expect(_hit_at >= 0.0 and to - _hit_at >= 0.3, "m2: the round hits him at %.2f, %.2f s before the cut ends (need 0.3 of the drop in the scope)" % [_hit_at, to - _hit_at])
 	_expect(_peak_rate < HUMAN_RATE, "peak eye speed %.1f deg/s at %.2f under a hand's %.0f" % [_peak_rate, _peak_rate_at, HUMAN_RATE])
 	_expect(_corrected > OVERSHOOT_DEG, "an overshoot past him corrected (%.2f deg past, need %.2f)" % [_corrected, OVERSHOOT_DEG])
 	var lag: float = _lag()

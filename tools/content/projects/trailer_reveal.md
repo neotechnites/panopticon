@@ -7,8 +7,8 @@ rules: 16:9 1920x1080 (SIZE=1920x1080 shot.sh), no HUD except the guard's scope,
 v2 notes (Ryan on rough_v1): the guard stands at the tower's window, not deep inside; all runners run the course direction; the runner shot is the SAME event as the guard shot (same stage, same seed, two POVs), cut back ~1 s to the man directly behind the victim; clear line of sight when he looks up at the tower; title drops in HARD on the music's drop; music https://www.youtube.com/watch?v=OBPV0lsorwU; real-looking gameplay only (walkable deck and real cover, nobody on lava, nobody looking backwards); max 4 players a shot (1 guard + 3); spread across hell, forest and marble. Added: "EVERY shot is first-person POV -- either the guard's scope/tower view or a prisoner's first-person view. No third-person ... Title/end cards are the only non-POV frames."
 music: external\src\music_v2_OBPV0lsorwU.mp4 -> voice\sr20det.ogg (SOURCES.md). The drop: 0.35 s of silence from 5.36 s, the hit at 5.703 s (sample onset); 170 bpm after it (v3 measured).
 cards: cuts/title_hard.mp4 is v1's title frame looped from frame 0 (v1's title.mp4 opened on two black frames); cuts/end.mp4 is v1's.
-delivery: content\trailer_reveal\final\rough_v40.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
-tag: rough_v40
+delivery: content\trailer_reveal\final\rough_v41.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
+tag: rough_v41
 alt: rough_v24 (the SR20DET cut before Ryan's seven notes; ## script rough_v24)
 alt: rough_v26_vivaldi (rough_v25_vivaldi with the seven notes, every cut and event on the same beats; ## script rough_v26_vivaldi)
 kept: cuts\_v25\NN.mp4 are the shot files rough_v24 and rough_v25_vivaldi were cut from (every shot was refilmed for v26 on main 6547970).
@@ -154,10 +154,12 @@ freeze: waive
 
 ## 10a
 said: v5 "Marble, runner POV: two runners both behind the same column on the inner edge, hidden from the tower; he shoves the other out into the open; cut BEFORE the shot"
-capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=runner --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;omega=10;kick=0.1;back_pace=0.5 --seed=20261001
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=runner --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;kick=0.1;back_pace=0.5;follow=0.4;run_after=0.9;settle_omega=45;max_rate=55 --seed=20261001
 tape: marble_column
 seconds: 2.6
-in: 1.2
+in: 1.75
+# v41 (Ryan): "we dont even see the fucking shove from the runners pov. its jsut a shot of a person looking at a person." The cut opened 1.8 s before the shove and ended 0.2 s after it.
+# in 1.75: m1 (2.0 s) has the square-up, the shove at 3.00 (1.25 s in) and him thrown 12 deg past the wall's end by its last frame. Expects: shove >= 0.5 s before the end, him inside 90% of the frame, >= 3 deg out.
 freeze: waive
 # v37 (Ryan): "the 3 columns for the shove wont work anymore, youll have to use the walls that are now in the map." Behind the map's ArcWall188 (r 47.2, 182.4-193.9 deg, 7.6 m),
 # the guard at the 193.5 window; the v11 staging turned -23.25 deg (edge 193.85): smoke shove 3.00, exposed 3.07 at 194.1, react 3.38, squeeze 4.37, hit 4.73 at 195.0. No --look=social.
@@ -166,10 +168,13 @@ freeze: waive
 
 ## 10b
 said: v5 "Marble, guard scope, the same event: nobody in sight, one shoved out from behind the column, fires, hits"
-capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;kick=0.1;back_pace=0.5;run_after=1.0 --seed=20261001
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;kick=0.1;back_pace=0.5;follow=0.4;run_after=0.9;settle_omega=45;max_rate=55 --seed=20261001
 tape: marble_column
 seconds: 3.4
-in: 2.5
+in: 2.75
+# v41 (Ryan): "they need to be looking at the edge of the cover, the person needs to be shoved out, they need to track them, then once that person starts running back, line up the shot and shoot."
+# in 2.75: m2 opens with the scope still on the wall's end (193.9) 0.25 s before the shove; he is thrown into it, tracked (omega 10, follow 0.4, wrist 55 deg/s); he breaks back at 4.02,
+# the lead goes on (settle_omega 45), squeeze 4.37 1.98 m ahead of him along his run, hit 4.73 at 201.1 deg, 0.6 s of the drop in the cut. Expects on all of it (stage header).
 freeze: waive
 # v28 (Ryan): "the shoved ragdoll freaks out" (game fix: a flop's limbs no longer start 7 m/s behind the torso) "and after the shove the runner
 # starts running the ring instead of going back behind cover. He must duck back behind cover." He lies where the throw puts him, gets up and
