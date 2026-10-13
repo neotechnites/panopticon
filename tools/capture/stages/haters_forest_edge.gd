@@ -62,7 +62,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "place", "at": LIB.ring_point(VICTIM_AT.x, VICTIM_AT.y, 0.1)},
 		{"do": "human", "on": true},
 	]
-	victim_steps.append_array(_legs([[337.0, 49.2], [341.5, 49.0], [344.5, 47.8], [350.0, 47.6]], pace * 0.9, 0.0))
+	victim_steps.append_array(_legs([[337.0, 49.2], [341.5, 49.0], [344.5, 47.8], [350.0, 47.6]], pace * 0.85, 0.0))
 	victim_steps.append({"do": "hold", "seconds": 60.0})
 	drive(runners[1], victim_steps, 1, "ClipVictimDriver")
 
@@ -76,7 +76,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 
 	stage_body(_shover)
 	victim_body(_victim)
-	say("haters_forest: %s shoves, %s is the victim, %s leads" % [_shover.name, _victim.name, _lead.name])
+	say("haters_forest_edge: %s shoves, %s is the victim, %s leads" % [_shover.name, _victim.name, _lead.name])
 	return true
 
 
