@@ -56,7 +56,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			"weave": WEAVE[index], "period": PERIOD[index], "timeout": 30.0,
 		}
 		if index == LEAD:
-			lane["timeout"] = hit + float(option("lead_stop", 2.6)) - cast_at
+			lane["timeout"] = hit + float(option("lead_stop", 2.0)) - cast_at
 		if index == POV:
 			# Eyes up the lane and on the men ahead; never back. On the hit: a jerk, then up at the tower.
 			lane["glances"] = [
@@ -76,7 +76,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 				{"t": 0.32, "right": up_right, "pitch": up_pitch},
 				{"t": 1.9, "right": 18.0, "pitch": -3.0},
 			]
-			lane["timeout"] = hit + float(option("shove_go", 2.4)) - cast_at
+			lane["timeout"] = hit + float(option("shove_go", 1.9)) - cast_at
 		var steps: Array = [
 			{"do": "place", "at": LIB.ring_point(deg, RADII[index], 0.1), "face": LIB.tangent_at(deg)},
 			{"do": "human", "on": true},
@@ -105,7 +105,7 @@ func tick(_delta: float) -> void:
 	if _hand == null:
 		_raise_the_hand()
 		return
-	var zoomed: bool = elapsed() >= float(option("zoom_at", 1.9))
+	var zoomed: bool = elapsed() >= float(option("zoom_at", 1.2))
 	_hand.hold_scope = zoomed
 	if not zoomed:
 		var optic: WeaponOptic = _guard.get_node_or_null(^"Optic") as WeaponOptic
@@ -125,10 +125,10 @@ func _raise_the_hand() -> void:
 	_hand.name = "ClipGuardHand"
 	clip.root.add_child(_hand)
 	_hand.install(_guard, controller(), elapsed())
-	_hand.start_at = float(option("hand_at", 1.3))
-	_hand.beats.append({"body": _bodies[VICTIM], "seconds": 100.0, "fire_at": float(option("fire_at", 3.6)) - _hand.start_at})
+	_hand.start_at = float(option("hand_at", 0.8))
+	_hand.beats.append({"body": _bodies[VICTIM], "seconds": 100.0, "fire_at": float(option("fire_at", 4.4)) - _hand.start_at})
 	_hand.park = LIB.ring_point(_start + float(option("park", 10.0)), 49.0, 0.6)
-	say("guard at the window on %.0f deg; the hand from %.2f s, squeeze at %.2f s" % [float(option("window", 115.0)), _hand.start_at, float(option("fire_at", 3.6))])
+	say("guard at the window on %.0f deg; the hand from %.2f s, squeeze at %.2f s" % [float(option("window", 115.0)), _hand.start_at, float(option("fire_at", 4.4))])
 
 
 func on_hit(collider: Node3D) -> void:
