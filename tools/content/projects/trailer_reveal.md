@@ -1183,3 +1183,6 @@ captions: none
 ## script rough_v46
 # v46 (Ryan on v45: "when the melody plays a note, is when all but the melody should fall off"): v45 with the melody-alone tail from the melody note at song 56.290 (trailer 42.706, 0.33 s before the final title card).
 # rough_v47_songstart (Ryan: "give me a version that starts at the beggining of the song, right when the melody fades out, right before the drums start to come in quietly"): the master from song 9.534 (a bar line, 0.9 s before the drums), 4.05 s of black before v42's picture so the drop stays on the title; same tail as v46. The black is a placeholder until the opening is re-cut.
+
+## script rough_v48_songstart
+# v48 (Ryan on v47: "start half a second earlier. and the end is still not correct. youre going to have to add some black ... to get the end to hit at the right time"): the master from song 9.034 (4.55 s of black before v42's picture); all but the melody falls off on bar 28 after the drop (song 58.296), a 4-bar phrase line; 1.68 s of black inserted before the end card so the card lands on it.
