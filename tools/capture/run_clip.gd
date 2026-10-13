@@ -56,6 +56,7 @@ extends SceneTree
 ## --out=DIR        directory the clip is destined for; created if missing
 ## --record=PATH    write the take's tape (tools/capture/clip_tape.gd) to PATH
 ## --tape=PATH      play a recorded tape: every input and trigger pull from it, no brains
+## --frame=WxH     the take's frame for the [lens] probe's cover grid (a headless smoke is 64x64)
 ## --sync=N         real-time rough take: N white frames before the world is built, gone
 ##                  on the take's first frame, so a screen recording finds t=0 by it
 ## [/codeblock]
@@ -232,6 +233,7 @@ func _initialize() -> void:
 		"record": "",
 		"tape": "",
 		"sync": 0,
+		"frame": "",
 	})
 	_sync_frames = int(_options.get("sync", 0))
 	if _sync_frames > 0 and OS.has_feature("movie"):
@@ -956,9 +958,18 @@ func _probe_the_lens() -> void:
 	if _lens == null:
 		_lens = LENS_PROBE.new()
 		_lens.build(_controller.get_parent())
-		print("[lens] probe: %d meshes, %d triangles" % [_lens.meshes, _lens.triangles])
-	var seen: Dictionary = _lens.measure(viewer, _pov_body)
+		print("[lens] probe: %d meshes, %d triangles, frame %s" % [_lens.meshes, _lens.triangles, _lens_frame()])
+	var seen: Dictionary = _lens.measure(viewer, _pov_body, _lens_frame())
 	print("[lens] %.3f near=%.2f cover=%.2f" % [_elapsed, seen["near"], seen["cover"]])
+
+
+
+## The take's frame: --frame=WxH (a headless smoke's viewport is not the take's), else the viewport.
+func _lens_frame() -> Vector2:
+	var asked: PackedStringArray = String(_options.get("frame", "")).split("x")
+	if asked.size() == 2 and asked[0].to_float() > 0.0 and asked[1].to_float() > 0.0:
+		return Vector2(asked[0].to_float(), asked[1].to_float())
+	return root.get_visible_rect().size
 
 
 func _log_events() -> void:

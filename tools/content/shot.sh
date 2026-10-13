@@ -114,7 +114,7 @@ if [ -n "${EXPECT}" ] && [ -n "${CAPTURE}" ] && [ "${SMOKE_PASSED:-0}" = 0 ]; th
   SMOKE_ARGS="${CAPTURE}"; [[ "${SMOKE_ARGS}" == *--seed=* ]] || SMOKE_ARGS="${SMOKE_ARGS} --seed=${SEED:-20260930}"
   T0=$(now_ms)
   STAGE_DEBUG=1 "${MAC_GODOT:-godot}" --headless --path "${REPO_DIR}" --fixed-fps "${FPS}" --script res://tools/capture/run_clip.gd -- \
-    ${SMOKE_ARGS} --seconds="$(python3 -c "print(${IN} + ${SECONDS_WANTED} + ${GAP} + 1.0)")" > "${SMOKE_LOG}" 2>&1 || true
+    ${SMOKE_ARGS} --frame="${SIZE}" --seconds="$(python3 -c "print(${IN} + ${SECONDS_WANTED} + ${GAP} + 1.0)")" > "${SMOKE_LOG}" 2>&1 || true
   IFS=$'\n' read -r -d '' -a EXPECT_LINES <<< "${EXPECT}" || true
   if ! EXPECT_WINDOW="${IN} ${SECONDS_WANTED}" python3 "${CONTENT_DIR}/expect.py" "${SMOKE_LOG}" "${EXPECT_LINES[@]}"; then
     die "shot ${NN}: the Mac smoke missed its expect: lines (log ${SMOKE_LOG}); nothing was filmed"

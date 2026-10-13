@@ -67,8 +67,8 @@ func _skipped(mesh_node: MeshInstance3D) -> bool:
 
 
 ## This frame's [code]{near, cover}[/code]: metres to the nearest thing at the lens (sphere, then a
-## FORWARD_METRES ray; FORWARD_METRES when clear) and the share of a 5x5 frustum grid hitting within COVER_METRES.
-func measure(camera: Camera3D, ridden: Node) -> Dictionary:
+## FORWARD_METRES ray; FORWARD_METRES when clear) and the share of a 5x5 grid over a [param frame] frustum within COVER_METRES.
+func measure(camera: Camera3D, ridden: Node, frame: Vector2) -> Dictionary:
 	var near: float = FORWARD_METRES
 	var cover: float = 0.0
 	if not _space.is_valid():
@@ -88,12 +88,17 @@ func measure(camera: Camera3D, ridden: Node) -> Dictionary:
 		if hit.get("collider") is PlayerController:
 			near = minf(near, SPHERE_METRES)
 	near = minf(near, _ray(state, world, at, -camera.global_transform.basis.z, FORWARD_METRES))
-	var size: Vector2 = camera.get_viewport().get_visible_rect().size
+	var half := Vector2(tan(deg_to_rad(camera.fov) * 0.5), tan(deg_to_rad(camera.fov) * 0.5))
+	if camera.keep_aspect == Camera3D.KEEP_HEIGHT:
+		half.x *= frame.x / frame.y
+	else:
+		half.y *= frame.y / frame.x
 	var hits: int = 0
 	for gx: int in COVER_GRID:
 		for gy: int in COVER_GRID:
-			var pixel := Vector2((gx + 0.5) / COVER_GRID * size.x, (gy + 0.5) / COVER_GRID * size.y)
-			if _ray(state, world, at, camera.project_ray_normal(pixel), COVER_METRES) < COVER_METRES:
+			var across := Vector2((gx + 0.5) / COVER_GRID * 2.0 - 1.0, 1.0 - (gy + 0.5) / COVER_GRID * 2.0)
+			var direction: Vector3 = camera.global_basis * Vector3(across.x * half.x, across.y * half.y, -1.0).normalized()
+			if _ray(state, world, at, direction, COVER_METRES) < COVER_METRES:
 				hits += 1
 	cover = float(hits) / float(COVER_GRID * COVER_GRID)
 	return {"near": maxf(near, 0.0), "cover": cover}
