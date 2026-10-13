@@ -2,17 +2,18 @@
 
 [ext_resource type="Script" path="res://scripts/match/trap_door.gd" id="1_trap_door"]
 [ext_resource type="PackedScene" path="res://maps/marble/models/marble_trapdoor.glb" id="2_trapdoor_model"]
-[ext_resource type="PackedScene" path="res://maps/marble/models/marble_lever.glb" id="3_lever_model"]
+[ext_resource type="PackedScene" path="res://maps/marble/models/marble_target.glb" id="3_target_model"]
 [ext_resource type="Script" path="res://scripts/match/trap_volume.gd" id="4_trap_volume"]
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_handle"]
-size = Vector3(0.4, 1.2, 0.4)
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_plate"]
+height = 0.2
+radius = 0.6
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_reach"]
 radius = 1.8
 
 [node name="MarbleTrapdoor" type="Node3D"]
-editor_description = "Lever and trapdoor. Origin is the deck at r 49.4 on the hole's centre bearing (+X out, +Z the way the lap runs); the hole is cut into marble.glb from where these stand: place it (parent at identity), run python3 tools/modelling/maps/marble/marble_build.py --sync-trapdoors (it snaps you to a lane cell), then tools/modelling/model build marble --pc. Shove beside the lever, or shoot its handle: 0.3 s rattle, both leaves drop into the spiked pit, open 4 s, close, re-arm 10 s after the pull. Move the lever with lever_offset / lever_yaw_degrees."
+editor_description = "Target and trapdoor. Origin is the deck at r 53.364 (mid-hole) on a bay centre (+X out, +Z the way the lap runs); the hole is six lane cells, pilaster to pilaster, lip to wall, cut into marble.glb from where these stand: place it (parent at identity), run python3 tools/modelling/maps/marble/marble_build.py --sync-trapdoors (it snaps you to a bay centre), then tools/modelling/model build marble. Shove beside the target, or shoot its plate: 0.3 s rattle, all 24 leaves drop into the spiked pit, open 4 s, close, re-arm 10 s after the pull. Move the target with target_offset / target_yaw_degrees."
 script = ExtResource("1_trap_door")
 
 [node name="Model" parent="." instance=ExtResource("2_trapdoor_model")]
@@ -24,29 +25,30 @@ collision_layer = 0
 collision_mask = 1048577
 monitorable = false
 script = ExtResource("4_trap_volume")
-size_metres = Vector3(5.1, 0.9, 2.3)
+size_metres = Vector3(13, 0.9, 17.4)
 
 [node name="Shape" type="CollisionShape3D" parent="PitTrap"]
 
-[node name="Lever" type="Node3D" parent="."]
-transform = Transform3D(0.994094, 0, 0.108514, 0, 1, 0, -0.108514, 0, 0.994094, -2.18, 0, -5.15)
+[node name="Target" type="Node3D" parent="."]
+editor_description = "1.5 m before the hole by the wall, its bullseye (local -X) toward the tower."
+transform = Transform3D(0.985075, 0, -0.172154, 0, 1, 0, 0.172154, 0, 0.985075, 4.066, 0, -10.035)
 
-[node name="Model" parent="Lever" instance=ExtResource("3_lever_model")]
+[node name="Model" parent="Target" instance=ExtResource("3_target_model")]
 
-[node name="HandleHitbox" type="StaticBody3D" parent="Lever"]
-editor_description = "What the rifle hits: re-parented under the handle on ready, so this transform is in the handle's frame (pivot at its foot, bar up +Y). Layer 18 only, nothing walks into it."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+[node name="PlateHitbox" type="StaticBody3D" parent="Target"]
+editor_description = "What the rifle hits: the whole 1.2 m plate. Re-parented under the plate on ready, so this transform is in the plate's frame (pivot on the cap, disc centre 0.7 up, face -X). Layer 18 only, nothing walks into it."
+transform = Transform3D(0, 1, 0, -1, 0, 0, 0, 0, 1, 0, 0.7, 0)
 collision_layer = 131072
 collision_mask = 0
 
-[node name="Shape" type="CollisionShape3D" parent="Lever/HandleHitbox"]
-shape = SubResource("BoxShape3D_handle")
+[node name="Shape" type="CollisionShape3D" parent="Target/PlateHitbox"]
+shape = SubResource("CylinderShape3D_plate")
 
-[node name="Reach" type="Area3D" parent="Lever"]
-editor_description = "A shove swung by any body in here throws the lever."
+[node name="Reach" type="Area3D" parent="Target"]
+editor_description = "A shove swung by any body in here trips the target."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 collision_layer = 0
 monitorable = false
 
-[node name="Shape" type="CollisionShape3D" parent="Lever/Reach"]
+[node name="Shape" type="CollisionShape3D" parent="Target/Reach"]
 shape = SubResource("SphereShape3D_reach")

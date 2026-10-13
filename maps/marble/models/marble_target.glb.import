@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://ccty7hqne7rdq"
-path="res://.godot/imported/marble_lever.glb-43fda0cfb8bd658343b430c57f2c09f7.scn"
+uid="uid://hvdge0o0p3il"
+path="res://.godot/imported/marble_target.glb-8d80c1a51d989ca43e5726745c0de240.scn"
 
 [deps]
 
-source_file="res://maps/marble/models/marble_lever.glb"
-dest_files=["res://.godot/imported/marble_lever.glb-43fda0cfb8bd658343b430c57f2c09f7.scn"]
+source_file="res://maps/marble/models/marble_target.glb"
+dest_files=["res://.godot/imported/marble_target.glb-8d80c1a51d989ca43e5726745c0de240.scn"]
 
 [params]
 
@@ -35,11 +35,11 @@ animation/fps=30
 animation/trimming=false
 animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
-import_script/path="res://tools/import/mipmap_textures.gd"
+import_script/path=""
 materials/extract=0
 materials/extract_format=0
 materials/extract_path=""
 _subresources={}
 gltf/naming_version=2
-gltf/embedded_image_handling=3
+gltf/embedded_image_handling=1
 gltf/texture_map_mode=1

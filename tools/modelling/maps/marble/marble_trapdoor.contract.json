@@ -1,11 +1,33 @@
 {
-  "_comment": "marble_trapdoor: the walkway trapdoor's moving parts, for a lane cell marble_build.TRAPDOOR_BEARINGS cut over its 1.4 m pit. Origin the deck point at r 49.4 on the hole's centre bearing, y 0 the deck, +X radial out, +Z toward increasing bearing. TrapdoorFrame: near-black iron rim 0.28 m inside the hole, 0.35 deep, with one heavy knuckle per strap hinge. TrapdoorLeafA/B: 0.15 m stone leaves in darker worn flags with two heavy iron strap hinges and an iron lip on the free edge (the dark centre seam), iron undersides; node origin is the hinge axis at the leaf's bottom arris, local +X along the hinge, local +Z toward the free edge: +90 deg about local X hangs it. TrapdoorSpikes: forty pale stone spikes in four rows down the pit floor (y -1.4), tips -0.55..-0.3, clear of the hanging leaves. NO colliders: the scene gives the leaves their bodies.",
+  "_comment": "marble_trapdoor: the walkway trapdoor's moving parts, for the hole marble_build cuts round a bay centre in TRAPDOOR_BEARINGS: six lane cells (13.8 m along the lip, 17.7 m at the wall) the whole walkway wide, over its 1.4 m pit. Origin the deck point at r 53.364 (mid-hole) on the hole's centre bearing, y 0 the deck, +X radial out, +Z toward increasing bearing. TrapdoorFrame: near-black iron rim 0.28 m inside the hole, 0.35 deep, eleven 0.28 m hinge beams across it on the half-cell lines, one knuckle per strap hinge. TrapdoorLeaf00..23: one 0.15 m stone leaf each side of every beam, darker worn flags, three iron strap hinges and an iron lip on the free edge (the dark seams), iron undersides; node origin is the hinge axis at the leaf's bottom arris, local +X along the hinge, local +Z toward the free edge: +90 deg about local X hangs it (to 0.74 m at most). TrapdoorSpikes: pale stone spikes in a row under each of the twelve seams on the pit floor (y -1.4), tips -0.55..-0.3, clear of the hanging leaves. NO colliders: the scene gives the leaves their bodies.",
   "node_paths": [
     "TrapdoorFrame",
-    "TrapdoorLeafA",
-    "TrapdoorLeafB",
+    "TrapdoorLeaf00",
+    "TrapdoorLeaf01",
+    "TrapdoorLeaf02",
+    "TrapdoorLeaf03",
+    "TrapdoorLeaf04",
+    "TrapdoorLeaf05",
+    "TrapdoorLeaf06",
+    "TrapdoorLeaf07",
+    "TrapdoorLeaf08",
+    "TrapdoorLeaf09",
+    "TrapdoorLeaf10",
+    "TrapdoorLeaf11",
+    "TrapdoorLeaf12",
+    "TrapdoorLeaf13",
+    "TrapdoorLeaf14",
+    "TrapdoorLeaf15",
+    "TrapdoorLeaf16",
+    "TrapdoorLeaf17",
+    "TrapdoorLeaf18",
+    "TrapdoorLeaf19",
+    "TrapdoorLeaf20",
+    "TrapdoorLeaf21",
+    "TrapdoorLeaf22",
+    "TrapdoorLeaf23",
     "TrapdoorSpikes"
   ],
-  "surfaces": 6,
-  "max_tris": 700
+  "surfaces": 50,
+  "max_tris": 5500
 }

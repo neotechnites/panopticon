@@ -189,10 +189,13 @@ LANE_R = 52.0
 BARS_B = 353.0
 
 # ---- the trapdoor pits ----------------------------------------------------------
-# Game bearings of the trapdoors: each a lane cell's centre (2.8125 * (k + 0.5)), the cell's inner
-# two paving bands (DECK_RS[0]..[2]) cut over a pit. WRITTEN FROM THE SCENE: drag marble_trapdoor.tscn
-# instances in maps/marble/marble.tscn, run `python3 marble_build.py --sync-trapdoors`, rebuild marble.
-TRAPDOOR_BEARINGS = (49.21875,)
+# Game bearings of the trapdoors: each a bay's centre (5.625 * (k + 0.5)); the hole runs TRAPDOOR_CELLS
+# lane cells, pilaster to pilaster, the whole walkway wide (deck, margin, to the wall foot), over a pit.
+# WRITTEN FROM THE SCENE: place marble_trapdoor.tscn in maps/marble/marble.tscn, run
+# `python3 marble_build.py --sync-trapdoors`, rebuild marble.
+TRAPDOOR_BEARINGS = (47.8125,)
+TRAPDOOR_CELLS = 6          # 13.8 m along the lip, 17.7 m at the wall: over 1.6x a running jump (7.0 m)
+TRAPDOOR_R = 0.5 * (INNER_R + LIP + WALL_R * math.cos(math.pi / NSIDE))   # 53.364: the prop's origin, mid-hole
 PIT_Z = 21.6                # the pit floor: over the lower tier's cell vaults (crown 21.5)
 PIT_LEDGE_Z = 22.05         # the inner side steps out under the cornice (bottom 22.0) ...
 PIT_STEP_R = 47.3           # ... to here, behind the inner tiers' face (47.15)
@@ -573,15 +576,22 @@ def lane_angles():
     return [TWO_PI * i / (NSIDE * DECK_SUB) for i in range(NSIDE * DECK_SUB)]
 
 
+def trapdoor_spans():
+    """(first, last) lane stations (Blender angles, last may pass 127) of each trapdoor's hole."""
+    step = 360.0 / (NSIDE * DECK_SUB)
+    out = []
+    for b in TRAPDOOR_BEARINGS:
+        k = ((-b) % 360.0) / step
+        assert abs(k - round(k)) < 1e-9 and int(round(k)) % 2 == 1, "trapdoor bearing %r is not a bay centre" % b
+        first = int(round(k)) - TRAPDOOR_CELLS // 2
+        out.append((first, first + TRAPDOOR_CELLS))
+    return sorted(out)
+
+
 def trapdoor_cells():
     """Lane cell indices (between stations i and i+1, Blender angles) opened for TRAPDOOR_BEARINGS."""
-    step = 360.0 / (NSIDE * DECK_SUB)
-    out = set()
-    for b in TRAPDOOR_BEARINGS:
-        k = ((-b) % 360.0) / step - 0.5
-        assert abs(k - round(k)) < 1e-9, "trapdoor bearing %r is not a lane cell centre" % b
-        out.add(int(round(k)) % (NSIDE * DECK_SUB))
-    return out
+    n = NSIDE * DECK_SUB
+    return {i % n for (a, b) in trapdoor_spans() for i in range(a, b)}
 
 
 def wall_stations(rad=WALL_R, n=NSIDE):
@@ -1263,12 +1273,12 @@ TRAPDOOR_PROP = "maps/marble/props/marble_trapdoor.tscn"
 
 def sync_trapdoors():
     """--sync-trapdoors: TRAPDOOR_BEARINGS from the scene's trapdoor instances, each snapped to its
-    lane cell centre; prints the snapped transform for any instance that is off a cell."""
+    bay centre; prints the snapped transform for any instance that is off one."""
     import re
     repo = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
     text = open(os.path.join(repo, TRAPDOOR_SCENE)).read()
     ids = re.findall(r'\[ext_resource [^\]]*path="res://%s" id="([^"]+)"' % re.escape(TRAPDOOR_PROP), text)
-    step = 360.0 / (NSIDE * DECK_SUB)
+    step = 360.0 / NSIDE
     found, ok = [], True
     for block in re.split(r"\n(?=\[)", text):
         if not ids or not any('instance=ExtResource("%s")' % i in block for i in ids):
@@ -1279,12 +1289,12 @@ def sync_trapdoors():
         b = math.degrees(math.atan2(v[11], v[9])) % 360.0
         snap = (math.floor(b / step) + 0.5) * step
         found.append(round(snap, 6))
-        if abs(b - snap) > 0.01 or abs(math.hypot(v[9], v[11]) - DECK_RS[1]) > 0.01:
+        if abs(b - snap) > 0.01 or abs(math.hypot(v[9], v[11]) - TRAPDOOR_R) > 0.01:
             ok = False
             a = math.radians(snap)
             c, s_ = math.cos(a), math.sin(a)
             print("%s is off its cell: set transform = Transform3D(%.6f, 0, %.6f, 0, 1, 0, %.6f, 0, %.6f, %.4f, %.1f, %.4f)"
-                  % (name, c, -s_, s_, c, DECK_RS[1] * c, DECK_Z, DECK_RS[1] * s_))
+                  % (name, c, -s_, s_, c, TRAPDOOR_R * c, DECK_Z, TRAPDOOR_R * s_))
         print("%s -> bearing %.5f" % (name, snap))
     found = tuple(sorted(set(found)))
     src = open(__file__).read()
