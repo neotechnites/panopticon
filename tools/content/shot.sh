@@ -105,8 +105,10 @@ fi
 pc_layout "${DIR}"
 USED=$(pc <<EOF
 Select-String -Path '${DIR}\\cuts\\*_used.txt' -SimpleMatch -Pattern 'cuts/${OUT}.mp4' -List -EA SilentlyContinue | ForEach-Object { \$_.Filename }
+if ('${FILE}' -and (Test-Path '${DIR}\\final\\${FILE}.mp4')) { Write-Output 'final\\${FILE}.mp4 exists; delivery never overwrites' }
 EOF
 )
+[[ "${USED}" != *"delivery never overwrites"* ]] || die "shot.sh refuses: ${USED##*$'\n'}"
 [ -z "${USED}" ] || die "cuts\\${OUT}.mp4 is in an earlier cut (${USED//$'\n'/ }); film it under a new --name"
 pc_push "${BRIEF}" "$(ff "${DIR}")/notes/brief.md"
 

@@ -20,6 +20,9 @@ done
 TAG="${TAG:-$(${V} last "${BRIEF}")}"
 TAG="${TAG:-v1}"
 ${V} has "${BRIEF}" "${TAG}" || die "short.sh refuses: no ## script ${TAG}; make it with tools/content/version.sh ${NAME} ${TAG} --from <tag Ryan watched>"
+MAC_DIR="${HOME}/Desktop/panopticon-renders/content/shorts/${NAME}"
+MAC_COPY="${MAC_DIR}/${NAME}_${TAG}.mp4"
+[ ! -e "${MAC_COPY}" ] || die "short.sh refuses: ${MAC_COPY} exists; delivery never overwrites (cut a new tag)"
 T_ALL=$(now_ms); TIMES=()
 stage() { TIMES+=("$1 $(since "$2")"); echo "== $1: $(since "$2")"; }
 
@@ -60,8 +63,8 @@ done <<< "$(${V} shots "${BRIEF}")"
 T0=$(now_ms); "${CONTENT_DIR}/assemble.sh" "${BRIEF}" --tag "${TAG}"; stage assemble "${T0}"
 
 T0=$(now_ms)
-MAC_DIR="${HOME}/Desktop/panopticon-renders/content/shorts/${NAME}"
 mkdir -p "${MAC_DIR}"
-pc_pull "$(ff "${DIR}")/final/${TAG}.mp4" "${MAC_DIR}/${NAME}_${TAG}.mp4"
+[ ! -e "${MAC_COPY}" ] || die "short.sh refuses: ${MAC_COPY} exists; delivery never overwrites (cut a new tag)"
+pc_pull "$(ff "${DIR}")/final/${TAG}.mp4" "${MAC_COPY}"
 stage deliver "${T0}"
-echo "short ${NAME} ${TAG}: ${MAC_DIR}/${NAME}_${TAG}.mp4 in $(since "${T_ALL}") (${TIMES[*]/%/;})"
+echo "short ${NAME} ${TAG}: ${MAC_COPY} in $(since "${T_ALL}") (${TIMES[*]/%/;})"

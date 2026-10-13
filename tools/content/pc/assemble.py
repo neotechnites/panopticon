@@ -279,6 +279,11 @@ def main():
     os.makedirs(cache, exist_ok=True)
     os.makedirs(work, exist_ok=True)
     os.makedirs(os.path.join(project, "final"), exist_ok=True)
+    # Delivery never overwrites: a final whose name exists is refused (there is no --force).
+    for done in (os.path.join(project, "final", f"{tag}.mp4"), os.path.join(project, "final", "master", f"{tag}.mkv"),
+                 os.path.join(project, "final", f"{tag}_720.mp4")):
+        if os.path.exists(done):
+            raise SystemExit(f"assemble refuses: {done} exists; delivery never overwrites (cut a new tag)")
 
     # --- the voice ---------------------------------------------------------
     vdir = os.path.join(project, "voice")
