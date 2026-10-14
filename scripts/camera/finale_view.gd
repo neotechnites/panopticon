@@ -7,6 +7,8 @@ extends Node3D
 @export var controller: MatchController
 ## This node's own camera. Never the player's.
 @export var camera: Camera3D
+## Seconds the shover's own view holds on the push before the cut.
+@export_range(0.0, 2.0, 0.05) var cut_delay: float = 0.35
 ## How fast the lens pans and zooms onto the thrown body: higher is tighter.
 @export_range(1.0, 40.0, 0.5) var follow_rate: float = 30.0
 ## Metres off the arc, side-on, the camera stands; tried nearest first.
@@ -39,6 +41,7 @@ var _guard: PlayerController = null
 ## The camera that was current when the shot began, given the view back after.
 var _previous: Camera3D = null
 var _remaining: float = 0.0
+var _cut_in: float = 0.0
 var _gravity: float = 9.8
 var _arc: PackedVector3Array = PackedVector3Array()
 ## The first arc point clear of the tower: the camera need not see him inside it.
@@ -92,7 +95,9 @@ func _on_guard_thrown(guard: MatchParticipant, seconds: float, throw: Vector3) -
 	_aim(focus, 1.0, 1.0)
 	# Ended by the next round; the clock is only a backstop for a lost round start.
 	_remaining = seconds + 1.0
-	camera.current = true
+	_cut_in = cut_delay
+	if _cut_in <= 0.0:
+		camera.current = true
 	set_process(true)
 
 
@@ -109,6 +114,10 @@ func tick(delta: float) -> void:
 		stand_down()
 		return
 	_aim(get_focus_point(), 1.0 - exp(-follow_rate * delta), delta)
+	if _cut_in > 0.0:
+		_cut_in -= delta
+		if _cut_in <= 0.0:
+			camera.current = true
 
 
 ## Give the view back to the camera that had it. Idempotent.
