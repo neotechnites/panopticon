@@ -9,7 +9,8 @@ and builds it into the one hub rock. See _Theme in hub_base_build.py.
         face a jagged leaf sheet; one barred cell near bearing 96
     three ferns on the grass, each in its own hole in the floor grid
 
-Every zone is ("forest", <forest_tiles zone>): its tile, tinted in COLOR_0.
+Every zone is ("forest", <TILES name>): one of the forest's six keeper tiles,
+box projected at texel.MPT.
 
     python3 tools/modelling/hub/hub_base_build.py --check
 """
@@ -23,7 +24,6 @@ sys.path.insert(0, HERE)
 
 import hub_base_build as hb  # noqa: E402
 import forest_tree_build as ft  # noqa: E402
-import forest_tiles  # noqa: E402  the forest's tiles, tinted per zone
 import texel as tx  # noqa: E402
 
 # =============================================================================
@@ -386,33 +386,47 @@ class ForestTheme(hb._Theme):
             _tube(m, path, (BAR_R, BAR_R * 0.85), BAR_SIDES, Z("bark"), ring, wob=0.15, rng=r)
         return ([Fv[u] for u in U if 0.0 < u < 0.5], [Fv[u] for u in U if 0.5 < u < 1.0])
 
-    # -- material: forest_tiles, one material per tile, tints in COLOR_0 ------
+    # -- material: one per keeper x tint the wedge's zones wear ------------
     def images(self):
         return ()               # not None: hub_base_build routes this key's faces to unwrap()
 
+    def _sheet(self, slot):
+        """The slot's tile, box projected at texel.MPT, as forest_build.SHEETS lays it."""
+        if slot not in _SHEETS:
+            stem, tint = _SLOTS[slot]
+            _SHEETS[slot] = tx.Sheet(slot, stem=stem, size=ft.png_size(stem + "_albedo")[1],
+                                     mode="box", roughness=ft.ROUGHNESS, tint=tint)
+        return _SHEETS[slot]
+
     def materials(self):
-        """[(tile key, material)]: every tile a forest zone here wears."""
-        keys = sorted(set(forest_tiles.MAP["atlas"][z] for z in ZONES))
-        return [(k, forest_tiles.material(k)) for k in keys]
+        """[(slot, material)]: every keeper x tint a forest zone here wears."""
+        out = []
+        for slot in sorted(_SLOTS):
+            sh = self._sheet(slot)
+            alb, emi = tx.images("forest", sh)
+            out.append((slot, tx.material("Forest" + slot.capitalize(), alb, emi, sh.roughness, sh.metallic, sh.cull, sh.tint)))
+        return out
 
     def slot_key(self, zone):
-        return forest_tiles.MAP["atlas"][zone[1]]
+        return TILES[zone[1]]
 
     def unwrap(self, me, uvl, polys, zone, r):
-        """World box projection at texel.MPT into the zone's tile; its tint into COLOR_0."""
-        sheet = forest_tiles.BOX[self.slot_key(zone)]
-        col = me.color_attributes.get("Col")
-        if col is None:
-            col = me.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="CORNER")
-            col.data.foreach_set("color", [1.0] * (len(me.loops) * 4))
-        tint = forest_tiles.zone_tint("atlas", zone[1])
+        """World box projection into the zone's keeper, the forest's own density."""
+        sheet = self._sheet(TILES[zone[1]])
         for pi in polys:
             poly = me.polygons[pi]
             cos = [tuple(me.vertices[me.loops[li].vertex_index].co) for li in poly.loop_indices]
             for li, uv in zip(poly.loop_indices, tx.box_uv(cos, tuple(poly.normal), sheet)):
                 uvl.data[li].uv = uv
-                col.data[li].color = (tint[0], tint[1], tint[2], 1.0)
 
 
-ZONES = ("grass", "path", "verge", "edge", "shade", "leaf", "cell", "bark", "fern")
+# zone -> slot, and slot -> (keeper stem, linear tint): the six materials this
+# wedge has always worn, their tints the ones the old per-tile build baked in.
+TILES = {"grass": "grass", "verge": "grass", "edge": "grass", "path": "path", "shade": "leaf",
+         "leaf": "leaf", "cell": "dark", "bark": "bark", "fern": "fern"}
+_SLOTS = {"grass": ("forest_grass", None), "path": ("forest_path", None),
+          "leaf": ("forest_sun", (0.249, 0.279, 0.554)), "fern": ("forest_sun", (0.22, 0.333, 0.568)),
+          "bark": ("forest_bark", None), "dark": ("forest_rock", (0.0144, 0.0135, 0.015))}
+_SHEETS = {}
+ZONES = tuple(sorted(TILES))
 THEME = ForestTheme()

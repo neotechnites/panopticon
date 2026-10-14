@@ -180,15 +180,6 @@ cull_mode = 2
 albedo_texture = ExtResource("43_horizon_sheet")
 texture_filter = 3
 
-[sub_resource type="StandardMaterial3D" id="CanvasMat"]
-resource_name = "beach_canvas"
-cull_mode = 2
-vertex_color_use_as_albedo = true
-albedo_color = Color(1, 0.984, 0.952, 1)
-albedo_texture = ExtResource("29_plastic_tile")
-roughness = 0.9
-texture_filter = 5
-
 [node name="Beach" type="Node3D"]
 editor_description = "The beach: a bay between two jetties, the island behind a low rock wall, a yacht for the tower. Notes in docs/maps/beach.md."
 
@@ -285,16 +276,15 @@ surface_material_override/2 = SubResource("RockMat")
 [node name="Props" parent="MapBase" instance=ExtResource("28_props")]
 
 [node name="BeachProps" parent="MapBase/Props" index="0"]
-editor_description = "Surface 0 restated: the importer drops the first surface's vertex colour."
-surface_material_override/0 = SubResource("CanvasMat")
+editor_description = "Surfaces in class order: drift (driftwood), shell. Surface 0 restated: the importer drops the first surface's vertex colour."
 
 [node name="Resort" parent="MapBase" instance=ExtResource("41_resort")]
 
 [node name="BeachResort" parent="MapBase/Resort" index="0"]
-editor_description = "Surfaces in class order: ashlar (terrace skirts, garden walls, road risers; restated, the importer drops the first surface's vertex colour), backdrop (the horizon islands, unshaded and alpha-blended), canvas2, clock, deck, fall (the waterfall, scrolled by beach_fall.gdshader), grass, house, plaster, plastic, roof, sand, thatch2, timber."
+editor_description = "Surfaces in class order: ashlar (terrace skirts, garden walls, road risers; restated, the importer drops the first surface's vertex colour), backdrop (the horizon islands, unshaded and alpha-blended), clock, fall (the waterfall, scrolled by beach_fall.gdshader), grass, house, plaster, plastic (the lighthouse), roof, sand."
 surface_material_override/0 = SubResource("AshlarMat")
 surface_material_override/1 = SubResource("BackdropMat")
-surface_material_override/5 = SubResource("FallMat")
+surface_material_override/3 = SubResource("FallMat")
 
 [node name="Water" parent="MapBase" instance=ExtResource("14_water")]
 

@@ -17,6 +17,9 @@ const FOLDED_SCALE: float = 0.001
 
 ## Grip then fore-end, the same two anchors the third-person hold reaches.
 var anchors: Array[Node3D] = [null, null]
+## Eye-space shoulders and elbow poles in use: the rifle's, or the shove's.
+var shoulders: Array[Vector3] = SHOULDERS
+var elbows: Array[Vector3] = ELBOWS
 var _uppers: PackedInt32Array = PackedInt32Array([-1, -1])
 var _lowers: PackedInt32Array = PackedInt32Array([-1, -1])
 var _hands: PackedInt32Array = PackedInt32Array([-1, -1])
@@ -76,7 +79,7 @@ func _pose() -> void:
 		var anchor: Transform3D = world_to_skeleton * anchors[i].global_transform
 		var hand: Basis = anchor.basis.orthonormalized()
 		var wrist: Vector3 = anchor.origin - hand.y * PALM_REACH
-		_reach(skeleton, i, to_skeleton * SHOULDERS[i], wrist, to_skeleton * ELBOWS[i], hand)
+		_reach(skeleton, i, to_skeleton * shoulders[i], wrist, to_skeleton * elbows[i], hand)
 
 
 ## Two-bone solve: shoulder slid along the arm to keep the wrist in reach, elbow bent toward the pole.

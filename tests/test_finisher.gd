@@ -112,6 +112,8 @@ func test_the_tracking_shot_holds_the_view_for_the_beat() -> void:
 	var pair: Array[MatchParticipant] = await _to_the_finale()
 	_controller.apply_shove(pair[1])
 	assert_true(view.is_active(), "the tracking shot takes the view")
+	assert_false(view.camera.current, "after the shover sees the push")
+	await step_seconds(view.cut_delay + 0.05)
 	assert_true(view.camera.current, "on its own camera")
 	var spawn: Node3D = _controller.arena.get_node(_controller.spawn_marker_path) as Node3D
 	var off_axis: Vector3 = view.camera.global_position - spawn.global_position

@@ -12,7 +12,6 @@
 [ext_resource type="PackedScene" path="res://maps/marble/models/marble_bars.glb" id="20_marble_bars"]
 [ext_resource type="Shader" path="res://maps/marble/materials/skylight_shaft.gdshader" id="21_shaft_shader"]
 [ext_resource type="Shader" path="res://maps/marble/materials/skylight_pool.gdshader" id="22_pool_shader"]
-[ext_resource type="PackedScene" path="res://maps/marble/props/marble_trapdoor.tscn" id="23_trapdoor"]
 [ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall_arc.tscn" id="24_wall_arc"]
 [ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall_arc_long.tscn" id="25_wall_arc_long"]
 [ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall_arc_lane.tscn" id="26_wall_arc_lane"]
@@ -372,12 +371,7 @@ omni_range = 30.0
 omni_attenuation = 1.0
 
 [node name="Elements" type="Node3D" parent="."]
-editor_description = "Placed lane elements: six curved walls on the lip at Ryan's six bearings, Trapdoor049, and the two sections -- A (two paths) at 94 deg, B (sniper-only trapdoors) at 280 deg."
-
-[node name="Trapdoor049" parent="Elements" instance=ExtResource("23_trapdoor")]
-editor_description = "The trapdoor on the cell centred at 49.21875 deg (marble_build.TRAPDOOR_BEARINGS), r 46.8..52.0; its lever ~4 m before it at r 47.5 by the lip."
-transform = Transform3D(0.653173, 0, -0.757209, 0, 1, 0, 0.757209, 0, 0.653173, 32.2667, 23, 37.4061)
-
+editor_description = "Placed lane elements: six curved walls on the lip at Ryan's six bearings, and the two sections -- A (two paths) at 94 deg, B (sniper-only trapdoors) at 280 deg."
 
 [node name="ArcWall003" parent="Elements" instance=ExtResource("25_wall_arc_long")]
 editor_description = "A curved ashlar wall on the lip at 3.6 deg (clear of the bars at 353), r 47.3, 16.3 m along the lane, 7.6 m tall: cover from the tower."
