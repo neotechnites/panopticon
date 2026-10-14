@@ -1201,3 +1201,8 @@ captions: none
 
 ## script rough_v50_songstart
 # v50: Pineberry Rush is 174 BPM (measured from the drum stem; the 0.3483 s beat used since v28 was wrong and drifted ~0.39 s by the end). Bar lines at n*1.37931 s from the file start, the drop on bar 14. v49's start (song 9.284, 1 s fade-in); all but the melody falls off on song bar 42 (57.931 s), the end card moved onto it with 1.314 s of black.
+
+## script rough_v52_cutA
+# Ryan: "can you go ahead and make this?" (pod: "trailer optional cut A: 16 before, 96 after"), "cut to melody then fade out. do the drums intro for this."; ending "a gameplay capture of a bot going through the portal, and shoving the gaurd, and that gaurd going flying".
+# Picture (2648 frames, 44.13 s): v42 master 10-1987 (title on 331); 12s (main b4c50f98 FP shove, --movie, cuts\12s.mp4 0-338: portal, shove, the game's throw cinematic) 1978-2316; v42 end card 2582-2742, its frame 2742 held 144, its fade 2743-2768 (2317-2647). Lava cracks and the old ending cut.
+# Music (tools/content/music/pineberry_cutA.py, voice\pineberry_cutA.flac): intro wav's first 16 beats, the mix from bar 14 for 96 beats (drop 5.517 s), melody stem from bar 38 fading to silence at the last frame; 10 ms crossfades; -0.5 dB (v42's level). Graph: final\master\rough_v52_cutA.graph.txt.
