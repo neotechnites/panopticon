@@ -514,6 +514,37 @@ expect: stage arrived 3.57-3.63; stage kill 4.45-4.51
 
 # v60 refilm end
 
+# no-beach begin
+# Cut B (decision 384): v65 with the three beach slots replaced; refilm_v65_nobeach.py builds it.
+
+## 14r
+said: no-beach cut, hell scope in the beach scope's slot (v65 996-1063): 14 refilmed with Movie Maker on the current game, the guard fires on beat 33 (1014) as the runner flies the crack
+capture: --shot=s4_edge --stage=trailer_crack --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=shimmer=0.06;skip=1;skip_go=1.3;skip_from=142.6,52.4;skip_pace=1.1 --seed=20261001
+tape: crack
+seconds: 2.6
+in: 1.95
+freeze: waive
+expect: hit MapBaseS3Collision 3.54-3.60
+
+## 11r
+said: no-beach cut, lava platforming in the portal run's first part (v65 2010-2089): 11 refilmed with Movie Maker on the current game, hop 3 lands on beat 83 (2048)
+capture: --shot=lava_parkour --stage=lavaparkour --bots=3 --set=line=3;solo=1;shimmer=0.0 --pov=runner --seed=20261001
+tape: lake
+seconds: 5.5
+in: 1.2
+freeze: waive
+expect: alive Runner_3
+
+## 23
+said: Ryan "ok, lets do a marble shot. from a runners pov, watching the sniper tower, snipe at two runners, much further ahead them themselves." In the beach run's slot (v65 1324-1448); hits on beats 50 (1365) and 53 (1428)
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_far --bots=3 --pov=runner --rifle=projectile --seed=20261001
+seconds: 3.5
+in: 0.9
+freeze: waive
+expect: hit Runner_2 2.29-2.35; hit Runner_3 3.34-3.40
+
+# no-beach end
+
 ## reshoot
 # Every shot is a stage (tools/capture/stages/) played from its tape (tools/content/projects/trailer_reveal/tapes/<tape>.json):
 # seed, map, rifle, spawns, every body's intent per physics tick, every outside write (place, launch, the guard's aim
