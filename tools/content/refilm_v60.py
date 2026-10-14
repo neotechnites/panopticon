@@ -221,7 +221,7 @@ def pc_ps(script_text, name="refilm_v60_step.ps1"):
     os.remove(local)
     sys.stdout.write(out.stdout)
     if out.returncode != 0:
-        raise SystemExit("PC step failed (%d): %s" % (out.returncode, out.stderr[-600:]))
+        raise SystemExit("PC step failed (%d): %s" % (out.returncode, out.stderr[-3000:]))
     return out.stdout
 
 
@@ -420,7 +420,7 @@ def edit():
     build = [
         "$ErrorActionPreference='Stop'", "Set-Location C:\\Users\\ddd",
         "Copy-Item r60build_grade_hell.cube grade_hell.cube -Force",
-        "ffmpeg -hide_banner -loglevel error -y -i r60build_base.mp4 %s -filter_complex_script r60build_%s.graph.txt -map '[v]' -map 0:a -c:v libx264 -preset medium -crf 14 -pix_fmt yuv420p -colorspace bt709 -color_primaries bt709 -color_trc iec61966-2-1 -color_range tv -c:a copy -movflags +faststart '%s\\final\\%s'" % (inp, sp["tag"], PC_RENDERS, out_name),
+        "ffmpeg -hide_banner -loglevel error -y -i r60build_base.mp4 %s -/filter_complex r60build_%s.graph.txt -map '[v]' -map 0:a -c:v libx264 -preset medium -crf 14 -pix_fmt yuv420p -colorspace bt709 -color_primaries bt709 -color_trc iec61966-2-1 -color_range tv -c:a copy -movflags +faststart '%s\\final\\%s'" % (inp, sp["tag"], PC_RENDERS, out_name),
         "Copy-Item r60build_%s.graph.txt '%s\\final\\master\\%s.graph.txt' -Force" % (sp["tag"], PC_RENDERS, sp["tag"]),
         "Remove-Item r60build_* , grade_hell.cube -Force",
         "Remove-Item C:\\Users\\ddd\\r60thumbs, C:\\Users\\ddd\\r60f -Recurse -Force -ErrorAction SilentlyContinue",
