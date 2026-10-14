@@ -83,6 +83,13 @@ func on_phase(phase: int) -> void:
 	if phase == MID and OS.has_environment("TAPE_TRACE"):
 		for body: PlayerController in _bodies:
 			print("[trace] %d %s %s %s" % [_tick, body.name, body.global_transform, body.velocity])
+	# TAPE_DUMP=a,b: every body's whole state as it enters those ticks, for splicing one tape onto another.
+	if phase == PRE and OS.has_environment("TAPE_DUMP") and str(_tick) in OS.get_environment("TAPE_DUMP").split(","):
+		var all: Dictionary = {}
+		for body: PlayerController in _bodies:
+			if is_instance_valid(body):
+				all[String(body.name)] = _encode(_snapshot(body))
+		print("[dump] %d %s" % [_tick, JSON.stringify(all, "", true, true)])
 
 
 ## Every participant's body, in match order: the guard is one of them.

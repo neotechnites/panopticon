@@ -196,6 +196,7 @@ var _plugin: RefCounted = null
 var _plugin_cast: bool = false
 var _dials: Dictionary = {}
 var _tape: RefCounted = null
+var _clock_frames: int = 0
 var _built: bool = false
 var _done: bool = false
 var _exit_code: int = EXIT_OK
@@ -277,6 +278,10 @@ func _process(delta: float) -> bool:
 		RenderingServer.set_default_clear_color(Color.BLACK)
 
 	_elapsed += delta
+	_set_the_clocks()
+	if OS.has_environment("CAM_TRACE") and root.get_camera_3d() != null:
+		var cam: Camera3D = root.get_camera_3d()
+		print("[cam] %d %s fov %.4f %s" % [_clock_frames, cam.global_transform, cam.fov, cam.get_path()])
 	_log_the_rifle()
 	if _wants_chain() and _chain == null and _elapsed > 0.5:
 		_stage_chainrun()
@@ -1321,3 +1326,16 @@ func _turn_the_eye(delta: float) -> void:
 	var elsewhere: Vector3 = SHOTS.ring_point(EYE_ELSEWHERE_DEGREES, 52.0, 1.0)
 	var looked_at: Vector3 = elsewhere.lerp(_camera.global_position, smoothstep(0.0, 1.0, swing))
 	_eye.call(&"turn_toward", _eye.call(&"gaze_direction_for", looked_at), delta)
+
+
+## --set=lava_clock=K: the lava lights swell on K + take seconds (game time, so a movie take swells at real speed);
+## lava_sweep=K:S:F steps it S seconds a frame from frame F (finding a take's phase); time_offset=T shifts shader TIME.
+func _set_the_clocks() -> void:
+	_clock_frames += 1
+	if _clock_frames == 1 and _dials.has("time_offset"):
+		RenderingServer.global_shader_parameter_set(&"capture_time_offset", float(_dials["time_offset"]))
+	if _dials.has("lava_sweep"):
+		var sweep: PackedStringArray = String(_dials["lava_sweep"]).split(":")
+		Engine.set_meta(&"lava_clock", float(sweep[0]) + float(sweep[1]) * maxf(float(_clock_frames) - float(sweep[2]), 0.0))
+	elif _dials.has("lava_clock"):
+		Engine.set_meta(&"lava_clock", float(_dials["lava_clock"]) + _elapsed)

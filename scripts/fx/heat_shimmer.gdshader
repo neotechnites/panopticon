@@ -1,5 +1,7 @@
 shader_type spatial;
 render_mode unshaded, cull_disabled, depth_test_disabled, depth_draw_never, fog_disabled, shadows_disabled;
+// Capture only: tools/capture stages shift the clock to splice a take onto another (0 in the game).
+global uniform float capture_time_offset;
 // Hell's heat shimmer: a clip-space quad re-reading the opaque frame, warped by world-pinned rising
 // noise in proportion to how much air the view ray crosses: still up close, wobbling at range.
 
@@ -80,7 +82,7 @@ void fragment() {
 	float dist = length(v);
 	float heat = smoothstep(heat_near, heat_full, dist);
 	vec3 centre = (INV_VIEW_MATRIX * vec4(v * min(1.0, noise_distance / max(dist, 0.001)), 1.0)).xyz;
-	float t = TIME * speed;
+	float t = (TIME + capture_time_offset) * speed;
 	vec2 n = field(centre, tile_broad, t * rise_broad, vec2(0.0));
 	n += field(centre, tile_fine, t * rise_fine, vec2(0.41, 0.17)) * 0.5;
 	float low = 1.0 + bottom_boost * smoothstep(0.25, 1.0, 1.0 - uv.y);
