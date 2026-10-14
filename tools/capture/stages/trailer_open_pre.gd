@@ -64,7 +64,8 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 
 
 func tick(delta: float) -> void:
-	if _bodies.is_empty():
+	# From the splice on the tape is the open tape: a write here would be drawn over it before the next tick undoes it.
+	if _bodies.is_empty() or (clip._tape != null and int(clip._tape.get("_tick")) >= int(option("splice_tick", 400))):
 		return
 	if _guard == null:
 		var shooter: TowerShooter = LIB.stand_down(seat())
