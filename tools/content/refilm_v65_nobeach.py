@@ -14,6 +14,7 @@ import refilm_v60 as R
 
 TAG = "rough_v65b_nobeach_beats"
 BASE = "rough_v65b_beats.mp4"
+BASE_NAME = "v65b"
 WORK = os.path.join(R.RENDERS, "v65nb_work")
 # (name, out a, out b exclusive, shot, first take frame, grade). Every other frame is v65's.
 # Beach scope -> hell scope: 14r fires on beat 33 (1014, take 3.133 s). Beach run -> 23: hits on beats 50 (1365) and 53 (1428).
@@ -23,19 +24,21 @@ NEW = [("hell_scope_b", 996, 1064, "14r", 53, "hell"),
        ("lava_hops", 2010, 2090, "11r", 140, "hell"),
        ("portal_marble", 2090, 2195, "12sr", 41, None)]
 FILM = ["14r", "11r", "23"]
+MARKS = {"hell_scope_b": [996, 1014, 1040, 1064], "marble_far": [1324, 1365, 1428, 1449],
+         "lava_hops": [2010, 2048, 2090], "portal_marble": [2090, 2137, 2195]}
 
 
 def plan():
     items, at = [], 0
     for name, a, b, shot, i0, grade in NEW:
         if a > at:
-            items.append({"seg": {"name": "v65b", "out": [at, a]}, "kind": "base"})
+            items.append({"seg": {"name": BASE_NAME, "out": [at, a]}, "kind": "base"})
         seg = {"name": name, "out": [a, b], "shot": shot}
         if grade:
             seg["grade"] = grade
         items.append({"seg": seg, "kind": "take", "idx0": i0, "d": 0, "how": "no-beach", "detail": ""})
         at = b
-    items.append({"seg": {"name": "v65b", "out": [at, 2648]}, "kind": "base"})
+    items.append({"seg": {"name": BASE_NAME, "out": [at, 2648]}, "kind": "base"})
     return items
 
 
@@ -48,7 +51,7 @@ def film():
 def edit():
     os.makedirs(WORK, exist_ok=True)
     graph, report, cuts = R.make_graph(plan(), "grade_hell.cube")
-    report = [l.replace("| v59 |", "| v65b |").replace("v59 out", "out") for l in report]
+    report = [l.replace("| v59 |", "| %s |" % BASE_NAME).replace("v59 out", "out") for l in report]
     open(os.path.join(WORK, TAG + ".graph.txt"), "w").write(graph)
     open(os.path.join(WORK, "grade_hell.cube"), "w").write(R.lut_cube(R.spec()["grade_hell"]))
     open(os.path.join(WORK, TAG + "_edit.md"), "w").write("\n".join(report) + "\n")
@@ -72,9 +75,7 @@ def check():
     out = os.path.join(R.RENDERS, "v65nb_proof")
     os.makedirs(out, exist_ok=True)
     new = os.path.join(R.RENDERS, TAG + ".mp4")
-    marks = {"hell_scope_b": [996, 1014, 1040, 1064], "marble_far": [1324, 1365, 1428, 1449],
-             "lava_hops": [2010, 2048, 2090], "portal_marble": [2090, 2137, 2195]}
-    for name, frames in marks.items():
+    for name, frames in MARKS.items():
         for f in frames:
             # Frames f-12 .. f+11, left to right, two rows: the cut or event frame opens the second row.
             subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", new, "-vf", "select='between(n,%d,%d)',scale=320:180,tile=12x2" % (f - 12, f + 11),

@@ -543,6 +543,14 @@ in: 0.9
 freeze: waive
 expect: hit Runner_2 2.29-2.35; hit Runner_3 3.34-3.40
 
+## 24
+said: Ryan on n16 "for the fucking hell sniper shot, you just cut in the shot from the bounce pads, that doesnt even hit?" -- a hell scope shot in 5hr's style: S1, the guard leads the first of three and hits him on beat 30 (952); he lies where he falls
+capture: --shot=pack_lead --stage=trailer_hell_track --bots=3 --pov=guard --hud=crosshair --rifle=projectile --set=fire=2.6;shimmer=0.06 --seed=20261001
+seconds: 3.0
+in: 1.9
+freeze: waive
+expect: hit Runner_1 2.94-3.00
+
 # no-beach end
 
 ## reshoot
