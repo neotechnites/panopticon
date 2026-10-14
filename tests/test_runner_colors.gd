@@ -93,18 +93,7 @@ func test_a_ghost_wears_its_own_colour_translucent() -> void:
 
 	assert_true(_controller.apply_hit(victim), "one hit finishes a prisoner at prisoner_lives 1")
 	assert_true(victim.is_ghost, "the victim is now a ghost")
-
-	var ghost_color: Color = _controller.get_body_color(victim)
-	var palette: RunnerPalette = _controller.get_runner_palette()
-	assert_almost_eq(ghost_color.r, living_color.r, 1e-6, "the ghost's red channel is unchanged")
-	assert_almost_eq(ghost_color.g, living_color.g, 1e-6, "the ghost's green channel is unchanged")
-	assert_almost_eq(ghost_color.b, living_color.b, 1e-6, "the ghost's blue channel is unchanged")
-	assert_almost_eq(
-		ghost_color.a, palette.ghost_alpha, 1e-6,
-		"the ghost's alpha is exactly RunnerPalette.ghost_alpha",
-	)
-	assert_lt(ghost_color.a, 1.0, "a ghost is less than fully opaque -- \"slightly\" translucent")
-	assert_gt(ghost_color.a, 0.0, "and still clearly visible, not a faint wisp")
+	assert_almost_eq(_controller.get_body_color(victim).a, 1.0, 1e-6, "the hit body falls solid")
 
 	# Translucency is visual only: the ghost still cannot be shot. Wait out the
 	# full respawn hold -- GhostProfile.respawn_delay_seconds, three seconds on
@@ -118,6 +107,18 @@ func test_a_ghost_wears_its_own_colour_translucent() -> void:
 		if victim.body.is_physics_processing():
 			break
 	assert_true(victim.body.is_physics_processing(), "the ghost's placement woke within the budget")
+
+	var ghost_color: Color = _controller.get_body_color(victim)
+	var palette: RunnerPalette = _controller.get_runner_palette()
+	assert_almost_eq(ghost_color.r, living_color.r, 1e-6, "the ghost's red channel is unchanged")
+	assert_almost_eq(ghost_color.g, living_color.g, 1e-6, "the ghost's green channel is unchanged")
+	assert_almost_eq(ghost_color.b, living_color.b, 1e-6, "the ghost's blue channel is unchanged")
+	assert_almost_eq(
+		ghost_color.a, palette.ghost_alpha, 1e-6,
+		"the ghost's alpha is exactly RunnerPalette.ghost_alpha",
+	)
+	assert_lt(ghost_color.a, 1.0, "a ghost is less than fully opaque -- \"slightly\" translucent")
+	assert_gt(ghost_color.a, 0.0, "and still clearly visible, not a faint wisp")
 
 	var mask: int = _hit_mask()
 	assert_gt(float(mask), 0.0, "the weapon profile has a hit mask to test against")
