@@ -5,6 +5,8 @@
 #define WAVE_FILTER filter_nearest_mipmap_anisotropic
 #endif
 uniform sampler2D albedo_texture : source_color, WAVE_FILTER, repeat_enable;
+// Capture only: tools/capture stages shift the clock to splice a take onto another (0 in the game).
+global uniform float capture_time_offset;
 uniform sampler2D emission_texture : source_color, WAVE_FILTER, repeat_enable;
 uniform vec4 albedo_color : source_color = vec4(1.0);
 uniform vec4 emission_color : source_color = vec4(1.0);
@@ -61,7 +63,7 @@ void vertex() {
 #ifndef WAVE_SEE_THROUGH
 	rest_w = w;
 #endif
-	float t = TIME * speed;
+	float t = (TIME + capture_time_offset) * speed;
 	float fl = flat_w(w.y);
 #ifdef WAVE_SEE_THROUGH
 	fl = 0.0;                                        // the disc only moves off its face
@@ -88,8 +90,8 @@ void fragment() {
 	ALPHA = albedo_tex.a * albedo_color.a;
 #else
 	// two drifting layers of the one tile, turned and scaled apart so the repeat never lines up
-	vec2 ua = UV + vec2(0.6, 0.8) * flow_speed * TIME;
-	vec2 ub = mat2(vec2(0.799, 0.602), vec2(-0.602, 0.799)) * UV * layer_scale - vec2(0.8, -0.6) * flow_speed * 0.7 * TIME;
+	vec2 ua = UV + vec2(0.6, 0.8) * flow_speed * (TIME + capture_time_offset);
+	vec2 ub = mat2(vec2(0.799, 0.602), vec2(-0.602, 0.799)) * UV * layer_scale - vec2(0.8, -0.6) * flow_speed * 0.7 * (TIME + capture_time_offset);
 	vec2 ax = dFdx(ua), ay = dFdy(ua), bx = dFdx(ub), by = dFdy(ub);
 	if (downstream > 0.5) {
 		// round the ring (65 tiles a turn) by distance downstream: in to the pit on the flat, down the falls
@@ -99,8 +101,8 @@ void fragment() {
 		vec2 dturn = vec2(d.x * dFdx(d.y) - d.y * dFdx(d.x), d.x * dFdy(d.y) - d.y * dFdy(d.x)) / (r2 * TAU);
 		float s = (sqrt(r2) + 0.75 * rest_w.y) / 5.0;
 		vec2 ds = vec2(dFdx(s), dFdy(s));
-		ua = vec2(turn * 65.0, s + stream_speed * TIME);
-		ub = vec2(turn * 40.0 + 0.37, s * layer_scale + stream_speed * 0.7 * TIME);
+		ua = vec2(turn * 65.0, s + stream_speed * (TIME + capture_time_offset));
+		ub = vec2(turn * 40.0 + 0.37, s * layer_scale + stream_speed * 0.7 * (TIME + capture_time_offset));
 		ax = vec2(dturn.x * 65.0, ds.x); ay = vec2(dturn.y * 65.0, ds.y);
 		bx = vec2(dturn.x * 40.0, ds.x * layer_scale); by = vec2(dturn.y * 40.0, ds.y * layer_scale);
 	}

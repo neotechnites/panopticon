@@ -87,7 +87,8 @@ func _rest_lights() -> void:
 
 
 func _process(_delta: float) -> void:
-	var now: float = fmod(Time.get_ticks_msec() * 0.001, TIME_ROLLOVER)
+	# Capture only: a take may set the clock (run_clip --set=lava_clock) so the swell runs on game time.
+	var now: float = float(Engine.get_meta(&"lava_clock")) if Engine.has_meta(&"lava_clock") else fmod(Time.get_ticks_msec() * 0.001, TIME_ROLLOVER)
 	var t: float = now * SPEED * light_speed
 	for i: int in _lights.size():
 		var light: Light3D = _lights[i]

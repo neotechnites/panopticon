@@ -1,5 +1,7 @@
 shader_type spatial;
 render_mode unshaded, cull_disabled, blend_mix;
+// Capture only: tools/capture stages shift the clock to splice a take onto another (0 in the game).
+global uniform float capture_time_offset;
 
 // Heat shimmer over the lava cracks.
 //
@@ -55,7 +57,7 @@ float haze_noise(vec2 p) {
 
 void fragment() {
 	// Subtracting from v walks the field downwards, so the pattern rises.
-	float rise = TIME * rise_metres_per_second / haze_height_metres;
+	float rise = (TIME + capture_time_offset) * rise_metres_per_second / haze_height_metres;
 	vec2 p = vec2(UV.x, UV.y - rise) * wave_scale;
 
 	// Decorrelated samples: one per axis, offset far enough not to rhyme.
@@ -73,7 +75,7 @@ void fragment() {
 
 	// The vent band: noise squeezed across and stretched up, walked upwards
 	// faster, in a column that fades only at the very top and its two sides.
-	float vent_rise = TIME * vent_rise_metres_per_second / haze_height_metres;
+	float vent_rise = (TIME + capture_time_offset) * vent_rise_metres_per_second / haze_height_metres;
 	vec2 q = vec2(UV.x * wave_scale * 0.6, (UV.y - vent_rise) * wave_scale * 2.2);
 	vec2 vent = vec2(
 		haze_noise(q),
