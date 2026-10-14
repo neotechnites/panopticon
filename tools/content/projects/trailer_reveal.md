@@ -246,10 +246,10 @@ freeze: waive
 said: Ryan (v52 cut A) "it needs to just be a gameplay capture of a bot going through the portal, and shoving the gaurd, and that gaurd going flying"; "dont fake it for the trailer" (the first-person shove, main b4c50f98)
 capture: --map=marble --shot=portal --stage=trailer_finale_marble --bots=2 --pov=runner --rifle=projectile --set=wait=0.25;from=311,52.4 --seed=20261001
 tape: finale_fp
-seconds: 4.9
-in: 0.9
+seconds: 5.65
+in: 0.8
 freeze: waive
-# 12f's finale from 9 deg further back (from 311): the run is 0.8 s longer so portal, FP shove and the game's own throw cinematic fill 5.65 s before the round resets.
+# 12f's finale from 9 deg further back (from 311; arrives 3.60, shove 4.48, round resets 6.48): the run is 0.75 s longer so portal, FP shove and the game's own throw cinematic fill 5.65 s before the round resets.
 
 ## 13
 said: v4 "Hell S3, runner POV running through and bouncing on a crack"
