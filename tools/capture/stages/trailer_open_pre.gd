@@ -15,6 +15,9 @@ var _aimed: bool = false
 var _seen_at: Vector3 = Vector3.ZERO
 var _seen_vel: Vector3 = Vector3.ZERO
 var _told: bool = false
+var _corpse: PlayerController = null
+var _out_at: float = -1.0
+var _corpse_at: Vector3 = Vector3.ZERO
 
 
 func cast(runners: Array[RunnerBrain]) -> bool:
@@ -64,6 +67,9 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 
 
 func tick(delta: float) -> void:
+	if _corpse != null and _guard != null:
+		_rest_on_the_corpse(delta)
+		return
 	# From the splice on the tape is the open tape: a write here would be drawn over it before the next tick undoes it.
 	if _bodies.is_empty() or (clip._tape != null and int(clip._tape.get("_tick")) >= int(option("splice_tick", 400))):
 		return
@@ -140,3 +146,27 @@ func _angles_to(point: Vector3) -> Vector2:
 	var eye: Vector3 = camera.global_position if camera != null else _guard.global_position + Vector3.UP * 1.65
 	var d: Vector3 = point - eye
 	return Vector2(atan2(-d.x, -d.z), atan2(d.y, maxf(Vector2(d.x, d.z).length(), 0.001)))
+
+
+func on_out(participant: MatchParticipant) -> void:
+	super(participant)
+	if _corpse == null and participant.body != null:
+		_corpse = participant.body
+		_out_at = elapsed()
+
+
+## After the kill the taped pan eases onto where the body lies, so the whole corpse stays inside the scope; drawn, then the tape takes the next tick.
+func _rest_on_the_corpse(delta: float) -> void:
+	var avatar: PrisonerAvatar = _corpse.get_node_or_null(^"Avatar") as PrisonerAvatar
+	var at: Vector3 = avatar.drawn_centre() if avatar != null else _corpse.global_position + Vector3.UP
+	_corpse_at = at if _corpse_at == Vector3.ZERO else _corpse_at.lerp(at, clampf(delta / float(option("corpse_lag", 0.15)), 0.0, 1.0))
+	var taped := Vector2(_guard.rotation.y, _guard.head.rotation.x if _guard.head != null else 0.0)
+	var want: Vector2 = _angles_to(_corpse_at)
+	var w: float = smoothstep(0.0, float(option("corpse_ease", 0.5)), elapsed() - _out_at)
+	var out := Vector2(taped.x + angle_difference(taped.x, want.x) * w, lerpf(taped.y, want.y, w))
+	_guard.rotation = Vector3(0.0, out.x, 0.0)
+	if _guard.head != null:
+		_guard.head.rotation.x = out.y
+	_guard.set(&"_pitch", out.y)
+	if OS.has_environment("STAGE_DEBUG") and Engine.get_physics_frames() % 6 == 0:
+		say("corpse %.2f deg off the taped aim, w %.2f" % [rad_to_deg(Vector2(angle_difference(taped.x, want.x), want.y - taped.y).length()), w])
