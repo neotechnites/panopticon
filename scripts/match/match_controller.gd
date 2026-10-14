@@ -2567,7 +2567,7 @@ func _make_ghost(participant: MatchParticipant) -> void:
 	body.remove_from_group(RUNNER_GROUP)
 	body.visible = true
 	body.speed_scale = maxf(profile.speed_multiplier, 0.0)
-	_tint_body(participant, _ghost_material_for(participant))
+	# The falling body stays solid; it wears the ghost colour from the start line (see [method _finish_respawn]).
 	# Inert NOW; moved to the start line after
 	# [member GhostProfile.respawn_delay_seconds]; collision and motion back
 	# two physics frames after that. See [method _place_ghost_at_start].
@@ -2695,6 +2695,8 @@ func _finish_respawn(participant: MatchParticipant) -> void:
 	# and a ghost's first second is the one in which the field is still nearby.
 	body.rotation = Vector3(0.0, _heading_of(_track_tangent(_angle_of(place))), 0.0)
 	participant.ghost_settle_frames = SETTLE_PHYSICS_FRAMES
+	if participant.is_ghost:
+		_tint_body(participant, _ghost_material_for(participant))
 	ghost_respawned.emit(participant)
 
 
