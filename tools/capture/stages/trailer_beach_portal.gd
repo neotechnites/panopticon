@@ -51,7 +51,8 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "hold", "seconds": 0.2},
 		{"do": "lane", "to": from_deg + STEP_ONE_METRES * degrees_per_metre, "r": lane_r, "speed": pace, "timeout": 2.0},
 		{"do": "lane", "to": from_deg + STEP_TWO_METRES * degrees_per_metre, "r": lane_r, "speed": pace, "weave": 0.05, "period": 1.2, "timeout": 2.0},
-		{"do": "lane", "to": PORTAL_DEG + OVER_METRES * degrees_per_metre, "r": PORTAL_R, "speed": pace, "timeout": 8.0,
+		# carry: the lane bends 10 deg onto the portal here; the head eases round instead of snapping (v60 jump).
+		{"do": "lane", "to": PORTAL_DEG + OVER_METRES * degrees_per_metre, "r": PORTAL_R, "speed": pace, "timeout": 8.0, "carry": true,
 			"glances": [{"t": 0.0, "right": 0.0, "pitch": -1.0}, {"t": 0.45, "right": 18.0, "pitch": 5.0}, {"t": 0.85, "right": 2.0, "pitch": 0.0}]},
 		{"do": "hold", "seconds": 60.0},
 	], 0, "ClipBeachPortalDriver")
