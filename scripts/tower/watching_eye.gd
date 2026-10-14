@@ -1,3 +1,4 @@
+@tool
 class_name WatchingEye
 extends Node3D
 
@@ -119,6 +120,9 @@ const REST_GAZE: Vector3 = Vector3.UP
 ## [method gaze_basis_for] has to pick a different reference for "up".
 const PARALLEL_LIMIT: float = 0.9999
 
+## Editor-only pose: out over the ring and slightly down, so free-cam sees the pupil.
+const EDITOR_GAZE: Vector3 = Vector3(0.0, -0.35, 1.0)
+
 ## The node that turns. Named rather than found by walking children, the same way
 ## [member PanopticonEye.box_path] is, so this script never has to guess which
 ## node is which.
@@ -184,6 +188,10 @@ func _ready() -> void:
 		push_error("WatchingEye.gaze_path does not point at a Node3D; the eye cannot turn.")
 		return
 
+	if Engine.is_editor_hint():
+		turn_toward(global_basis * EDITOR_GAZE, 0.0)
+		return
+
 	turn_toward(gaze_direction_for(viewer_position()), 0.0)
 
 
@@ -196,6 +204,8 @@ func _ready() -> void:
 ## The whole per-viewer mechanism is the one call below. Everything else in this
 ## file is arithmetic on its result.
 func _process(delta: float) -> void:
+	if Engine.is_editor_hint():
+		return
 	turn_toward(gaze_direction_for(viewer_position()), delta)
 
 
