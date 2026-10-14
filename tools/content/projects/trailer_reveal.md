@@ -7,8 +7,8 @@ rules: 16:9 1920x1080 (SIZE=1920x1080 shot.sh), no HUD except the guard's scope,
 v2 notes (Ryan on rough_v1): the guard stands at the tower's window, not deep inside; all runners run the course direction; the runner shot is the SAME event as the guard shot (same stage, same seed, two POVs), cut back ~1 s to the man directly behind the victim; clear line of sight when he looks up at the tower; title drops in HARD on the music's drop; music https://www.youtube.com/watch?v=OBPV0lsorwU; real-looking gameplay only (walkable deck and real cover, nobody on lava, nobody looking backwards); max 4 players a shot (1 guard + 3); spread across hell, forest and marble. Added: "EVERY shot is first-person POV -- either the guard's scope/tower view or a prisoner's first-person view. No third-person ... Title/end cards are the only non-POV frames."
 music: external\src\music_v2_OBPV0lsorwU.mp4 -> voice\sr20det.ogg (SOURCES.md). The drop: 0.35 s of silence from 5.36 s, the hit at 5.703 s (sample onset); 170 bpm after it (v3 measured).
 cards: cuts/title_hard.mp4 is v1's title frame looped from frame 0 (v1's title.mp4 opened on two black frames); cuts/end.mp4 is v1's.
-delivery: content\trailer_reveal\final\rough_v42.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
-tag: rough_v42
+delivery: content\trailer_reveal\final\rough_v52_cutA.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
+tag: rough_v52_cutA
 alt: rough_v24 (the SR20DET cut before Ryan's seven notes; ## script rough_v24)
 alt: rough_v26_vivaldi (rough_v25_vivaldi with the seven notes, every cut and event on the same beats; ## script rough_v26_vivaldi)
 kept: cuts\_v25\NN.mp4 are the shot files rough_v24 and rough_v25_vivaldi were cut from (every shot was refilmed for v26 on main 6547970).
@@ -241,6 +241,15 @@ seconds: 3.6
 in: 2.6
 freeze: waive
 # the finale tape down the guard's eyes: scoped on the ring at 126, the shove at 3.83, then FinaleView side-on to the throw.
+
+## 12s
+said: Ryan (v52 cut A) "it needs to just be a gameplay capture of a bot going through the portal, and shoving the gaurd, and that gaurd going flying"; "dont fake it for the trailer" (the first-person shove, main b4c50f98)
+capture: --map=marble --shot=portal --stage=trailer_finale_marble --bots=2 --pov=runner --rifle=projectile --set=wait=0.25;from=311,52.4 --seed=20261001
+tape: finale_fp
+seconds: 4.9
+in: 0.9
+freeze: waive
+# 12f's finale from 9 deg further back (from 311): the run is 0.8 s longer so portal, FP shove and the game's own throw cinematic fill 5.65 s before the round resets.
 
 ## 13
 said: v4 "Hell S3, runner POV running through and bouncing on a crack"
