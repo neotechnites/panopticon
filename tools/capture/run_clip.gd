@@ -1294,6 +1294,39 @@ func _take_the_eye(match_root: Node) -> void:
 		_eye = null
 		return
 	_eye.process_mode = Node.PROCESS_MODE_DISABLED
+	if _dials.has("eye_assets"):
+		_dress_the_eye(String(_dials["eye_assets"]))
+
+
+## --set=eye_assets=DIR (v67): the eye worn from DIR's eye.glb and eye_*.png (the logo's older eye), the map's materials otherwise.
+func _dress_the_eye(dir: String) -> void:
+	var gaze: Node3D = _eye.get_node_or_null(^"Gaze") as Node3D
+	var model: Node3D = _eye.get_node_or_null(^"Gaze/Model") as Node3D
+	var packed: PackedScene = load(dir.path_join("eye.glb")) as PackedScene
+	if gaze == null or model == null or packed == null:
+		_fail("--set=eye_assets=%s: no eye model to swap." % dir)
+		return
+	var worn: Node3D = packed.instantiate() as Node3D
+	worn.transform = model.transform
+	gaze.remove_child(model)
+	model.free()
+	worn.name = "Model"
+	gaze.add_child(worn)
+	var look: Resource = _eye.get("look") as Resource
+	for surface: Node in worn.find_children("*", "MeshInstance3D", true, false):
+		var mesh: MeshInstance3D = surface as MeshInstance3D
+		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var paint: StandardMaterial3D = (look.call(&"material_for", mesh.name) as StandardMaterial3D).duplicate() if look != null else null
+		if paint == null:
+			continue
+		var part: String = String(mesh.name).trim_prefix("Eye_").to_lower()
+		paint.albedo_texture = load(dir.path_join("eye_%s_albedo.png" % part))
+		if paint.emission_texture != null:
+			var glow: String = dir.path_join("eye_%s_emissive.png" % part)
+			paint.emission_texture = load(glow) if ResourceLoader.exists(glow) else paint.albedo_texture
+		for index: int in mesh.get_surface_override_material_count():
+			mesh.set_surface_override_material(index, paint)
+	print("[stage] the eye worn from %s" % dir)
 
 
 ## POV with --set=eye_at=T: the eye holds on eye_from (deg:r, the victim's spot) and only

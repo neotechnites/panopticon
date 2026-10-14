@@ -381,8 +381,8 @@ freeze: waive
 expect: hit Runner_2 3.57-3.63
 
 ## 2v
-said: v66 (Ryan, #295): 2r with its look-over landing so the tower eye sits where the title card's eye-as-O is, zoomed to its size
-capture: --shot=s3_open_lane --stage=trailer_open --pov=runner --bots=3 --rifle=projectile --set=fire_at=3.24;eye_at=4.3;eye_swing=0.4;eye_from=60:49;shimmer=0.06;eye_frame=3.95:4.45:4.05:4.75:763.96:520.51:146.15 --seed=20261001
+said: v66/v67 (Ryan, #295): 2r, the logo's older eye (pre-49fcc837 glb and textures), with its look-over landing so the tower eye sits where the title card's eye-as-O is, zoomed to its size
+capture: --shot=s3_open_lane --stage=trailer_open --pov=runner --bots=3 --rifle=projectile --set=fire_at=3.24;eye_at=4.3;eye_swing=0.4;eye_from=60:49;shimmer=0.06;eye_frame=3.95:4.45:4.05:4.75:763.96:520.51:146.15;eye_assets=res://tools/content/projects/trailer_reveal/old_eye --seed=20261001
 tape: open
 seconds: 4.55
 in: 1.8166
