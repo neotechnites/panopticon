@@ -11,9 +11,6 @@ const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
 var _hand: Node = null
 var _arrived_at: float = -1.0
-var _carried: Node3D = null
-var _carry_part: PhysicalBone3D = null
-var _carry_offset: Transform3D = Transform3D.IDENTITY
 
 
 ## The shipped finale: no rule of trailer_finish's (a finisher rifle, a 1.2 s beat) applies.
@@ -26,15 +23,10 @@ func before_start() -> void:
 	controller().kill_beat_started.connect(
 		func(guard: MatchParticipant, seconds: float, throw: Vector3) -> void:
 			say("finale shove: %s thrown at %v for %.1f s, tower open %s" % [guard.body.name, throw, seconds, controller().is_tower_open()])
-			_carry_the_rifle(guard.body)
 	)
 
 
 func tick(_delta: float) -> void:
-	if _carried != null and is_instance_valid(_carried):
-		_carried.global_transform = _carry_part.global_transform * _carry_offset
-		if OS.has_environment("STAGE_DEBUG") and Engine.get_physics_frames() % 15 == 0:
-			say("rifle at %v" % _carried.global_position)
 	if OS.has_environment("STAGE_DEBUG") and _runner != null and Engine.get_physics_frames() % 15 == 0:
 		var optic: WeaponOptic = _guard.get_node_or_null(^"Optic") as WeaponOptic if _guard != null else null
 		say("at %.1f deg r %.2f y %.2f; scope asked %s full %s" % [LIB.bearing_of(_runner.global_position), LIB.radius_of(_runner.global_position), _runner.global_position.y, optic != null and optic.is_zoom_requested(), optic != null and optic.is_fully_zoomed()])
@@ -80,27 +72,3 @@ func _post_the_guard() -> void:
 func on_shove(shover: MatchParticipant, victim: MatchParticipant) -> void:
 	say("shove %s -> %s" % [shover.body.name, victim.body.name])
 
-
-## The rifle hangs off the held body, which the kill beat freezes at the window while the ragdoll flies; ride it on the
-## ragdoll's nearest part instead, so it goes out with the guard (Ryan: "when the guard gets pushed, the sniper stay").
-func _carry_the_rifle(body: PlayerController) -> void:
-	var drawn: PrisonerAvatar = PrisonerAvatar.of(body)
-	var rag: Object = drawn.get("_ragdoll") if drawn != null else null
-	var parts: Array = rag.get("_bones") if rag != null else []
-	var gun: Node3D = null
-	for child: Node in body.head.get_children():
-		if child is Rifle:
-			gun = child as Node3D
-	if parts.is_empty() or gun == null:
-		say("rifle carry: no ragdoll or no rifle on the guard")
-		return
-	var nearest: float = INF
-	for part: PhysicalBone3D in parts:
-		var gap: float = part.global_position.distance_to(gun.global_position)
-		if gap < nearest:
-			nearest = gap
-			_carry_part = part
-	_carry_offset = _carry_part.global_transform.affine_inverse() * gun.global_transform
-	gun.top_level = true
-	_carried = gun
-	say("rifle carry: the rifle rides the guard's ragdoll (%s, %.2f m off) out of the tower" % [_carry_part.name, nearest])
