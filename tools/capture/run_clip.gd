@@ -178,6 +178,7 @@ var _fill: OmniLight3D = null
 var _eye: Node3D = null
 var _cross: CanvasItem = null
 var _eye_tracking: bool = false
+var _eye_framed: bool = false
 var _chain: Node = null
 var _driver: Node = null
 var _victim_driver: Node = null
@@ -301,6 +302,8 @@ func _process(delta: float) -> bool:
 		_ride_a_body()
 		_meet_the_eye(delta)
 		_crosshair_only_through_the_eye()
+		if _dials.has("eye_frame") and DisplayServer.get_name() == "headless":
+			_frame_the_eye()
 	else:
 		if _plugin == null or not _plugin.lens(delta):
 			var progress: float = clampf((_elapsed - _delay) / _seconds, 0.0, 1.0)
@@ -389,6 +392,8 @@ func _build() -> void:
 	if String(_options.get("look", "")) == "social":
 		_light_for_social(match_root)
 	_take_the_eye(match_root)
+	if _dials.has("eye_frame"):
+		RenderingServer.frame_pre_draw.connect(_frame_the_eye)
 	_cool_the_shimmer(match_root)
 	_listen_to_audio()
 	if String(_options.get("audio", "")) == "near":
@@ -1315,6 +1320,72 @@ func _meet_the_eye(delta: float) -> void:
 	_eye.call(&"turn_toward", away.slerp(onto, share).normalized(), 0.0)
 	if OS.has_environment("STAGE_DEBUG") and Engine.get_physics_frames() % 6 == 0:
 		print("[eye] %5.2f swing %.2f away-onto %.1f deg gaze-viewer %.1f deg" % [_elapsed, swing, rad_to_deg(away.angle_to(onto)), rad_to_deg((_eye.call(&"gaze_direction") as Vector3).angle_to(viewer.global_position - _eye.global_position))])
+
+
+## --set=eye_frame=T0:T1:Z0:Z1:U:V:D (v66): from take T0 to T1 the drawn POV turns, and over Z0-Z1 narrows, until the
+## eye's ball sits centred on pixel U,V of a 1920x1080 frame, D px across. Only the drawn camera; before T0 untouched.
+func _frame_the_eye() -> void:
+	var d: PackedStringArray = String(_dials["eye_frame"]).split(":")
+	if _eye == null or _pov_body == null or not is_instance_valid(_pov_body) or _elapsed < float(d[0]):
+		return
+	var viewer: Camera3D = root.get_camera_3d()
+	var model: Node3D = _eye.get_node_or_null(^"Gaze/Model") as Node3D
+	if viewer == null or viewer != _eye_of(_pov_body) or model == null:
+		return
+	var size := Vector2(1920.0, 1080.0)
+	var side: float = size.y if viewer.keep_aspect == Camera3D.KEEP_HEIGHT else size.x
+	var want := Vector2(float(d[4]), float(d[5]))
+	var taped: Transform3D = viewer.get_camera_transform()
+	var centre: Vector3 = model.global_position
+	var radius: float = model.global_transform.basis.get_scale().x
+	# Solve the framed lens: focal length from the ball's size, the turn that puts its centroid on the mark.
+	var focal: float = side * 0.5 / tan(deg_to_rad(viewer.fov) * 0.5)
+	var aim: Vector2 = want
+	var framed: Transform3D = taped
+	var drawn: Vector3 = Vector3.ZERO
+	for _pass: int in 6:
+		var ray := Vector3((aim.x - size.x * 0.5) / focal, -(aim.y - size.y * 0.5) / focal, -1.0).normalized()
+		var turn := Quaternion(taped.basis * ray, (centre - taped.origin).normalized())
+		framed = Transform3D(Basis(turn) * taped.basis, taped.origin)
+		drawn = _ball_on_screen(framed, centre, radius, focal, size)
+		focal *= float(d[6]) / drawn.z
+		aim += want - Vector2(drawn.x, drawn.y)
+	var w: float = smoothstep(float(d[0]), float(d[1]), _elapsed)
+	var z: float = smoothstep(float(d[2]), float(d[3]), _elapsed)
+	var turned: Basis = Basis(Quaternion(taped.basis).slerp(Quaternion(framed.basis), w))
+	var fov: float = lerpf(viewer.fov, rad_to_deg(2.0 * atan(side * 0.5 / focal)), z)
+	RenderingServer.camera_set_transform(viewer.get_camera_rid(), Transform3D(turned, taped.origin))
+	RenderingServer.camera_set_perspective(viewer.get_camera_rid(), fov, viewer.near, viewer.far)
+	if not _eye_framed and z >= 1.0 and w >= 1.0 and Vector3(drawn.x - want.x, drawn.y - want.y, drawn.z - float(d[6])).length() < 0.5:
+		_eye_framed = true
+		print("[event] %5.2f  eye_framed  %.2f %.2f d %.2f fov %.3f" % [_elapsed, drawn.x, drawn.y, drawn.z, fov])
+	if OS.has_environment("STAGE_DEBUG"):
+		var now: Vector3 = _ball_on_screen(Transform3D(turned, taped.origin), centre, radius, side * 0.5 / tan(deg_to_rad(fov) * 0.5), size)
+		print("[eye_frame] %d %.4f w %.3f z %.3f fov %.3f ball %.2f %.2f d %.2f solved %.2f %.2f d %.2f" % [_clock_frames, _elapsed, w, z, fov, now.x, now.y, now.z, drawn.x, drawn.y, drawn.z])
+
+
+## The ball's silhouette through a pinhole lens: its area centroid (x, y) and area-equal diameter (z), in pixels.
+func _ball_on_screen(view: Transform3D, centre: Vector3, radius: float, focal: float, size: Vector2) -> Vector3:
+	var c: Vector3 = view.affine_inverse() * centre
+	var n: Vector3 = c.normalized()
+	var e1: Vector3 = n.cross(Vector3.UP).normalized()
+	var e2: Vector3 = n.cross(e1)
+	var a: float = asin(clampf(radius / c.length(), 0.0, 1.0))
+	var points: PackedVector2Array = []
+	for k: int in 96:
+		var phi: float = TAU * k / 96.0
+		var r: Vector3 = n * cos(a) + (e1 * cos(phi) + e2 * sin(phi)) * sin(a)
+		points.append(Vector2(size.x * 0.5 + focal * r.x / -r.z, size.y * 0.5 - focal * r.y / -r.z))
+	var area: float = 0.0
+	var at := Vector2.ZERO
+	for k: int in points.size():
+		var p: Vector2 = points[k]
+		var q: Vector2 = points[(k + 1) % points.size()]
+		var cr: float = p.x * q.y - q.x * p.y
+		area += cr
+		at += (p + q) * cr
+	at /= 3.0 * area
+	return Vector3(at.x, at.y, 2.0 * sqrt(absf(area) * 0.5 / PI))
 
 
 ## Look down the ring, then come round onto the camera as the pan settles.

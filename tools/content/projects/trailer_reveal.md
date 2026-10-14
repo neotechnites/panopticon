@@ -380,6 +380,15 @@ in: 1.8166
 freeze: waive
 expect: hit Runner_2 3.57-3.63
 
+## 2v
+said: v66 (Ryan, #295): 2r with its look-over landing so the tower eye sits where the title card's eye-as-O is, zoomed to its size
+capture: --shot=s3_open_lane --stage=trailer_open --pov=runner --bots=3 --rifle=projectile --set=fire_at=3.24;eye_at=4.3;eye_swing=0.4;eye_from=60:49;shimmer=0.06;eye_frame=3.95:4.45:4.05:4.75:762.76:518.14:138.77 --seed=20261001
+tape: open
+seconds: 4.55
+in: 1.8166
+freeze: waive
+expect: hit Runner_2 3.57-3.63; eye_framed 4.70-4.85
+
 ## 4tr
 said: v60 refilm of 4t: the forest runner (v59 662-787)
 capture: --map=res://maps/forest/forest_green.tscn --shot=pack_lead --stage=trailer_forest_sprint --bots=3 --pov=runner --look=social --rifle=projectile --set=zone=2 --seed=20261001
