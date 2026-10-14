@@ -6,6 +6,6 @@
 script = ExtResource("1_character_fit")
 body = Color(1, 1, 1, 1)
 shirt = 1.2
-ambient = Color(0.26, 0.08, 0.05, 1)
-fill = Color(0.3, 0.12, 0.08, 1)
-fill_from = Vector3(0.5, 0.7, 0.5)
+ambient = Color(0.22, 0.24, 0.29, 1)
+fill = Color(0.16, 0.17, 0.21, 1)
+fill_from = Vector3(-0.45, 0.42, -0.78)
