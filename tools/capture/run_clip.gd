@@ -278,6 +278,9 @@ func _process(delta: float) -> bool:
 
 	_elapsed += delta
 	_set_the_clocks()
+	if OS.has_environment("CAM_TRACE") and root.get_camera_3d() != null:
+		var cam: Camera3D = root.get_camera_3d()
+		print("[cam] %d %s fov %.4f %s" % [_clock_frames, cam.global_transform, cam.fov, cam.get_path()])
 	_log_the_rifle()
 	if _wants_chain() and _chain == null and _elapsed > 0.5:
 		_stage_chainrun()
