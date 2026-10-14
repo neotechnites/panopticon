@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""refilm_v62.py: rough_v63_beats = v61 with the hell-hit and marble shots replaced by their v62 Movie Maker takes.
+"""refilm_v63.py: rough_v63_beats = v62 with the cold open's guard shot (1r) refilmed: the scope rests on the corpse after the kill.
 
-v63_work/film.sh films them after the game fixes (hit prisoners fall solid; marble bodies modelled). Same take frames as v61;
-every other frame and the audio are v61's own.
+Same take frames as v61/v62; every other frame and the audio are v62's own.
 """
 import os
 import subprocess
