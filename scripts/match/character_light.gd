@@ -1,6 +1,6 @@
 class_name CharacterLight
 extends RefCounted
-## How a map lights the players: plain per-pixel materials its own lights reach, plus its [CharacterFit]'s key and fill.
+## How a map lights the players, OoT style: plain per-pixel materials its own lights and shadows reach, with its fit's ambient and fill.
 ## A scene absent from [constant FITS] keeps the bodies as authored.
 
 ## Map scene -> its fit.
@@ -19,6 +19,11 @@ const DAPPLE_SHADER: Shader = preload("res://characters/materials/character_dapp
 ## The ground dapple shader's values the players share.
 const DAPPLE_PARAMS: Array[StringName] = [&"dapple_metres", &"dapple_strength", &"fleck_strength", &"fleck_bias", &"sway", &"sway_speed", &"dapple_top", &"dapple_top_fade", &"dapple_mean"]
 
+## [member PrisonerAvatar.visual_layers]' two values: the owner-hidden layer 2 and the AI's layer 3.
+const BODY_LAYERS: int = 2 | 4
+## The fit's fill light, hung once in the arena.
+const FILL_NAME: StringName = &"CharacterFill"
+
 ## Where [method apply] keeps the material it dressed, for [method base_of].
 const BASE_META: StringName = &"character_light_base"
 
@@ -30,7 +35,7 @@ var suns: Array[Vector3] = []
 var _cache: Dictionary[int, Material] = {}
 
 
-## The lighting [param arena] gives its players: its scene's fit, with the fit's key and fill hung in [param arena].
+## The lighting [param arena] gives its players: its scene's fit with its fill hung, and its suns for the dapple.
 static func for_arena(arena: Node) -> CharacterLight:
 	var light: CharacterLight = CharacterLight.new()
 	var scene: String = _scene_of(arena)
@@ -39,13 +44,24 @@ static func for_arena(arena: Node) -> CharacterLight:
 	light.fit = load(FITS[scene]) as CharacterFit
 	for node: Node in arena.find_children("*", "DirectionalLight3D", true, false):
 		var sun: DirectionalLight3D = node as DirectionalLight3D
-		if sun.visible and not sun.get_parent() is CharacterRig:
+		if sun.visible and sun.name != FILL_NAME:
 			light.suns.append((sun.global_transform if sun.is_inside_tree() else sun.transform).basis.z.normalized())
-	if arena.get_node_or_null(NodePath(CharacterRig.NAME)) == null:
-		var rig: CharacterRig = CharacterRig.new()
-		rig.dress(light.fit)
-		arena.add_child.call_deferred(rig)
+	if light.fit.fill.get_luminance() > 0.0 and arena.get_node_or_null(NodePath(FILL_NAME)) == null:
+		arena.add_child.call_deferred(_fill_of(light.fit))
 	return light
+
+
+## [param fit]'s fill: unshadowed, world-fixed, reaching the body layers alone.
+static func _fill_of(fit: CharacterFit) -> DirectionalLight3D:
+	var lamp: DirectionalLight3D = DirectionalLight3D.new()
+	lamp.name = FILL_NAME
+	var level: float = maxf(fit.fill.r, maxf(fit.fill.g, fit.fill.b))
+	lamp.light_color = Color(fit.fill.r / level, fit.fill.g / level, fit.fill.b / level)
+	lamp.light_energy = level
+	lamp.light_cull_mask = BODY_LAYERS
+	lamp.shadow_enabled = false
+	lamp.basis = Basis.looking_at(-fit.fill_from.normalized(), Vector3.UP if absf(fit.fill_from.normalized().y) < 0.99 else Vector3.FORWARD)
+	return lamp
 
 
 ## The scene [param arena] was authored in: its own, or its owner's when it is built in place (the hub).
@@ -88,7 +104,7 @@ func _paint_of(base: BaseMaterial3D) -> Color:
 	return paint
 
 
-## [param base] as a plain per-pixel Lambert StandardMaterial3D every light reaches; no vertex colour, the fit's glow for ambient.
+## [param base] as a plain per-pixel Lambert StandardMaterial3D the map's lights reach, its ambient the fit's (the map's is tuned for its own materials).
 ## Sampled without mipmaps, so small painted detail (the lips) keeps its contrast at range instead of averaging into skin.
 func _standard(base: BaseMaterial3D) -> BaseMaterial3D:
 	var plain: BaseMaterial3D = base.duplicate() as BaseMaterial3D
@@ -102,10 +118,10 @@ func _standard(base: BaseMaterial3D) -> BaseMaterial3D:
 	plain.vertex_color_use_as_albedo = false
 	plain.disable_ambient_light = true
 	plain.emission_enabled = true
-	plain.emission = Color(paint.r, paint.g, paint.b)
-	plain.emission_energy_multiplier = fit.glow
+	plain.emission = Color(paint.r * fit.ambient.r, paint.g * fit.ambient.g, paint.b * fit.ambient.b)
+	plain.emission_energy_multiplier = 1.0
 	plain.emission_texture = base.albedo_texture
-	plain.emission_operator = BaseMaterial3D.EMISSION_OP_ADD
+	plain.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
 	if fit.dapple != null:
 		plain.next_pass = _dapple_pass()
 	return plain
