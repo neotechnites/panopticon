@@ -8,7 +8,7 @@ v2 notes (Ryan on rough_v1): the guard stands at the tower's window, not deep in
 music: external\src\music_v2_OBPV0lsorwU.mp4 -> voice\sr20det.ogg (SOURCES.md). The drop: 0.35 s of silence from 5.36 s, the hit at 5.703 s (sample onset); 170 bpm after it (v3 measured).
 cards: cuts/title_hard.mp4 is v1's title frame looped from frame 0 (v1's title.mp4 opened on two black frames); cuts/end.mp4 is v1's.
 delivery: content\trailer_reveal\final\rough_v52_cutA.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
-tag: rough_v52_cutA
+tag: rough_v60_beats
 alt: rough_v24 (the SR20DET cut before Ryan's seven notes; ## script rough_v24)
 alt: rough_v26_vivaldi (rough_v25_vivaldi with the seven notes, every cut and event on the same beats; ## script rough_v26_vivaldi)
 kept: cuts\_v25\NN.mp4 are the shot files rough_v24 and rough_v25_vivaldi were cut from (every shot was refilmed for v26 on main 6547970).
@@ -359,6 +359,151 @@ in: 3.0
 freeze: waive
 # rough_v25_vivaldi: 7 with the scope held down through the shot (the hand's kick 0.3, as the marble scope): he stands in the open under
 # the crosshair, bolts for the rock, the round lands on the ground he left. The runner and every time are the duel tape's; 7 keeps its tape.
+
+# v60 refilm begin
+
+## 1r
+said: v60 refilm of the cold open: the guard's window from the lead-in behind the lip rock through the squeeze (v59 0-164)
+capture: --shot=s3_open_lane --stage=trailer_open_pre --pov=guard --hud=crosshair --bots=3 --rifle=projectile --set=fire_at=3.24;shimmer=0.06 --seed=20261001
+tape: open_pre
+seconds: 4.5
+in: 6.15
+freeze: waive
+expect: hit Runner_2 9.07-9.13
+
+## 2r
+said: v60 refilm of 2: the runner behind the victim looks up at the tower (v59 165-330)
+capture: --shot=s3_open_lane --stage=trailer_open --pov=runner --bots=3 --rifle=projectile --set=fire_at=3.24;eye_at=4.3;eye_swing=0.4;eye_from=60:49;shimmer=0.06 --seed=20261001
+tape: open
+seconds: 4.55
+in: 1.8166
+freeze: waive
+expect: hit Runner_2 3.57-3.63
+
+## 4tr
+said: v60 refilm of 4t: the forest runner (v59 662-787)
+capture: --map=res://maps/forest/forest_green.tscn --shot=pack_lead --stage=trailer_forest_sprint --bots=3 --pov=runner --look=social --rifle=projectile --set=zone=2 --seed=20261001
+tape: forest_thread
+seconds: 3.9
+in: 0.4666
+freeze: waive
+expect: alive Runner_1
+
+## 5gr
+said: v60 refilm of 5g: the forest scope shot (v59 788-912)
+capture: --map=res://maps/forest/forest_green.tscn --shot=pack_lead --stage=trailer_forest_pack --bots=3 --pov=guard --hud=crosshair --rifle=projectile --set=lift=1;fire=3.15;zone=2 --seed=20261001
+tape: forest_pack
+seconds: 3.85
+in: 1.6666
+freeze: waive
+expect: hit Runner_2 3.52-3.58
+
+## 5hr
+said: v60 refilm of 5h: the marble scope shot, Movie Maker so the round's flight does not stall (v59 913-995; Ryan note 1)
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_track --bots=3 --pov=guard --hud=crosshair --rifle=projectile --set=fire=2.6 --seed=20261001
+tape: marble_hit
+seconds: 3.15
+in: 1.8666
+freeze: waive
+expect: hit Runner_1 2.94-3.00
+
+## 20
+said: v60 beach scope: the sniper's shot on the sand (v59 996-1063; filmed untaped before, now an entry)
+capture: --map=beach --shot=pack_lead --stage=trailer_beach_track --bots=3 --pov=guard --hud=crosshair --rifle=projectile --shimmer=0 --set=fire=2.6 --seed=20261001
+seconds: 2.9
+in: 1.6666
+freeze: waive
+expect: hand beat 2.59-2.65; hit Runner_1 3.12-3.18
+
+## 6r
+said: v60 refilm of 6: hell runner behind the rock (v59 1064-1129)
+capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=runner --rifle=projectile --set=shimmer=0.06 --seed=20261001
+tape: duel
+seconds: 2.9
+in: 1.5666
+freeze: waive
+expect: hit MapBaseS2Collision 4.22-4.28
+
+## 7r
+said: v60 refilm of 7: hell scope (v59 1130-1207)
+capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=guard --hud=crosshair --rifle=projectile --set=shimmer=0.06 --seed=20261001
+tape: duel
+seconds: 3.05
+in: 2.45
+freeze: waive
+expect: hit MapBaseS2Collision 4.22-4.28
+
+## 8r
+said: v60 refilm of 8: hell runner after the miss (v59 1208-1323)
+capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=runner --rifle=projectile --set=shimmer=0.06 --seed=20261001
+tape: duel
+seconds: 3.7
+in: 4.65
+freeze: waive
+expect: hit MapBaseS2Collision 4.22-4.28
+
+## 21
+said: v60 beach run: one continuous take, no splice (v59 1324-1448; Ryan note 2)
+capture: --map=beach --shot=pack_lead --stage=trailer_beach_run --bots=3 --pov=runner --rifle=projectile --shimmer=0 --seed=20261001
+seconds: 3.85
+in: 0.4666
+freeze: waive
+expect: alive Runner_1
+
+## 9agr
+said: v60 refilm of 9ag: the forest shover, one take from its first frame (v59 1449-1592; Ryan note 3)
+capture: --map=res://maps/forest/forest_green.tscn --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --set=third=0 --seed=20261001
+tape: forest_pit
+seconds: 4.2
+in: 0.0333
+freeze: waive
+expect: shove Runner_2 2.90-2.96
+
+## 9bgr
+said: v60 refilm of 9bg: the falling victim (v59 1593-1716)
+capture: --map=res://maps/forest/forest_green.tscn --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --set=pov=victim;third=0 --seed=20261001
+tape: forest_pit
+seconds: 3.85
+in: 1.9666
+freeze: waive
+expect: shove Runner_2 2.90-2.96
+
+## 10ar
+said: v60 refilm of 10a: the marble runner (v59 1717-1851)
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=runner --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;kick=0.1;back_pace=0.5;follow=0.4;run_after=0.9;settle_omega=45;max_rate=55 --seed=20261001
+tape: marble_column
+seconds: 4.0
+in: 0.75
+freeze: waive
+expect: shove Runner_2 2.97-3.03
+
+## 10br
+said: v60 refilm of 10b: the scope as the victim is hit (v59 1852-2009)
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;kick=0.1;back_pace=0.5;follow=0.4;run_after=0.9;settle_omega=45;max_rate=55 --seed=20261001
+tape: marble_column
+seconds: 4.4
+in: 1.75
+freeze: waive
+expect: shove Runner_2 2.97-3.03; hit Runner_1 4.94-5.00
+
+## 22
+said: v60 beach portal run: the first half of the portal run on the sand, the marble run's own steps and pace, one run to one portal (v59 2010-2093; Ryan note 4)
+capture: --map=beach --shot=portal --stage=trailer_beach_portal --bots=3 --pov=runner --rifle=projectile --shimmer=0 --seed=20261001
+seconds: 2.95
+in: 0.0
+freeze: waive
+expect: stage arrived 3.54-3.64
+
+## 12sr
+said: v60 refilm of 12s: the marble half of the portal run, the first-person shove, the guard thrown with his rifle (v59 2094-2316; Ryan notes 5, 6)
+capture: --map=marble --shot=portal --stage=trailer_finale_marble --bots=2 --pov=runner --rifle=projectile --set=wait=0.25;from=311,52.4 --seed=20261001
+tape: finale_fp
+seconds: 5.55
+in: 1.1666
+freeze: waive
+expect: stage arrived 3.57-3.63; stage kill 4.45-4.51
+
+# v60 refilm end
 
 ## reshoot
 # Every shot is a stage (tools/capture/stages/) played from its tape (tools/content/projects/trailer_reveal/tapes/<tape>.json):

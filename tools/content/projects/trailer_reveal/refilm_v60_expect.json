@@ -1,0 +1,18 @@
+{
+  "1r": ["hit Runner_2 9.07-9.13"],
+  "2r": ["hit Runner_2 3.57-3.63"],
+  "4tr": ["alive Runner_1"],
+  "5gr": ["hit Runner_2 3.52-3.58"],
+  "5hr": ["hit Runner_1 2.94-3.00"],
+  "20": ["hand beat 2.59-2.65; hit Runner_1 3.12-3.18"],
+  "6r": ["hit MapBaseS2Collision 4.22-4.28"],
+  "7r": ["hit MapBaseS2Collision 4.22-4.28"],
+  "8r": ["hit MapBaseS2Collision 4.22-4.28"],
+  "21": ["alive Runner_1"],
+  "9agr": ["shove Runner_2 2.90-2.96"],
+  "9bgr": ["shove Runner_2 2.90-2.96"],
+  "10ar": ["shove Runner_2 2.97-3.03"],
+  "10br": ["shove Runner_2 2.97-3.03; hit Runner_1 4.94-5.00"],
+  "22": ["stage arrived 3.54-3.64"],
+  "12sr": ["stage arrived 3.57-3.63; stage kill 4.45-4.51"]
+}

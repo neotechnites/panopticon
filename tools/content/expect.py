@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""expect.py <log> <expect>...: check a smoke run's [event] lines against a brief entry's expect: clauses.
+"""expect.py <log> <expect>...: check a smoke run's [event] lines (and [stage] lines as kind "stage", first word as who) against a brief entry's expect: clauses.
 
 Clauses (';'-separated): "<kind> [who] lo-hi" (absolute s), "<kind> [who] +lo-hi" (after the first clause's
 event), "alive <who>" (no out/ghosted), "max_yaw N" (every max_yaw event <= N). Exit 1 with the numbers on a miss.
@@ -7,7 +7,7 @@ event), "alive <who>" (no out/ghosted), "max_yaw N" (every max_yaw event <= N). 
 import re
 import sys
 
-EVENT = re.compile(r"^\[event\]\s+([0-9.]+)\s+(\S+)\s*(.*)$")
+EVENT = re.compile(r"^\[(event|stage)\]\s+([0-9.]+)\s+(\S+)\s*(.*)$")
 
 
 def main() -> int:
@@ -16,7 +16,9 @@ def main() -> int:
         for line in log:
             m = EVENT.match(line)
             if m:
-                events.append((float(m.group(1)), m.group(2), m.group(3)))
+                kind = m.group(3) if m.group(1) == "event" else "stage"
+                rest = m.group(4) if m.group(1) == "event" else (m.group(3) + " " + m.group(4)).strip()
+                events.append((float(m.group(2)), kind, rest))
     clauses = [c.strip() for arg in sys.argv[2:] for c in arg.split(";") if c.strip()]
     anchor = None
     misses = []

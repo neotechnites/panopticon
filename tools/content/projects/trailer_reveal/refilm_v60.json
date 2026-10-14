@@ -1,0 +1,32 @@
+{
+  "base": "rough_v59_beats.mp4",
+  "tag": "rough_v60_beats",
+  "fps": 60,
+  "frames": 2648,
+  "grade_hell": "lift 2.6 3",
+  "handle_before": 1.0,
+  "handle_after": 0.75,
+  "note": "out = v59 output frames [a,b); t_a = game seconds of the take at out frame a (the take's own clock, tape time); align exact = the take is frame-exact against v59's (a Movie Maker take of the same tape); corr = find the offset against v59's frames; anchor = the v59 frame the impact must stay on; idx_skip = take frames dropped (the portal teleport's two held frames)",
+  "segments": [
+    {"name": "open_guard",   "out": [0, 165],     "shot": "1r",   "t_a": 7.1500, "grade": "hell", "align": "exact"},
+    {"name": "open_runner",  "out": [165, 331],   "shot": "2r",   "t_a": 2.8167, "grade": "hell", "align": "corr", "anchor": 212},
+    {"name": "title_card",   "out": [331, 497],   "from_base": true},
+    {"name": "online_card",  "out": [497, 662],   "from_base": true},
+    {"name": "forest_run",   "out": [662, 788],   "shot": "4tr",  "t_a": 1.4833, "align": "corr"},
+    {"name": "forest_scope", "out": [788, 913],   "shot": "5gr",  "t_a": 2.6667, "align": "corr", "anchor": 819},
+    {"name": "marble_scope", "out": [913, 996],   "shot": "5hr",  "t_a": 2.8667, "align": "corr", "anchor": 919},
+    {"name": "beach_scope",  "out": [996, 1064],  "shot": "20",   "t_a": 2.6667, "align": "corr", "anchor": 996},
+    {"name": "hell_run_a",   "out": [1064, 1130], "shot": "6r",   "t_a": 2.5667, "grade": "hell", "align": "corr"},
+    {"name": "hell_scope",   "out": [1130, 1208], "shot": "7r",   "t_a": 3.4500, "grade": "hell", "align": "corr"},
+    {"name": "hell_run_b",   "out": [1208, 1324], "shot": "8r",   "t_a": 5.6500, "grade": "hell", "align": "corr"},
+    {"name": "beach_run",    "out": [1324, 1449], "shot": "21",   "t_a": 1.4683, "align": "corr"},
+    {"name": "forest_shove", "out": [1449, 1593], "shot": "9agr", "t_a": 1.0400, "align": "corr", "anchor": 1572},
+    {"name": "victim_fall",  "out": [1593, 1717], "shot": "9bgr", "t_a": 2.9767, "align": "corr"},
+    {"name": "marble_run",   "out": [1717, 1852], "shot": "10ar", "t_a": 1.7500, "align": "corr", "anchor": 1802},
+    {"name": "marble_scope_hit", "out": [1852, 2010], "shot": "10br", "t_a": 2.7500, "align": "exact"},
+    {"name": "portal_beach", "out": [2010, 2094], "shot": "22",   "t_a": 0.7667, "align": "exact"},
+    {"name": "portal_marble","out": [2094, 2181], "shot": "12sr", "t_a": 2.1667, "align": "exact"},
+    {"name": "portal_room",  "out": [2181, 2317], "shot": "12sr", "t_a": 3.6500, "align": "exact"},
+    {"name": "end_card",     "out": [2317, 2648], "from_base": true}
+  ]
+}
