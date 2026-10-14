@@ -487,12 +487,12 @@ freeze: waive
 expect: shove Runner_2 2.97-3.03; hit Runner_1 4.94-5.00
 
 ## 22
-said: v60 beach portal run: the first half of the portal run on the sand, the marble run's own steps and pace, one run to one portal (v59 2010-2093; Ryan note 4)
-capture: --map=beach --shot=portal --stage=trailer_beach_portal --bots=3 --pov=runner --rifle=projectile --shimmer=0 --seed=20261001
-seconds: 2.95
+said: v61 (arc 34.4: 22 frames more sand, the marble run matched at its clock 158) v60 beach portal run: the first half of the portal run on the sand, the marble run's own steps and pace, one run to one portal (v59 2010-2093; Ryan note 4)
+capture: --map=beach --shot=portal --stage=trailer_beach_portal --bots=3 --pov=runner --rifle=projectile --shimmer=0 --seed=20261001 --set=arc=34.4
+seconds: 4.1
 in: 0.0
 freeze: waive
-expect: stage arrived 3.54-3.64
+expect: stage arrived 3.90-4.00
 
 ## 12sr
 said: v60 refilm of 12s: the marble half of the portal run, the first-person shove, the guard thrown with his rifle (v59 2094-2316; Ryan notes 5, 6)

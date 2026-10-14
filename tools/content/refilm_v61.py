@@ -5,7 +5,7 @@
   edit     build rough_v61_beats.mp4 on the PC and copy it to the Mac
 
 0-1851 keep v60's take frames. From the marble hit to the end card the run is recut (Ryan v60: jumps, held frames):
-the beach starts on its first running frame, beach to marble at one clock (2.50 s, both heads steady), the portal's
+the beach starts on its first running frame, the beach starts 3.95 m farther out so the run fills the scope's dead tail, beach to marble where both heads are steady and matched, the portal's
 held frames and the room's wait-and-snap fall in the teleport cut, the shover's frozen view is cut to the throw.
 """
 import os
@@ -20,9 +20,10 @@ TAG = "rough_v61_beats"
 WORK = os.path.join(R.RENDERS, "v61_work")
 OLD = os.path.join(R.RENDERS, "v60_work")
 # (name, out a, out b exclusive, shot, first take frame). Marble take frame = clock frame - 70, beach take frame = clock frame.
-NEW = [("marble_scope_hit", 1852, 2032, "10br", 60),   # hit stays on 1986 (take 194)
-       ("portal_beach", 2032, 2129, "22", 53),         # clock 53-149: running from its first frame
-       ("portal_marble", 2129, 2195, "12sr", 80),      # clock 150-215: last frame before the teleport
+# Beach (arc 34.4) clock n+22 is the marble run's clock n to 5 cm and 0.2 deg from marble clock 156 on.
+NEW = [("marble_scope_hit", 1852, 2010, "10br", 60),   # hit stays on 1986 (take 194)
+       ("portal_beach", 2010, 2137, "22", 53),         # beach clock 53-179: running from its first frame
+       ("portal_marble", 2137, 2195, "12sr", 88),      # marble clock 158-215: last frame before the teleport
        ("portal_room", 2195, 2242, "12sr", 163),       # first frame square to the guard; shove (take 202) on 2234
        ("guard_flight", 2242, 2317, "12sr", 221)]      # the cinematic's first frame
 RECUT = {"marble_scope_hit", "portal_beach", "portal_marble", "portal_room"}
