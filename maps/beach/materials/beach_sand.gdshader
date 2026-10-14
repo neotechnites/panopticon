@@ -15,7 +15,7 @@ void vertex() {
 }
 
 void fragment() {
-	ALBEDO = texture(albedo_texture, UV).rgb * srgb_to_linear(COLOR.rgb);
+	ALBEDO = sunlit_sand(texture(albedo_texture, UV).rgb) * srgb_to_linear(COLOR.rgb);
 	float c1 = smoothstep(0.955, 0.985, texture(caustics, world.xz / 3.4 + TIME * vec2(0.035, 0.012)).r);
 	float c2 = smoothstep(0.955, 0.985, texture(caustics, world.xz / 5.1 - TIME * vec2(0.014, 0.03)).r);
 	EMISSION = vec3(0.85, 1.0, 0.95) * max(c1, c2) * caustic_strength * UV2.x;

@@ -1,6 +1,6 @@
 class_name CharacterLight
 extends RefCounted
-## How a map lights the players, OoT style: plain per-pixel materials its own lights and shadows reach, with its fit's ambient and fill.
+## How a map lights the players: its [CharacterFit] worn as one shader on every body surface, or (standard) the map's own lights with the fit's ambient and fill.
 ## A scene absent from [constant FITS] keeps the bodies as authored.
 
 ## Map scene -> its fit.
@@ -14,14 +14,16 @@ const FITS: Dictionary[String, String] = {
 	"res://hub/hub.tscn": "res://hub/hub_character_fit.tres",
 }
 
+const SHADER: Shader = preload("res://characters/materials/character_light.gdshader")
+const FADE_SHADER: Shader = preload("res://characters/materials/character_light_fade.gdshader")
 const DAPPLE_SHADER: Shader = preload("res://characters/materials/character_dapple.gdshader")
 
 ## The ground dapple shader's values the players share.
-const DAPPLE_PARAMS: Array[StringName] = [&"dapple_metres", &"dapple_strength", &"fleck_strength", &"fleck_bias", &"sway", &"sway_speed", &"dapple_top", &"dapple_top_fade", &"dapple_mean"]
+const DAPPLE_PARAMS: Array[StringName] = [&"dapple_metres", &"dapple_strength", &"dapple_light", &"fleck_strength", &"fleck_bias", &"sway", &"sway_speed", &"dapple_top", &"dapple_top_fade", &"dapple_mean"]
 
 ## [member PrisonerAvatar.visual_layers]' two values: the owner-hidden layer 2 and the AI's layer 3.
 const BODY_LAYERS: int = 2 | 4
-## The fit's fill light, hung once in the arena.
+## A standard fit's fill light, hung once in the arena.
 const FILL_NAME: StringName = &"CharacterFill"
 
 ## Where [method apply] keeps the material it dressed, for [method base_of].
@@ -29,24 +31,49 @@ const BASE_META: StringName = &"character_light_base"
 
 ## The standing map's levers; null on a map that does not light its players.
 var fit: CharacterFit = null
-## Toward the map's first two suns (world), where the dapple is read.
+## The arena's axis in the ground plane: the light's "toward the tower" points at it.
+var axis: Vector2 = Vector2.ZERO
+## Scales the wrapped facing term so an upright body facing a sun gets all of it.
+var sun_facing_gain: float = 0.0
+## Toward the map's first two suns (world), where the dapple is read for the body's own level.
 var suns: Array[Vector3] = []
+## The strongest sun's luminous energy: a patch is one sun through the leaves, so that sun alone gives the full lift.
+var sun_energy: float = 1.0
 
 var _cache: Dictionary[int, Material] = {}
 
 
-## The lighting [param arena] gives its players: its scene's fit with its fill hung, and its suns for the dapple.
+## The lighting [param arena] gives its players: its scene's fit, the sun gain solved from its suns.
 static func for_arena(arena: Node) -> CharacterLight:
 	var light: CharacterLight = CharacterLight.new()
 	var scene: String = _scene_of(arena)
 	if not FITS.has(scene):
 		return light
 	light.fit = load(FITS[scene]) as CharacterFit
+	var arena_3d: Node3D = arena as Node3D
+	if arena_3d != null and arena_3d.is_inside_tree():
+		light.axis = Vector2(arena_3d.global_position.x, arena_3d.global_position.z)
+	var fit_sun_wrap: float = light.fit.sun_wrap
+	var energy: float = 0.0
+	var facing: float = 0.0
+	var suns: Array[Vector3] = []
 	for node: Node in arena.find_children("*", "DirectionalLight3D", true, false):
 		var sun: DirectionalLight3D = node as DirectionalLight3D
-		if sun.visible and sun.name != FILL_NAME:
-			light.suns.append((sun.global_transform if sun.is_inside_tree() else sun.transform).basis.z.normalized())
-	if light.fit.fill.get_luminance() > 0.0 and arena.get_node_or_null(NodePath(FILL_NAME)) == null:
+		if not sun.visible or sun.name == FILL_NAME:
+			continue
+		var linear: Color = sun.light_color.srgb_to_linear()
+		var e: float = sun.light_energy * (0.2126 * linear.r + 0.7152 * linear.g + 0.0722 * linear.b)
+		var frame: Transform3D = sun.global_transform if sun.is_inside_tree() else sun.transform
+		var toward: Vector3 = frame.basis.z.normalized()
+		energy = maxf(energy, e)
+		suns.append(toward)
+		facing = maxf(facing, e * maxf(Vector2(toward.x, toward.z).length(), fit_sun_wrap))
+	light.suns = suns
+	if energy > 0.0:
+		light.sun_energy = energy
+		# An upright body faces a sun at its elevation, so that facing reaches the full lift.
+		light.sun_facing_gain = energy / facing
+	if light.fit.standard and light.fit.fill.get_luminance() > 0.0 and arena.get_node_or_null(NodePath(FILL_NAME)) == null:
 		arena.add_child.call_deferred(_fill_of(light.fit))
 	return light
 
@@ -90,9 +117,40 @@ func apply(material: Material) -> Material:
 	if not is_lit() or base == null:
 		return material
 	var key: int = base.get_instance_id()
-	if not _cache.has(key):
+	if _cache.has(key):
+		return _cache[key]
+	if fit.standard:
 		_cache[key] = _standard(base)
-	return _cache[key]
+		return _cache[key]
+	var lit: ShaderMaterial = ShaderMaterial.new()
+	var fading: bool = base.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED
+	lit.shader = FADE_SHADER if fading else SHADER
+	lit.set_meta(BASE_META, base)
+	# A self-lit (team) surface's painted colour is its glow: that is what reads on it today.
+	var painted: Color = base.albedo_color
+	var paint: Color = fit.body
+	if base.emission_enabled:
+		painted = base.emission * base.emission_energy_multiplier
+		painted.a = base.albedo_color.a
+		paint = Color(fit.shirt, fit.shirt, fit.shirt)
+		lit.set_shader_parameter(&"hue_keep", fit.shirt_hue)
+	lit.set_shader_parameter(&"paint_level", Vector3(paint.r, paint.g, paint.b))
+	lit.set_shader_parameter(&"albedo_color", painted)
+	if base.albedo_texture != null:
+		lit.set_shader_parameter(&"albedo_texture", base.albedo_texture)
+	lit.set_shader_parameter(&"shade_level", Vector3(fit.shade.r, fit.shade.g, fit.shade.b))
+	lit.set_shader_parameter(&"light_level", Vector3(fit.light.r, fit.light.g, fit.light.b))
+	lit.set_shader_parameter(&"light_from", fit.light_from)
+	lit.set_shader_parameter(&"arena_axis", axis)
+	lit.set_shader_parameter(&"light_wrap", fit.wrap)
+	lit.set_shader_parameter(&"rim_level", fit.rim)
+	lit.set_shader_parameter(&"sun_lift", fit.sun if sun_facing_gain > 0.0 else 0.0)
+	lit.set_shader_parameter(&"sun_facing_gain", sun_facing_gain)
+	lit.set_shader_parameter(&"sun_energy", sun_energy)
+	lit.set_shader_parameter(&"sun_wrap", fit.sun_wrap)
+	_dress_dapple(lit)
+	_cache[key] = lit
+	return lit
 
 
 ## The colour [param base] shows before light: its paint in the map's tint, a team shirt (self-lit) its team colour.
@@ -125,6 +183,23 @@ func _standard(base: BaseMaterial3D) -> BaseMaterial3D:
 	if fit.dapple != null:
 		plain.next_pass = _dapple_pass()
 	return plain
+
+
+## The ground's leaf dapple on [param lit]: the fit's texture, every other value read off the ground's shader.
+func _dress_dapple(lit: ShaderMaterial) -> void:
+	if fit.dapple == null:
+		return
+	lit.set_shader_parameter(&"dapple_on", true)
+	lit.set_shader_parameter(&"dapple", fit.dapple)
+	lit.set_shader_parameter(&"dapple_shade", fit.dapple_shade)
+	if fit.dapple_shader != null:
+		for param: StringName in DAPPLE_PARAMS:
+			var value: Variant = RenderingServer.shader_get_parameter_default(fit.dapple_shader.get_rid(), param)
+			if value != null:
+				lit.set_shader_parameter(param, value)
+	if not suns.is_empty():
+		lit.set_shader_parameter(&"dapple_sun_a", suns[0])
+		lit.set_shader_parameter(&"dapple_sun_b", suns[mini(1, suns.size() - 1)])
 
 
 ## The map's leaf dapple as a multiply pass over a lit body, its values read off the ground's shader.

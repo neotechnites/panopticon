@@ -37,7 +37,7 @@ void fragment() {
 	vec3 rock = triplanar(rock_texture, wpos, wnrm, rock_metres) * rock_tint;
 	float n = texture(rock_texture, wpos.xz / 61.0).r;
 	float k = smoothstep(0.42, 0.58, rock_w + edge_noise * (n - 0.55));
-	vec3 sand = triplanar(sand_texture, wpos, wnrm, grass_metres);
+	vec3 sand = sunlit_sand(triplanar(sand_texture, wpos, wnrm, grass_metres));
 	float ks = smoothstep(0.4, 0.6, sand_w + 0.25 * (n - 0.55));
 	ALBEDO = mix(mix(grass, rock, k), sand, ks) * srgb_to_linear(COLOR.rgb);
 	ROUGHNESS = 0.95;
