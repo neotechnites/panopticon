@@ -6,11 +6,15 @@
 
 [resource]
 script = ExtResource("1_character_fit")
-body = Color(0.8, 0.8, 0.8, 1)
+shade = Color(0.42, 0.52, 0.48, 1)
+light = Color(0.9, 1, 0.86, 1)
+light_from = Vector2(0.5, 0.85)
+wrap = 0.5
+sun = 0.6
+body = Color(1, 1, 1, 1)
 shirt = 1.4
-ambient = Color(0.13, 0.21, 0.17, 1)
-fill = Color(0.08, 0.14, 0.12, 1)
-fill_from = Vector3(0.7, 0.3, -0.65)
+shirt_hue = 0.3
+rim = 0.0
 dapple = ExtResource("2_dapple")
 dapple_shader = ExtResource("3_dapple_lit")
 dapple_shade = 0.6

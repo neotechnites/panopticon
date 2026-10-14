@@ -4,6 +4,7 @@
 
 [resource]
 script = ExtResource("1_character_fit")
+standard = true
 body = Color(1, 1, 1, 1)
 shirt = 1.2
 ambient = Color(0.22, 0.24, 0.29, 1)
