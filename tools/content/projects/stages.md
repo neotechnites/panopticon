@@ -9,7 +9,7 @@ capture: --shot=s3_open_lane --stage=hell_explainer --pov=guard --bots=3 --shimm
 tape: stages_hell_explainer
 hud: crosshair
 expect: hit Runner_1 5.75-5.95; in_frame Runner_1 +0.0-0.05; out Runner_1 +0.0-0.3; lens_clear; lens_cover <= 0.5
-seconds: 5.2
+seconds: 6.5
 in: 1.2
 
 ## 2
