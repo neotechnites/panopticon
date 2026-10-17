@@ -78,7 +78,7 @@
      "capture": "--shot=s3_open_lane --stage=finale --pov=runner --bots=3 --shimmer=0 --seed=20261012",
      "tape": null,
      "expect": "shove Runner_0 6.8-7.1; arrive Runner_1 1.9-2.2; tower_out Runner_0 +1.9-2.1; alive Runner_1; lens_clear; lens_cover <= 0.5",
-     "seconds": 8.3,
+     "seconds": 9.8,
      "in": 1.2,
      "ticks": {
       "hit": null,
