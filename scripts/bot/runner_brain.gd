@@ -76,6 +76,10 @@ enum Cross { LINE_UP, TAKEOFF, FLY }
 @export var rules: MatchRules
 ## The seat this brain plays; its re-plan tick is phased by it. Set by [MatchController].
 var seat_index: int = 0
+## Off, the cover play is skipped whatever the profile says (a scripted runner told to run the route).
+var cover_play_enabled: bool = true
+## Off, the bot never shoves a rival on its own (a scripted runner shoves only when told).
+var rival_shove_enabled: bool = true
 ## Seeds the perception guesses and the dares when non-zero; 0 seeds by seat, so a
 ## round replays the same on every machine. The harness sets it per stream.
 var perception_seed: int = 0
@@ -317,7 +321,7 @@ func get_perception() -> RunnerPerception:
 
 
 func is_playing_cover() -> bool:
-	return _play != null and _play.plays_cover()
+	return cover_play_enabled and _play != null and _play.plays_cover()
 
 
 ## Jump and pad links flown.
@@ -559,7 +563,7 @@ func _catch_pad_flight() -> bool:
 ## MatchRules.bots_shove_rivals: a running bot shoves the nearest living rival ahead within the match's
 ## reach. Only the shover's own footing is checked (on the floor, not mid-cross); where the victim lands is the game.
 func _shove_a_rival(delta: float) -> void:
-	if rules == null or not rules.bots_shove_rivals or not controller.is_on_floor():
+	if rules == null or not rules.bots_shove_rivals or not rival_shove_enabled or not controller.is_on_floor():
 		return
 	if _elapsed_seconds < SHOVE_SPAWN_GRACE_SECONDS:
 		return

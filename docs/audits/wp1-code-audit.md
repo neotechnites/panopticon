@@ -109,3 +109,35 @@ Ruling: fixed 3 (stand while nobody is at cover), 4 (only waypoints nearer the g
 4. **A restart (match_won -> restart) that reseeds differently**: The lambda fires on every round restart, resetting the bots' RNG mid-match instead of letting it progress naturally (which forces an identical round 2).
 *Fix:* Restrict the seeding to the initial match start by checking `if _count == 1:` inside the lambda.
 Ruling: fixed 2 (no seeding on --seed=0, entropy). Not real: 1 (brains read the seed at placement, after match_started; no participant exists before start_match), 3 (a tape replays inputs; perception does not touch them), 4 (a restart reseeds exactly as the shipped sweep does).
+
+## Audit 7: brain-driven run/portal, bake cover hold, hit:<body>
+1. **a brain flag left off after release**: In `_tick_sure_hit`, if the step times out and drops, the optic is never unzoomed (the shooter is released still zoomed).
+`tools/capture/seat_intent.gd:_tick_sure_hit`
+```gdscript
+		if shooter.optic != null: shooter.optic.set_zoomed(false)
+```
+
+2. **a step that never ends**: A bare `stop` or `idle` step defaults to negative seconds, but their ticks never end or advance `_next()` on negative seconds like `run` does.
+`tools/capture/seat_intent.gd:_tick_runner`
+```gdscript
+			if float(step["seconds"]) < 0.0 or _clock >= float(step["seconds"]):
+```
+
+3. **the cover mark lying in vis**: The vis reads the `clip_at_cover` group as state `cover`, but dead/ragdolled bodies remain in the group, showing as taking cover while dead. 
+`tools/capture/seat_intent.gd:is_at_cover`
+```gdscript
+	if body != null and body.is_in_group(AT_COVER_GROUP) and body.is_on_floor():
+```
+
+4. **a hit that can still kill the seat**: When a target is explicitly named (like `hit:runner:0`), the loop bypasses the `wanted.is_empty()` check and allows targeting the seat if it matches, killing the camera.
+`tools/capture/seat_intent.gd:_visible_runner`
+```gdscript
+		if rival == seat_body:
+```
+
+5. **the tape/replay path broken**: The guard's hit intent skips `_seat_body` (the current camera seat). During tape replay from a different seat, `_seat_body` changes, altering which runner the guard targets and breaking the deterministic playback.
+`tools/capture/run_clip.gd:_install_intents`
+```gdscript
+		driver.set(&"seat_body", participant.body)
+```
+Ruling: none applied. 1 cosmetic (the shipped brain owns the zoom after release), 2 idle with no seconds is forever by design and stop ends at once, 3 dead/ragdoll are read before cover and the release leaves the group, 4 an explicit hit:<seat> is the translator's own ask, 5 intents never run while a tape plays.

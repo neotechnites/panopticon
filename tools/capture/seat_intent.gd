@@ -32,6 +32,16 @@ var _since_install: float = 0.0
 var _sure_profile: WeaponProfile = null
 var _path: PackedVector3Array = PackedVector3Array()
 var _path_age: float = 10.0
+## Actor ids (body instance id -> "guard"/"runner:K") and the seat body, from the recorder.
+var ids: Dictionary = {}
+var seat_body: PlayerController = null
+var _brain_runs: bool = false
+var _cover_point: Vector3 = Vector3.ZERO
+var _cover_found: bool = false
+var _cover_held: float = 0.0
+## Bodies a scripted cover hold has stopped; the recorder's vis reads it as state cover.
+const AT_COVER_GROUP: StringName = &"clip_at_cover"
+const COVER_MIN_METRES: float = 8.0
 var _shipped_profile: WeaponProfile = null
 var _say: Callable = Callable()
 
@@ -71,6 +81,20 @@ func _pause_brains(paused: bool) -> void:
 		brain.set_physics_process(not paused)
 		brain.input.command.clear()
 		brain.input.shove_enabled = not paused
+		_brain_runs = false
+
+
+## run / portal: the brain drives the route itself, cover play off; every other step is the hands.
+func _let_brain_run(on: bool) -> void:
+	if brain == null or not is_instance_valid(brain):
+		return
+	brain.cover_play_enabled = not on
+	brain.rival_shove_enabled = false
+	if on != _brain_runs:
+		_brain_runs = on
+		brain.input.command.clear()
+		brain.input.shove_enabled = false
+		brain.set_physics_process(on)
 
 
 func _parse(raw: String) -> Dictionary:
@@ -101,7 +125,7 @@ func _parse(raw: String) -> Dictionary:
 		"miss":
 			return {"kind": "miss", "shots": int(_number(parts, 1, 1.0))}
 		"hit":
-			return {"kind": "hit"}
+			return {"kind": "hit", "target": parts[1] if parts.size() > 1 else ""}
 		"scope":
 			return {"kind": "scope"}
 	return {}
@@ -125,8 +149,11 @@ func _physics_process(delta: float) -> void:
 		return
 	_since_install += delta
 	# The match re-arms brains on every wake (round start, settle); scripted hands stay in charge.
-	if shooter != null and shooter.is_physics_processing() or brain != null and shooter == null and brain.is_physics_processing():
+	if shooter != null and shooter.is_physics_processing():
 		_pause_brains(true)
+	elif shooter == null and brain != null and brain.is_physics_processing() != _brain_runs:
+		brain.set_physics_process(_brain_runs)
+		brain.cover_play_enabled = not _brain_runs
 	if shooter != null:
 		_tick_guard(delta)
 	else:
@@ -135,15 +162,21 @@ func _physics_process(delta: float) -> void:
 
 func _tick_runner(delta: float) -> void:
 	var source: BotIntentSource = brain.input
-	source.command.move_direction = Vector2(0.0, 1.0) if _forward else Vector2.ZERO
 	var step: Dictionary = _steps[_index]
+	var kind: String = String(step["kind"])
+	# The brain runs the route during run/portal, and through wait while a bare `run` stands.
+	_let_brain_run(kind == "run" or kind == "portal" or (_forward and kind == "wait"))
+	if not _brain_runs and kind != "shove" and kind != "look":
+		source.command.move_direction = Vector2.ZERO
 	_clock += delta
-	match String(step["kind"]):
+	match kind:
 		"run":
-			_forward = true
 			var seconds: float = float(step["seconds"])
-			if seconds < 0.0 or _clock >= seconds:
-				_forward = seconds < 0.0
+			if seconds < 0.0:
+				_forward = true
+				_next()
+			elif _clock >= seconds:
+				_forward = false
 				_next()
 		"stop":
 			_forward = false
@@ -153,26 +186,35 @@ func _tick_runner(delta: float) -> void:
 				_next()
 		"idle":
 			_forward = false
-			source.command.move_direction = Vector2.ZERO
 			if float(step["seconds"]) >= 0.0 and _clock >= float(step["seconds"]):
 				_next()
 		"cover":
-			# Crouched where they stand, as a player ducks behind cover.
+			# Walk to the nearest cover point ahead (the bake's), stop there for the seconds asked.
 			_forward = false
-			source.command.move_direction = Vector2.ZERO
+			if not _cover_found:
+				_cover_found = _find_cover_point()
+			if _cover_found and _flat_distance(_cover_point) > 0.9 and _cover_held <= 0.0:
+				body.remove_from_group(AT_COVER_GROUP)
+				_walk_to(_cover_point, delta)
+				return
+			body.add_to_group(AT_COVER_GROUP)
 			source.hold_slide(true)
-			if _clock >= float(step["seconds"]):
+			_cover_held += delta
+			if _cover_held >= float(step["seconds"]):
 				source.hold_slide(false)
+				body.remove_from_group(AT_COVER_GROUP)
+				_cover_found = false
+				_cover_held = 0.0
 				_next()
 		"look":
 			var error: float = _turn_towards(landmarks[step["at"]], delta, float(step["seconds"]))
 			if absf(error) < ALIGNED_RADIANS or _clock >= float(step["seconds"]) + 1.0:
 				_next()
 		"portal":
-			# Face the portal and run at it; the match's own arrival ends it.
-			_turn_towards(landmarks["portal"], delta, 0.5)
-			source.command.move_direction = Vector2(0.0, 1.0)
-			if _clock >= float(step["seconds"]):
+			# The brain runs the route flat out, cover off; the arrival (finisher armed or lap done) ends it.
+			var me: MatchParticipant = controller.resolve_participant(body)
+			var arrived: bool = me != null and (me.is_finisher or (me.tracker != null and me.tracker.has_finished()))
+			if arrived or _clock >= float(step["seconds"]):
 				_next()
 		"brawl":
 			# The match drives brawl bots itself; hand the body back for it.
@@ -239,19 +281,19 @@ func _tick_guard(delta: float) -> void:
 					if _shots_left <= 0:
 						_next()
 		"hit":
-			_tick_sure_hit()
+			_tick_sure_hit(String(step["target"]))
 
 
 ## A scripted hit: the nearest runner on screen, the aim written straight onto the chest with the round's lead
 ## and drop, no spread for that one shot. Waits HIT_WAIT_SECONDS for a runner to show.
-func _tick_sure_hit() -> void:
+func _tick_sure_hit(wanted: String) -> void:
 	if shooter.optic != null:
 		shooter.optic.set_zoomed(true)
 	if _clock >= HIT_WAIT_SECONDS:
 		_say.call("[intent] hit: no shot in %.0f s; step dropped" % HIT_WAIT_SECONDS)
 		_next()
 		return
-	var target: PlayerController = _visible_runner()
+	var target: PlayerController = _visible_runner(wanted)
 	if target == null:
 		return
 	var point: Vector3 = _aim_point(target, false)
@@ -296,7 +338,7 @@ func _set_aim(point: Vector3) -> void:
 
 
 ## The nearest living runner inside the guard's own frustum with a clear line to its chest.
-func _visible_runner() -> PlayerController:
+func _visible_runner(wanted: String = "") -> PlayerController:
 	var cam: Camera3D = body.get_node_or_null(^"Head/Camera") as Camera3D
 	if cam == null:
 		return _nearest_runner()
@@ -306,6 +348,11 @@ func _visible_runner() -> PlayerController:
 	for node: Node in get_tree().get_nodes_in_group(MatchController.RUNNER_GROUP):
 		var rival: PlayerController = node as PlayerController
 		if rival == null or rival == body:
+			continue
+		# hit:<body> names its target; a bare hit never shoots the seat (the eyes that must watch).
+		if not wanted.is_empty() and String(ids.get(rival.get_instance_id(), rival.name)) != wanted:
+			continue
+		if wanted.is_empty() and rival == seat_body:
 			continue
 		var chest: Vector3 = rival.global_position + Vector3.UP * rival.get_eye_height() * 0.75
 		if not cam.is_position_in_frustum(chest):
@@ -418,6 +465,33 @@ func _rival_within(metres: float, at_cover: bool = false) -> Node3D:
 	return best
 
 
+## The bake's nearest cover point ahead of the body, within 60 m.
+func _find_cover_point() -> bool:
+	var bake: RingBake = brain.get_navigation() if brain != null else null
+	if bake == null or not bake.is_ready():
+		return false
+	var forward: Vector3 = -body.global_transform.basis.z
+	# Past the spawn bunch: "run, then stop at cover" is a cover down the lane, not the cell at the line.
+	var taken: PackedVector3Array = PackedVector3Array()
+	var index: int = -1
+	for _try: int in 8:
+		index = bake.nearest_cover_ahead(body.global_position, forward, 60.0, taken)
+		if index < 0:
+			return false
+		if _flat_distance(bake.cover_point(index)) >= COVER_MIN_METRES:
+			break
+		taken.append(bake.cover_point(index))
+		index = -1
+	if index < 0:
+		# Nothing down the lane within 60 m: the nearest cell it did find, or crouch where it stands.
+		index = bake.nearest_cover_ahead(body.global_position, forward, 60.0, PackedVector3Array())
+		if index < 0:
+			return false
+	_cover_point = bake.cover_point(index)
+	_say.call("[intent] %s walks to cover %.1f m ahead" % [body.name, _flat_distance(_cover_point)])
+	return true
+
+
 func _flat_distance(point: Vector3) -> float:
 	return Vector2(point.x - body.global_position.x, point.z - body.global_position.z).length()
 
@@ -463,11 +537,18 @@ static func is_at_cover(participant: MatchParticipant, settled: bool) -> bool:
 	if participant.brain != null and participant.brain.get_state() == RunnerBrain.State.TAKE_COVER:
 		return true
 	var body: PlayerController = participant.body
-	return settled and body != null and body.is_on_floor() and body.get_horizontal_speed() < 0.3
+	if body != null and body.is_in_group(AT_COVER_GROUP):
+		return true
+	return settled and body != null and body.is_on_floor() and body.get_horizontal_speed() < 0.3 and body.is_crouching()
 
 
 ## Hand the body back to its shipped brain.
 func _release(why: String) -> void:
 	_done = true
+	if body != null and is_instance_valid(body):
+		body.remove_from_group(AT_COVER_GROUP)
+	if brain != null and is_instance_valid(brain):
+		brain.cover_play_enabled = true
+		brain.rival_shove_enabled = true
 	_pause_brains(false)
 	_say.call("[intent] %s released: %s" % [body.name if body != null else "?", why])
