@@ -3,20 +3,21 @@
 # A shot is filmed when its cut is missing or its entry says `refilm: <tag>`; --final films every shot --movie.
 # --plan lists every shot (reuse / film / NO STAGE / REFUSED) and exits, non-zero on NO STAGE or REFUSED.
 # Before the first take every capture shot it films is smoked headless on the Mac (shot.sh --smoke).
+# --smoke-only exits 0 after those smokes: no take, no assemble, no PC lock.
 #
-#   tools/content/short.sh <project> [--tag vN] [--final] [--plan]
+#   tools/content/short.sh <project> [--tag vN] [--final] [--plan] [--smoke-only]
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
-USAGE="usage: tools/content/short.sh <project> [--tag vN] [--final] [--plan]"
+USAGE="usage: tools/content/short.sh <project> [--tag vN] [--final] [--plan] [--smoke-only]"
 BRIEF=$(brief_path "${1:?${USAGE}}")
 NAME=$(basename "${BRIEF}" .md)
 DIR=$(project_dir "${NAME}")
 V="python3 ${CONTENT_DIR}/versions.py"
-TAG=""; FINAL=0; PLAN=0
+TAG=""; FINAL=0; PLAN=0; SMOKE_ONLY=0
 shift
 while [ $# -gt 0 ]; do
-  case "$1" in --tag) TAG="$2"; shift ;; --final) FINAL=1 ;; --plan) PLAN=1 ;; *) die "unknown option $1 (${USAGE})" ;; esac
+  case "$1" in --tag) TAG="$2"; shift ;; --final) FINAL=1 ;; --plan) PLAN=1 ;; --smoke-only) SMOKE_ONLY=1 ;; *) die "unknown option $1 (${USAGE})" ;; esac
   shift
 done
 TAG="${TAG:-$(${V} last "${BRIEF}")}"
@@ -98,6 +99,7 @@ for ROW in "${FILMS[@]+"${FILMS[@]}"}"; do
   [ -z "$(brief_field "${BRIEF}" "${ID}" capture)" ] || "${CONTENT_DIR}/shot.sh" "${BRIEF}" "${ID}" --smoke
 done
 [ "${#FILMS[@]}" = 0 ] || stage smoke "${T0}"
+if [ "${SMOKE_ONLY}" = 1 ]; then echo "short ${NAME} ${TAG} --smoke-only: ${#FILMS[@]} shot(s) smoked in $(since "${T_ALL}")"; exit 0; fi
 
 for ROW in "${FILMS[@]+"${FILMS[@]}"}"; do
   read -r ID WANT CUT FLAGS <<< "${ROW}"

@@ -11,6 +11,8 @@ tools/content/short.sh <project> [--tag vN] [--final]   # the whole version, del
 tools/content/version.sh <project> <newtag> --from vN   # vN+1 = copy of the vN Ryan watched
 ```
 
+Shorts v3 (`short3.sh`): its capture/search steps and `--intent` scripting are gone; the stage path replaced them (senate panopticon pod `data/plan/shorts-v3/DESIGN.md` §10).
+
 `short.sh` does, in order, timing each stage:
 1. `sync.sh` puts this branch on `C:\dev\verify` and imports it (never `C:\dev\panopticon`).
 2. `voice.sh --tag vN` when the table has voice lines: Andrew +5%, preflighted.
