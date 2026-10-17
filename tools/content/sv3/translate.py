@@ -20,7 +20,7 @@ RULES = """Rules (Ryan's, binding). You CHOOSE; you never invent how a take is m
 - `dials`: {} unless the note needs a dial moved; only that stage's dial names; never a dial the catalogue does not list.
 - `same_take_as`: the earlier line's id when this line is another view or the continuation of the SAME take (same stage,
   same dials); "same shot" means the same take. Else null.
-- `beat`: {tick, word} when the note's event (hit, shove, out, go) has a non-null tick in the chosen entry: `word` is one word
+- `beat`: REQUIRED {tick, word} whenever the chosen entry has a non-null tick (hit, shove, out, go); never null then: `word` is one word
   copied from the line's text, the one the note ties the event to, else the word it reads best on (default the last word).
   null when the entry has no tick for the note's event.
 - `why`: null on a pick; one line on needs_stage."""
@@ -49,13 +49,14 @@ def catalogue(stages):
     return out
 
 
-def pick(spec, stages):
+def pick(spec, stages, only=None):
     rest = sorted(set(stages.get("stages", {})) - set(S.choosable(stages))) + list(stages.get("uncatalogued") or [])
     prompt = ("You pick, per line of a short's script, the approved staged take that films its note.\n\n" + RULES
               + "\n\nCHOOSABLE:\n" + json.dumps(catalogue(stages), indent=1, ensure_ascii=False)
               + "\n\nNOT CHOOSABLE (never pick): " + (", ".join(rest) or "-")
               + "\n\nTHE SCRIPT (spec.json). Return the JSON array of picks:\n"
-              + json.dumps(lines_of(spec), indent=1, ensure_ascii=False))
+              + json.dumps([l for l in lines_of(spec) if not only or l["id"] in only], indent=1, ensure_ascii=False)
+              + ("\n\nEVERY pick above MUST carry beat {tick, word}: the entry has ticks." if only else ""))
     return llm.ask_json(prompt, S.PICK, model="opus")
 
 
@@ -108,6 +109,17 @@ def main(argv=None):
         shots, verdict = S.validate(json.load(open(a.fixture, encoding="utf-8")), stages), []
     else:
         shots = S.validate(assemble(spec, pick(spec, stages), stages), stages)
+        retry = [s for s in shots if s["needs_stage"] and (s.get("why") or "").startswith("beat missing")]
+        if retry:   # the model dropped the beat word: ask once more for those lines only, nothing else changes
+            again = pick(spec, stages, only=[s["id"] for s in retry])
+            for s in retry:
+                p = next((x for x in again if x["id"] == s["id"]), None)
+                if p and p.get("beat"):
+                    s.update(stage=p.get("stage"), pov=p.get("pov"), dials=p.get("dials") or {}, beat=p["beat"], needs_stage=False, why=None)
+                    st = S.choosable(stages).get(s["stage"] or "") or {"approved": []}
+                    ent = next((a for a in st["approved"] if a["entry"] == p.get("entry")), None)
+                    s["approved"] = {"project": ent["project"], "entry": ent["entry"]} if ent else None
+            S.validate(shots, stages)
         verdict = audit(shots, stages)
         S.validate(shots, stages)                 # an audit no cascades to every same_take_as of it
     jsonschema.validate(shots, S.SHOTS)

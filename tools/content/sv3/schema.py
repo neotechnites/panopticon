@@ -73,7 +73,10 @@ def _why_not(s, stages, by_id):
     bad = sorted(set(s["dials"]) - set(st["dials"]))
     if bad:
         return "dials %s are not dials of %s (%s)" % (bad, s["stage"], sorted(st["dials"]))
+    ticks = {k: v for k, v in (e.get("ticks") or {}).items() if v is not None}
     b = s["beat"]
+    if not b and ticks:
+        return "beat missing: %s %d has ticks %s; the line needs the word the event lands on" % (e["project"], e["entry"], sorted(ticks))
     if b:
         if b["tick"] not in TICKS or (e.get("ticks") or {}).get(b["tick"]) is None:
             return "tick %r has no approved time in %s %d" % (b["tick"], e["project"], e["entry"])
@@ -81,6 +84,12 @@ def _why_not(s, stages, by_id):
         if not hit:
             return "beat word %r is not a word of the line %r" % (b["word"], s["text"])
         b["word"] = hit[0]
+    if not s["same_take_as"] and e.get("tape"):   # one tape, N seats: the same tape as an earlier shot IS the same take
+        for t in by_id.values():
+            te = entry_of(choosable(stages).get(t["stage"] or "") or {"approved": []}, t["approved"]) if not t["needs_stage"] else None
+            if te and te.get("tape") == e.get("tape") and t["stage"] == s["stage"] and t["dials"] == s["dials"]:
+                s["same_take_as"] = t["same_take_as"] or t["id"]
+                break
     if s["same_take_as"]:
         t = by_id.get(s["same_take_as"])
         if t is None:
