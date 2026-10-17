@@ -1,7 +1,7 @@
-"""spec.json -> shots.json by extraction only (Gemini 2.5-pro, JSON schema), then a second Gemini call audits every predicate
-against its note. Exit 2 on an unmapped (non-optional) phrase or a disagreement, with both answers printed.
+"""spec.json -> shots.json by extraction only (Claude opus via sv3.llm, JSON schema), then a second Claude call audits every
+predicate against its note. Exit 2 on an unmapped (non-optional) phrase or a disagreement, with both answers printed.
 
-    python -m sv3.translate spec.json --out shots.json [--fixture shots.json]   (fixture = offline, no Gemini)
+    python -m sv3.translate spec.json --out shots.json [--fixture shots.json]   (fixture = offline, no model call)
 """
 import argparse
 import copy
@@ -13,9 +13,9 @@ import re
 
 import jsonschema
 
+from sv3 import llm
 from sv3 import schema as S
 
-MODEL = "gemini-3.1-pro-preview"
 RULES = """Ryan's rules that bind the translation:
 - A "pov"/"runner pov"/"sniper pov" is a PLAYER's eyes (seat guard or runner:any), never a free camera (free only for studio/establishing).
 - Never slow motion; never a freeze; a hit body never goes transparent. These are cut rules, not predicates: do not emit them.
@@ -73,24 +73,6 @@ EXAMPLES = json.dumps([
 ], indent=0)
 
 
-def _gemini_safe(node):
-    """Gemini's schema subset: no type lists, no null in enums; the nullable fields come back as '' and are mapped."""
-    node = copy.deepcopy(node)
-
-    def walk(n):
-        if isinstance(n, dict):
-            if isinstance(n.get("type"), list):
-                n["type"] = [t for t in n["type"] if t != "null"][0]
-            if "enum" in n:
-                n["enum"] = [e for e in n["enum"] if e is not None]
-            for v in n.values():
-                walk(v)
-        elif isinstance(n, list):
-            for v in n:
-                walk(v)
-    walk(node)
-    return node
-
 
 OPTIONAL_RE = re.compile(r"if we can|prefer|if possible|ideally|would be nice|bonus", re.I)
 FIELDS = {"event": {"ev", "by", "victim", "body", "cause", "result", "outcome", "count", "anchor"},
@@ -130,22 +112,12 @@ def _nullify(shots):
 
 
 def _client():
-    from google import genai
-    from google.genai import types
-    if not os.environ.get("GEMINI_API_KEY"):
-        raise SystemExit("GEMINI_API_KEY not set")
-    return genai.Client(http_options=types.HttpOptions(timeout=600_000)), types
+    """Kept for the call shape; the model is the Claude Code CLI (sv3.llm), no key and no client object."""
+    return None, None
 
 
 def _ask_json(client, types, prompt, json_schema):
-    cfg = dict(response_mime_type="application/json", temperature=0.0)
-    try:
-        r = client.models.generate_content(model=MODEL, contents=prompt,
-                                           config=types.GenerateContentConfig(response_json_schema=_gemini_safe(json_schema), **cfg))
-    except Exception as e:  # schema subset rejected: ask without it, validate locally
-        print("gemini schema rejected (%s); validating locally" % str(e)[:120], file=sys.stderr)
-        r = client.models.generate_content(model=MODEL, contents=prompt, config=types.GenerateContentConfig(**cfg))
-    return json.loads(r.text)
+    return llm.ask_json(prompt, json_schema, model="opus")
 
 
 def film_check(s):
@@ -244,7 +216,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("spec")
     ap.add_argument("--out", required=True)
-    ap.add_argument("--fixture", help="offline: take this shots.json instead of calling Gemini (selftest)")
+    ap.add_argument("--fixture", help="offline: take this shots.json instead of calling the model (selftest)")
     a = ap.parse_args(argv)
     spec = json.load(open(a.spec, encoding="utf-8"))
     if a.fixture:
