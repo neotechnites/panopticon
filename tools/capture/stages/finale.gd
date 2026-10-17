@@ -19,6 +19,7 @@ var _driver: Node = null
 var _arrived: bool = false
 var _hand: Node = null
 var _window_deg: float = 0.0
+var _thrown: String = ""
 
 
 func bots() -> int:
@@ -37,8 +38,12 @@ func before_start() -> void:
 			if _hand != null and is_instance_valid(_hand):
 				_hand.queue_free()
 			_hand = null
+			_thrown = guard.body.name
+			print("[event] %6.2f  shove  %s -> %s kill beat" % [elapsed(), _runner.controller.name, guard.body.name])
 			say("finale shove: %s thrown at %v for %.1f s, tower open %s" % [guard.body.name, throw, seconds, controller().is_tower_open()])
 	)
+	controller().seat_changed.connect(func(_p: MatchParticipant, _t: int) -> void:
+		if _thrown != "": print("[event] %6.2f  tower_out  %s" % [elapsed(), _thrown]))
 
 
 func cast(runners: Array[RunnerBrain]) -> bool:
@@ -100,7 +105,7 @@ func tick(_delta: float) -> void:
 	var who: MatchParticipant = LIB.participant_of(controller(), _runner.controller)
 	if who != null and who.tracker != null:
 		who.tracker.lap_finished.emit(30.0, 240.0)
-		say("finale: %s through the portal from %.1f m" % [_runner.controller.name, short])
+		print("[event] %6.2f  arrive  %s through the portal from %.1f m" % [elapsed(), _runner.controller.name, short])
 	_driver.flag("arrived")
 
 
