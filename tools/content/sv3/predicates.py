@@ -12,7 +12,8 @@ class Recording:
         self.pool, self.tape, self.seat = pool, tape, seat
         d = os.path.join(pool, tape)
         fs = seat.replace(":", "_")
-        self.take = json.load(open(os.path.join(d, "take.json")))
+        tj = os.path.join(d, fs + ".take.json")          # capture.py pulls the recorder's take.json as <seat>.take.json
+        self.take = json.load(open(tj if os.path.exists(tj) else os.path.join(d, "take.json")))
         self.events = _jsonl(os.path.join(d, fs + ".events.jsonl"))
         self.vis = _jsonl(os.path.join(d, fs + ".vis.jsonl"))
         self.file = (self.take.get("files") or {}).get(seat) or (self.take.get("files") or {}).get(fs) \
@@ -106,7 +107,8 @@ def load_pool(pool):
         return recs
     for tape in sorted(os.listdir(pool)):
         d = os.path.join(pool, tape)
-        if not os.path.isfile(os.path.join(d, "take.json")) or "trailer" in tape:
+        if "trailer" in tape or not (os.path.isfile(os.path.join(d, "take.json"))
+                                     or any(f.endswith(".take.json") for f in os.listdir(d))):
             continue      # rule 370: trailer footage never reaches a short
         for f in sorted(os.listdir(d)):
             if f.endswith(".events.jsonl"):
