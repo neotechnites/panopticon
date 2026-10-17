@@ -105,8 +105,9 @@ SIZE="$SIZE"
 PC_PROJECT='%(wt)s'
 pc_lock_take "$WHAT" "$EXPECTED"
 pc <<EOF
-New-Item -ItemType Directory -Force -Path '%(dir)s' | Out-Null
 Remove-Item -LiteralPath '%(dir)s\%(sf)s' -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force -Path '%(dir)s' | Out-Null
+Write-Output 'pool dir ready'
 EOF
 t0=$(now_ms)
 pc_rough "--script res://tools/capture/pill_match.gd -- $ARGS" '%(glog)s' '%(raw)s' | sed 's/^/  | /'
@@ -124,7 +125,7 @@ EOF
     env = dict(os.environ, LIB=LIB, SIZE=SIZE, WHAT="sv3 pill take %s %s" % (key, sf), EXPECTED=str(expected), ARGS=args)
     t_rec = time.time()
     try:
-        r = subprocess.run(["bash", "-c", script], env=env, timeout=expected * 3 + 90)
+        r = subprocess.run(["bash", "-x", "-c", script] if os.environ.get("PILL_DEBUG") else ["bash", "-c", script], env=env, timeout=expected * 3 + 90)
     except subprocess.TimeoutExpired:
         raise SystemExit("pill: take %s/%s ran past %d s; Godot log %s" % (key, sf, expected * 3 + 90, glog))
     if r.returncode != 0:
