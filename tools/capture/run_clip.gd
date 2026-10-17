@@ -1491,6 +1491,8 @@ func _install_intents() -> bool:
 		var tower_brain: TowerShooter = _controller._find_tower_brain(participant) if participant.is_shooter else null
 		var driver: Node = SEAT_INTENT.new()
 		driver.name = "ClipIntent_%s" % participant.body.name
+		driver.set(&"ids", _ids)
+		driver.set(&"seat_body", _seat_body)
 		root.add_child(driver)
 		if not driver.install(participant.body, participant.brain, tower_brain, _controller, marks, entry.substr(eq + 1), func(line: String) -> void: print(line)):
 			_fail("--intent for %s would not parse." % entry.substr(0, eq))
