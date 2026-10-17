@@ -1,34 +1,35 @@
 #!/usr/bin/env bash
-# Shorts v3 (docs/SHORTS_V3_DESIGN.md): Ryan's script in, a reviewed 9:16 draft out, every step timed.
+# Shorts v3 on the stage path (pod DESIGN §10): Ryan's script in, a reviewed 9:16 draft out, every step timed.
 #
-#   tools/content/short3.sh <script.md> --name <project> --tag vN [--pool DIR]
+#   tools/content/short3.sh <script.md> --name <project> --tag vN [--mac-only]
 #
-# Steps, in order, each a WP2 CLI (design 8) or a PC script: script, translate, voice, plan, capture,
-# search, edl, assemble, review, deliver. The first non-zero exit stops the run with that step's
-# output; a step whose module is not built stops the run naming it (no skip, no fallback). Times go
-# to tools/content/projects/<project>/sv3/<tag>/timing.json; the total clock is printed last.
+# Steps: seams, script, translate, voice, words, plan, short (short.sh), pull, frames, review (advisory: its
+# exit is recorded, never fatal), deliver. --mac-only stops after short.sh's Mac smokes, never taking the PC lock.
+# Any other non-zero exit stops the run. Times go to tools/content/projects/<project>/sv3/<tag>/timing.json.
 # Delivery: PC final\<tag>.mp4 -> ~/Desktop/panopticon-renders/social/shorts/<NN>_<project>/<project>_<tag>.mp4, never overwritten.
 set -uo pipefail
 source "$(dirname "$0")/lib.sh"
 
-USAGE="usage: tools/content/short3.sh <script.md> --name <project> --tag vN [--pool DIR]"
+USAGE="usage: tools/content/short3.sh <script.md> --name <project> --tag vN [--mac-only]"
 SCRIPT="${1:?${USAGE}}"; shift
-NAME=""; TAG=""; POOL="${HOME}/Desktop/panopticon-renders/content/_tapes"
+NAME=""; TAG=""; MAC_ONLY=0
 while [ $# -gt 0 ]; do
-  case "$1" in --name) NAME="$2"; shift ;; --tag) TAG="$2"; shift ;; --pool) POOL="$2"; shift ;; *) die "unknown option $1 (${USAGE})" ;; esac
+  case "$1" in --name) NAME="$2"; shift ;; --tag) TAG="$2"; shift ;; --mac-only) MAC_ONLY=1 ;; *) die "unknown option $1 (${USAGE})" ;; esac
   shift
 done
 [ -f "${SCRIPT}" ] || die "no script at ${SCRIPT}"
 [ -n "${NAME}" ] && [ -n "${TAG}" ] || die "${USAGE}"
 [[ "${TAG}" =~ ^v[0-9]+$ ]] || die "--tag is vN"
 SV3="${CONTENT_DIR}/sv3"
+STAGES="${SV3}/stages.json"
 PY="${CONTENT_DIR}/.venv/bin/python"
 [ -x "${PY}" ] || die "short3: no ${PY}; run tools/content/sv3/setup.sh (WP2) first"
+[ -f "${STAGES}" ] || die "short3: no ${STAGES}; run sv3.catalogue first"
 BRIEF="${CONTENT_DIR}/projects/${NAME}.md"
 WORK="${CONTENT_DIR}/projects/${NAME}/sv3/${TAG}"
 DIR=$(project_dir "${NAME}")
 SOCIAL="${HOME}/Desktop/panopticon-renders/social/shorts"
-mkdir -p "${WORK}/voice" "${POOL}" || die "cannot make ${WORK}"
+mkdir -p "${WORK}/voice" "${WORK}/frames" || die "cannot make ${WORK}"
 [ -f "${BRIEF}" ] || printf '# %s\nkind: short\n' "${NAME}" > "${BRIEF}"
 
 # The Mac copy's folder: the existing <NN>_<name>, else the next number.
@@ -53,7 +54,7 @@ d["total_seconds"] = sum(s["seconds"] for s in d["steps"])
 json.dump(d, open(p, "w"), indent=1)
 PY
 }
-step() {  # step <name> <command...> : timed; a non-zero exit ends the run here
+step() {  # step <name> <command...> : timed; a non-zero exit ends the run here (ADVISORY=1: recorded only)
   local name="$1" t0 code secs; shift
   t0=$(now_ms)
   echo "== ${name}: $*"
@@ -61,7 +62,7 @@ step() {  # step <name> <command...> : timed; a non-zero exit ends the run here
   secs=$(( ($(now_ms) - t0) / 1000 ))
   record "${name}" "${secs}" "${code}"
   echo "== ${name}: ${secs}s (exit ${code})"
-  if [ "${code}" -ne 0 ]; then
+  if [ "${code}" -ne 0 ] && [ "${ADVISORY:-0}" = 0 ]; then
     echo "short3: stopped at ${name} (exit ${code}) after $(since "${T_ALL}"); timings in ${TIMING}" >&2
     exit "${code}"
   fi
@@ -71,7 +72,7 @@ need() {  # need <step> <module> : the WP2 module must exist; nothing is skipped
 }
 sv3() { (cd "${CONTENT_DIR}" && "${PY}" -m "sv3.$1" "${@:2}"); }
 
-# The voice is spoken from the brief's ## script <tag> rows; until edl.py writes the real table, a
+# The voice is spoken from the brief's ## script <tag> rows; until plan.py writes the real table, a
 # provisional one carries every voiced line's text (his words, verbatim) so every slot's length is known.
 provisional_table() {
   grep -q "^## script ${TAG}\$" "${BRIEF}" && return 0
@@ -79,15 +80,41 @@ provisional_table() {
 import json, sys
 spec, tag = json.load(open(sys.argv[1])), sys.argv[2]
 lines = spec["lines"] if isinstance(spec, dict) else spec
-print("\n## script %s\n# provisional (short3.sh): voice only; sv3.edl writes the cut's table\nvoice: en-US-AndrewNeural +5%%\n"
+print("\n## script %s\n# provisional (short3.sh): voice only; sv3.plan writes the cut's table\nvoice: en-US-AndrewNeural +5%%\n"
       "| line | clip | in | len | fit | speed | text |" % tag)
 for l in lines:
     if l.get("text") and not l.get("beat"):
         print("| %s |  |  |  | line |  | %s |" % (l["id"], l["text"].replace("|", "/")))
 PY
 }
+unprovision() {  # the provisional table leaves the brief before plan.py appends the cut's ## script <tag>
+  python3 - "${BRIEF}" "${TAG}" <<'PY'
+import re, sys
+p, tag = sys.argv[1:3]
+src = open(p).read()
+m = re.search(r"\n## script %s\n# provisional \(short3\.sh\)[^\n]*\n.*?(?=\n## |\Z)" % re.escape(tag), src, re.S)
+if m:
+    open(p, "w").write(src[:m.start()] + src[m.end():])
+PY
+}
+review_edl() {  # the cut's windows for sv3.review, from the brief's ## script <tag> rows (numeric len only)
+  python3 - "${BRIEF}" "${TAG}" "${WORK}/edl.json" "${CONTENT_DIR}/pc" <<'PY'
+import json, sys
+brief, tag, out, pc = sys.argv[1:5]
+sys.path.insert(0, pc)
+import brief as b
+edl = []
+for r in b.parse(brief)["scripts"][tag]["rows"]:
+    try:
+        edl.append({"id": r["line"], "line": r["line"], "len": float(r["len"])})
+    except (KeyError, TypeError, ValueError):
+        pass
+json.dump(edl, open(out, "w"), indent=1)
+PY
+}
 pull_words() { pc_pull "$(ff "${DIR}")/voice/words.json" "${WORK}/voice/words.json"; }
 pull_final() { pc_pull "$(ff "${DIR}")/final/${TAG}.mp4" "${WORK}/final.mp4"; }
+frames() { ffmpeg -loglevel error -y -i "${WORK}/final.mp4" -vf fps=1 "${WORK}/frames/%03d.png"; }
 deliver() {
   mkdir -p "${NN_DIR}"
   [ ! -e "${MAC_COPY}" ] || { echo "short3 refuses: ${MAC_COPY} exists" >&2; return 2; }
@@ -96,16 +123,21 @@ deliver() {
 
 need seams seams;         step seams     sv3 seams
 need script script;       step script    sv3 script "${SCRIPT}" --out "${WORK}/spec.json"
-need translate translate; step translate sv3 translate "${WORK}/spec.json" --out "${WORK}/shots.json"
+need translate translate; step translate sv3 translate "${WORK}/spec.json" --stages "${STAGES}" --out "${WORK}/shots.json"
 step voice_table provisional_table
 step voice "${CONTENT_DIR}/voice.sh" "${NAME}" --tag "${TAG}"
 step words pull_words
-need plan plan;           step plan      sv3 plan "${WORK}/shots.json" --pool "${POOL}" --out "${WORK}/plan.json"
-need capture capture;     step capture   sv3 capture "${WORK}/plan.json" --pool "${POOL}"
-need search search;       step search    sv3 search "${WORK}/plan.json" "${WORK}/shots.json" --pool "${POOL}" --words "${WORK}/voice/words.json" --out "${WORK}/edl.json"
-need edl edl;             step edl       sv3 edl "${WORK}/edl.json" "${WORK}/shots.json" "${WORK}/spec.json" --brief "${BRIEF}" --tag "${TAG}" --words "${WORK}/voice/words.json"
-step assemble "${CONTENT_DIR}/assemble.sh" "${NAME}" --tag "${TAG}"
+step unprovision unprovision
+need plan plan;           step plan      sv3 plan "${WORK}/shots.json" --stages "${STAGES}" --words "${WORK}/voice/words.json" --brief "${BRIEF}" --tag "${TAG}"
+if [ "${MAC_ONLY}" = 1 ]; then
+  step short "${CONTENT_DIR}/short.sh" "${NAME}" --tag "${TAG}" --smoke-only
+  echo "short3 ${NAME} ${TAG} --mac-only: Mac smokes passed in $(since "${T_ALL}"); timings in ${TIMING}"
+  exit 0
+fi
+step short "${CONTENT_DIR}/short.sh" "${NAME}" --tag "${TAG}"
 step pull pull_final
-need review review;       step review    sv3 review "${WORK}/final.mp4" "${WORK}/edl.json" "${WORK}/shots.json" --out "${WORK}/review.json"
+step frames frames
+step review_edl review_edl
+need review review;       ADVISORY=1 step review sv3 review "${WORK}/final.mp4" "${WORK}/edl.json" "${WORK}/shots.json" --out "${WORK}/review.json"
 step deliver deliver
 echo "short3 ${NAME} ${TAG}: ${MAC_COPY} in $(since "${T_ALL}") -- $(python3 -c "import json; print(', '.join('%s %ss' % (s['step'], s['seconds']) for s in json.load(open('${TIMING}'))['steps']))")"

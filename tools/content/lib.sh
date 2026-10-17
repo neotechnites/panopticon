@@ -104,7 +104,7 @@ EOF
   PC_LOCK_RENEWER=$!
 }
 
-# Per-take lease (shorts v3, sv3/capture.py): one take, expiry 3x its expected seconds, no renewer,
+# Per-take lease: one take, expiry 3x its expected seconds, no renewer,
 # so a Mac that dies mid-take leaves a lease that expires by itself; pc_lock waits on a live one.
 pc_lock_take() {  # pc_lock_take <what> <expected-seconds>
   PC_LOCK_TTL=$(( ${2:-60} * 3 )) PC_LOCK_RENEW=0 pc_lock "$1"
@@ -365,7 +365,7 @@ try {
 }
 \$ErrorActionPreference = 'Continue'
 Get-Content '${raw}.err' -ErrorAction SilentlyContinue | Select-Object -Last 4
-Get-Content '${log}' -ErrorAction SilentlyContinue | Where-Object { \$_ -match '^(shot |look |\\[stage\\]|\\[event\\]|\\[pov\\]|\\[match\\]|\\[intent\\]|\\[seat\\]|--intent |--seat=|SCRIPT ERROR|SHOT )' } | Select-Object -Last 14
+Get-Content '${log}' -ErrorAction SilentlyContinue | Where-Object { \$_ -match '^(shot |look |\\[stage\\]|\\[event\\]|\\[pov\\]|\\[match\\]|\\[seat\\]|--seat=|SCRIPT ERROR|SHOT )' } | Select-Object -Last 14
 \$d = ffmpeg -hide_banner -nostats -i '${raw}' -an -vf 'negate,blackdetect=d=0.25:pix_th=0.05:pic_th=0.98' -f null - 2>&1 | Select-String 'black_end:([0-9.]+)' | Select-Object -Last 1
 if (-not \$d) { Write-Output 'rough: no sync frames in the recording'; exit 3 }
 \$t0 = [double]::Parse(\$d.Matches[0].Groups[1].Value, [Globalization.CultureInfo]::InvariantCulture) - 1.0 / ${FPS}
