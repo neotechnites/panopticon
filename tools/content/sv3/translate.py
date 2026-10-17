@@ -214,7 +214,11 @@ def audit(spec, shots, client, types):
               "(the victim of a kill the pov watches, the runners a sniper shoots at) is framing that makes the event visible,\n"
               "never invented; window lead_s/tail_s/until (e.g. until ragdoll so the body's fall is seen) are framing: NEVER list them as invented. moving() uses for_s_before/for_s_after (for_s_before\n"
               "defaults 1.0): read them literally before judging. moving(seat) in a runner pov is Ryan's rule 419 (a runner\n"
-              "never sits there), never invented. Flag only real drops and real inventions. Return JSON: "
+              "never sits there), never invented. film.intents are HOW the shot is made, not what is seen: a step the note's action needs\n"
+              "(scope before a sniper's shot, run before a shove, look before a turn) is implied, never invented; list an intent\n"
+              "only when it CONTRADICTS the note (a shove the note forbids, a seat other than the pov the note names).\n"
+              "Durations (for_s_before/after, lead_s, wait:s, cover:at:s) are the translator's defaults, never `missing`.\n"
+              "Flag only real drops and real inventions. Return JSON: "
               "[{\"id\":..., \"invented\":[...], \"missing\":[...], \"ok\": true|false, \"why\": \"one line\"}].\n\n"
               + S.PREDICATE_DOC + "\n\n" + RULES + "\n\nSCRIPT:\n" + json.dumps(spec, indent=1, ensure_ascii=False)
               + "\n\nTRANSLATION:\n" + json.dumps(shots, indent=1, ensure_ascii=False))
