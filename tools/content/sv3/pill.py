@@ -52,7 +52,7 @@ if (Test-Path '%(wt)s') { git -C %(base)s worktree remove --force '%(wt)s' 2>\$n
 git -C %(base)s worktree prune
 New-Item -ItemType Directory -Force -Path (Split-Path '%(wt)s') | Out-Null
 git -C %(base)s worktree add -q -f --detach '%(wt)s' %(commit)s
-Get-ChildItem '%(wt)s' -File -Filter '*.md' | Remove-Item -Force
+Get-ChildItem '%(wt)s' -Recurse -File -Filter '*.md' | Where-Object { \$_.FullName -notlike '*\.git\*' } | Remove-Item -Force
 Remove-Item -LiteralPath '%(wt)s/CLAUDE.md', '%(wt)s/addons', '%(wt)s/tools' -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path '%(wt)s/tools/capture' | Out-Null
 Write-Output ('pill worktree ' + (git -C '%(wt)s' log --oneline -1))
@@ -183,15 +183,17 @@ def check(pool_mac, seed):
         print("check: only %s in %s" % (list(logs), d))
         return 1
     names = sorted(logs)
-    a, b = logs[names[0]], logs[names[1]]
+    a = logs[names[0]]
     strip = lambda e: {k: v for k, v in e.items() if k != "t"}
     diverge = None
-    for i, (x, y) in enumerate(zip(a, b)):
-        if strip(x) != strip(y) or abs(x["t"] - y["t"]) > 0.05:
-            diverge = (i, x, y)
-            break
-    if diverge is None and len(a) != len(b):
-        diverge = (min(len(a), len(b)), a[len(b):len(b) + 1], b[len(a):len(a) + 1])
+    for n in names[1:]:                      # every seat against the first (audit 3)
+        b = logs[n]
+        for i, (x, y) in enumerate(zip(a, b)):
+            if strip(x) != strip(y) or abs(x["t"] - y["t"]) > 0.05:
+                diverge = diverge or (i, x, y)
+                break
+        if diverge is None and len(a) != len(b):
+            diverge = (min(len(a), len(b)), a[len(b):len(b) + 1], b[len(a):len(a) + 1])
     for n in names:
         c = {}
         for e in logs[n]:

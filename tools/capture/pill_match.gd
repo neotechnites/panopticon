@@ -219,6 +219,7 @@ func _hook_events() -> void:
 			_ev("ragdoll", {"body": "runner:%d" % caught.index})
 			_was_running[caught.index] = false
 			_was_running[ghost.index] = true
+			_was_visible[caught.index] = false
 	)
 	_controller.seat_changed.connect(
 		func(participant: MatchParticipant, turns: int) -> void:
@@ -303,13 +304,14 @@ func _sample_vis() -> void:
 				query.exclude = [seat_body.get_rid()]
 			var hit: Dictionary = space.intersect_ray(query)
 			occ = hit.is_empty() or (hit["collider"] as Node) != body
-		var head: Vector2 = cam.unproject_position(body.global_position + Vector3.UP * (eye_y + 0.15))
-		var feet: Vector2 = cam.unproject_position(body.global_position)
-		var at: Vector2 = cam.unproject_position(chest)
+		# Screen space only for a body in the frustum: unproject behind the camera is garbage (audit 6).
+		var head: Vector2 = cam.unproject_position(body.global_position + Vector3.UP * (eye_y + 0.15)) if in_frustum else Vector2.ZERO
+		var feet: Vector2 = cam.unproject_position(body.global_position) if in_frustum else Vector2.ZERO
+		var at: Vector2 = cam.unproject_position(chest) if in_frustum else Vector2.ZERO
 		row["bodies"].append({
 			"id": _id_of(participant), "on": in_frustum and not occ,
 			"h": snappedf(absf(head.y - feet.y) / maxf(size.y, 1.0), 0.001) if in_frustum else 0.0,
-			"x": snappedf(at.x / maxf(size.x, 1.0), 0.001), "y": snappedf(at.y / maxf(size.y, 1.0), 0.001),
+			"x": snappedf(at.x / maxf(size.x, 1.0), 0.001) if in_frustum else 0.0, "y": snappedf(at.y / maxf(size.y, 1.0), 0.001) if in_frustum else 0.0,
 			"d": snappedf(cam.global_position.distance_to(chest), 0.1), "occ": occ, "state": _state_of(participant),
 		})
 	_vis.append(JSON.stringify(row))
