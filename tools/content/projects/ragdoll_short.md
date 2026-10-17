@@ -220,7 +220,12 @@ captions_y: 0.72
 ## script v16
 from: v14
 notes: ok, go fix ragdoll and get me a version that neess only my voiceover, and the comment. yes totally fine to use the old footage
-# v12's rows; L4 = v7's own tower take refilmed with a longer lead-in (cut 12), L5 = forest_window at scope fov 10 (cut 14).
+# v16 = v14's own frames (final/master/v14.mkv: B1 = L1-L4 with the placeholder card, B6 = L6) with two lines changed:
+# L5 = v7's hell montage (v6's kills g4 j78 h40 g12 g10; forest timed out: shots 16-18 unreadable), L7+L8 = shot 19:
+# the corridor and portal, the finale cinematic's shove at 37.42 s (no particles), the flat throw cut at 38.80 s before
+# the guard drops through the pit floor (38.93-39.1 s), L8 the next rider on the ring from 39.5 s.
+# Card swap: B1 carries v14's baked placeholder (w=940 y=0.2, 'this' to 'Ragdolls'+0.6 = 17.90-21.42 s); a real card
+# at w=940 y=0.2 that is at least as tall covers it on the same slide (assemble card on a split L4 beat).
 notes: ragdoll is ok i think, the last shot shows the gaurd clipping into the map after being chucked, and shouldnt. also this sint youre fault, bur we now have a forest map we should be using for some gameplay clips. lets replace the gameplay of the hitting shots montage to be in the forest. also, we should cut after "not an animator" and then the shot of the person getting shoved off and ragdolling, is geniunely, a perfect shot, with the execption that the eye isnt looking at the pov player, and needs to be. so please run that exactly how it was and just fix the eye thing.
 # Built from v7 (ragdoll_short_rough_v7.mp4), not v8: L1-L3 are v7's own picture and sound to L4's start (12.72 s).
 # L4 the tower refilm alone after "not an animator" (hit 8.68 s into cuts/04 on "Ragdolls" 8.108 s), L5 the forest
@@ -233,12 +238,11 @@ captions_font: Impact
 captions_size: 76
 captions_y: 0.72
 | line | clip | in | len | fit | speed | text | card |
-| V7 | ragdoll_short_rough_v7.mp4@0:12.7167 |  |  | beat 12.7167 |  |  |  |
-| L4 | cuts/12.mp4@0.572 |  |  | line |  | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem. Ragdolls | cards/L4_card0.png w=940 y=0.2 from=this to=Ragdolls+0.6 |
-| L5 | cuts/14.mp4@0.9:3.0,cuts/14.mp4@5.6 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
-| L6 | cuts/06.mp4@0 |  |  | line |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
-| L7 | cuts/08_v10.mp4 | 37.0 |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
-| L8 | cuts/08_v10.mp4 | cont |  | line |  | Let me know what else I should add in the comments |  |
+| B1 | final/master/v14.mkv@0:21.7333 |  |  | beat 21.7333 |  |  |  |
+| L5 | v7_05_g4.mp4@1.53:1.30,v7_05_j78.mp4@10.70:1.25,v7_05_h40.mp4@5.76:1.30,v7_05_g12.mp4@12.41:1.25,v7_05_g10.mp4@7.95:1.30 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
+| B6 | final/master/v14.mkv@28.05:4.9 |  |  | beat 4.9 |  |  |  |
+| L7 | cuts/19.mp4 | 33.85 |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
+| L8 | cuts/19.mp4@39.5 |  |  | line |  | Let me know what else I should add in the comments |  |
 
 ## 16
 said: L5 -- Ryan: "lets replace the gameplay of the hitting shots montage to be in the forest"; "fast clips of the sniper hitting shots"; "dont last long enough for you to see the ragdoll, and every single one is an ariel snipe"; "none of the snipes have projectiles. they need to": a plain forest bot match down the shipped guard's scope, 3 runners; probe_ring --los (forest, eye 28.9): open at r 50-54 on 4, 12, 24-36, 44-48, 60, 72, 80-84, 96, 116, 124, 140-144, 152, 160, 176, 188, 196, 204, 212-216, 224-232, 240, 248-252, 264, 272, 288, 296-300, 316, 324-328, 336, 344-356 deg (canopy between). Taped kills: 0.95 s Runner_3 at 15.7 deg, 19.47 s Runner_1 at 230.8 deg
