@@ -223,7 +223,7 @@ var _kill_id: String = ""
 var _kill_at: float = -1.0
 var _kill_by_flag: bool = false
 var _studio: bool = false
-var _intent: Node = null
+var _intents: Array[Node] = []
 var _free_pose_set: bool = false
 var _reasserted: int = 0
 var _finale_view: FinaleView = null
@@ -267,6 +267,7 @@ func _initialize() -> void:
 		"kill": "",
 		"cam": "",
 		"seat-intent": "",
+		"intent": "",
 	})
 	_sync_frames = int(_options.get("sync", 0))
 	if _sync_frames > 0 and OS.has_feature("movie"):
@@ -1449,23 +1450,46 @@ func _build_match() -> void:
 	if kill.contains("@"):
 		_kill_id = kill.get_slice("@", 0)
 		_kill_at = float(kill.get_slice("@", 1))
-	var steps: String = String(_options.get("seat-intent", ""))
-	if not steps.is_empty() and String(_options.get("tape", "")) != "":
-		print("[intent] ignored: a tape replays the seat's recorded inputs")
-		steps = ""
-	if not steps.is_empty() and _seat_participant != null:
-		_intent = SEAT_INTENT.new()
-		_intent.name = "ClipSeatIntent"
-		root.add_child(_intent)
-		var marks: Dictionary = {"tower": _tower_point(), "portal": _controller._end_point}
-		if not _intent.install(_seat_body, _seat_participant.brain, _controller, marks, steps, func(line: String) -> void: print(line)):
-			_fail("--seat-intent would not parse.")
-			return
+	if not _install_intents():
+		return
 	var log_dir: String = String(_options.get("log", ""))
 	if not log_dir.is_empty() and not DirAccess.dir_exists_absolute(log_dir):
 		DirAccess.make_dir_recursive_absolute(log_dir)
 	print("[match] map %s opening %s seat %s bots %d seed %d for %.0f s; log %s" % [
 		_options.get("map", ""), _opening, _seat_spec, _controller.get_participants().size(), seed_value, _seconds, log_dir if not log_dir.is_empty() else "(stdout only)"])
+
+
+## --intent=<body>=<steps>;<body>=<steps> (--seat-intent=<steps> is the seat's): scripted inputs per body,
+## through its BotIntentSource; the camera stays on --seat. Nothing scripted while a tape plays.
+func _install_intents() -> bool:
+	var spec: String = String(_options.get("intent", ""))
+	var seat_steps: String = String(_options.get("seat-intent", ""))
+	if not seat_steps.is_empty() and _seat_spec != "free":
+		spec = ("%s=%s" % [_seat_spec, seat_steps]) + (";" + spec if not spec.is_empty() else "")
+	if spec.is_empty():
+		return true
+	if String(_options.get("tape", "")) != "":
+		print("[intent] ignored: a tape replays every body's recorded inputs")
+		return true
+	var marks: Dictionary = {"tower": _tower_point(), "portal": _controller._end_point}
+	for entry: String in spec.split(";", false):
+		var eq: int = entry.find("=")
+		if eq <= 0:
+			_fail("--intent entry '%s' is not <body>=<steps>." % entry)
+			return false
+		var participant: MatchParticipant = _participant_by_id(entry.substr(0, eq).strip_edges())
+		if participant == null:
+			_fail("--intent names %s; the bodies are %s." % [entry.substr(0, eq), ", ".join(_ids.values())])
+			return false
+		var tower_brain: TowerShooter = _controller._find_tower_brain(participant) if participant.is_shooter else null
+		var driver: Node = SEAT_INTENT.new()
+		driver.name = "ClipIntent_%s" % participant.body.name
+		root.add_child(driver)
+		if not driver.install(participant.body, participant.brain, tower_brain, _controller, marks, entry.substr(eq + 1), func(line: String) -> void: print(line)):
+			_fail("--intent for %s would not parse." % entry.substr(0, eq))
+			return false
+		_intents.append(driver)
+	return true
 
 
 ## Seat ids for the whole take: the opening guard is `guard`, everyone else `runner:K` in roster order.
