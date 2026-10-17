@@ -170,6 +170,9 @@ func lens(delta: float) -> bool:
 	cam.fov = float(option("spec_fov", 38.0))
 	if _hit_hold > 0.0:
 		_hit_hold -= delta
+		if OS.has_environment("STAGE_DEBUG") and is_instance_valid(_subject) and PrisonerAvatar.of(_subject) != null:
+			var c: Vector3 = PrisonerAvatar.of(_subject).drawn_centre()
+			say("spectate fall: %.1f m, %s" % [_spot.distance_to(c), "clear" if _clear(_spot, c, _subject) else "blocked"])
 		var avatar: PrisonerAvatar = PrisonerAvatar.of(_subject) if is_instance_valid(_subject) else null
 		if avatar != null:
 			_look = _look.lerp(avatar.drawn_centre(), 1.0 - exp(-delta * 6.0))

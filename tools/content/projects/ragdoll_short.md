@@ -405,6 +405,13 @@ tape: forest_near_103
 in: 0
 seconds: 3.5
 
+## 38
+said: L5 (head on v18: kill 2's lens jumped and the fall was lost): the ground lens at 11 m, still through the fall; chosen by the headless log (STAGE_DEBUG): lens on the victim at the hit 9.6 m, clear, and the ragdoll in clear sight every tick of the 1.3 s after; seed 211, 32.25 s Runner_2 (not the pink runner)
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --bots=3 --seed=211 --shimmer=0 --set=lift=1;spectate=1;spec_d=11
+tape: forest_near_211
+in: 0
+seconds: 34.5
+
 ## script v17
 from: v16
 # v17 L5 = forest kills from the ground (Ryan: "didnt i say it has to be in the forest?"): shots 27, 34, 29, 33, rs_live spectate.
