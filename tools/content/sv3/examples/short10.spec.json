@@ -1,0 +1,30 @@
+[
+ {
+  "id": "L1",
+  "text": "I'm making a game where one of your friends is a sniper in a tower",
+  "note": "pov sniper shooting at runners in hell",
+  "beat": false,
+  "same_take_as": null
+ },
+ {
+  "id": "L2",
+  "text": ", and everyone else has to get past him.",
+  "note": "pov runner in the back watching the shots at them",
+  "beat": false,
+  "same_take_as": null
+ },
+ {
+  "id": "L3",
+  "text": "Shove the guy next to you into his sights, and run.",
+  "note": "same shot, walk up to a runner stopped at cover, shove him, he gets shot and ragdolls, continue the course",
+  "beat": false,
+  "same_take_as": "L2"
+ },
+ {
+  "id": "L4",
+  "text": "the first one to make it throws him out, and now, they're the sniper.",
+  "note": "different shot, get up to the portal, go through, shove him, they go flying",
+  "beat": false,
+  "same_take_as": null
+ }
+]

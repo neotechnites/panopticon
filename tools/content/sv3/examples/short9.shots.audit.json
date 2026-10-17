@@ -1,0 +1,57 @@
+[
+ {
+  "id": "L1",
+  "invented": [],
+  "missing": [],
+  "ok": true,
+  "why": "The translation correctly captures the runner's POV of the finale shove and the subsequent cinematic in Hell."
+ },
+ {
+  "id": "L2a",
+  "invented": [],
+  "missing": [],
+  "ok": true,
+  "why": "The first part of the note is correctly translated as a runner looking at the tower while the guard shoots."
+ },
+ {
+  "id": "L2b",
+  "invented": [
+   "moving predicate with parameter 'for_s'"
+  ],
+  "missing": [],
+  "ok": false,
+  "why": "The moving() predicate uses the invalid parameter 'for_s'; the schema requires 'for_s_before' and/or 'for_s_after'."
+ },
+ {
+  "id": "L3",
+  "invented": [],
+  "missing": [],
+  "ok": true,
+  "why": "The translation correctly captures the sniper's POV of killing the runner from the previous shot."
+ },
+ {
+  "id": "L4",
+  "invented": [
+   "moving predicate with parameter 'for_s'"
+  ],
+  "missing": [],
+  "ok": false,
+  "why": "The moving() predicate uses the invalid parameter 'for_s'; the schema requires 'for_s_before' and/or 'for_s_after'."
+ },
+ {
+  "id": "L5",
+  "invented": [
+   "moving predicate with parameter 'for_s'"
+  ],
+  "missing": [],
+  "ok": false,
+  "why": "The moving() predicate uses the invalid parameter 'for_s'; the schema requires 'for_s_before' and/or 'for_s_after'."
+ },
+ {
+  "id": "L6",
+  "invented": [],
+  "missing": [],
+  "ok": true,
+  "why": "The translation correctly captures the essence of the brawl minigame with a start and an elimination event."
+ }
+]

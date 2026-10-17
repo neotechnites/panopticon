@@ -1,0 +1,37 @@
+[
+ {
+  "id": "L1",
+  "invented": [],
+  "missing": [],
+  "ok": true,
+  "why": "Correctly translates the sniper POV shot."
+ },
+ {
+  "id": "L2",
+  "invented": [
+   "moving(who=seat, min_mps=1.0)"
+  ],
+  "missing": [],
+  "ok": false,
+  "why": "Invented a moving(seat) predicate; the note only says 'watching', which could be from a stationary position."
+ },
+ {
+  "id": "L3",
+  "invented": [],
+  "missing": [
+   "The 'walk up to' part of the note is not correctly translated as moving(for_s_before=1.5).",
+   "The 'continue the course' part of the note is not correctly translated as moving(for_s_after=1.5)."
+  ],
+  "ok": false,
+  "why": "The moving() predicates for 'walk up to' and 'continue the course' use invalid/incorrect parameters."
+ },
+ {
+  "id": "L4",
+  "invented": [
+   "The unmapped[] entry is from the line's text, not the note."
+  ],
+  "missing": [],
+  "ok": false,
+  "why": "The unmapped[] entry contains text from the spoken line, not the shot note; the note itself is fully mapped."
+ }
+]

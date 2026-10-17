@@ -1,0 +1,30 @@
+[
+ {
+  "id": "M1a",
+  "invented": [],
+  "missing": [],
+  "ok": true,
+  "why": "This correctly translates the 'how it started' (old=true) part of the note from the sniper's perspective (seat=guard)."
+ },
+ {
+  "id": "M1b",
+  "invented": [],
+  "missing": [],
+  "ok": true,
+  "why": "This correctly translates the 'how it started' part from the runner's perspective, using same_match_as to link it to the previous shot."
+ },
+ {
+  "id": "M1c",
+  "invented": [],
+  "missing": [],
+  "ok": true,
+  "why": "This correctly translates the 'how its going' (old=false) and 'cut to forest' (map=forest) part from the sniper's perspective."
+ },
+ {
+  "id": "M1d",
+  "invented": [],
+  "missing": [],
+  "ok": true,
+  "why": "This correctly translates the 'how its going' part from the runner's perspective in the forest, using same_match_as."
+ }
+]
