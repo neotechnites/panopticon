@@ -545,6 +545,70 @@
     }
    ]
   },
+  "hell_explainer": {
+   "map": "hell",
+   "shot": "s3_open_lane",
+   "povs": [
+    "guard",
+    "runner"
+   ],
+   "dials": {
+    "start": "34,30,25",
+    "r": 49.5,
+    "stop": 68.5,
+    "pov_stop": 65.0,
+    "walk_at": 6.0,
+    "walk": 0.35,
+    "reach": 1.8,
+    "watch": 1.1,
+    "run_to": 100.0,
+    "window": 62.0,
+    "hand_at": 0.8,
+    "zoom_at": 1.2,
+    "miss_lead": 2.0,
+    "miss_mid": 3.4,
+    "miss_by": 1.4,
+    "drop_at": 5.5,
+    "drop_delay": 0.3,
+    "impulse": 0.0,
+    "up": 0.0
+   },
+   "for_shorts": true,
+   "approved": [
+    {
+     "project": "stages",
+     "entry": 1,
+     "said": "short 10 L1, guard POV in hell: the hand at the 62 deg window puts a round 1.4 m behind the lead (2.0 s) and the middle man (3.4 s), then drops the lead in the open past the 066 lip rock (hit 5.86 s, 82.3 deg). Mac smoke: shove 6.39, the shoved man out 7.74.",
+     "capture": "--shot=s3_open_lane --stage=hell_explainer --pov=guard --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017",
+     "tape": "stages_hell_explainer",
+     "expect": "hit Runner_1 5.75-5.95; in_frame Runner_1 +0.0-0.05; out Runner_1 +0.0-0.3; lens_clear; lens_cover <= 0.5",
+     "seconds": 5.2,
+     "in": 1.2,
+     "ticks": {
+      "hit": 5.85,
+      "shove": null,
+      "out": 6.0,
+      "go": null
+     }
+    },
+    {
+     "project": "stages",
+     "entry": 2,
+     "said": "short 10 L2+L3, the SAME tape from the back runner: the rounds land by the pack, the lead drops; the middle man stops crouched in the 066 rock's shadow at 69.0 deg, the POV walks up and shoves him from 1.8 m (6.39 s), he lands standing at 75.6 deg and is dropped (out 7.75), ragdolls; the POV watches 1.1 s and runs on up S2. The POV lives.",
+     "capture": "--shot=s3_open_lane --stage=hell_explainer --pov=runner --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017",
+     "tape": "stages_hell_explainer",
+     "expect": "hit Runner_1 5.75-5.95; out Runner_1 +0.0-0.3; shove Runner_2 +0.4-0.7; in_frame Runner_2 +1.8-2.0; out Runner_2 +1.8-2.0; alive Runner_3; lens_clear; lens_cover <= 0.5",
+     "seconds": 8.3,
+     "in": 1.2,
+     "ticks": {
+      "hit": 5.85,
+      "shove": 6.4,
+      "out": 6.0,
+      "go": null
+     }
+    }
+   ]
+  },
   "human_run": {
    "map": "hell",
    "shot": null,
