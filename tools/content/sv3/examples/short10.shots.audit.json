@@ -1,34 +1,44 @@
 [
  {
   "id": "L1",
-  "invented": [],
-  "missing": [],
-  "ok": true,
-  "why": "The translation correctly captures the sniper's POV, the location, and the action of shooting at runners."
+  "invented": [
+   "miss:2,hit in guard intents",
+   "event(shot_result, result=miss, count=2)",
+   "event(kill, cause=shot)"
+  ],
+  "missing": [
+   "on_screen(runner:any)"
+  ],
+  "ok": false,
+  "why": "The note only asks for shooting at runners, not specifically missing twice and getting a kill, and requires runners to be on screen."
  },
  {
   "id": "L2",
   "invented": [],
   "missing": [],
   "ok": true,
-  "why": "The translation correctly implements the runner POV, watching shots land on other runners, and correctly applies the mandatory moving predicate for a runner POV."
+  "why": "Correctly maps watching shots at runners from a runner POV, and the specific intents are validly shared from L3 via same_match_as."
  },
  {
   "id": "L3",
   "invented": [
-   "moving(who='seat', min_mps=1.0, for_s_before=0.0)"
+   "for_s_before=0.0 in moving predicates"
   ],
   "missing": [
-   "continue the course"
+   "for_s_before=1.5 for 'walk up to'",
+   "for_s_after=1.5 for 'continue the course'",
+   "before(shove, kill) or before(shove, ragdoll)"
   ],
   "ok": false,
-  "why": "The predicate for 'continue the course' is wrong; it should be moving(seat, for_s_after=1.5), not another moving with for_s_before."
+  "why": "Walk up to and continue the course require specific for_s_before/after values, and the sequence of shoving then getting shot requires a before() predicate."
  },
  {
   "id": "L4",
   "invented": [],
-  "missing": [],
-  "ok": true,
-  "why": "The translation correctly captures the entire finale sequence from the runner's perspective, including reaching the portal and triggering the cinematic."
+  "missing": [
+   "before(portal, shove)"
+  ],
+  "ok": false,
+  "why": "The sequence of going through the portal and then shoving the guard requires a before() predicate."
  }
 ]

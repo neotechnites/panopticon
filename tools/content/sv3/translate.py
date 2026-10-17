@@ -23,6 +23,10 @@ RULES = """Ryan's rules that bind the translation:
 - "same shot" continues the previous line's capture: same_match_as that line, same seat.
 - Montage ("clip montage", "a bunch of") = montage:N clips (3 unless the note says) with distinct(victim).
 - The note is copied byte-for-byte into `note`. You may NOT paraphrase, summarise, add, or drop any requirement.
+- film{} is REQUIRED on every match/studio shot: the exact seat body, map, opening, players, old, and intents for every
+  body the note scripts (only steps from the closed vocabulary; a note's action you cannot script goes to unmapped[]).
+  same_match_as shots share one film{} (same intents, different seat). film.seat for runner povs is runner:1 unless the
+  note's action needs another body as the pov.
 - A phrase is MAPPED when any field expresses it: match.map ("in hell", "forest"), match.old ("old", "pills", "how it started";
   "how its going" = old false), match.opening ("race", "brawl"/"starting shove tower minigame"), seat ("pov", "sniper pov",
   "runner pov"), source, camera, window.until/beat ("ragdolls" = until ragdoll or event ragdoll), overlays (cards, image URLs),
@@ -49,6 +53,7 @@ RULES = """Ryan's rules that bind the translation:
 EXAMPLES = json.dumps([
     {"id": "L1", "line": "L1", "source": "match",
      "match": {"map": "hell", "opening": "seat", "players": 4, "old": True, "same_match_as": None}, "seat": "guard",
+     "film": {"seat": "guard", "map": "hell", "opening": "seat", "players": 4, "old": True, "intents": {"guard": "scope,miss:2,hit", "runner:1": "run", "runner:2": "run"}},
      "find": [{"p": "event", "ev": "shot_result", "result": "miss", "by": "seat", "count": 2},
               {"p": "event", "ev": "kill", "by": "seat", "cause": "shot", "count": 1, "anchor": True},
               {"p": "before", "a": {"ev": "shot_result", "result": "miss"}, "b": {"ev": "kill"}},
@@ -58,6 +63,7 @@ EXAMPLES = json.dumps([
      "unmapped": [], "interpreted": "old=true because the short is about the OLD death animation; 'right at the end' = the kill is the last event, no spoken-word beat since the text ends before"},
     {"id": "L4b", "line": "L4", "source": "match",
      "match": {"map": "hell", "opening": "seat", "players": 4, "old": False, "same_match_as": "L4a"}, "seat": "runner:any",
+     "film": {"seat": "runner:1", "map": "hell", "opening": "seat", "players": 4, "old": False, "intents": {"guard": "scope,miss:2,hit", "runner:1": "run", "runner:2": "run"}},
      "find": [{"p": "event", "ev": "kill", "victim": "other", "cause": "shot", "count": 1, "anchor": True},
               {"p": "on_screen", "who": "victim", "min_h": 0.12, "for_s_before": 1.0, "for_s_after": 1.2},
               {"p": "moving", "who": "victim", "min_mps": 1.0}, {"p": "moving", "who": "seat", "min_mps": 1.0}],
@@ -140,13 +146,27 @@ def _ask_json(client, types, prompt, json_schema):
     return json.loads(r.text)
 
 
+def film_check(s):
+    f = s.get("film") or {}
+    out = []
+    for body, steps in (f.get("intents") or {}).items():
+        pat = S.GUARD_STEP if body == "guard" else S.RUNNER_STEP
+        for st in [x.strip() for x in steps.split(",") if x.strip()]:
+            if not re.match(pat, st):
+                out.append("%s film.intents[%s]: %r is not a step" % (s["id"], body, st))
+    if s["source"] in ("match", "studio") and s["seat"] != "free" and f.get("seat") != s["seat"] and not (
+            s["seat"] == "runner:any" and str(f.get("seat", "")).startswith("runner")):
+        out.append("%s film.seat %r does not match seat %r" % (s["id"], f.get("seat"), s["seat"]))
+    return out
+
+
 def local_check(shots, spec):
     """What no model may get wrong: the schema, the note byte-for-byte, every line covered, same_take_as honoured."""
     jsonschema.validate(shots, S.SHOTS)
+    problems = [x for s in shots for x in film_check(s)]
     by_line = {}
     for s in shots:
         by_line.setdefault(s["line"], []).append(s)
-    problems = []
     for e in spec:
         if e["id"] not in by_line:
             problems.append("line %s has no shot" % e["id"])
@@ -183,12 +203,14 @@ def translate(spec, client, types):
 
 def audit(spec, shots, client, types):
     prompt = ("You audit a translation of Ryan's shot notes into predicates. For EACH shot list: `invented` = predicates or\n"
-              "match/seat/window choices the note (plus the whole script) does not ask for; `missing` = requirements in the\n"
+              "match/seat/window choices or film.intents steps the note (plus the whole script) does not ask for; `missing` =\n"
+              "requirements in the note that film.intents does not script (every action the note describes must be a step of\n"
+              "the body that does it) and that\n"
               "note that no field (match.map/old/opening, seat, source, camera, window.until/beat, overlays, montage,\n"
               "same_match_as), predicate or unmapped[] entry covers. A phrase in unmapped[] is NOT a defect even when a field\n"
               "also covers it; a field choice the note implies is NOT invented. on_screen() of the actors of the note's event\n"
               "(the victim of a kill the pov watches, the runners a sniper shoots at) is framing that makes the event visible,\n"
-              "never invented; window lead_s/tail_s/until are framing too. moving() uses for_s_before/for_s_after (for_s_before\n"
+              "never invented; window lead_s/tail_s/until (e.g. until ragdoll so the body's fall is seen) are framing: NEVER list them as invented. moving() uses for_s_before/for_s_after (for_s_before\n"
               "defaults 1.0): read them literally before judging. moving(seat) in a runner pov is Ryan's rule 419 (a runner\n"
               "never sits there), never invented. Flag only real drops and real inventions. Return JSON: "
               "[{\"id\":..., \"invented\":[...], \"missing\":[...], \"ok\": true|false, \"why\": \"one line\"}].\n\n"

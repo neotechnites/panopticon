@@ -2,6 +2,8 @@
 window is never shorter than the line's slot (voice + pad at speed 1). Exit 2 with the failed predicates and the closest miss.
 
     python -m sv3.search plan.json shots.json --pool DIR --words voice/words.json --out edl.json [--pad 0.25]
+    python -m sv3.search - shots.json --pool DIR --words words.json --out edl.json --take <tape> [--line L4]
+        verify one filmed take (its logs under <pool>/<tape>/) for its lines: exit 2 with the failed predicates.
 
 edl.json: [{id, line, tape, seat, file, in, len, beat_t, fit, parts:[...]}] one entry per shot; a montage has `parts`.
 """
@@ -237,8 +239,14 @@ def report_miss(shot, misses):
     print("  %d candidate windows tried" % len(misses))
 
 
-def run(plan, shots, pool, words, pad, out):
+def run(plan, shots, pool, words, pad, out, take=None, only=None):
     recs = P.load_pool(pool)
+    if take:
+        recs = [r for r in recs if r.tape == take]
+        if not recs:
+            print("no logs for take %s under %s" % (take, pool))
+            return 2
+        shots = [s for s in shots if s["source"] not in ("card", "black") and (only is None or s["line"] == only or s["id"] == only)]
     edl, failed = [], []
     chosen_tape = {}
     for shot in shots:
@@ -299,11 +307,13 @@ def main(argv=None):
     ap.add_argument("--words", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--pad", type=float, default=DEFAULT_PAD)
+    ap.add_argument("--take", help="verify this one take (tape dir name) instead of searching the pool")
+    ap.add_argument("--line", help="with --take: only this line/shot id")
     a = ap.parse_args(argv)
     plan = json.load(open(a.plan)) if a.plan != "-" else {}
     shots = json.load(open(a.shots))
     words = json.load(open(a.words))
-    return run(plan, shots, a.pool, words, a.pad, a.out)
+    return run(plan, shots, a.pool, words, a.pad, a.out, a.take, a.line)
 
 
 if __name__ == "__main__":

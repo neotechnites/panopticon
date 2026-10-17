@@ -4,27 +4,27 @@
   "invented": [],
   "missing": [],
   "ok": true,
-  "why": "This correctly translates the 'how it started' (old=true) part of the note from the sniper's perspective (seat=guard)."
+  "why": "Accurately translates the sniper perspective of the old death animation ('how it started', 'pills') in the forest."
  },
  {
   "id": "M1b",
   "invented": [],
   "missing": [],
   "ok": true,
-  "why": "This correctly translates the 'how it started' part from the runner's perspective, using same_match_as to link it to the previous shot."
+  "why": "Accurately translates the runner perspective of the old death animation in the forest."
  },
  {
   "id": "M1c",
   "invented": [],
   "missing": [],
   "ok": true,
-  "why": "This correctly translates the 'how its going' (old=false) and 'cut to forest' (map=forest) part from the sniper's perspective."
+  "why": "Accurately translates the sniper perspective of the new death animation ('how its going') in the forest."
  },
  {
   "id": "M1d",
   "invented": [],
   "missing": [],
   "ok": true,
-  "why": "This correctly translates the 'how its going' part from the runner's perspective in the forest, using same_match_as."
+  "why": "Accurately translates the runner perspective of the new death animation in the forest."
  }
 ]

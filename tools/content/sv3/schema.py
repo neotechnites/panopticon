@@ -55,10 +55,31 @@ PREDICATE = {
     "required": ["p"],
 }
 
+RUNNER_STEP = r"^(run|cover:at:\d+(\.\d+)?|shove_when_rival_within:\d+(\.\d+)?|look:(tower|portal):\d+(\.\d+)?|portal|wait:\d+(\.\d+)?|brawl|idle)$"
+GUARD_STEP = r"^(miss:\d+|hit|scope|idle|wait:\d+(\.\d+)?)$"
+
+FILM = {
+    "type": "object",
+    "properties": {
+        "seat": {"type": "string", "enum": ["guard", "runner:1", "runner:2", "runner:3", "free"]},
+        "map": {"type": "string", "enum": ["hell", "forest", "marble", "grey"]},
+        "opening": {"type": "string", "enum": ["race", "brawl", "seat"]},
+        "players": {"type": "integer", "minimum": 1, "maximum": 4},
+        "old": {"type": "boolean"},
+        "intents": {
+            "type": "object",
+            "description": "body -> comma-joined steps; runner steps: run, cover:at:<s>, shove_when_rival_within:<m>, look:tower:<s>, portal, wait:<s>, brawl, idle; guard steps: miss:N, hit, scope, idle. Bodies not named keep their shipped brain.",
+            "properties": {"guard": {"type": "string"}, "runner:1": {"type": "string"}, "runner:2": {"type": "string"}, "runner:3": {"type": "string"}},
+        },
+    },
+    "required": ["seat", "map", "opening", "players", "old", "intents"],
+}
+
 SHOT = {
     "type": "object",
     "properties": {
         "id": {"type": "string"},
+        "film": FILM,
         "line": {"type": "string"},
         "source": {"type": "string", "enum": ["match", "studio", "establishing", "card", "black"]},
         "match": {
@@ -118,12 +139,19 @@ SHOT = {
         },
         "interpreted": {"type": "string"},
     },
-    "required": ["id", "line", "source", "match", "seat", "find", "window", "overlays", "note", "unmapped", "interpreted"],
+    "required": ["id", "line", "source", "match", "seat", "film", "find", "window", "overlays", "note", "unmapped", "interpreted"],
 }
 
 SHOTS = {"type": "array", "items": SHOT}
 
-PREDICATE_DOC = """Predicates (closed set; p = the predicate name; every field optional unless named):
+PREDICATE_DOC = """FILMING (§9, the main method): every match/studio shot is FILMED by scripted players + a real-time screen recording from the
+seat's eyes: film.intents gives each scripted body its steps (comma-joined, in order); bodies not named keep their shipped
+brain. Runner steps: run, cover:at:<s> (stop at cover at <s> seconds), shove_when_rival_within:<m>, look:tower:<s>,
+portal, wait:<s>, brawl, idle. Guard steps: miss:N (N deliberate misses), hit, scope, idle. The guard that shoots at
+runners and misses twice then hits = intents {"guard": "miss:2,hit"}; the runner the pov watches get shot = that runner
+"run" and the guard "hit"; a shove into the sights = shover "run,shove_when_rival_within:3", victim "run,cover:at:4".
+film.seat names the exact body filmed (runner:1 for a runner pov). The `find` predicates then VERIFY the take's logs.
+Predicates (closed set; p = the predicate name; every field optional unless named):
 - event(ev, by?, victim?, body?, cause?, result?, outcome?, count>=n, anchor?) : the event occurs >= count times in the window.
   by/victim/body are roles: seat (the recorded player), other (any other body), guard, runner:any, any.
   anchor:true marks the event the window is built around (default: the beat event, else the last event predicate).
