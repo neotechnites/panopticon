@@ -472,3 +472,37 @@ captions_y: 0.72
 | L6 | cuts/22.mp4@1.41:4.2 |  |  | nohold |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
 | L7 | cuts/19.mp4 | 33.15 |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
 | L8 | cuts/19.mp4@42.0 |  |  | line |  | Let me know what else I should add in the comments |  |
+
+## script v19
+from: v18
+# v19 (head on v18): no forest kill on tape shows a non-pink runner's tracer and drop clear of the trunks, so L5 is three kills
+# held longer (27, 37, 29); L6 0.4 s later (the shove on "someone") so L7 starts 0.2 s after the body drops.
+# v18 (head on v17): L5 kill 2 = shot 38 (teal, the lens still), kill 4 = shot 37 (green) cut before his legs reach the lens; L6 0.2 s
+# later (shove still inside "shove") and ends 0.4 s after the body drops; L7 starts there, 0.7 s earlier in its take (before 33.15 s
+# the rider's lens is inside rocks), so every L7/L8 frame from 32.95 s on is v17's.
+# v17 L5 = forest kills from the ground (Ryan: "didnt i say it has to be in the forest?"): shots 27, 34, 29, 33, rs_live spectate.
+# v17 = v16 with L6 refilmed (shot 22, head review of v16; 20 and 21 ran the lens into the rim wall): the shove on "shove", the victim 1.8 m off the lens, the eye on the POV.
+notes: ok, go fix ragdoll and get me a version that neess only my voiceover, and the comment. yes totally fine to use the old footage
+# v16 = v14's own frames (final/master/v14.mkv: B1 = L1-L4 with the placeholder card, B6 = L6) with two lines changed:
+# L5 = v7's hell montage (v6's kills g4 j78 h40 g12 g10; forest timed out: shots 16-18 unreadable), L7+L8 = shot 19:
+# the corridor and portal, the finale cinematic's shove at 37.42 s (no particles), the flat throw cut at 38.80 s before
+# the guard drops through the pit floor (38.93-39.1 s), L8 the next rider on the ring from 42.0 s (after his bump into a rock at 40.6-41.9 s).
+# Card swap: B1 carries v14's baked placeholder (w=940 y=0.2, 'this' to 'Ragdolls'+0.6 = 17.90-21.42 s); a real card
+# at w=940 y=0.2 that is at least as tall covers it on the same slide (assemble card on a split L4 beat).
+notes: ragdoll is ok i think, the last shot shows the gaurd clipping into the map after being chucked, and shouldnt. also this sint youre fault, bur we now have a forest map we should be using for some gameplay clips. lets replace the gameplay of the hitting shots montage to be in the forest. also, we should cut after "not an animator" and then the shot of the person getting shoved off and ragdolling, is geniunely, a perfect shot, with the execption that the eye isnt looking at the pov player, and needs to be. so please run that exactly how it was and just fix the eye thing.
+# Built from v7 (ragdoll_short_rough_v7.mp4), not v8: L1-L3 are v7's own picture and sound to L4's start (12.72 s).
+# L4 the tower refilm alone after "not an animator" (hit 8.68 s into cuts/04 on "Ragdolls" 8.108 s), L5 the forest
+# guard scope (cut 10), L6 the pit shove with the eye on the POV (cut 06), L7+L8 the finale refilm (08_v10, shove 40.1 s).
+voice: en-US-AndrewNeural +5%
+pad: 0.25
+game: 1
+captions: pop
+captions_font: Impact
+captions_size: 76
+captions_y: 0.72
+| line | clip | in | len | fit | speed | text | card |
+| B1 | final/master/v14.mkv@0:21.7333 |  |  | beat 21.7333 |  |  |  |
+| L5 | cuts/27.mp4@11.85:2.65,cuts/37.mp4@0.6833:1.4167,cuts/29.mp4@3.25:2.25 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
+| L6 | cuts/22.mp4@1.21:4.25 |  |  | nohold |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
+| L7 | cuts/19.mp4 | 33.2 |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
+| L8 | cuts/19.mp4@42.0 |  |  | line |  | Let me know what else I should add in the comments |  |
