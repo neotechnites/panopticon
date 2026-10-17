@@ -1,4 +1,5 @@
 """One door to the model for the whole sv3 pipeline: the Claude Code CLI headless (logged-in account, no API key).
+The prompt goes on stdin; stream-json is parsed so an image the model never Read fails the answer (no self-reported looking).
     ask_json(prompt, schema, images=(), model="opus") -> the parsed, schema-valid JSON; raises LLMError with both outputs on failure.
 """
 import json
@@ -23,25 +24,39 @@ def _env():
 
 
 def _call(prompt, model, images):
-    cmd = ["claude", "-p", prompt, "--output-format", "json", "--model", model]
+    """Runs `claude -p` (prompt on stdin, never argv); returns (result text, set of files it Read)."""
+    cmd = ["claude", "-p", "--output-format", "stream-json", "--verbose", "--model", model]
     if images:
         cmd += ["--allowedTools", "Read"]
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT_S, env=_env(), cwd="/")
+        r = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=TIMEOUT_S, env=_env(), cwd="/")
     except subprocess.TimeoutExpired:
         raise LLMError("claude -p timed out after %d s" % TIMEOUT_S)
     if r.returncode != 0:
         raise LLMError("claude -p exit %d: %s" % (r.returncode, (r.stderr or r.stdout)[-2000:]))
-    try:
-        envelope = json.loads(r.stdout)
-    except ValueError:
-        raise LLMError("claude -p did not return a JSON envelope: %r" % r.stdout[-2000:])
-    if envelope.get("is_error") or envelope.get("subtype", "success") != "success":
-        raise LLMError("claude -p error envelope: %s" % json.dumps(envelope)[:2000])
-    text = envelope.get("result")
+    read, result = set(), None
+    for line in r.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            ev = json.loads(line)
+        except ValueError:
+            continue
+        if ev.get("type") == "assistant":
+            for c in (ev.get("message") or {}).get("content") or []:
+                if c.get("type") == "tool_use" and c.get("name") == "Read":
+                    read.add(os.path.abspath(str((c.get("input") or {}).get("file_path", ""))))
+        elif ev.get("type") == "result":
+            result = ev
+    if result is None:
+        raise LLMError("claude -p produced no result event: %r" % r.stdout[-2000:])
+    if result.get("type") == "error" or result.get("is_error") or result.get("subtype", "success") != "success":
+        raise LLMError("claude -p error envelope: %s" % json.dumps(result)[:2000])
+    text = result.get("result")
     if not isinstance(text, str):
-        raise LLMError("claude -p envelope has no `result` string: %s" % json.dumps(envelope)[:2000])
-    return text
+        raise LLMError("claude -p envelope has no `result` string: %s" % json.dumps(result)[:2000])
+    return text, read
 
 
 def _strip_fences(text):
@@ -86,24 +101,31 @@ def _prompt(prompt, schema, images, error=None):
     return "\n\n".join(parts)
 
 
+def _check(text, read, schema, images):
+    """The parsed JSON, or the reason it is rejected (bad JSON, schema, or an image the model never Read)."""
+    unread = [p for p in images if p not in read]
+    if unread:
+        return None, "you did not Read these files (the Read tool was never called on them): " + ", ".join(unread)
+    try:
+        obj = parse_json(text)
+        jsonschema.validate(obj, schema)
+        return obj, None
+    except (ValueError, jsonschema.ValidationError) as e:
+        return None, "%s: %s" % (type(e).__name__, str(e)[:600])
+
+
 def ask_json(prompt, schema, images=(), model="opus"):
-    """Strict JSON from Claude: parse + jsonschema.validate; on failure one retry with the error appended; then raise with both."""
+    """Strict JSON from Claude: every image Read + parse + jsonschema.validate; one retry with the error appended; then raise with both."""
     images = [os.path.abspath(p) for p in images]
     for p in images:
         if not os.path.isfile(p):
             raise LLMError("image not found: " + p)
-    first = _call(_prompt(prompt, schema, images), model, images)
-    try:
-        obj = parse_json(first)
-        jsonschema.validate(obj, schema)
+    first, read1 = _call(_prompt(prompt, schema, images), model, images)
+    obj, err1 = _check(first, read1, schema, images)
+    if err1 is None:
         return obj
-    except (ValueError, jsonschema.ValidationError) as e1:
-        err1 = "%s: %s" % (type(e1).__name__, str(e1)[:600])
-    second = _call(_prompt(prompt, schema, images, error=err1), model, images)
-    try:
-        obj = parse_json(second)
-        jsonschema.validate(obj, schema)
+    second, read2 = _call(_prompt(prompt, schema, images, error=err1), model, images)
+    obj, err2 = _check(second, read2, schema, images)
+    if err2 is None:
         return obj
-    except (ValueError, jsonschema.ValidationError) as e2:
-        raise LLMError("model answer failed the schema twice.\n--- first (%s):\n%s\n--- second (%s: %s):\n%s"
-                       % (err1, first[:3000], type(e2).__name__, str(e2)[:600], second[:3000]))
+    raise LLMError("model answer rejected twice.\n--- first (%s):\n%s\n--- second (%s):\n%s" % (err1, first[:3000], err2, second[:3000]))
