@@ -276,6 +276,7 @@ said: L7+L8 -- the shove on the guard hidden (v12 diff: "the shove is hidden by 
 capture: --shot=s3_open_lane --stage=rs_live --pov=runner --bots=3 --seed=2 --shimmer=0 --set=ride=Runner_1;tower_fov=100
 in: 0
 seconds: 48
+refilm: v19
 
 ## 20
 said: L6 -- Ryan: "when i say "shove someone" the pov runner shoves a person in front of them off into the pit"; "the eye isnt looking at the pov player, and needs to be"; no camera clipping into models: shot 6's rim shove at the 4-player cap (pack=3: the victim, the POV, one ahead + the guard), the shove from 1.8 m (shove_gap 1.3, shover_r 50.2) so his head stays out of the lens, a longer run-down (from 13, back 8.5) so the walk-up covers "once I had this I wanted to use it more"; taped: shove 4.20 s at 49.2 deg r 48.8, 42 deg off the lane, in the pit 6.28 s
@@ -299,6 +300,7 @@ capture: --shot=s3_open_lane --stage=rs_pitshove --pov=runner --bots=3 --seed=7 
 tape: pit_shove_3c
 in: 0
 seconds: 8
+refilm: v19
 
 ## 23
 said: L5 -- Ryan: "didnt i say it has to be in the forest?"; "lets replace the gameplay of the hitting shots montage to be in the forest"; "fast clips of the sniper hitting shots"; "dont last long enough for you to see the ragdoll, and every single one is an ariel snipe"; "none of the snipes have projectiles. they need to": shot 16's taped forest match (seed 11) seen from the ground, not the scope: rs_live spectate=1 puts the lens 10-21 m from the runner the guard aims at, on a spot with a clear ray to his chest and feet (the forest's trunks were what hid every scope kill), outside him with the tower behind, and holds on the body 1.8 s after a hit; taped kills 0.95 s Runner_3 at 15.7 deg, 19.47 s Runner_1 at 230.8 deg
@@ -334,6 +336,7 @@ capture: --map=forest --shot=s3_open_lane --stage=rs_live --bots=3 --seed=31 --s
 tape: forest_spec_31
 in: 0
 seconds: 37.5
+refilm: v19
 
 ## 28
 said: L5, the same ask as 23 ("didnt i say it has to be in the forest?"): the ground lens now also needs him in sight along his run for the next 1.6 s (3 of 4 points), so the round and the fall stay clear of the trunks; taped forest match seed 23, kills 4.48 s Runner_3 at 57.7 deg, 43.67 s Runner_3 at 143.2 deg
@@ -348,6 +351,7 @@ capture: --map=forest --shot=s3_open_lane --stage=rs_live --bots=3 --seed=89 --s
 tape: forest_kills_89
 in: 0
 seconds: 22
+refilm: v19
 
 ## 30
 said: L5, the same ask as 23 ("didnt i say it has to be in the forest?"): the ground lens now also needs him in sight along his run for the next 1.6 s (3 of 4 points), so the round and the fall stay clear of the trunks; taped forest match seed 97, kills 9.25 s, 32.33 s (shot 25 again)
@@ -404,6 +408,7 @@ capture: --map=forest --shot=s3_open_lane --stage=rs_live --bots=3 --seed=103 --
 tape: forest_near_103
 in: 0
 seconds: 3.5
+refilm: v19
 
 ## 38
 said: L5 (head on v18: kill 2's lens jumped and the fall was lost): the ground lens at 11 m, still through the fall; chosen by the headless log (STAGE_DEBUG): lens on the victim at the hit 9.6 m, clear, and the ragdoll in clear sight every tick of the 1.3 s after; seed 211, 32.25 s Runner_2 (not the pink runner)
@@ -478,17 +483,39 @@ said: L4 -- Ryan: "we need to change shot 4, to instead be a sniper pov, missing
 capture: --shot=pack_lead --stage=pack_sniped --pov=runner --bots=3 --shimmer=0 --set=pack=3;pov_index=2;victim_index=1;pov_back=1.4
 in: 0
 seconds: 7
+refilm: v19
+
+## 40
+said: L1 "The death animation in my game was really bad." -- Ryan: "start form scratch", every clip filmed new: the guard's scope on hell, 3 runners (4 players), two misses then a hit at the line's end; rs_snipe old=1 plays the pre-ragdoll Death clip on the kill (filmed fresh on this build instead of an old-commit checkout: the stage's own switch, no ref: needed); start 1.0 so the hit lands ~5.65 s in the take, held through the old death animation for M2
+capture: --shot=s3_open_lane --stage=rs_snipe --pov=guard --bots=3 --seed=20261017 --shimmer=0 --set=old=1;plan=0m,1m,2h;start=1.0
+hud: crosshair
+motion: 0.005
+in: 2.6
+seconds: 6.5
+
+## 41
+said: L3 "...I'm a programmer, not an animator" -- "slow zoom out shot of the old hell map": the pit_orbit lens over hell while the tower drops a runner with the old Death clip (rs_snipe old=1, no POV); the orbit is the nearest shipped pull-back lens, no zoom-out path exists
+capture: --shot=pit_orbit --stage=rs_snipe --bots=3 --seed=20261017 --shimmer=0 --set=old=1;plan=0h,1h,2h
+in: 1.0
+seconds: 8
+
+## 42
+said: L4 -- Ryan: "a sniper pov, missing shots, then cut to the runner pov near the end": the sniper half, the guard's scope on hell missing four shots at three runners (rs_snipe plan of misses, nobody dropped), then shot 39's runner POV
+capture: --shot=s3_open_lane --stage=rs_snipe --pov=guard --bots=3 --seed=20261017 --shimmer=0 --set=plan=0m,1m,2m,0m
+hud: crosshair
+motion: 0.005
+in: 1.0
+seconds: 7.5
 
 ## script v19
 from: v14
-# v19 from scratch to the 10-12 script (Ryan: "start form scratch"; "yes totally fine to use the old footage").
-# B1 = v14's own L1, M2, L3 (v7's picture and voice) to the hard cut on "animator" at 12.72 s.
-# L4 = Ryan: "a sniper pov, missing shots, then cut to the runner pov near the end, and he watches the person in front
-#   of him get shot": v6_05_s4's scope misses (24.0-30.7 s, v8's own L4 lead-in), then shot 39's runner POV from 1.2 s:
-#   the hit 1.81 s in lands 0.4 s after "Ragdolls", 1.8 s of ragdoll after it. The card slams on at "this guy" (placeholder).
-# L5 = the forest kills as v18/v19 cut them (27, 37, 29); L6 = shot 22 (the pit shove, eye on the POV) as v19;
-#   L7 = shot 19 from 33.2 s (the flat throw, cut before the guard drops through the floor at 38.93 s). No L8.
-notes: ok, go fix ragdoll and get me a version that neess only my voiceover, and the comment. yes totally fine to use the old footage
+# v19 from scratch, EVERY CLIP FILMED NEW (Ryan: "start form scratch"; "SO WHAT THE FUCK IS NOT CLEAR ABOUT START FROM FUCKING SCRATCH"):
+# L1 = shot 40 (scope, hell, misses then the old Death clip on the hit at the line's end), M2 = the same take held through the
+#   old death animation (the scared.gif fade is not in this cut: no gif in the project folder, no fade in the cutter).
+# L3 = shot 41 (pit_orbit over hell, old Death clips), hard cut on "animator". L4 = shot 42's scope misses 6.7 s, then shot 39
+#   refilmed from 1.2 s: the hit 1.81 s in lands ~0.4 s after "Ragdolls"; the placeholder card slams on at "this guy".
+# L5 = forest kills 27, 37, 29 refilmed from their tapes; L6 = shot 22 refilmed; L7 = shot 19 refilmed from 33.2 s. No L8.
+notes: i want you, to start form scratch, on all for of these
 voice: en-US-AndrewNeural +5%
 pad: 0.25
 game: 1
@@ -497,8 +524,10 @@ captions_font: Impact
 captions_size: 76
 captions_y: 0.72
 | line | clip | in | len | fit | speed | text | card |
-| B1 | final/master/v14.mkv@0:12.72 |  |  | beat 12.72 |  |  |  |
-| L4 | v6_05_s4.mp4@24.0:6.7,cuts/39.mp4@1.2:3.6 |  |  | wait |  | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem. Ragdolls | cards/L4_card0.png w=940 y=0.2 in=0.05 out=0.2 from=this to=Ragdolls+0.6 |
+| L1 | cuts/40.mp4 | 2.6 |  | line |  | The death animation in my game was really bad. |  |
+| M2 | cuts/40.mp4 | cont |  | beat 1.6 |  |  |  |
+| L3 | cuts/41.mp4 | 1.0 |  | line |  | Yeaeeeeeeeh I needed something better, but if my art didnt make it clear, I'm a programmer, not an animator |  |
+| L4 | cuts/42.mp4@1.0:6.7,cuts/39.mp4@1.2:3.6 |  |  | wait |  | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem. Ragdolls | cards/L4_card0.png w=940 y=0.2 in=0.05 out=0.2 from=this to=Ragdolls+0.6 |
 | L5 | cuts/27.mp4@11.85:2.65,cuts/37.mp4@0.6833:1.4167,cuts/29.mp4@3.25:2.25 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
 | L6 | cuts/22.mp4@1.21:4.25 |  |  | nohold |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
 | L7 | cuts/19.mp4 | 33.2 |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |

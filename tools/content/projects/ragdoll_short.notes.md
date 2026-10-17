@@ -13,6 +13,14 @@
 #   frame off: L7's voice starts 3 ms earlier). L5 kill 2 = shot 38 (teal; tracer clear, the drop small behind trunks: still weak),
 #   kill 4 = shot 37 cut before his legs reach the lens. L6 0.2 s later (shove inside "shove"), L7 from 0.4 s after the body drops.
 
+# v19 from scratch (ragdoll_short_v19.mp4, master final\master\v19.mkv), Ryan: "i want you, to start form scratch, on all for of these";
+#   "SO WHAT THE FUCK IS NOT CLEAR ABOUT START FROM FUCKING SCRATCH": EVERY CLIP FILMED NEW, nothing lifted from v1-v18 or any old clip.
+#   L1 = shot 40 (rs_snipe old=1: scope on hell, 3 runners, misses 2.26/3.96 s, the old Death clip on Runner_3 at 5.65 s; cut from 2.6 s),
+#   M2 = the same take held 1.6 s (no scared.gif: none in the project folder and the cutter has no fade). L3 = shot 41 (pit_orbit over
+#   hell, old Death clips). L4 = shot 42 (scope misses 6.7 s) then 39 refilmed (runner POV, the one ahead dropped 1.81 s in, ~0.4 s after
+#   "Ragdolls"); placeholder card at "this guy". L5 = 27, 37, 29 refilmed from their tapes; L6 = 22 refilmed; L7 = 19 refilmed from 33.2 s.
+#   No L8. Voice Andrew +5% (placeholder for Ryan's). The stopped agent's old-footage v19 is final\alt\v19_oldfootage.*.
+
 ## v7 | ragdoll_short_rough_v7.mp4 | 2026-10-12 18:30
 ragdoll is ok i think, the last shot shows the gaurd clipping into the map after being chucked, and shouldnt. also this sint youre fault, bur we now have a forest map we should be using for some gameplay clips. lets replace the gameplay of the hitting shots montage to be in the forest. also, we should cut after "not an animator" and then the shot of the person getting shoved off and ragdolling, is geniunely, a perfect shot, with the execption that the eye isnt looking at the pov player, and needs to be. so please run that exactly how it was and just fix the eye thing.
 
