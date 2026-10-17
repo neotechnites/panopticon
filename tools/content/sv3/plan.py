@@ -31,13 +31,12 @@ def group_key(shot, shots_by_id):
 
 def intents_arg(group):
     """`--intent=<body>=<steps>;...` merged over the group's film.intents (one match, several seats share one script)."""
-    merged = {}
-    for s in group:
-        for body, steps in ((s.get("film") or {}).get("intents") or {}).items():
-            if body in merged and merged[body] != steps:
-                raise SystemExit("PLAN REFUSED: %s scripts %s as %r but an earlier line of the same match scripts %r" % (s["id"], body, steps, merged[body]))
-            merged.setdefault(body, steps)
-    return ";".join("%s=%s" % (b, st) for b, st in merged.items())
+    first = (group[0].get("film") or {}).get("intents") or {}
+    for s in group[1:]:
+        if ((s.get("film") or {}).get("intents") or {}) != first:
+            raise SystemExit("PLAN REFUSED: %s and %s share one match but script different bodies: %r vs %r (bodies not named keep their brain)" % (
+                group[0]["id"], s["id"], first, (s.get("film") or {}).get("intents")))
+    return ";".join("%s=%s" % (b, st) for b, st in first.items())
 
 
 

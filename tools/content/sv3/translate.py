@@ -100,15 +100,17 @@ FIELDS = {"event": {"ev", "by", "victim", "body", "cause", "result", "outcome", 
           "state": {"who", "state"}}
 
 
+DROPPED = []
+
+
 def normalise(shots):
-    """Field slips that change no meaning: moving(for_s) -> for_s_before; fields a predicate kind has no use for are dropped (printed)."""
+    """moving(for_s) -> for_s_before (no meaning change); any other field a predicate has no use for FAILS the translation."""
     for s in shots:
         for p in s["find"]:
             if p["p"] == "moving" and "for_s" in p:
                 p["for_s_before"] = p.pop("for_s")
-            extra = [k for k in list(p) if k != "p" and k not in FIELDS.get(p["p"], set())]
-            for k in extra:
-                print("note: %s %s(): dropped field %s=%r (not a field of that predicate)" % (s["id"], p["p"], k, p.pop(k)), file=sys.stderr)
+            for k in [k for k in list(p) if k != "p" and k not in FIELDS.get(p["p"], set())]:
+                DROPPED.append("%s %s(): field %s=%r is not a field of that predicate" % (s["id"], p["p"], k, p.pop(k)))
     return shots
 
 
@@ -163,7 +165,7 @@ def film_check(s):
 def local_check(shots, spec):
     """What no model may get wrong: the schema, the note byte-for-byte, every line covered, same_take_as honoured."""
     jsonschema.validate(shots, S.SHOTS)
-    problems = [x for s in shots for x in film_check(s)]
+    problems = [x for s in shots for x in film_check(s)] + list(DROPPED)
     by_line = {}
     for s in shots:
         by_line.setdefault(s["line"], []).append(s)

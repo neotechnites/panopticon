@@ -8,7 +8,7 @@
    "players": 4,
    "old": false,
    "intents": {
-    "guard": "scope,miss:2,hit",
+    "guard": "miss:2,hit",
     "runner:1": "run",
     "runner:2": "run"
    }
@@ -27,33 +27,29 @@
    {
     "p": "event",
     "ev": "shot_result",
-    "by": "seat",
-    "result": "miss",
-    "count": 2
+    "by": "seat"
    },
    {
-    "p": "event",
-    "ev": "kill",
-    "by": "seat",
-    "cause": "shot",
-    "count": 1,
-    "anchor": true
+    "p": "on_screen",
+    "who": "runner:any",
+    "min_h": 0.05,
+    "for_s_before": 1.0
    }
   ],
   "window": {
    "lead_s": 0.8,
    "tail_s": 1.0,
-   "until": "kill",
+   "until": "shot_result",
    "beat": {
     "word": "tower",
-    "event": "kill",
+    "event": "shot_result",
     "tol_s": 0.1
    }
   },
   "overlays": [],
   "note": "pov sniper shooting at runners in hell",
   "unmapped": [],
-  "interpreted": "Sniper POV shooting at runners in hell map. The kill is the anchor."
+  "interpreted": "guard seat in hell, shooting at runners"
  },
  {
   "id": "L2",
@@ -64,9 +60,9 @@
    "players": 4,
    "old": false,
    "intents": {
-    "guard": "scope,miss:2,hit",
+    "guard": "miss:2,hit",
     "runner:1": "run,shove_when_rival_within:3",
-    "runner:2": "run,cover:at:4"
+    "runner:2": "run,cover:at:2"
    }
   },
   "line": "L2",
@@ -108,7 +104,7 @@
   "overlays": [],
   "note": "pov runner in the back watching the shots at them",
   "unmapped": [],
-  "interpreted": "Runner POV watching guard shoot at other runners. Moving is required framing."
+  "interpreted": "runner pov watching shots, intents shared with L3 as they are the same match"
  },
  {
   "id": "L3",
@@ -119,9 +115,9 @@
    "players": 4,
    "old": false,
    "intents": {
-    "guard": "scope,miss:2,hit",
+    "guard": "miss:2,hit",
     "runner:1": "run,shove_when_rival_within:3",
-    "runner:2": "run,cover:at:4"
+    "runner:2": "run,cover:at:2"
    }
   },
   "line": "L3",
@@ -135,12 +131,6 @@
   },
   "seat": "runner:any",
   "find": [
-   {
-    "p": "moving",
-    "who": "seat",
-    "min_mps": 1.0,
-    "for_s_before": 0.0
-   },
    {
     "p": "moving",
     "who": "seat",
@@ -162,29 +152,39 @@
     "p": "event",
     "ev": "kill",
     "victim": "other",
-    "cause": "shot"
+    "cause": "shot",
+    "anchor": true
    },
    {
-    "p": "event",
-    "ev": "ragdoll",
-    "victim": "other",
-    "anchor": true
+    "p": "before",
+    "a": {
+     "ev": "shove"
+    },
+    "b": {
+     "ev": "kill"
+    }
+   },
+   {
+    "p": "moving",
+    "who": "seat",
+    "min_mps": 1.0,
+    "for_s_before": 0.0
    }
   ],
   "window": {
-   "lead_s": 0.8,
+   "lead_s": 1.0,
    "tail_s": 1.5,
    "until": "ragdoll",
    "beat": {
     "word": "run.",
-    "event": "ragdoll",
+    "event": "kill",
     "tol_s": 0.1
    }
   },
   "overlays": [],
   "note": "same shot, walk up to a runner stopped at cover, shove him, he gets shot and ragdolls, continue the course",
   "unmapped": [],
-  "interpreted": "Same match as L2, runner shoves another into sights, who gets shot and ragdolls, then continues running."
+  "interpreted": "same match as L2, runner shoves another into sights, guard hits"
  },
  {
   "id": "L4",
@@ -195,7 +195,6 @@
    "players": 4,
    "old": false,
    "intents": {
-    "guard": "idle",
     "runner:1": "run,portal"
    }
   },
@@ -227,30 +226,24 @@
     "outcome": "tower_out"
    },
    {
-    "p": "event",
-    "ev": "finale_start",
-    "by": "seat",
-    "anchor": true
-   },
-   {
     "p": "moving",
     "who": "seat",
     "min_mps": 1.0
    }
   ],
   "window": {
-   "lead_s": 0.8,
+   "lead_s": 1.0,
    "tail_s": 1.0,
    "until": "finale_end",
    "beat": {
     "word": "sniper.",
-    "event": "finale_start",
+    "event": "shove",
     "tol_s": 0.1
    }
   },
   "overlays": [],
   "note": "different shot, get up to the portal, go through, shove him, they go flying",
   "unmapped": [],
-  "interpreted": "Runner POV entering portal and shoving the guard out of the tower."
+  "interpreted": "runner goes through portal and shoves guard out"
  }
 ]

@@ -149,9 +149,9 @@ def try_anchor(rec, shot, ta, victim, slot, words, pad, prev_len=0.0):
             "total": len(results)}
 
 
-def search_shot(recs, shot, words, pad, same_tape=None, prev_len=0.0, exclude_victims=()):
+def search_shot(recs, shot, words, pad, same_tape=None, prev_len=0.0, exclude_victims=(), slot_override=None):
     """Best window for one shot over the candidate recordings; (hit|None, misses[])."""
-    slot = slot_of(shot, words, pad)
+    slot = slot_of(shot, words, pad) if slot_override is None else slot_override
     cands = candidates(recs, shot, same_tape)
     misses = []
     if not cands:
@@ -201,7 +201,8 @@ def search_montage(recs, shot, words, pad):
     part = max(1.0, slot / n)
     hits, misses, used = [], [], set()
     for _ in range(n):
-        hit, miss = search_shot(recs, shot, words, pad, exclude_victims=used)
+        # each part is searched as its own slot of `part` seconds, placed after the parts already cut (beat math holds)
+        hit, miss = search_shot(recs, shot, words, pad, exclude_victims=used, prev_len=sum(h["len"] for h in hits), slot_override=part)
         misses += miss
         if not hit:
             break
@@ -241,6 +242,9 @@ def report_miss(shot, misses):
 
 def run(plan, shots, pool, words, pad, out, take=None, only=None):
     recs = P.load_pool(pool)
+    planned = {"%s_%s_%d" % (m["map"], m["opening"], m["seed"]) for m in (plan or {}).get("matches", []) if not m.get("reuse")}
+    if planned:      # rule 417: a line the plan films new is verified against ITS take, never an older tape in the pool
+        recs = [r for r in recs if r.tape in planned or r.tape in {m.get("reuse_tape") for m in plan["matches"]}]
     if take:
         recs = [r for r in recs if r.tape == take]
         if not recs:
