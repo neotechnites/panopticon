@@ -259,13 +259,20 @@ def main(argv=None):
             json.dump(shots, open(a.out + ".rejected.json", "w"), indent=1)
             return 2
         verdict = audit(spec, shots, client, types)
+    for sh in shots:                      # design §2: moving() for_s_before defaults to 1.0; a 0.0 negates the predicate
+        for pr in sh.get("find", []):
+            if pr.get("p") == "moving":
+                for k in ("for_s_before", "for_s_after"):
+                    if pr.get(k) in (0, 0.0):
+                        pr[k] = 1.0
     problems = local_check(shots, spec)
     json.dump(shots, open(a.out, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     json.dump(verdict, open(os.path.splitext(a.out)[0] + ".audit.json", "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     summary(shots)
     # The audit FAILS the plan only on hard fields (map, seat, source, opening, old, same_match_as, a note phrase it
     # says was dropped); predicate strictness and durations are judgement calls the audit flaps on: warnings, kept in the file.
-    HARD = ("map", "seat", "source", "opening", "old", "same_match", "dropped", "phrase", "not in the note", "contradict")
+    HARD = ("map", "wrong seat", "seat guard", "seat runner", "seat=", "source", "opening", "old=", "same_match",
+            "dropped", "phrase", "not in the note", "contradict")
     def hard(items):
         return [i for i in items if any(h in i.lower() for h in HARD)]
     for v in verdict:
