@@ -80,6 +80,14 @@ def check_stages(root, out):
         smoked = [e for e in st.get("approved") or [] if e.get("expect")]
         if not (st.get("for_shorts") and smoked):
             continue   # not choosable (schema.choosable): nothing downstream reads it
+        if exists(root, "tools/capture/stages/%s.gd" % name):
+            src = read(root, "tools/capture/stages/%s.gd" % name)
+            if "guard" in (st.get("povs") or []) and "guard_hand" not in src:
+                out.append("stages: %s films --pov=guard without guard_hand (a shipped brain would drive the POV)" % name)
+            if "runner" in (st.get("povs") or []) and not re.search(r"\bdrive\(|\"do\":\s*\"", src):   # stage.drive(steps)
+                out.append("stages: %s films --pov=runner without stage_driver steps (a shipped brain would drive the POV)" % name)
+            if re.search(r"nothing staged|normal match|shipped bot guard", src, re.I):
+                out.append("stages: %s header says its bodies are shipped bots; not a stage for a POV" % name)
         if not exists(root, "tools/capture/stages/%s.gd" % name) and '"%s"' % name not in known:
             out.append("stages: %s is neither tools/capture/stages/%s.gd nor a stage_driver/run_clip stage" % (name, name))
         if st.get("map") not in MAPS:
