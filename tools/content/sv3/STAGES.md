@@ -8,7 +8,7 @@ Written by `python -m sv3.catalogue` from the stage headers and approved entries
 | conga | hell | rim_side | - | deg=182.0, first=8.0, every=1.4, impulse=3.4 | uncatalogued | - | yes |
 | cover_both | hell | cover_side | - | victim=198.5,49.4, runner=201.8,48.2, runner_to=186.0,48.2, shover=206.0,50.5, watch=192.5,50.5, runner_speed=0.6, runner_wait=2.0, shover_speed=0.65, shover_wait=5.0, impulse=12.0, up=5.0 | uncatalogued | - | yes |
 | faceshove | hell | s3_face_side | runner | deg=170.3, r=50.5, gap=2.4, rounds=6 | uncatalogued | - | yes |
-| finale | hell | - | runner | lead=5.0, stand=3.0, pace=0.6 | uncatalogued | - | yes |
+| finale | hell | s3_open_lane | runner | lead=5.0, stand=3.0, pace=0.6 | stages#3 | shove 6.95 | yes |
 | forest_pov_kills | forest | s3_open_lane | runner | pace=0.5 | ragdoll_short#15 | - | yes |
 | forest_window | forest | s3_open_lane | guard | pace=0.6, scope_fov=10 | ragdoll_short#13, ragdoll_short#14 | -; - | yes |
 | guard_alone | hell | s3_open_lane | guard | degs=162,151,140, r=54.0, pace=0.5, arc=40.0, beat=1.7, fire_at=1.25, start=1.8, lead_in=-13.0, lift=1, speed=0.0 | uncatalogued | - | yes |

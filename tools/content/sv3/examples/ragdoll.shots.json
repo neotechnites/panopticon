@@ -1,453 +1,110 @@
 [
  {
   "id": "L1",
-  "film": {
-   "seat": "guard",
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": true,
-   "intents": {
-    "guard": "scope,miss:2,hit",
-    "runner:1": "run",
-    "runner:2": "run"
-   }
-  },
-  "line": "L1",
-  "source": "match",
-  "match": {
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": true,
-   "same_match_as": null
-  },
-  "seat": "guard",
-  "find": [
-   {
-    "p": "event",
-    "ev": "shot_result",
-    "result": "miss",
-    "count": 2
-   },
-   {
-    "p": "event",
-    "ev": "kill",
-    "by": "seat",
-    "cause": "shot",
-    "count": 1,
-    "anchor": true
-   },
-   {
-    "p": "before",
-    "a": {
-     "ev": "shot_result",
-     "result": "miss"
-    },
-    "b": {
-     "ev": "kill"
-    }
-   },
-   {
-    "p": "on_screen",
-    "who": "victim",
-    "min_h": 0.06,
-    "for_s_before": 0.5,
-    "for_s_after": 1.5
-   }
-  ],
-  "window": {
-   "lead_s": 0.8,
-   "tail_s": 1.0,
-   "until": "ragdoll",
-   "beat": {
-    "word": "bad.",
-    "event": "kill",
-    "tol_s": 0.1
-   }
-  },
-  "overlays": [],
+  "line": 1,
+  "text": "The death animation in my game was really bad.",
   "note": "pov of the sniper shooting at some runners and missing, hell map, right at the end, they hit one, and we cut a little after the animation plays out",
-  "unmapped": [],
-  "interpreted": "old=true because the short is about the OLD death animation; 'right at the end' = the kill is the last event"
+  "stage": null,
+  "pov": null,
+  "dials": {},
+  "approved": null,
+  "same_take_as": null,
+  "beat": null,
+  "card": null,
+  "needs_stage": true,
+  "why": "no approved hell guard entry shows the sniper missing shots before the hit; entry 1 fires one shot that lands"
  },
  {
   "id": "M2",
-  "film": {
-   "seat": "free",
-   "map": "grey",
-   "opening": "seat",
-   "players": 1,
-   "old": true,
-   "intents": {}
-  },
-  "line": "M2",
-  "source": "studio",
-  "match": {
-   "map": "grey",
-   "opening": "seat",
-   "players": 1,
-   "old": true,
-   "same_match_as": null
-  },
-  "seat": "free",
-  "find": [
-   {
-    "p": "on_screen",
-    "who": "other",
-    "min_h": 0.5
-   },
-   {
-    "p": "moving",
-    "who": "other",
-    "min_mps": 0,
-    "max_mps": 0.2
-   }
-  ],
-  "window": {
-   "lead_s": 0.8,
-   "tail_s": 1.0,
-   "until": "ragdoll",
-   "beat": null
-  },
-  "overlays": [
-   {
-    "kind": "gif_fade",
-    "at": "t:0",
-    "url": "https://media.tenor.com/17aPeH713cYAAAAM/scared.gif",
-    "seconds": 1.5
-   }
-  ],
-  "camera": "bust",
+  "line": 2,
+  "text": "",
   "note": "shot of the animation in a grey space jsut playing, with a slow fade in of an image i will provide https://media.tenor.com/17aPeH713cYAAAAM/scared.gif",
-  "unmapped": [],
-  "interpreted": "studio shot of the old death animation with the requested gif overlay"
+  "stage": null,
+  "pov": null,
+  "dials": {},
+  "approved": null,
+  "same_take_as": null,
+  "beat": null,
+  "card": null,
+  "needs_stage": true,
+  "why": "no entry films the death animation alone in a grey space"
  },
  {
   "id": "L3",
-  "film": {
-   "seat": "free",
-   "map": "hell",
-   "opening": "seat",
-   "players": 1,
-   "old": true,
-   "intents": {}
-  },
-  "line": "L3",
-  "source": "establishing",
-  "match": {
-   "map": "hell",
-   "opening": "seat",
-   "players": 1,
-   "old": true,
-   "same_match_as": null
-  },
-  "seat": "free",
-  "find": [],
-  "window": {
-   "lead_s": 0.8,
-   "tail_s": 1.0,
-   "until": "seat",
-   "beat": {
-    "word": "animator",
-    "event": "seat",
-    "tol_s": 0.1
-   }
-  },
-  "overlays": [],
-  "camera": "dolly_out",
+  "line": 3,
+  "text": "Yeaeeeeeeeh I needed something better, but if my art didnt make it clear, I'm a programmer, not an animator",
   "note": "slow zoom out shot of the old hell map",
-  "unmapped": [],
-  "interpreted": "establishing shot of hell map zooming out"
+  "stage": null,
+  "pov": null,
+  "dials": {},
+  "approved": null,
+  "same_take_as": null,
+  "beat": null,
+  "card": null,
+  "needs_stage": true,
+  "why": "no entry has a slow zoom-out flyover of the old hell map"
  },
  {
-  "id": "L4a",
-  "film": {
-   "seat": "guard",
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "intents": {
-    "guard": "scope,miss:2,hit",
-    "runner:1": "run",
-    "runner:2": "run"
-   }
-  },
-  "line": "L4",
-  "source": "match",
-  "match": {
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "same_match_as": null
-  },
-  "seat": "guard",
-  "find": [
-   {
-    "p": "event",
-    "ev": "shot_result",
-    "result": "miss",
-    "count": 2
-   }
-  ],
-  "window": {
-   "lead_s": 0.8,
-   "tail_s": 1.0,
-   "until": "shot",
-   "beat": {
-    "word": "guy",
-    "event": "shot",
-    "tol_s": 0.1
-   }
-  },
-  "overlays": [
-   {
-    "kind": "comment_card",
-    "at": "word:this guy"
-   }
-  ],
+  "id": "L4",
+  "line": 4,
+  "text": "Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem? Ragdolls",
   "note": "a sniper pov, missing shots, then cut to the runner pov near the end, and he watches the person in front of him get shot",
-  "unmapped": [],
-  "interpreted": "sniper missing shots, comment card appears when 'this guy' is said"
- },
- {
-  "id": "L4b",
-  "film": {
-   "seat": "runner:1",
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "intents": {
-    "guard": "scope,miss:2,hit",
-    "runner:1": "run",
-    "runner:2": "run"
-   }
-  },
-  "line": "L4",
-  "source": "match",
-  "match": {
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "same_match_as": "L4a"
-  },
-  "seat": "runner:any",
-  "find": [
-   {
-    "p": "event",
-    "ev": "kill",
-    "victim": "other",
-    "cause": "shot",
-    "count": 1,
-    "anchor": true
-   },
-   {
-    "p": "on_screen",
-    "who": "victim",
-    "min_h": 0.12,
-    "for_s_before": 1.0,
-    "for_s_after": 1.2
-   },
-   {
-    "p": "moving",
-    "who": "victim",
-    "min_mps": 1.0
-   },
-   {
-    "p": "moving",
-    "who": "seat",
-    "min_mps": 1.0
-   }
-  ],
-  "window": {
-   "lead_s": 1.0,
-   "tail_s": 1.2,
-   "until": "ragdoll",
-   "beat": {
-    "word": "Ragdolls",
-    "event": "kill",
-    "tol_s": 0.1
-   }
-  },
-  "overlays": [],
-  "note": "a sniper pov, missing shots, then cut to the runner pov near the end, and he watches the person in front of him get shot",
-  "unmapped": [],
-  "interpreted": "the same match as the sniper shot, seen from a runner's eyes; the kill lands on the last word"
+  "stage": null,
+  "pov": null,
+  "dials": {},
+  "approved": null,
+  "same_take_as": null,
+  "beat": null,
+  "card": null,
+  "needs_stage": true,
+  "why": "no entry shows the sniper missing shots, and the runner entry films the runner beside the POV being shot, not the one in front"
  },
  {
   "id": "L5",
-  "film": {
-   "seat": "guard",
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "intents": {
-    "guard": "scope,hit",
-    "runner:1": "run"
-   }
-  },
-  "line": "L5",
-  "source": "match",
-  "match": {
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "same_match_as": null
-  },
-  "seat": "guard",
-  "find": [
-   {
-    "p": "event",
-    "ev": "kill",
-    "by": "seat",
-    "cause": "shot",
-    "count": 1,
-    "anchor": true
-   },
-   {
-    "p": "distinct",
-    "who": "victim"
-   }
-  ],
-  "montage": 3,
-  "window": {
-   "lead_s": 0.8,
-   "tail_s": 1.0,
-   "until": "ragdoll",
-   "beat": {
-    "word": "entertaining",
-    "event": "kill",
-    "tol_s": 0.1
-   }
-  },
-  "overlays": [],
+  "line": 5,
+  "text": "these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining",
   "note": "clip montage of the sniper hitting people dead in hell, and if we can, get one that freaks out and break the players model and go flying",
-  "unmapped": [
-   {
-    "phrase": "get one that freaks out and break the players model and go flying",
-    "optional": true
-   }
-  ],
-  "interpreted": "montage of sniper kills in hell, unmapped the physics glitch as it's optional and unscriptable"
+  "stage": null,
+  "pov": null,
+  "dials": {},
+  "approved": null,
+  "same_take_as": null,
+  "beat": null,
+  "card": null,
+  "needs_stage": true,
+  "why": "no entry gives a montage of several hell hits or a ragdoll that glitches out and goes flying"
  },
  {
   "id": "L6",
-  "film": {
-   "seat": "runner:1",
-   "map": "hell",
-   "opening": "race",
-   "players": 4,
-   "old": false,
-   "intents": {
-    "runner:1": "run,shove_when_rival_within:3",
-    "runner:2": "run,cover:at:4"
-   }
-  },
-  "line": "L6",
-  "source": "match",
-  "match": {
-   "map": "hell",
-   "opening": "race",
-   "players": 4,
-   "old": false,
-   "same_match_as": null
-  },
-  "seat": "runner:any",
-  "find": [
-   {
-    "p": "event",
-    "ev": "shove",
-    "by": "seat",
-    "count": 1,
-    "anchor": true
-   },
-   {
-    "p": "distinct",
-    "who": "victim"
-   },
-   {
-    "p": "moving",
-    "who": "seat",
-    "min_mps": 1.0
-   }
-  ],
-  "montage": 3,
-  "window": {
-   "lead_s": 0.8,
-   "tail_s": 1.0,
-   "until": "ragdoll",
-   "beat": {
-    "word": "ragdoll.",
-    "event": "shove",
-    "tol_s": 0.1
-   }
-  },
-  "overlays": [],
+  "line": 6,
+  "text": "Once i had htis, i wanted to use it more. Now when you shove someone, they also ragdoll.",
   "note": "a bunch of runners shoving each other with the ragdoll, other pov shots of a \"real game\" where the runners are getting shoved",
-  "unmapped": [],
-  "interpreted": "montage of runners shoving each other in a real game"
+  "stage": null,
+  "pov": null,
+  "dials": {},
+  "approved": null,
+  "same_take_as": null,
+  "beat": null,
+  "card": null,
+  "needs_stage": true,
+  "why": "no entry shows many runners shoving each other with ragdolls in a real-game round; the forest entries show only the POV shoving one runner off the edge"
  },
  {
   "id": "L7",
-  "film": {
-   "seat": "runner:1",
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "intents": {
-    "runner:1": "run,portal",
-    "runner:2": "run",
-    "runner:3": "run"
-   }
-  },
-  "line": "L7",
-  "source": "match",
-  "match": {
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "same_match_as": null
-  },
-  "seat": "runner:any",
-  "find": [
-   {
-    "p": "event",
-    "ev": "portal",
-    "by": "seat"
-   },
-   {
-    "p": "event",
-    "ev": "finale_start",
-    "by": "seat",
-    "anchor": true
-   },
-   {
-    "p": "moving",
-    "who": "seat",
-    "min_mps": 1.0
-   }
-  ],
-  "window": {
-   "lead_s": 0.8,
-   "tail_s": 1.0,
-   "until": "finale_end",
-   "beat": {
-    "word": "pit.",
-    "event": "finale_start",
-    "tol_s": 0.1
-   }
-  },
-  "overlays": [],
+  "line": 7,
+  "text": "And when you reach the tower, you can shove the guard out, and watch them go flying into the pit.",
   "note": "pov runner makes it through the portal, shoves, and the usual cinematic shot",
-  "unmapped": [],
-  "interpreted": "runner enters portal and shoves guard, triggering the finale cinematic"
+  "stage": null,
+  "pov": null,
+  "dials": {},
+  "approved": null,
+  "same_take_as": null,
+  "beat": null,
+  "card": {
+   "text": "beta link in bio",
+   "seconds": 1.0
+  },
+  "needs_stage": true,
+  "why": "no entry has the runner going through the portal, shoving the guard out of the tower into the pit, or the cinematic shot that follows"
  }
 ]

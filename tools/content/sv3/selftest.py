@@ -61,9 +61,16 @@ def main():
             failures.append("%s sv3.script: %s" % (name, out[-800:]))
             continue
         mock_words(json.load(open(spec)), words)
+        needs = [x["id"] for x in json.load(open(fixture)) if x.get("needs_stage")]
         for st in (["sv3.translate", spec, "--stages", STAGES, "--out", shots, "--fixture", fixture],
                    ["sv3.plan", shots, "--stages", STAGES, "--words", words, "--brief", brief, "--tag", "v1"]):
             code, out = run(st)
+            if st[0] == "sv3.translate" and needs:   # an honest stop: exit 2 naming every needs_stage line
+                if code != 2 or any(i not in out for i in needs):
+                    failures.append("%s translate: needs_stage %s must exit 2 naming them; exit %d:\n%s" % (name, needs, code, out[-800:]))
+                else:
+                    print("%s: ok (stops: needs stage for %s)" % (name, ", ".join(needs)))
+                break
             if code:
                 failures.append("%s %s exit %d:\n%s" % (name, st[0], code, out[-1500:]))
                 break

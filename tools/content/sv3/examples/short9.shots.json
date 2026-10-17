@@ -1,323 +1,98 @@
 [
  {
   "id": "L1",
-  "film": {
-   "seat": "runner:1",
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "intents": {
-    "runner:1": "portal"
-   }
-  },
-  "line": "L1",
-  "source": "match",
-  "match": {
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "same_match_as": null
-  },
-  "seat": "runner:any",
-  "find": [
-   {
-    "p": "event",
-    "ev": "portal",
-    "by": "seat"
-   },
-   {
-    "p": "event",
-    "ev": "finale_start",
-    "by": "seat",
-    "anchor": true
-   },
-   {
-    "p": "moving",
-    "who": "seat",
-    "min_mps": 1.0
-   }
-  ],
-  "window": {
-   "lead_s": 0.8,
-   "tail_s": 0.0,
-   "until": "finale_end",
-   "beat": {
-    "word": "game",
-    "event": "finale_start",
-    "tol_s": 0.1
-   }
-  },
-  "overlays": [],
+  "line": 1,
+  "text": "Heres how i fixed the worst part about my game",
   "note": "pov of a runner in the tower shoving the sniper and the cinematic shot that plays after, in hell",
-  "unmapped": [],
-  "interpreted": "runner pov of the finale cinematic"
+  "stage": null,
+  "pov": null,
+  "dials": {},
+  "approved": null,
+  "same_take_as": null,
+  "beat": null,
+  "card": null,
+  "needs_stage": true,
+  "why": "No approved entry films a runner in the tower shoving the sniper in hell, or the cinematic that follows."
  },
  {
   "id": "L2",
-  "film": {
-   "seat": "runner:1",
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "intents": {
-    "guard": "miss:2",
-    "runner:1": "look:tower:2,run"
-   }
-  },
-  "line": "L2",
-  "source": "match",
-  "match": {
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "same_match_as": null
-  },
-  "seat": "runner:any",
-  "find": [
-   {
-    "p": "looking_at",
-    "landmark": "tower",
-    "for_s": 2.0
-   },
-   {
-    "p": "event",
-    "ev": "shot_result",
-    "by": "guard",
-    "anchor": true
-   },
-   {
-    "p": "looking_at",
-    "landmark": "lava",
-    "for_s": 0.0
-   }
-  ],
-  "window": {
-   "lead_s": 0.8,
-   "tail_s": 1.0,
-   "until": "ragdoll",
-   "beat": {
-    "word": "sniper",
-    "event": "shot_result",
-    "tol_s": 0.1
-   }
-  },
-  "overlays": [],
+  "line": 2,
+  "text": "In my game, youre either the sniper in the gaurd tower, or youre running an obsticle course to become the sniper.",
   "note": "runner pov, looking over at the tower while hes shooting, then look forward and start doing the lava parkour section",
-  "unmapped": [],
-  "interpreted": "runner looking at tower then lava"
+  "stage": null,
+  "pov": null,
+  "dials": {},
+  "approved": null,
+  "same_take_as": null,
+  "beat": null,
+  "card": null,
+  "needs_stage": true,
+  "why": "No approved entry has a runner looking over at the tower while it shoots and then starting the lava parkour section."
  },
  {
   "id": "L3",
-  "film": {
-   "seat": "guard",
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "intents": {
-    "guard": "miss:2",
-    "runner:1": "look:tower:2,run"
-   }
-  },
-  "line": "L3",
-  "source": "match",
-  "match": {
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "same_match_as": "L2"
-  },
-  "seat": "guard",
-  "find": [
-   {
-    "p": "event",
-    "ev": "shot_result",
-    "by": "seat",
-    "victim": "other",
-    "anchor": true
-   },
-   {
-    "p": "on_screen",
-    "who": "victim",
-    "min_h": 0.05,
-    "for_s_before": 1.0,
-    "for_s_after": 1.0
-   }
-  ],
-  "window": {
-   "lead_s": 0.8,
-   "tail_s": 1.0,
-   "until": "ragdoll",
-   "beat": {
-    "word": "earned",
-    "event": "shot_result",
-    "tol_s": 0.1
-   }
-  },
-  "overlays": [],
+  "line": 3,
+  "text": "but this has a problem, whos the sniper first? i wanted it to be earned",
   "note": "pov of the sniper sniping at the runner from the previous shot",
-  "unmapped": [],
-  "interpreted": "same match as L2, from guard's perspective"
+  "stage": null,
+  "pov": null,
+  "dials": {},
+  "approved": null,
+  "same_take_as": null,
+  "beat": null,
+  "card": null,
+  "needs_stage": true,
+  "why": "No approved entry has the sniper shooting at the parkour runner from L2, which itself has no stage."
  },
  {
   "id": "L4",
-  "film": {
-   "seat": "runner:1",
-   "map": "forest",
-   "opening": "race",
-   "players": 4,
-   "old": false,
-   "intents": {
-    "runner:1": "run",
-    "runner:2": "run",
-    "runner:3": "run"
-   }
-  },
-  "line": "L4",
-  "source": "match",
-  "match": {
-   "map": "forest",
-   "opening": "race",
-   "players": 4,
-   "old": false,
-   "same_match_as": null
-  },
-  "seat": "runner:any",
-  "find": [
-   {
-    "p": "event",
-    "ev": "race_start",
-    "anchor": true
-   },
-   {
-    "p": "moving",
-    "who": "seat",
-    "min_mps": 1.0
-   }
-  ],
-  "window": {
-   "lead_s": 0.8,
-   "tail_s": 1.0,
-   "until": "ragdoll",
-   "beat": {
-    "word": "long",
-    "event": "race_start",
-    "tol_s": 0.1
-   }
-  },
-  "overlays": [],
+  "line": 4,
+  "text": "so, i implemented a race, every player does the course with no sniper, and the first one to complete it gets to be the sniper. this, was the worst part of my game. it wasnt fun, everyone was the same speed, and it took to long",
   "note": "pov of race in forest",
-  "unmapped": [],
-  "interpreted": "race opening in forest"
+  "stage": "haters_forest_shove",
+  "pov": "runner",
+  "dials": {},
+  "approved": {
+   "project": "haters",
+   "entry": 13
+  },
+  "same_take_as": null,
+  "beat": null,
+  "card": null,
+  "needs_stage": false,
+  "why": null
  },
  {
   "id": "L5",
-  "film": {
-   "seat": "free",
-   "map": "hell",
-   "opening": "seat",
-   "players": 1,
-   "old": false,
-   "intents": {
-    "runner:1": "idle"
-   }
-  },
-  "line": "L5",
-  "source": "studio",
-  "match": {
-   "map": "hell",
-   "opening": "seat",
-   "players": 1,
-   "old": false,
-   "same_match_as": null
-  },
-  "seat": "free",
-  "find": [
-   {
-    "p": "on_screen",
-    "who": "other",
-    "min_h": 0.5,
-    "for_s_before": 1.0,
-    "for_s_after": 1.0
-   },
-   {
-    "p": "moving",
-    "who": "other",
-    "min_mps": 0.0,
-    "max_mps": 0.2,
-    "for_s_before": 1.0
-   }
-  ],
-  "window": {
-   "lead_s": 0.8,
-   "tail_s": 1.0,
-   "until": "ragdoll",
-   "beat": {
-    "word": "it",
-    "event": "ragdoll",
-    "tol_s": 0.1
-   }
-  },
-  "overlays": [],
-  "camera": "bust",
+  "line": 5,
+  "text": "so how did i fix it?",
   "note": "bust shot of runner in hell idle animating",
-  "unmapped": [],
-  "interpreted": "studio bust shot of idle runner"
+  "stage": null,
+  "pov": null,
+  "dials": {},
+  "approved": null,
+  "same_take_as": null,
+  "beat": null,
+  "card": null,
+  "needs_stage": true,
+  "why": "No approved entry films a bust shot of a runner idling in hell."
  },
  {
   "id": "L6",
-  "film": {
-   "seat": "runner:1",
-   "map": "hell",
-   "opening": "brawl",
-   "players": 4,
-   "old": false,
-   "intents": {
-    "runner:1": "brawl",
-    "runner:2": "brawl",
-    "runner:3": "brawl"
-   }
-  },
-  "line": "L6",
-  "source": "match",
-  "match": {
-   "map": "hell",
-   "opening": "brawl",
-   "players": 4,
-   "old": false,
-   "same_match_as": null
-  },
-  "seat": "runner:any",
-  "find": [
-   {
-    "p": "event",
-    "ev": "brawl_start",
-    "anchor": true
-   },
-   {
-    "p": "moving",
-    "who": "seat",
-    "min_mps": 1.0
-   }
-  ],
-  "window": {
-   "lead_s": 0.8,
-   "tail_s": 1.0,
-   "until": "ragdoll",
-   "beat": {
-    "word": "first",
-    "event": "brawl_start",
-    "tol_s": 0.1
-   }
-  },
-  "overlays": [],
+  "line": 6,
+  "text": "instead of everyone running to the tower, everyone starts in the tower, and the way you get to be the sniper, is to be the last one standing in it. so now, instead of a long drawn out boring race, its a fast, chaotic, brawl to see who goes first",
   "note": "Shot of starting shove tower minigame in hell",
-  "unmapped": [],
-  "interpreted": "brawl opening in hell"
+  "stage": null,
+  "pov": null,
+  "dials": {},
+  "approved": null,
+  "same_take_as": null,
+  "beat": null,
+  "card": {
+   "text": "beta link in bio",
+   "seconds": 1.0
+  },
+  "needs_stage": true,
+  "why": "No approved entry films the start of the shove-tower minigame in hell."
  }
 ]
