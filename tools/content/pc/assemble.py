@@ -275,21 +275,25 @@ def parse_gif_fade(cell):
 
 
 def render_title(project, work, cache, key, text, seconds, head):
-    """The end card: black, the text centred in Impact, no voice and no caption."""
+    """The end card: black, every line of the text centred in Impact, no voice and no caption."""
     import textwrap
     size = int(head.get("title_size", 84))
-    body = "\n".join(textwrap.wrap(text, max(8, int((W - 160) / (size * 0.5)))))
-    if not body:
+    lines = textwrap.wrap(text, max(8, int((W - 160) / (size * 0.5))))
+    if not lines:
         raise SystemExit("assemble: %s: a title row with no text" % key)
-    txt = os.path.join(work, "title_%s.txt" % key)
-    with open(txt, "w", encoding="utf-8") as f:
-        f.write(body)
-    seg = os.path.join(cache, sha("title", body, size, "%.4f" % seconds, W, H, FPS) + ".mp4")
+    seg = os.path.join(cache, sha("title2", "\n".join(lines), size, "%.4f" % seconds, W, H, FPS) + ".mp4")   # title2: per-line centring
     if not os.path.exists(seg):
-        rel = os.path.relpath(txt, project).replace("\\", "/")
-        vf = ("drawtext=fontfile='C\\:/Windows/Fonts/impact.ttf':textfile='%s':fontcolor=white:fontsize=%d:line_spacing=%d"
-              ":x=(w-text_w)/2:y=(h-text_h)/2" % (rel, size, size // 4)) + TAIL
-        run(FF + ["-f", "lavfi", "-i", "color=c=black:s=%dx%d:r=%d:d=%.4f" % (W, H, FPS, seconds), "-vf", vf,
+        step = int(size * 1.25)
+        top = (H - step * len(lines)) // 2
+        draws = []
+        for i, line in enumerate(lines):
+            txt = os.path.join(work, "title_%s_%d.txt" % (key, i))
+            with open(txt, "w", encoding="utf-8") as f:
+                f.write(line)
+            rel = os.path.relpath(txt, project).replace("\\", "/")
+            draws.append("drawtext=fontfile='C\\:/Windows/Fonts/impact.ttf':textfile='%s':fontcolor=white:fontsize=%d"
+                         ":x=(w-text_w)/2:y=%d" % (rel, size, top + i * step))
+        run(FF + ["-f", "lavfi", "-i", "color=c=black:s=%dx%d:r=%d:d=%.4f" % (W, H, FPS, seconds), "-vf", ",".join(draws) + TAIL,
                   "-t", "%.4f" % seconds, "-an"] + LOSSLESS + [seg], cwd=project)
     return seg
 
