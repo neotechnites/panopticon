@@ -436,7 +436,8 @@ def main():
                     s_in = float(raw_in or 0)
                     if length is None and row.get("len"):
                         length = float(row["len"])
-                avail_i = length if length is not None else max(dur(src) - s_in, 0.01)
+                # never past the clip's end: a window longer than the clip is a short picture, refused below
+                avail_i = min(length, max(dur(src) - s_in, 0.01)) if length is not None else max(dur(src) - s_in, 0.01)
                 wins.append({"path": part["path"], "src": src, "in": s_in, "avail": avail_i})
         speeds = parse_speeds(row.get("speed", ""), len(wins))
         if mode == "window" and len(wins) != 1:

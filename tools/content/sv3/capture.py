@@ -40,6 +40,8 @@ def match_key(m):
 def run_clip_args(m, seat, first, tape_pc, log_pc):
     """The recorder's flags for one seat of a match (design 1 and 7)."""
     if m.get("run_clip_args"):
+        if "--write-movie" in m["run_clip_args"] or "--fixed-fps" in m["run_clip_args"]:
+            raise SystemExit("capture refuses: a take is filmed in real time, never Movie Maker (run_clip_args)")
         return m["run_clip_args"]                  # verbatim: the pre-WP1 recorder rejects --log
     a = ["--match", "--map=%s" % m["map"], "--bots=%d" % int(m.get("players", 4)), "--seed=%d" % int(m["seed"]),
          "--opening=%s" % m.get("opening", "seat"), "--seat=%s" % seat, "--seconds=%s" % m.get("seconds", 45),
@@ -117,8 +119,11 @@ EOF
     want = ["%s.events.jsonl" % sf, "%s.vis.jsonl" % sf, "%s.take.json" % sf, "%s.mkv.sync" % sf, "%s.log" % sf, "tape.json"]
     got = []
     for name in want:
-        r = subprocess.run(["scp", "-q", "-i", keyfile, "%s:%s/%s" % (host, pc_dir, name), os.path.join(mac_dir, name)],
-                           capture_output=True, text=True)
+        try:
+            r = subprocess.run(["scp", "-q", "-i", keyfile, "%s:%s/%s" % (host, pc_dir, name), os.path.join(mac_dir, name)],
+                               capture_output=True, text=True, timeout=120)
+        except subprocess.TimeoutExpired:
+            raise SystemExit("capture: pulling %s/%s hung for 120 s" % (key, name))
         if r.returncode == 0:
             got.append(name)
     if "%s.mkv.sync" % sf not in got:

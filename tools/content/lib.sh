@@ -95,7 +95,7 @@ EOF
   echo "pc lock: held for ${what} after $(since "${t_wait}") in line" >&2
   trap pc_unlock EXIT
   [ "${PC_LOCK_RENEW:-1}" = 1 ] || return 0   # a per-take lease is not renewed: it expires on its own
-  ( while sleep 30; do pc <<EOF >/dev/null 2>&1 || true
+  ( while sleep 30 && kill -0 $$ 2>/dev/null; do pc <<EOF >/dev/null 2>&1 || true   # dies with its script
 \$f = 'C:\\dev\\locks\\screen\\owner.json'
 \$o = Get-Content \$f -Raw -EA SilentlyContinue | ConvertFrom-Json -EA SilentlyContinue
 if (\$o -and \$o.token -eq '${token}') { \$o.expires = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() + ${PC_LOCK_TTL}; Set-Content -Path \$f -Value (\$o | ConvertTo-Json -Compress) }

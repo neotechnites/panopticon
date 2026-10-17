@@ -28,7 +28,7 @@ BRIEF="${CONTENT_DIR}/projects/${NAME}.md"
 WORK="${CONTENT_DIR}/projects/${NAME}/sv3/${TAG}"
 DIR=$(project_dir "${NAME}")
 SOCIAL="${HOME}/Desktop/panopticon-renders/social/shorts"
-mkdir -p "${WORK}/voice" "${POOL}"
+mkdir -p "${WORK}/voice" "${POOL}" || die "cannot make ${WORK}"
 [ -f "${BRIEF}" ] || printf '# %s\nkind: short\n' "${NAME}" > "${BRIEF}"
 
 # The Mac copy's folder: the existing <NN>_<name>, else the next number.
@@ -42,7 +42,7 @@ MAC_COPY="${NN_DIR}/${NAME}_${TAG}.mp4"
 
 T_ALL=$(now_ms)
 TIMING="${WORK}/timing.json"
-echo '{"steps": []}' > "${TIMING}"
+echo '{"steps": []}' > "${TIMING}" || die "cannot write ${TIMING}"
 record() {  # record <step> <seconds> <exit>
   python3 - "${TIMING}" "$1" "$2" "$3" <<'PY'
 import json, sys
@@ -100,7 +100,7 @@ step voice_table provisional_table
 step voice "${CONTENT_DIR}/voice.sh" "${NAME}" --tag "${TAG}"
 step words pull_words
 need plan plan;           step plan      sv3 plan "${WORK}/shots.json" --pool "${POOL}" --out "${WORK}/plan.json"
-step capture sv3 capture "${WORK}/plan.json" --pool "${POOL}"
+need capture capture;     step capture   sv3 capture "${WORK}/plan.json" --pool "${POOL}"
 need search search;       step search    sv3 search "${WORK}/plan.json" "${WORK}/shots.json" --pool "${POOL}" --words "${WORK}/voice/words.json" --out "${WORK}/edl.json"
 need edl edl;             step edl       sv3 edl "${WORK}/edl.json" "${WORK}/shots.json" "${WORK}/spec.json" --brief "${BRIEF}" --tag "${TAG}"
 step assemble "${CONTENT_DIR}/assemble.sh" "${NAME}" --tag "${TAG}"
