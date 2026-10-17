@@ -23,8 +23,8 @@
     "p": "on_screen",
     "who": "runner:any",
     "min_h": 0.06,
-    "for_s_before": 1.0,
-    "for_s_after": 1.0
+    "for_s_before": 0.5,
+    "for_s_after": 0.5
    }
   ],
   "window": {
@@ -36,7 +36,7 @@
   "overlays": [],
   "note": "pov sniper shooting at runners in hell",
   "unmapped": [],
-  "interpreted": "Standard sniper POV shot in Hell, shooting at runners."
+  "interpreted": "A standard sniper POV shot in Hell, showing them shooting at runners."
  },
  {
   "id": "L2",
@@ -53,10 +53,17 @@
   "find": [
    {
     "p": "event",
-    "ev": "shot",
-    "victim": "seat",
-    "count": 1,
+    "ev": "shot_result",
+    "by": "guard",
+    "victim": "other",
     "anchor": true
+   },
+   {
+    "p": "on_screen",
+    "who": "other",
+    "min_h": 0.1,
+    "for_s_before": 1.0,
+    "for_s_after": 1.0
    },
    {
     "p": "moving",
@@ -67,18 +74,13 @@
   "window": {
    "lead_s": 0.8,
    "tail_s": 1.0,
-   "until": "shot",
+   "until": "shot_result",
    "beat": null
   },
   "overlays": [],
   "note": "pov runner in the back watching the shots at them",
-  "unmapped": [
-   {
-    "phrase": "in the back",
-    "optional": false
-   }
-  ],
-  "interpreted": "Runner POV being shot at by the sniper."
+  "unmapped": [],
+  "interpreted": "A runner's POV, seeing shots from the guard land near other runners ahead of them. 'in the back' is interpreted as seeing other runners on screen."
  },
  {
   "id": "L3",
@@ -97,7 +99,7 @@
     "p": "moving",
     "who": "seat",
     "min_mps": 1.0,
-    "for_s": 1.5
+    "for_s_before": 1.5
    },
    {
     "p": "state",
@@ -108,19 +110,26 @@
     "p": "event",
     "ev": "shove",
     "by": "seat",
-    "victim": "other"
+    "victim": "other",
+    "anchor": true
    },
    {
     "p": "event",
     "ev": "kill",
+    "by": "guard",
     "victim": "other",
-    "cause": "shot",
-    "anchor": true
+    "cause": "shot"
    },
    {
     "p": "event",
     "ev": "ragdoll",
     "body": "other"
+   },
+   {
+    "p": "moving",
+    "who": "seat",
+    "min_mps": 1.0,
+    "for_s_before": 0.0
    },
    {
     "p": "before",
@@ -132,26 +141,25 @@
     }
    },
    {
-    "p": "moving",
-    "who": "seat",
-    "min_mps": 1.0,
-    "for_s": 0.0
+    "p": "before",
+    "a": {
+     "ev": "kill"
+    },
+    "b": {
+     "ev": "ragdoll"
+    }
    }
   ],
   "window": {
    "lead_s": 1.5,
    "tail_s": 1.5,
    "until": "ragdoll",
-   "beat": {
-    "word": "sights",
-    "event": "shove",
-    "tol_s": 0.1
-   }
+   "beat": null
   },
   "overlays": [],
   "note": "same shot, walk up to a runner stopped at cover, shove him, he gets shot and ragdolls, continue the course",
   "unmapped": [],
-  "interpreted": "Continuing the previous shot, the POV runner walks up to another at cover, shoves them into the open, sees them get shot, and continues running."
+  "interpreted": "Continuing the previous shot, the runner walks up to another runner at cover, shoves them into the open, watches them get shot, and then continues running."
  },
  {
   "id": "L4",
@@ -172,6 +180,11 @@
     "min_mps": 1.0
    },
    {
+    "p": "looking_at",
+    "landmark": "portal",
+    "for_s": 1.0
+   },
+   {
     "p": "event",
     "ev": "portal",
     "by": "seat"
@@ -180,6 +193,7 @@
     "p": "event",
     "ev": "shove",
     "by": "seat",
+    "victim": "guard",
     "outcome": "tower_out",
     "anchor": true
    },
@@ -195,22 +209,13 @@
   ],
   "window": {
    "lead_s": 1.5,
-   "tail_s": 1.0,
+   "tail_s": 3.0,
    "until": "finale_end",
-   "beat": {
-    "word": "out",
-    "event": "shove",
-    "tol_s": 0.1
-   }
+   "beat": null
   },
   "overlays": [],
   "note": "different shot, get up to the portal, go through, shove him, they go flying",
-  "unmapped": [
-   {
-    "phrase": "and now, they're the sniper",
-    "optional": false
-   }
-  ],
-  "interpreted": "The finale sequence from the winning runner's POV: entering the portal and shoving the guard out of the tower. The phrase 'and now, they're the sniper' describes a game rule, not a visual element of the shot."
+  "unmapped": [],
+  "interpreted": "A runner reaches the tower, enters the portal, and triggers the finale cinematic by shoving the guard out. 'they go flying' is the finale cinematic."
  }
 ]

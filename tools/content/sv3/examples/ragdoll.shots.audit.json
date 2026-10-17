@@ -1,60 +1,58 @@
 [
  {
   "id": "L1",
-  "invented": [
-   "event(shot_result, a, b)"
-  ],
+  "invented": [],
   "missing": [],
-  "ok": false,
-  "why": "The first event predicate is malformed with non-schema fields 'a' and 'b' and is redundant with the 'before' predicate."
+  "ok": true,
+  "why": "The translation correctly captures the sniper pov, the miss-then-hit sequence, the map, and shows the old animation."
  },
  {
   "id": "M2",
   "invented": [],
   "missing": [],
-  "ok": false,
-  "why": "The phrase 'slow fade in' is covered by the gif_fade overlay and should not be in unmapped[]."
+  "ok": true,
+  "why": "The translation correctly maps 'grey space' to a studio source and the image URL to a gif_fade overlay."
  },
  {
   "id": "L3",
   "invented": [],
   "missing": [],
-  "ok": false,
-  "why": "The phrase 'slow zoom out shot' is covered by source:establishing and camera:dolly and should not be in unmapped[]."
+  "ok": true,
+  "why": "The translation correctly maps 'slow zoom out shot' to an establishing source with a dolly_out camera."
  },
  {
   "id": "L4a",
   "invented": [],
   "missing": [],
   "ok": true,
-  "why": "This shot correctly captures the first part of the note: the sniper POV missing shots."
+  "why": "This correctly captures the first part of the note (sniper POV) and adds the comment_card based on the line's text."
  },
  {
   "id": "L4b",
   "invented": [],
   "missing": [],
   "ok": true,
-  "why": "This shot correctly captures the second part of the note: the runner POV watching a kill, with correct beat sync and overlay."
+  "why": "This correctly captures the second part of the note (runner POV), uses same_match_as for the cut, and aligns the beat."
  },
  {
   "id": "L5",
   "invented": [],
   "missing": [],
   "ok": true,
-  "why": "Correctly translates the montage request, including the optional unmapped requirement."
+  "why": "The translation correctly identifies a montage and correctly places the optional, unmappable physics request in unmapped[]."
  },
  {
   "id": "L6",
   "invented": [],
   "missing": [],
   "ok": true,
-  "why": "Correctly translates the montage of runners shoving each other and causing ragdolls."
+  "why": "The translation correctly interprets 'a bunch of' as a montage and captures the runner POV of shoves and ragdolls."
  },
  {
   "id": "L7",
   "invented": [],
   "missing": [],
   "ok": true,
-  "why": "Correctly translates the finale sequence from a runner's POV as per the rules."
+  "why": "The translation correctly maps the sequence of events and correctly identifies 'the usual cinematic shot' with until: finale_end."
  }
 ]

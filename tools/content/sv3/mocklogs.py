@@ -95,7 +95,7 @@ class Match:
                 if b == seat:
                     continue
                 p = self.pos(b, t)
-                d = max(1.0, abs(p[0] - cam[0]) + abs(p[2] - cam[2]) * 0.5 + (10.0 if seat == "guard" else 0.0))
+                d = max(1.0, (10.0 + 0.1 * abs(p[0] - cam[0])) if seat == "guard" else abs(p[0] - cam[0]) + abs(p[2] - cam[2]) * 0.5)
                 if seat == "guard":
                     on, h = True, round(min(0.3, 1.6 / d), 3)
                 elif seat == "free":
@@ -151,15 +151,24 @@ def build(pool):
         m.ev(31.7, "out", body="guard", cause="shove_pit")
         m.ev(36.0, "finale_end")
         m.ev(36.1, "seat", body="runner:1", turn=2)
-        m.look["runner:1"] = [(2.5, 6.5, "tower"), (6.5, 30.0, "lava"), (28.0, 30.5, "portal"), (17.0, 20.5, "cover")]
+        m.look["runner:1"] = [(2.5, 6.5, "tower"), (6.5, 30.0, "lava"), (28.0, 31.5, "portal"), (17.0, 20.5, "cover")]
         m.look["runner:2"] = [(0.0, 12.0, "lava")]
         for s in ("guard", "runner:1", "runner:2", "runner:3"):
             m.write_seat(s)
         m.finish()
+    m = Match(pool, "hell_seat_1002", "hell", "seat", 1002, 4)
+    m.ev(0.0, "round_start", n=1)
+    m.miss(5.0)
+    m.kill(10.0, "guard", "runner:1")
+    m.shove(14.0, "runner:3", "runner:2", "ring")
+    m.shove(18.0, "runner:2", "runner:3", "pit")
+    for s in ("guard", "runner:2", "runner:3"):
+        m.write_seat(s)
+    m.finish()
     # 2. hell brawl opening
     m = Match(pool, "hell_brawl_1000", "hell", "brawl", 1000, 4)
     m.ev(0.0, "round_start", n=1)
-    m.ev(1.0, "brawl_start", bodies=["runner:1", "runner:2", "runner:3", "guard"])
+    m.ev(2.0, "brawl_start", bodies=["runner:1", "runner:2", "runner:3", "guard"])
     m.shove(2.0, "runner:1", "runner:2", "ring")
     m.shove(3.5, "runner:1", "runner:2", "tower_out")
     m.ev(3.6, "brawl_out", body="runner:2", by="runner:1")
@@ -178,11 +187,11 @@ def build(pool):
     m = Match(pool, "forest_seat_1000", "forest", "seat", 1000, 4)
     m.ev(0.0, "round_start", n=1)
     m.miss(6.0)
-    m.kill(8.0, "guard", "runner:1")
+    m.kill(8.0, "guard", "runner:3")
     m.miss(14.0)
     m.kill(16.0, "guard", "runner:2")
     m.miss(23.0)
-    m.kill(25.0, "guard", "runner:3")
+    m.kill(25.0, "guard", "runner:1")
     m.look["runner:3"] = [(0.0, 25.0, "tower")]
     for s in ("guard", "runner:3", "runner:1"):
         m.write_seat(s)
@@ -196,6 +205,11 @@ def build(pool):
     m.look["runner:1"] = [(0.0, 45.0, "lava")]
     for s in ("runner:1", "guard"):
         m.write_seat(s)
+    m.finish()
+    m = Match(pool, "forest_race_1001", "forest", "race", 1001, 4, old=True)
+    m.ev(1.0, "race_start")
+    m.ev(30.0, "race_won", body="runner:2")
+    m.write_seat("runner:1")
     m.finish()
     # 5. grey studio death (old death clip) and a hell idle bust
     m = Match(pool, "grey_studio_1000", "grey", "seat", 1000, 1, old=True, source="studio", dur=12.0)

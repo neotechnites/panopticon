@@ -31,8 +31,8 @@ class Recording:
         for role in ("by", "victim", "body"):
             if m.get(role) is not None:
                 actor = e.get(role)
-                if role == "victim" and actor is None:
-                    actor = e.get("body")   # ragdoll/out name the body
+                if actor is None:
+                    actor = e.get("body") or e.get("shover")   # ragdoll/out/portal name the body, finale_start the shover
                 if actor is None or not self.is_role(actor, m[role], victim):
                     return False
         return True
@@ -66,14 +66,15 @@ class Recording:
 
     def body_in(self, sample, role, victim):
         bid = self.body_id(role, victim)
+        pick = None
         for b in sample.get("bodies", []):
             if bid is not None and b["id"] == bid:
                 return b
-            if bid is None and role == "other" and b["id"] != self.seat:
-                return b
-            if bid is None and role == "runner:any" and b["id"].startswith("runner"):
-                return b
-        return None
+            if bid is None and ((role == "other" and b["id"] != self.seat) or (role == "runner:any" and b["id"].startswith("runner"))):
+                if b.get("on") and (pick is None or b.get("h", 0) > pick.get("h", 0)):
+                    pick = b          # the body that reads best on screen
+                pick = pick or b
+        return pick
 
     def speed(self, who, victim, lo, hi):
         """Metres per second of `who` over [lo, hi] from vis `pos` (bodies) / `cam_pos` (the seat); None when the log lacks them."""
@@ -139,6 +140,8 @@ def ev_before(rec, p, ts, te, ta, victim):
 
 def ev_on_screen(rec, p, ts, te, ta, victim):
     lo, hi = ta - p.get("for_s_before", 0.0), ta + p.get("for_s_after", 0.0)
+    if hi - lo < 0.3:
+        lo, hi = ta - 0.5, ta + 0.5      # "on screen at the anchor"
     smp = rec.samples(max(lo, ts), min(hi, te))
     if not smp:
         return False, "on_screen(%s): no vis samples in %.1f..%.1f" % (p["who"], lo, hi)
@@ -156,6 +159,8 @@ def ev_on_screen(rec, p, ts, te, ta, victim):
 
 def ev_moving(rec, p, ts, te, ta, victim):
     lo, hi = ta - p.get("for_s_before", 1.0), ta + p.get("for_s_after", 0.0)
+    if hi - lo < 0.3:
+        lo, hi = ta - 0.5, ta + 0.5      # "moving at the anchor"
     v = rec.speed(p["who"], victim, max(ts, lo), min(te, hi))
     if v is None:
         return False, "moving(%s): vis has no pos/cam_pos for it (recorder must log them)" % p["who"]

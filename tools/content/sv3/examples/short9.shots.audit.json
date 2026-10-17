@@ -4,54 +4,52 @@
   "invented": [],
   "missing": [],
   "ok": true,
-  "why": "The translation correctly captures the runner's POV of the finale shove and the subsequent cinematic in Hell."
+  "why": "The translation correctly captures the runner POV of the finale cinematic sequence."
  },
  {
   "id": "L2a",
   "invented": [],
   "missing": [],
   "ok": true,
-  "why": "The first part of the note is correctly translated as a runner looking at the tower while the guard shoots."
+  "why": "The translation correctly captures the first part of the note: a runner looking at the tower."
  },
  {
   "id": "L2b",
-  "invented": [
-   "moving predicate with parameter 'for_s'"
-  ],
+  "invented": [],
   "missing": [],
-  "ok": false,
-  "why": "The moving() predicate uses the invalid parameter 'for_s'; the schema requires 'for_s_before' and/or 'for_s_after'."
+  "ok": true,
+  "why": "The translation correctly captures the second part of the note: the runner doing the lava parkour."
  },
  {
   "id": "L3",
   "invented": [],
   "missing": [],
   "ok": true,
-  "why": "The translation correctly captures the sniper's POV of killing the runner from the previous shot."
+  "why": "The translation correctly captures the sniper's POV from the same match as the previous shot."
  },
  {
   "id": "L4",
-  "invented": [
-   "moving predicate with parameter 'for_s'"
+  "invented": [],
+  "missing": [
+   "seeing the race in progress, not just the start"
   ],
-  "missing": [],
   "ok": false,
-  "why": "The moving() predicate uses the invalid parameter 'for_s'; the schema requires 'for_s_before' and/or 'for_s_after'."
+  "why": "The note asks for a 'pov of race', but the translation only shows the moment the race starts (`until: race_start`), not the race itself."
  },
  {
   "id": "L5",
-  "invented": [
-   "moving predicate with parameter 'for_s'"
-  ],
+  "invented": [],
   "missing": [],
-  "ok": false,
-  "why": "The moving() predicate uses the invalid parameter 'for_s'; the schema requires 'for_s_before' and/or 'for_s_after'."
+  "ok": true,
+  "why": "The translation correctly implements the 'bust shot of runner... idle animating' using a studio source."
  },
  {
   "id": "L6",
   "invented": [],
-  "missing": [],
-  "ok": true,
-  "why": "The translation correctly captures the essence of the brawl minigame with a start and an elimination event."
+  "missing": [
+   "showing the minigame in action after it starts"
+  ],
+  "ok": false,
+  "why": "The window ends at `brawl_start`, which contradicts the `event(brawl_out)` and fails to show the minigame in action as requested."
  }
 ]

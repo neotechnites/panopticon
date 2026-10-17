@@ -131,7 +131,7 @@ def try_anchor(rec, shot, ta, victim, slot, words, pad, prev_len=0.0):
         tin = max(0.0, tin)
     else:
         tin = max(0.0, ts)
-        if first - tin < MIN_LEAD:
+        if first - tin < min(MIN_LEAD, w.get("lead_s", MIN_LEAD)):
             why.append("lead: first event at %.1f s, only %.2f s of picture before it" % (first, first - tin))
     natural = te - tin
     need = slot - prev_len if slot else BEAT_LEN
@@ -165,7 +165,7 @@ def search_shot(recs, shot, words, pad, same_tape=None, prev_len=0.0, exclude_vi
             if tin + length > rec.dur:
                 misses.append({"tape": rec.tape, "seat": rec.seat, "why": ["recording %.1f s is shorter than the slot %.1f s" % (rec.dur, length)], "score": -1})
                 continue
-            results = P.evaluate(rec, shot["find"], tin, tin + length, tin, None)
+            results = P.evaluate(rec, shot["find"], tin, tin + length, tin + length / 2, None)
             why = [t for ok, t in results if not ok]
             r = {"ok": not why, "in": tin, "len": round(length, 3), "beat_t": None, "fit": "line", "why": why, "score": 0.5 if not why else -1}
             r.update(tape=rec.tape, seat=rec.seat, file=rec.file)
@@ -245,6 +245,20 @@ def run(plan, shots, pool, words, pad, out):
             print("FAILED %s: same_match_as %s, which found no tape" % (shot["id"], same))
             continue
         prev_len = sum(e["len"] for e in edl if e["line"] == shot["line"])
+        beat = shot["window"].get("beat")
+        if beat and prev_len:
+            tw = word_time(shot, words, beat["word"])
+            room = (tw - shot["window"].get("lead_s", 0.8)) if tw is not None else None
+            if room is not None and prev_len > room:
+                last = [e for e in edl if e["line"] == shot["line"]][-1]
+                new_len = round(last["len"] - (prev_len - room), 3)
+                if new_len < 1.0:
+                    failed.append(shot["id"])
+                    print("FAILED %s: the parts before it take %.2f s but the beat word %r is at %.2f s" % (shot["id"], prev_len, beat["word"], tw))
+                    continue
+                print("trim %s to %.2f s so %s's beat word %r lands" % (last["id"], new_len, shot["id"], beat["word"]))
+                last["len"] = new_len
+                prev_len = sum(e["len"] for e in edl if e["line"] == shot["line"])
         if shot.get("montage"):
             hits, misses = search_montage(recs, shot, words, pad)
             if hits:
@@ -255,7 +269,7 @@ def run(plan, shots, pool, words, pad, out):
         else:
             hit, misses = search_shot(recs, shot, words, pad, same_tape, prev_len)
             if hit:
-                edl.append({k: hit[k] for k in ("tape", "seat", "file", "in", "len", "beat_t", "fit")} | {"id": shot["id"], "line": shot["line"], "anchor_t": hit["anchor_t"], "victim": hit["victim"]})
+                edl.append({k: hit[k] for k in ("tape", "seat", "file", "in", "len", "beat_t", "fit")} | {"id": shot["id"], "line": shot["line"], "anchor_t": hit.get("anchor_t"), "victim": hit.get("victim")})
                 chosen_tape[shot["id"]] = hit["tape"]
                 print("found %s in %s/%s @%.2f len %.2f (%s)" % (shot["id"], hit["tape"], hit["seat"], hit["in"], hit["len"], hit["fit"]))
                 continue

@@ -4,34 +4,31 @@
   "invented": [],
   "missing": [],
   "ok": true,
-  "why": "Correctly translates the sniper POV shot."
+  "why": "The translation correctly captures the sniper's POV, the location, and the action of shooting at runners."
  },
  {
   "id": "L2",
-  "invented": [
-   "moving(who=seat, min_mps=1.0)"
-  ],
+  "invented": [],
   "missing": [],
-  "ok": false,
-  "why": "Invented a moving(seat) predicate; the note only says 'watching', which could be from a stationary position."
+  "ok": true,
+  "why": "The translation correctly implements the runner POV, watching shots land on other runners, and correctly applies the mandatory moving predicate for a runner POV."
  },
  {
   "id": "L3",
-  "invented": [],
+  "invented": [
+   "moving(who='seat', min_mps=1.0, for_s_before=0.0)"
+  ],
   "missing": [
-   "The 'walk up to' part of the note is not correctly translated as moving(for_s_before=1.5).",
-   "The 'continue the course' part of the note is not correctly translated as moving(for_s_after=1.5)."
+   "continue the course"
   ],
   "ok": false,
-  "why": "The moving() predicates for 'walk up to' and 'continue the course' use invalid/incorrect parameters."
+  "why": "The predicate for 'continue the course' is wrong; it should be moving(seat, for_s_after=1.5), not another moving with for_s_before."
  },
  {
   "id": "L4",
-  "invented": [
-   "The unmapped[] entry is from the line's text, not the note."
-  ],
+  "invented": [],
   "missing": [],
-  "ok": false,
-  "why": "The unmapped[] entry contains text from the spoken line, not the shot note; the note itself is fully mapped."
+  "ok": true,
+  "why": "The translation correctly captures the entire finale sequence from the runner's perspective, including reaching the portal and triggering the cinematic."
  }
 ]
