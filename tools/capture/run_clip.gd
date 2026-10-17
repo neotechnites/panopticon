@@ -1463,7 +1463,7 @@ func _build_match() -> void:
 ## through its BotIntentSource; the camera stays on --seat. Nothing scripted while a tape plays.
 func _install_intents() -> bool:
 	var spec: String = String(_options.get("intent", ""))
-	var seat_steps: String = String(_options.get("seat-intent", ""))
+	var seat_steps: String = String(_options.get("seat-intent", "")).replace(";", ",")
 	if not seat_steps.is_empty() and _seat_spec != "free":
 		spec = ("%s=%s" % [_seat_spec, seat_steps]) + (";" + spec if not spec.is_empty() else "")
 	if spec.is_empty():

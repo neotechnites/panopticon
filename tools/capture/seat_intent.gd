@@ -204,7 +204,8 @@ func _tick_guard(delta: float) -> void:
 			var error: Vector2 = _aim_guard(point, delta)
 			if shooter.optic != null:
 				shooter.optic.set_zoomed(true)
-			if error.length() < deg_to_rad(0.6) and shooter.rifle != null and shooter.rifle.can_fire():
+			var settled: bool = shooter.optic == null or shooter.optic.is_fully_zoomed()
+			if settled and error.length() < deg_to_rad(0.6) and shooter.rifle != null and shooter.rifle.can_fire():
 				if shooter.rifle.try_fire():
 					_say.call("[intent] %5.2f guard %s at %s" % [_clock, "miss" if miss else "shot", target.name])
 					if miss:
