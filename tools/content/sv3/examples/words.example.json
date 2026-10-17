@@ -1,0 +1,214 @@
+{
+ "L1": {
+  "file": "voice\\L1.wav",
+  "dur": 3.42,
+  "lead_trimmed": 0.08,
+  "voice": "en-US-AndrewNeural",
+  "rate": "+5%",
+  "words": [
+   {
+    "word": "I'm",
+    "t": 0.05,
+    "dur": 0.192
+   },
+   {
+    "word": "making",
+    "t": 0.29,
+    "dur": 0.192
+   },
+   {
+    "word": "a",
+    "t": 0.53,
+    "dur": 0.192
+   },
+   {
+    "word": "game",
+    "t": 0.77,
+    "dur": 0.192
+   },
+   {
+    "word": "where",
+    "t": 1.01,
+    "dur": 0.192
+   },
+   {
+    "word": "one",
+    "t": 1.25,
+    "dur": 0.192
+   },
+   {
+    "word": "of",
+    "t": 1.49,
+    "dur": 0.192
+   },
+   {
+    "word": "your",
+    "t": 1.73,
+    "dur": 0.192
+   },
+   {
+    "word": "friends",
+    "t": 1.97,
+    "dur": 0.192
+   },
+   {
+    "word": "is",
+    "t": 2.21,
+    "dur": 0.192
+   },
+   {
+    "word": "a",
+    "t": 2.45,
+    "dur": 0.192
+   },
+   {
+    "word": "sniper",
+    "t": 2.69,
+    "dur": 0.192
+   },
+   {
+    "word": "in",
+    "t": 2.93,
+    "dur": 0.192
+   },
+   {
+    "word": "a",
+    "t": 3.17,
+    "dur": 0.192
+   },
+   {
+    "word": "tower",
+    "t": 3.41,
+    "dur": 0.192
+   }
+  ]
+ },
+ "L2": {
+  "file": "voice\\L2.wav",
+  "dur": 2.05,
+  "lead_trimmed": 0.08,
+  "voice": "en-US-AndrewNeural",
+  "rate": "+5%",
+  "words": [
+   {
+    "word": "and",
+    "t": 0.05,
+    "dur": 0.216
+   },
+   {
+    "word": "everyone",
+    "t": 0.32,
+    "dur": 0.216
+   },
+   {
+    "word": "else",
+    "t": 0.59,
+    "dur": 0.216
+   },
+   {
+    "word": "has",
+    "t": 0.86,
+    "dur": 0.216
+   },
+   {
+    "word": "to",
+    "t": 1.13,
+    "dur": 0.216
+   },
+   {
+    "word": "get",
+    "t": 1.4,
+    "dur": 0.216
+   },
+   {
+    "word": "past",
+    "t": 1.67,
+    "dur": 0.216
+   },
+   {
+    "word": "him.",
+    "t": 1.94,
+    "dur": 0.216
+   }
+  ]
+ },
+ "L3": {
+  "file": "voice\\L3.wav",
+  "dur": 3.4,
+  "lead_trimmed": 0.08,
+  "voice": "en-US-AndrewNeural",
+  "rate": "+5%",
+  "words": [
+   {
+    "word": "the",
+    "t": 0.05,
+    "dur": 0.2
+   },
+   {
+    "word": "first",
+    "t": 0.3,
+    "dur": 0.2
+   },
+   {
+    "word": "one",
+    "t": 0.55,
+    "dur": 0.2
+   },
+   {
+    "word": "to",
+    "t": 0.8,
+    "dur": 0.2
+   },
+   {
+    "word": "make",
+    "t": 1.05,
+    "dur": 0.2
+   },
+   {
+    "word": "it",
+    "t": 1.3,
+    "dur": 0.2
+   },
+   {
+    "word": "throws",
+    "t": 1.55,
+    "dur": 0.2
+   },
+   {
+    "word": "him",
+    "t": 1.8,
+    "dur": 0.2
+   },
+   {
+    "word": "out",
+    "t": 2.05,
+    "dur": 0.2
+   },
+   {
+    "word": "and",
+    "t": 2.3,
+    "dur": 0.2
+   },
+   {
+    "word": "now",
+    "t": 2.55,
+    "dur": 0.2
+   },
+   {
+    "word": "they're",
+    "t": 2.8,
+    "dur": 0.2
+   },
+   {
+    "word": "the",
+    "t": 3.05,
+    "dur": 0.2
+   },
+   {
+    "word": "sniper.",
+    "t": 3.3,
+    "dur": 0.2
+   }
+  ]
+ }
+}

@@ -1,0 +1,87 @@
+{
+ "stages": {
+  "haters_hell": {
+   "map": "hell",
+   "shot": "s3_open_lane",
+   "povs": [
+    "guard",
+    "runner"
+   ],
+   "dials": {
+    "start": 44.1,
+    "radii": "48.9,48.6,48.6",
+    "track_seconds": 2.0,
+    "zoom_at": 3.2,
+    "fire_at": 7.43
+   },
+   "for_shorts": true,
+   "approved": [
+    {
+     "project": "haters_final",
+     "entry": 1,
+     "said": "guard POV in hell: v3 opens unscoped, the hand on the lead runner (track_seconds 2.0 from 0.8), the scope up at 3.2, the shot lands on a runner as the third comment appears (hit 7.78 s in the take, 6.78 in the cut). Runners start at 44.1 (the hit at v2's 123 deg) on lanes off the lip post at 61.4 deg.",
+     "capture": "--shot=s3_open_lane --stage=haters_hell --pov=guard --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261012 --set=start=44.1;radii=48.9,48.6,48.6;track_seconds=2.0;zoom_at=3.2;fire_at=7.43",
+     "tape": "haters_final_v3",
+     "expect": "hit Runner_2 7.70-7.85; in_frame Runner_2 +0.0-0.05; lens_clear; lens_cover <= 0.5",
+     "seconds": 9.3,
+     "in": 1.0,
+     "ticks": {
+      "hit": 7.78,
+      "shove": null,
+      "out": null,
+      "go": null
+     }
+    },
+    {
+     "project": "haters_final",
+     "entry": 2,
+     "said": "the SAME tape from the runner beside the shot runner: the neighbour goes out at the hit, the POV lives; v3's window starts 1.62 s before the hit and ends 2.18 s after it, before the pillar (as v2's end).",
+     "capture": "--shot=s3_open_lane --stage=haters_hell --pov=runner --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261012 --set=start=44.1;radii=48.9,48.6,48.6;track_seconds=2.0;zoom_at=3.2;fire_at=7.43",
+     "tape": "haters_final_v3",
+     "expect": "hit Runner_2 7.70-7.85; out Runner_2 +0.0-0.3; alive Runner_3; lens_clear; lens_cover <= 0.5",
+     "seconds": 3.8,
+     "in": 6.16,
+     "ticks": {
+      "hit": 7.78,
+      "shove": null,
+      "out": 7.78,
+      "go": null
+     }
+    }
+   ]
+  },
+  "rs_live": {
+   "map": "hell",
+   "shot": "s3_open_lane",
+   "povs": [
+    "guard",
+    "runner"
+   ],
+   "dials": {
+    "ride": "Runner_1",
+    "tower_fov": 100,
+    "lift": 1
+   },
+   "for_shorts": true,
+   "approved": [
+    {
+     "project": "ragdoll_short",
+     "entry": 19,
+     "said": "L7+L8 -- the shove on the guard hidden (v12 diff: \"the shove is hidden by orange portal particles\"); Ryan: \"the gaurd flys off and through the walls of the map, which he shouldnt do\"; \"the last shot shows the gaurd clipping into the map after being chucked, and shouldnt\": shot 8's match (rs_live, seed 2, riding Runner_1, 3 runners + the guard) with the rider's lens widened to fov 100 inside the tower (tower_fov), so the guard is whole in frame when he is shoved; real time, untaped (the tape replayed a different match): headless, Runner_1 takes the tower at 42.80 s",
+     "capture": "--shot=s3_open_lane --stage=rs_live --pov=runner --bots=3 --seed=2 --shimmer=0 --set=ride=Runner_1;tower_fov=100",
+     "tape": null,
+     "expect": null,
+     "seconds": 48.0,
+     "in": 0.0,
+     "ticks": {
+      "hit": null,
+      "shove": null,
+      "out": null,
+      "go": null
+     }
+    }
+   ]
+  }
+ },
+ "uncatalogued": []
+}

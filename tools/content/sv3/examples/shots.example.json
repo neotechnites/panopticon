@@ -1,0 +1,72 @@
+[
+ {
+  "id": "L1",
+  "line": 1,
+  "text": "I'm making a game where one of your friends is a sniper in a tower",
+  "note": "pov sniper shooting at runners in hell",
+  "stage": "haters_hell",
+  "pov": "guard",
+  "dials": {
+   "fire_at": 7.43
+  },
+  "approved": {
+   "project": "haters_final",
+   "entry": 1
+  },
+  "same_take_as": null,
+  "beat": {
+   "tick": "hit",
+   "word": "tower"
+  },
+  "card": null,
+  "needs_stage": false,
+  "why": null
+ },
+ {
+  "id": "L2",
+  "line": 2,
+  "text": ", and everyone else has to get past him.",
+  "note": "pov runner in the back watching the shots at them",
+  "stage": "haters_hell",
+  "pov": "runner",
+  "dials": {
+   "fire_at": 7.43
+  },
+  "approved": {
+   "project": "haters_final",
+   "entry": 2
+  },
+  "same_take_as": "L1",
+  "beat": {
+   "tick": "hit",
+   "word": "past"
+  },
+  "card": null,
+  "needs_stage": false,
+  "why": null
+ },
+ {
+  "id": "L3",
+  "line": 3,
+  "text": "the first one to make it throws him out, and now, they're the sniper.",
+  "note": "different shot, get up to the portal, go through, shove him, they go flying",
+  "stage": "rs_live",
+  "pov": "runner",
+  "dials": {
+   "ride": "Runner_1",
+   "tower_fov": 100
+  },
+  "approved": {
+   "project": "ragdoll_short",
+   "entry": 19
+  },
+  "same_take_as": null,
+  "beat": null,
+  "card": {
+   "text": "beta link in bio",
+   "seconds": 1.0
+  },
+  "needs_stage": false,
+  "why": null
+ }
+]

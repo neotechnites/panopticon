@@ -1,115 +1,163 @@
-"""Group shots into line groups (same map/opening/old/same_match_as): one scripted capture per group (§9: `run_clip --match
-... --seat=<seat> --intent=<body>=<steps>;...` from film.intents), seeds (plan seed, +1); reuse only when a pool take already
-satisfies the line's predicates; capture minutes; refuse > 25 min.
+"""shots.json + stages.json + words.json -> the brief's `## n` entries (haters_final format) and its `## script <tag>` table.
 
-    python -m sv3.plan shots.json --pool DIR --out plan.json [--words words.json] [--seed 1000]
+    python -m sv3.plan shots.json --stages stages.json --words words.json --brief tools/content/projects/<name>.md --tag vN
 """
 import argparse
 import json
 import os
+import re
 import sys
-import tempfile
 
-from sv3 import predicates as P
-from sv3 import search as SE
-
-TAKE_OVERHEAD = 9 + 10          # load + gate seconds per take
-SECONDS = {"match": 45, "montage": 60, "studio": 8, "establishing": 10}
-MAX_MINUTES = 25
+PAD = 0.2           # assemble's default `pad:` after each voice line
+CARD = "beta link in bio"
 
 
-def group_key(shot, shots_by_id):
-    s = shot
-    seen = set()
-    while s["match"].get("same_match_as") and s["match"]["same_match_as"] in shots_by_id and s["id"] not in seen:
-        seen.add(s["id"])
-        s = shots_by_id[s["match"]["same_match_as"]]
-    m = s["match"]
-    linked = shot["match"].get("same_match_as") or any(x["match"].get("same_match_as") == s["id"] for x in shots_by_id.values())
-    # lines share a match only when linked by same_match_as or when they script exactly the same bodies
-    tag = s["id"] if linked else json.dumps((s.get("film") or {}).get("intents") or {}, sort_keys=True)
-    return (s["source"], m["map"], m["opening"], bool(m["old"]), tag)
+class Refused(Exception):
+    pass
 
 
-def intents_arg(group):
-    """`--intent=<body>=<steps>;...` merged over the group's film.intents (one match, several seats share one script)."""
-    first = (group[0].get("film") or {}).get("intents") or {}
-    players = int((group[0].get("film") or {}).get("players") or (group[0].get("match") or {}).get("players") or 4)
-    roster = {"guard"} | {"runner:%d" % k for k in range(max(0, players - 1))}
-    dropped = sorted(set(first) - roster)
-    if dropped:                                       # the recorder refuses a body outside the roster; the schema should never emit one
-        print("  intents: dropping %s (roster for %d players is %s)" % (dropped, players, sorted(roster)))
-        first = {k: v for k, v in first.items() if k in roster}
-    for s in group[1:]:
-        if ((s.get("film") or {}).get("intents") or {}) != first:
-            raise SystemExit("PLAN REFUSED: %s and %s share one match but script different bodies: %r vs %r (bodies not named keep their brain)" % (
-                group[0]["id"], s["id"], first, (s.get("film") or {}).get("intents")))
-    return ";".join("%s=%s" % (b, st) for b, st in first.items())
+def fmt(v):
+    """A dial value as the capture line writes it."""
+    if isinstance(v, (list, tuple)):
+        return ",".join(fmt(x) for x in v)
+    if isinstance(v, float):
+        return ("%.3f" % v).rstrip("0").rstrip(".")
+    return str(v)
 
+
+def with_dials(capture, pov, dials):
+    """The approved capture line with --pov set and its --set= dials replaced by the chosen values (new dials last)."""
+    words = capture.split()
+    sets, order, at = {}, [], None
+    for i, w in enumerate(words):
+        if w.startswith("--set="):
+            at = i
+            for kv in w[6:].split(";"):
+                k, _, v = kv.partition("=")
+                sets[k] = v
+                order.append(k)
+    for k, v in (dials or {}).items():
+        if k not in sets:
+            order.append(k)
+        sets[k] = fmt(v)
+    cell = "--set=" + ";".join("%s=%s" % (k, sets[k]) for k in order)
+    if at is not None:
+        words[at] = cell
+    elif sets:
+        words.append(cell)
+    if pov:
+        words = [("--pov=%s" % pov) if w.startswith("--pov=") else w for w in words]
+        if not any(w.startswith("--pov=") for w in words):
+            words.append("--pov=%s" % pov)
+    return " ".join(words)
+
+
+def norm(w):
+    return re.sub(r"[^\w']", "", w).lower()
+
+
+def approved_entry(stages, shot):
+    st = stages.get(shot["stage"])
+    if not st:
+        raise Refused("%s: stage %s is not in stages.json" % (shot["id"], shot["stage"]))
+    want = shot.get("approved") or {}
+    for e in st["approved"]:
+        if e["project"] == want.get("project") and int(e["entry"]) == int(want.get("entry", -1)):
+            return e
+    raise Refused("%s: %s ## %s is not an approved entry of %s" % (shot["id"], want.get("project"), want.get("entry"), shot["stage"]))
+
+
+def clip_in(shot, e, words):
+    """Tape seconds the row starts: tick - (word_start - line_start), clamped >= the entry's in:."""
+    beat = shot.get("beat")
+    if not beat:
+        return float(e["in"])
+    tick = (e.get("ticks") or {}).get(beat["tick"])
+    if tick is None:
+        raise Refused("%s: %s ## %s has no %s tick" % (shot["id"], e["project"], e["entry"], beat["tick"]))
+    ws = words[shot["id"]]["words"]
+    hit = next((w for w in ws if norm(w["word"]) == norm(beat["word"])), None)
+    if hit is None:
+        raise Refused("%s: beat word %r is not in the spoken line" % (shot["id"], beat["word"]))
+    line_start = 0.0            # the wav (lead trimmed) starts with the row's slot
+    return max(float(e["in"]), tick - (hit["t"] - line_start))
+
+
+def build(shots, stages, words, name, tag, base_n):
+    """(entries, table rows) for the brief."""
+    root = {}
+    for s in shots:
+        r = s.get("same_take_as")
+        root[s["id"]] = root.get(r, r) if r else s["id"]
+    groups = {}
+    for s in shots:
+        groups.setdefault(root[s["id"]], []).append(s["id"])
+    shared = [r for r, g in groups.items() if len(g) > 1]
+    entries, rows, cards, n = [], [], [], base_n
+    for s in shots:
+        if s.get("card"):
+            cards.append(s["card"])
+        if not s.get("stage"):
+            continue
+        e = approved_entry(stages, s)
+        n += 1
+        ent = ["## %d" % n, "said: %s" % s["note"], "capture: %s" % with_dials(e["capture"], s.get("pov"), s.get("dials"))]
+        if root[s["id"]] in shared:
+            ent.append("tape: %s_%s" % (name, tag) if len(shared) == 1 else "tape: %s_%s_%s" % (name, tag, root[s["id"]].lower()))
+        if s.get("pov") == "guard":
+            ent.append("hud: crosshair")
+        if e.get("expect"):
+            ent.append("expect: %s" % e["expect"])
+        ent += ["seconds: %s" % fmt(float(e["seconds"])), "in: %s" % fmt(float(e["in"])), "refilm: %s" % tag]
+        entries.append("\n".join(ent))
+        cut = "cuts/%02d_%s.mp4" % (n, tag)
+        text = (s.get("text") or "").strip()
+        at = clip_in(s, e, words) if text else float(e["in"])
+        cell_in = at - float(e["in"])                        # the cut starts at the entry's in:
+        length = float(e["seconds"]) - cell_in               # picture left in the cut
+        if not text:
+            rows.append("| %s | %s | %s | | beat %s | | | |" % (s["id"], cut, fmt(cell_in), fmt(length)))
+            continue
+        if s["id"] not in words:
+            raise Refused("%s: no voice in words.json" % s["id"])
+        need = float(words[s["id"]]["dur"]) + PAD
+        if length + 1e-6 < need:
+            raise Refused("%s needs %.2f s of picture (voice + pad) but %s has %.2f s from %.2f (decision 356)" % (
+                s["id"], need, cut, length, cell_in))
+        rows.append("| %s | %s | %s | %s | line | | %s | |" % (s["id"], cut, fmt(cell_in), fmt(length), text.replace("|", "/")))
+    if cards:
+        c = cards[-1]
+        rows.append("| end | title | | %s | | | %s | |" % (fmt(float(c.get("seconds") or 1.0)), c.get("text") or CARD))
+    return entries, rows
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("shots")
-    ap.add_argument("--pool", required=True)
-    ap.add_argument("--out", required=True)
-    ap.add_argument("--words")
-    ap.add_argument("--seed", type=int, default=1000)
-    ap.add_argument("--from-scratch", action="store_true", help="rule 417: never reuse the pool, film every line new")
+    ap.add_argument("--stages", required=True)
+    ap.add_argument("--words", required=True)
+    ap.add_argument("--brief", required=True)
+    ap.add_argument("--tag", required=True)
     a = ap.parse_args(argv)
-    shots = json.load(open(a.shots))
-    words = json.load(open(a.words)) if a.words else {}
-    by_id = {s["id"]: s for s in shots}
-    # what the pool already answers
-    tmp = os.path.join(tempfile.mkdtemp(), "edl.json")
-    import contextlib, io
-    buf = io.StringIO()
-    with contextlib.redirect_stdout(buf):
-        SE.run({}, shots, a.pool, words, SE.DEFAULT_PAD, tmp)
-    found = {} if a.from_scratch else {e["id"]: e for e in json.load(open(tmp))}
-    groups = {}
-    for s in shots:
-        if s["source"] in ("card", "black"):
-            continue
-        groups.setdefault(group_key(s, by_id), []).append(s)
-    matches, minutes, reuse_n, capture_n = [], 0.0, 0, 0
-    for i, (key, group) in enumerate(groups.items()):
-        source, map_, opening, old, _ = key
-        film = group[0].get("film") or {}
-        seats, kinds = [], {}
-        for s in group:
-            kind = (s.get("film") or {}).get("seat") or s["seat"]
-            seat = kinds.get(kind, kind)
-            if seat == "runner:any":        # capture needs a body: the lowest runner not already filmed in this match
-                seat = next(x for x in ("runner:0", "runner:1", "runner:2") if x not in seats)
-            kinds[kind] = seat
-            if seat not in seats:
-                seats.append(seat)
-        reused = [s["id"] for s in group if s["id"] in found]
-        tape = found[reused[0]]["tape"] if reused and len(reused) == len(group) else None
-        montage = any(s.get("montage") for s in group)
-        seconds = SECONDS["montage"] if montage else SECONDS.get(source, 45)
-        if tape:
-            reuse_n += len(group)
-        else:
-            capture_n += len(group)
-            minutes += len(seats) * (TAKE_OVERHEAD + seconds) / 60.0
-        matches.append({"id": "g%d" % (i + 1), "map": map_, "opening": opening, "players": film.get("players", max(s["match"]["players"] for s in group)),
-                        "seed": a.seed + i, "seconds": seconds, "seats": seats, "old": old,
-                        "kill": "runner:0@3.0" if source == "studio" else None,
-                        "cam": (group[0].get("camera") or "orbit") if source == "establishing" else None,
-                        "seat_intent": None, "intent": intents_arg(group) or None, "reuse": bool(tape), "reuse_tape": tape,
-                        "lines": [s["id"] for s in group], "run_clip_args": None, "source": source})
-    plan = {"matches": matches, "reuse_n": reuse_n, "capture_n": capture_n, "capture_minutes": round(minutes, 1)}
-    json.dump(plan, open(a.out, "w"), indent=1)
-    print("reuse %d / capture %d / %.1f minutes" % (reuse_n, capture_n, minutes))
-    for m in matches:
-        print("  %s %s %s/%s old=%s seed=%d %ds seats=%s lines=%s %s intent=%s" % (
-            m["id"], m["source"], m["map"], m["opening"], m["old"], m["seed"], m["seconds"], m["seats"], m["lines"],
-            ("reuse " + m["reuse_tape"]) if m["reuse"] else "capture", m["intent"]))
-    if minutes > MAX_MINUTES:
-        print("PLAN REFUSED: %.1f minutes of capture is over %d" % (minutes, MAX_MINUTES))
+    shots = json.load(open(a.shots, encoding="utf-8"))
+    stages = json.load(open(a.stages, encoding="utf-8"))["stages"]
+    words = json.load(open(a.words, encoding="utf-8"))
+    text = open(a.brief, encoding="utf-8").read()
+    if re.search(r"(?m)^## script %s\s*$" % re.escape(a.tag), text):
+        print("PLAN REFUSED: %s already has ## script %s" % (a.brief, a.tag))
         return 2
+    base = max([int(m) for m in re.findall(r"(?m)^## (\d+)[a-z]*\s*$", text)] or [0])
+    name = os.path.basename(a.brief)[:-3]
+    try:
+        entries, rows = build(shots, stages, words, name, a.tag, base)
+    except Refused as why:
+        print("PLAN REFUSED: %s" % why)
+        return 2
+    table = ["## script %s" % a.tag, "pad: %s" % fmt(PAD), "| line | clip | in | len | fit | speed | text | card |"] + rows
+    out = text.rstrip("\n") + "\n\n" + "\n\n".join(entries + ["\n".join(table)]) + "\n"
+    with open(a.brief, "w", encoding="utf-8") as f:
+        f.write(out)
+    print("\n".join(table))
     return 0
 
 
