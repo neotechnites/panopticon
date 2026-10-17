@@ -1,10 +1,22 @@
 [
  {
   "id": "M1a",
+  "film": {
+   "seat": "guard",
+   "map": "forest",
+   "opening": "seat",
+   "players": 4,
+   "old": true,
+   "intents": {
+    "guard": "hit",
+    "runner:1": "run",
+    "runner:2": "run"
+   }
+  },
   "line": "M1",
   "source": "match",
   "match": {
-   "map": "hell",
+   "map": "forest",
    "opening": "seat",
    "players": 4,
    "old": true,
@@ -17,6 +29,7 @@
     "ev": "kill",
     "by": "seat",
     "cause": "shot",
+    "count": 1,
     "anchor": true
    },
    {
@@ -24,26 +37,38 @@
     "who": "victim",
     "min_h": 0.06,
     "for_s_before": 0.5,
-    "for_s_after": 1.0
+    "for_s_after": 1.5
    }
   ],
   "window": {
    "lead_s": 0.8,
    "tail_s": 1.0,
-   "until": "kill",
+   "until": "ragdoll",
    "beat": null
   },
   "overlays": [],
   "note": "Just, how it started, vs how its going, pills, cut to forest, get both sniper and runners perspective for both",
   "unmapped": [],
-  "interpreted": "'how it started' and 'pills' means old=true. The first part of the comparison is set in hell, showing the sniper's perspective of a kill."
+  "interpreted": "Created 4 shots to cover 'how it started' (old=true) and 'how its going' (old=false) from both sniper and runner perspectives in the forest map."
  },
  {
   "id": "M1b",
+  "film": {
+   "seat": "runner:1",
+   "map": "forest",
+   "opening": "seat",
+   "players": 4,
+   "old": true,
+   "intents": {
+    "guard": "hit",
+    "runner:1": "run",
+    "runner:2": "run"
+   }
+  },
   "line": "M1",
   "source": "match",
   "match": {
-   "map": "hell",
+   "map": "forest",
    "opening": "seat",
    "players": 4,
    "old": true,
@@ -56,29 +81,47 @@
     "ev": "kill",
     "victim": "other",
     "cause": "shot",
+    "count": 1,
     "anchor": true
    },
    {
     "p": "on_screen",
     "who": "victim",
-    "min_h": 0.1,
-    "for_s_before": 0.5,
-    "for_s_after": 1.0
+    "min_h": 0.12,
+    "for_s_before": 1.0,
+    "for_s_after": 1.2
+   },
+   {
+    "p": "moving",
+    "who": "seat",
+    "min_mps": 1.0
    }
   ],
   "window": {
    "lead_s": 0.8,
    "tail_s": 1.0,
-   "until": "kill",
+   "until": "ragdoll",
    "beat": null
   },
   "overlays": [],
   "note": "Just, how it started, vs how its going, pills, cut to forest, get both sniper and runners perspective for both",
   "unmapped": [],
-  "interpreted": "Runner's perspective of the same 'how it started' match (old=true, hell map)."
+  "interpreted": "Runner perspective of the same match as M1a."
  },
  {
   "id": "M1c",
+  "film": {
+   "seat": "guard",
+   "map": "forest",
+   "opening": "seat",
+   "players": 4,
+   "old": false,
+   "intents": {
+    "guard": "hit",
+    "runner:1": "run",
+    "runner:2": "run"
+   }
+  },
   "line": "M1",
   "source": "match",
   "match": {
@@ -95,6 +138,7 @@
     "ev": "kill",
     "by": "seat",
     "cause": "shot",
+    "count": 1,
     "anchor": true
    },
    {
@@ -107,17 +151,29 @@
   ],
   "window": {
    "lead_s": 0.8,
-   "tail_s": 1.5,
+   "tail_s": 1.0,
    "until": "ragdoll",
    "beat": null
   },
   "overlays": [],
   "note": "Just, how it started, vs how its going, pills, cut to forest, get both sniper and runners perspective for both",
   "unmapped": [],
-  "interpreted": "'how its going' means old=false. 'cut to forest' means map is forest. This is the sniper's perspective of a kill with the new ragdoll animation."
+  "interpreted": "Sniper perspective for 'how its going' (old=false)."
  },
  {
   "id": "M1d",
+  "film": {
+   "seat": "runner:1",
+   "map": "forest",
+   "opening": "seat",
+   "players": 4,
+   "old": false,
+   "intents": {
+    "guard": "hit",
+    "runner:1": "run",
+    "runner:2": "run"
+   }
+  },
   "line": "M1",
   "source": "match",
   "match": {
@@ -134,25 +190,31 @@
     "ev": "kill",
     "victim": "other",
     "cause": "shot",
+    "count": 1,
     "anchor": true
    },
    {
     "p": "on_screen",
     "who": "victim",
-    "min_h": 0.1,
-    "for_s_before": 0.5,
-    "for_s_after": 1.5
+    "min_h": 0.12,
+    "for_s_before": 1.0,
+    "for_s_after": 1.2
+   },
+   {
+    "p": "moving",
+    "who": "seat",
+    "min_mps": 1.0
    }
   ],
   "window": {
    "lead_s": 0.8,
-   "tail_s": 1.5,
+   "tail_s": 1.0,
    "until": "ragdoll",
    "beat": null
   },
   "overlays": [],
   "note": "Just, how it started, vs how its going, pills, cut to forest, get both sniper and runners perspective for both",
   "unmapped": [],
-  "interpreted": "Runner's perspective of the same 'how its going' match (old=false, forest map)."
+  "interpreted": "Runner perspective of the same match as M1c."
  }
 ]

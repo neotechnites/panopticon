@@ -1,6 +1,16 @@
 [
  {
   "id": "L1",
+  "film": {
+   "seat": "runner:1",
+   "map": "hell",
+   "opening": "seat",
+   "players": 4,
+   "old": false,
+   "intents": {
+    "runner:1": "portal"
+   }
+  },
   "line": "L1",
   "source": "match",
   "match": {
@@ -19,9 +29,8 @@
    },
    {
     "p": "event",
-    "ev": "shove",
+    "ev": "finale_start",
     "by": "seat",
-    "outcome": "tower_out",
     "anchor": true
    },
    {
@@ -31,18 +40,33 @@
    }
   ],
   "window": {
-   "lead_s": 1.5,
+   "lead_s": 0.8,
    "tail_s": 0.0,
    "until": "finale_end",
-   "beat": null
+   "beat": {
+    "word": "game",
+    "event": "finale_start",
+    "tol_s": 0.1
+   }
   },
   "overlays": [],
   "note": "pov of a runner in the tower shoving the sniper and the cinematic shot that plays after, in hell",
   "unmapped": [],
-  "interpreted": "The finale cinematic is requested from the runner's POV, which means finding a match where the runner seat enters the portal and initiates the shove."
+  "interpreted": "runner pov of the finale cinematic"
  },
  {
-  "id": "L2a",
+  "id": "L2",
+  "film": {
+   "seat": "runner:1",
+   "map": "hell",
+   "opening": "seat",
+   "players": 4,
+   "old": false,
+   "intents": {
+    "guard": "miss:2",
+    "runner:1": "look:tower:2,run"
+   }
+  },
   "line": "L2",
   "source": "match",
   "match": {
@@ -57,67 +81,48 @@
    {
     "p": "looking_at",
     "landmark": "tower",
-    "for_s": 1.5
+    "for_s": 2.0
    },
    {
     "p": "event",
-    "ev": "shot",
-    "by": "guard"
+    "ev": "shot_result",
+    "by": "guard",
+    "anchor": true
    },
    {
-    "p": "moving",
-    "who": "seat",
-    "min_mps": 1.0
+    "p": "looking_at",
+    "landmark": "lava",
+    "for_s": 0.0
    }
   ],
   "window": {
    "lead_s": 0.8,
-   "tail_s": 0.5,
-   "until": "shot",
-   "beat": null
+   "tail_s": 1.0,
+   "until": "ragdoll",
+   "beat": {
+    "word": "sniper",
+    "event": "shot_result",
+    "tol_s": 0.1
+   }
   },
   "overlays": [],
   "note": "runner pov, looking over at the tower while hes shooting, then look forward and start doing the lava parkour section",
   "unmapped": [],
-  "interpreted": "Split into two shots. First, the runner looks at the tower while the guard is shooting."
+  "interpreted": "runner looking at tower then lava"
  },
  {
-  "id": "L2b",
-  "line": "L2",
-  "source": "match",
-  "match": {
+  "id": "L3",
+  "film": {
+   "seat": "guard",
    "map": "hell",
    "opening": "seat",
    "players": 4,
    "old": false,
-   "same_match_as": "L2a"
-  },
-  "seat": "runner:any",
-  "find": [
-   {
-    "p": "looking_at",
-    "landmark": "lava",
-    "for_s": 2.0
-   },
-   {
-    "p": "moving",
-    "who": "seat",
-    "min_mps": 1.0
+   "intents": {
+    "guard": "miss:2",
+    "runner:1": "look:tower:2,run"
    }
-  ],
-  "window": {
-   "lead_s": 0.2,
-   "tail_s": 0.5,
-   "until": "portal",
-   "beat": null
   },
-  "overlays": [],
-  "note": "runner pov, looking over at the tower while hes shooting, then look forward and start doing the lava parkour section",
-  "unmapped": [],
-  "interpreted": "Second shot from the same match: the runner proceeds to the lava parkour section."
- },
- {
-  "id": "L3",
   "line": "L3",
   "source": "match",
   "match": {
@@ -125,20 +130,21 @@
    "opening": "seat",
    "players": 4,
    "old": false,
-   "same_match_as": "L2a"
+   "same_match_as": "L2"
   },
   "seat": "guard",
   "find": [
    {
     "p": "event",
-    "ev": "shot",
+    "ev": "shot_result",
     "by": "seat",
+    "victim": "other",
     "anchor": true
    },
    {
     "p": "on_screen",
     "who": "victim",
-    "min_h": 0.06,
+    "min_h": 0.05,
     "for_s_before": 1.0,
     "for_s_after": 1.0
    }
@@ -146,23 +152,39 @@
   "window": {
    "lead_s": 0.8,
    "tail_s": 1.0,
-   "until": "shot",
-   "beat": null
+   "until": "ragdoll",
+   "beat": {
+    "word": "earned",
+    "event": "shot_result",
+    "tol_s": 0.1
+   }
   },
   "overlays": [],
   "note": "pov of the sniper sniping at the runner from the previous shot",
   "unmapped": [],
-  "interpreted": "This is the sniper's POV from the same match as the previous runner shot (L2a)."
+  "interpreted": "same match as L2, from guard's perspective"
  },
  {
   "id": "L4",
+  "film": {
+   "seat": "runner:1",
+   "map": "forest",
+   "opening": "race",
+   "players": 4,
+   "old": false,
+   "intents": {
+    "runner:1": "run",
+    "runner:2": "run",
+    "runner:3": "run"
+   }
+  },
   "line": "L4",
   "source": "match",
   "match": {
    "map": "forest",
    "opening": "race",
    "players": 4,
-   "old": true,
+   "old": false,
    "same_match_as": null
   },
   "seat": "runner:any",
@@ -175,23 +197,36 @@
    {
     "p": "moving",
     "who": "seat",
-    "min_mps": 1.0,
-    "for_s_before": 2.0
+    "min_mps": 1.0
    }
   ],
   "window": {
-   "lead_s": 0.2,
-   "tail_s": 2.0,
-   "until": "race_start",
-   "beat": null
+   "lead_s": 0.8,
+   "tail_s": 1.0,
+   "until": "ragdoll",
+   "beat": {
+    "word": "long",
+    "event": "race_start",
+    "tol_s": 0.1
+   }
   },
   "overlays": [],
   "note": "pov of race in forest",
   "unmapped": [],
-  "interpreted": "A runner's POV of the start of a race opening in the forest map. old=true because this describes the 'worst part' of the game, the old system."
+  "interpreted": "race opening in forest"
  },
  {
   "id": "L5",
+  "film": {
+   "seat": "free",
+   "map": "hell",
+   "opening": "seat",
+   "players": 1,
+   "old": false,
+   "intents": {
+    "runner:1": "idle"
+   }
+  },
   "line": "L5",
   "source": "studio",
   "match": {
@@ -206,29 +241,48 @@
    {
     "p": "on_screen",
     "who": "other",
-    "min_h": 0.5
+    "min_h": 0.5,
+    "for_s_before": 1.0,
+    "for_s_after": 1.0
    },
    {
     "p": "moving",
     "who": "other",
-    "min_mps": 0,
-    "max_mps": 0.2
+    "min_mps": 0.0,
+    "max_mps": 0.2,
+    "for_s_before": 1.0
    }
   ],
   "window": {
-   "lead_s": 0.0,
-   "tail_s": 2.0,
-   "until": "kill",
-   "beat": null
+   "lead_s": 0.8,
+   "tail_s": 1.0,
+   "until": "ragdoll",
+   "beat": {
+    "word": "it",
+    "event": "ragdoll",
+    "tol_s": 0.1
+   }
   },
   "overlays": [],
   "camera": "bust",
   "note": "bust shot of runner in hell idle animating",
   "unmapped": [],
-  "interpreted": "A studio bust shot of a single runner idling, set against the hell map background."
+  "interpreted": "studio bust shot of idle runner"
  },
  {
   "id": "L6",
+  "film": {
+   "seat": "runner:1",
+   "map": "hell",
+   "opening": "brawl",
+   "players": 4,
+   "old": false,
+   "intents": {
+    "runner:1": "brawl",
+    "runner:2": "brawl",
+    "runner:3": "brawl"
+   }
+  },
   "line": "L6",
   "source": "match",
   "match": {
@@ -246,24 +300,24 @@
     "anchor": true
    },
    {
-    "p": "event",
-    "ev": "brawl_out"
-   },
-   {
     "p": "moving",
     "who": "seat",
     "min_mps": 1.0
    }
   ],
   "window": {
-   "lead_s": 0.2,
-   "tail_s": 3.0,
-   "until": "brawl_start",
-   "beat": null
+   "lead_s": 0.8,
+   "tail_s": 1.0,
+   "until": "ragdoll",
+   "beat": {
+    "word": "first",
+    "event": "brawl_start",
+    "tol_s": 0.1
+   }
   },
   "overlays": [],
   "note": "Shot of starting shove tower minigame in hell",
   "unmapped": [],
-  "interpreted": "A runner's POV of the brawl opening in hell, showing the start of the minigame and some action."
+  "interpreted": "brawl opening in hell"
  }
 ]

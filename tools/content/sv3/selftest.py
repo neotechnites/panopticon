@@ -59,7 +59,7 @@ def main():
         mock_words(json.load(open(spec)), words)
         for st in (["sv3.translate", spec, "--out", shots, "--fixture", fixture],
                    ["sv3.plan", shots, "--pool", pool, "--out", plan, "--words", words],
-                   ["sv3.search", plan, shots, "--pool", pool, "--words", words, "--out", edl],
+                   ["sv3.search", "-", shots, "--pool", pool, "--words", words, "--out", edl],
                    ["sv3.edl", edl, shots, spec, "--brief", brief, "--tag", "v1", "--words", words]):
             code, out = run(st)
             if code:

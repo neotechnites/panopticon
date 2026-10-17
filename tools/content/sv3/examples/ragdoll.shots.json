@@ -1,6 +1,18 @@
 [
  {
   "id": "L1",
+  "film": {
+   "seat": "guard",
+   "map": "hell",
+   "opening": "seat",
+   "players": 4,
+   "old": true,
+   "intents": {
+    "guard": "scope,miss:2,hit",
+    "runner:1": "run",
+    "runner:2": "run"
+   }
+  },
   "line": "L1",
   "source": "match",
   "match": {
@@ -16,8 +28,7 @@
     "p": "event",
     "ev": "shot_result",
     "result": "miss",
-    "count": 1,
-    "anchor": false
+    "count": 2
    },
    {
     "p": "event",
@@ -40,24 +51,36 @@
    {
     "p": "on_screen",
     "who": "victim",
-    "min_h": 0.05,
-    "for_s_before": 1.0,
+    "min_h": 0.06,
+    "for_s_before": 0.5,
     "for_s_after": 1.5
    }
   ],
   "window": {
    "lead_s": 0.8,
-   "tail_s": 1.5,
-   "until": "kill",
-   "beat": null
+   "tail_s": 1.0,
+   "until": "ragdoll",
+   "beat": {
+    "word": "bad.",
+    "event": "kill",
+    "tol_s": 0.1
+   }
   },
   "overlays": [],
   "note": "pov of the sniper shooting at some runners and missing, hell map, right at the end, they hit one, and we cut a little after the animation plays out",
   "unmapped": [],
-  "interpreted": "old=true because the line is about the old, bad animation. 'right at the end' means the kill is the last major action. The window extends after the kill to show the animation."
+  "interpreted": "old=true because the short is about the OLD death animation; 'right at the end' = the kill is the last event"
  },
  {
   "id": "M2",
+  "film": {
+   "seat": "free",
+   "map": "grey",
+   "opening": "seat",
+   "players": 1,
+   "old": true,
+   "intents": {}
+  },
   "line": "M2",
   "source": "studio",
   "match": {
@@ -70,22 +93,21 @@
   "seat": "free",
   "find": [
    {
-    "p": "event",
-    "ev": "kill",
-    "anchor": true
+    "p": "on_screen",
+    "who": "other",
+    "min_h": 0.5
    },
    {
-    "p": "on_screen",
-    "who": "victim",
-    "min_h": 0.5,
-    "for_s_before": 3.0,
-    "for_s_after": 2.0
+    "p": "moving",
+    "who": "other",
+    "min_mps": 0,
+    "max_mps": 0.2
    }
   ],
   "window": {
-   "lead_s": 3.0,
-   "tail_s": 2.0,
-   "until": "kill",
+   "lead_s": 0.8,
+   "tail_s": 1.0,
+   "until": "ragdoll",
    "beat": null
   },
   "overlays": [
@@ -96,37 +118,62 @@
     "seconds": 1.5
    }
   ],
+  "camera": "bust",
   "note": "shot of the animation in a grey space jsut playing, with a slow fade in of an image i will provide https://media.tenor.com/17aPeH713cYAAAAM/scared.gif",
   "unmapped": [],
-  "interpreted": "A studio shot of the old death animation. 'slow fade in of an image' is an overlay. 'grey space' is source:studio."
+  "interpreted": "studio shot of the old death animation with the requested gif overlay"
  },
  {
   "id": "L3",
+  "film": {
+   "seat": "free",
+   "map": "hell",
+   "opening": "seat",
+   "players": 1,
+   "old": true,
+   "intents": {}
+  },
   "line": "L3",
   "source": "establishing",
   "match": {
    "map": "hell",
    "opening": "seat",
-   "players": 4,
+   "players": 1,
    "old": true,
    "same_match_as": null
   },
   "seat": "free",
   "find": [],
   "window": {
-   "lead_s": 0.0,
-   "tail_s": 0.0,
-   "until": "round_end",
-   "beat": null
+   "lead_s": 0.8,
+   "tail_s": 1.0,
+   "until": "seat",
+   "beat": {
+    "word": "animator",
+    "event": "seat",
+    "tol_s": 0.1
+   }
   },
   "overlays": [],
   "camera": "dolly_out",
   "note": "slow zoom out shot of the old hell map",
   "unmapped": [],
-  "interpreted": "An establishing shot of the old hell map. 'slow zoom out' maps to camera:dolly_out."
+  "interpreted": "establishing shot of hell map zooming out"
  },
  {
   "id": "L4a",
+  "film": {
+   "seat": "guard",
+   "map": "hell",
+   "opening": "seat",
+   "players": 4,
+   "old": false,
+   "intents": {
+    "guard": "scope,miss:2,hit",
+    "runner:1": "run",
+    "runner:2": "run"
+   }
+  },
   "line": "L4",
   "source": "match",
   "match": {
@@ -142,31 +189,18 @@
     "p": "event",
     "ev": "shot_result",
     "result": "miss",
-    "count": 1
-   },
-   {
-    "p": "event",
-    "ev": "kill",
-    "by": "seat",
-    "cause": "shot",
-    "anchor": true
-   },
-   {
-    "p": "before",
-    "a": {
-     "ev": "shot_result",
-     "result": "miss"
-    },
-    "b": {
-     "ev": "kill"
-    }
+    "count": 2
    }
   ],
   "window": {
    "lead_s": 0.8,
-   "tail_s": 0.2,
-   "until": "kill",
-   "beat": null
+   "tail_s": 1.0,
+   "until": "shot",
+   "beat": {
+    "word": "guy",
+    "event": "shot",
+    "tol_s": 0.1
+   }
   },
   "overlays": [
    {
@@ -176,10 +210,22 @@
   ],
   "note": "a sniper pov, missing shots, then cut to the runner pov near the end, and he watches the person in front of him get shot",
   "unmapped": [],
-  "interpreted": "First of two shots for this line. Sniper POV. old=false because this introduces the new 'Ragdolls' solution."
+  "interpreted": "sniper missing shots, comment card appears when 'this guy' is said"
  },
  {
   "id": "L4b",
+  "film": {
+   "seat": "runner:1",
+   "map": "hell",
+   "opening": "seat",
+   "players": 4,
+   "old": false,
+   "intents": {
+    "guard": "scope,miss:2,hit",
+    "runner:1": "run",
+    "runner:2": "run"
+   }
+  },
   "line": "L4",
   "source": "match",
   "match": {
@@ -196,14 +242,20 @@
     "ev": "kill",
     "victim": "other",
     "cause": "shot",
+    "count": 1,
     "anchor": true
    },
    {
     "p": "on_screen",
     "who": "victim",
-    "min_h": 0.1,
+    "min_h": 0.12,
     "for_s_before": 1.0,
-    "for_s_after": 1.5
+    "for_s_after": 1.2
+   },
+   {
+    "p": "moving",
+    "who": "victim",
+    "min_mps": 1.0
    },
    {
     "p": "moving",
@@ -213,7 +265,7 @@
   ],
   "window": {
    "lead_s": 1.0,
-   "tail_s": 1.5,
+   "tail_s": 1.2,
    "until": "ragdoll",
    "beat": {
     "word": "Ragdolls",
@@ -224,10 +276,21 @@
   "overlays": [],
   "note": "a sniper pov, missing shots, then cut to the runner pov near the end, and he watches the person in front of him get shot",
   "unmapped": [],
-  "interpreted": "Second shot for this line. Runner POV of the same kill from L4a. The kill event is synced to the word 'Ragdolls'."
+  "interpreted": "the same match as the sniper shot, seen from a runner's eyes; the kill lands on the last word"
  },
  {
   "id": "L5",
+  "film": {
+   "seat": "guard",
+   "map": "hell",
+   "opening": "seat",
+   "players": 4,
+   "old": false,
+   "intents": {
+    "guard": "scope,hit",
+    "runner:1": "run"
+   }
+  },
   "line": "L5",
   "source": "match",
   "match": {
@@ -244,26 +307,24 @@
     "ev": "kill",
     "by": "seat",
     "cause": "shot",
+    "count": 1,
     "anchor": true
    },
    {
     "p": "distinct",
     "who": "victim"
-   },
-   {
-    "p": "on_screen",
-    "who": "victim",
-    "min_h": 0.05,
-    "for_s_before": 0.5,
-    "for_s_after": 1.5
    }
   ],
   "montage": 3,
   "window": {
-   "lead_s": 0.5,
-   "tail_s": 1.5,
+   "lead_s": 0.8,
+   "tail_s": 1.0,
    "until": "ragdoll",
-   "beat": null
+   "beat": {
+    "word": "entertaining",
+    "event": "kill",
+    "tol_s": 0.1
+   }
   },
   "overlays": [],
   "note": "clip montage of the sniper hitting people dead in hell, and if we can, get one that freaks out and break the players model and go flying",
@@ -273,15 +334,26 @@
     "optional": true
    }
   ],
-  "interpreted": "A 3-clip montage of sniper kills showing ragdolls. The 'freak out' physics is an unmappable optional request."
+  "interpreted": "montage of sniper kills in hell, unmapped the physics glitch as it's optional and unscriptable"
  },
  {
   "id": "L6",
+  "film": {
+   "seat": "runner:1",
+   "map": "hell",
+   "opening": "race",
+   "players": 4,
+   "old": false,
+   "intents": {
+    "runner:1": "run,shove_when_rival_within:3",
+    "runner:2": "run,cover:at:4"
+   }
+  },
   "line": "L6",
   "source": "match",
   "match": {
    "map": "hell",
-   "opening": "seat",
+   "opening": "race",
    "players": 4,
    "old": false,
    "same_match_as": null
@@ -291,13 +363,8 @@
    {
     "p": "event",
     "ev": "shove",
-    "by": "any",
-    "victim": "runner:any"
-   },
-   {
-    "p": "event",
-    "ev": "ragdoll",
-    "body": "victim",
+    "by": "seat",
+    "count": 1,
     "anchor": true
    },
    {
@@ -308,29 +375,38 @@
     "p": "moving",
     "who": "seat",
     "min_mps": 1.0
-   },
-   {
-    "p": "on_screen",
-    "who": "victim",
-    "min_h": 0.1,
-    "for_s_before": 0.5,
-    "for_s_after": 1.5
    }
   ],
   "montage": 3,
   "window": {
-   "lead_s": 0.5,
-   "tail_s": 1.5,
+   "lead_s": 0.8,
+   "tail_s": 1.0,
    "until": "ragdoll",
-   "beat": null
+   "beat": {
+    "word": "ragdoll.",
+    "event": "shove",
+    "tol_s": 0.1
+   }
   },
   "overlays": [],
   "note": "a bunch of runners shoving each other with the ragdoll, other pov shots of a \"real game\" where the runners are getting shoved",
   "unmapped": [],
-  "interpreted": "A 3-clip montage from a runner's POV of other runners being shoved and ragdolling."
+  "interpreted": "montage of runners shoving each other in a real game"
  },
  {
   "id": "L7",
+  "film": {
+   "seat": "runner:1",
+   "map": "hell",
+   "opening": "seat",
+   "players": 4,
+   "old": false,
+   "intents": {
+    "runner:1": "run,portal",
+    "runner:2": "run",
+    "runner:3": "run"
+   }
+  },
   "line": "L7",
   "source": "match",
   "match": {
@@ -349,22 +425,9 @@
    },
    {
     "p": "event",
-    "ev": "shove",
+    "ev": "finale_start",
     "by": "seat",
-    "victim": "guard",
-    "outcome": "tower_out",
     "anchor": true
-   },
-   {
-    "p": "before",
-    "a": {
-     "ev": "portal",
-     "by": "seat"
-    },
-    "b": {
-     "ev": "shove",
-     "by": "seat"
-    }
    },
    {
     "p": "moving",
@@ -373,14 +436,18 @@
    }
   ],
   "window": {
-   "lead_s": 1.0,
-   "tail_s": 0.0,
+   "lead_s": 0.8,
+   "tail_s": 1.0,
    "until": "finale_end",
-   "beat": null
+   "beat": {
+    "word": "pit.",
+    "event": "finale_start",
+    "tol_s": 0.1
+   }
   },
   "overlays": [],
   "note": "pov runner makes it through the portal, shoves, and the usual cinematic shot",
   "unmapped": [],
-  "interpreted": "Runner POV of the finale sequence: entering the portal, shoving the guard, and watching the cinematic until it ends."
+  "interpreted": "runner enters portal and shoves guard, triggering the finale cinematic"
  }
 ]

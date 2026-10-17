@@ -1,5 +1,6 @@
-"""Group shots into matches (same map/opening/old/same_match_as), seats per match, seeds (plan seed, +1), reuse from the pool
-when the search already succeeds, seat_intent steps when a predicate needs a seat action; capture minutes; refuse > 25 min.
+"""Group shots into line groups (same map/opening/old/same_match_as): one scripted capture per group (§9: `run_clip --match
+... --seat=<seat> --intent=<body>=<steps>;...` from film.intents), seeds (plan seed, +1); reuse only when a pool take already
+satisfies the line's predicates; capture minutes; refuse > 25 min.
 
     python -m sv3.plan shots.json --pool DIR --out plan.json [--words words.json] [--seed 1000]
 """
@@ -24,20 +25,21 @@ def group_key(shot, shots_by_id):
         seen.add(s["id"])
         s = shots_by_id[s["match"]["same_match_as"]]
     m = s["match"]
-    return (s["source"], m["map"], m["opening"], bool(m["old"]), s["id"] if shot["match"].get("same_match_as") or any(
-        x["match"].get("same_match_as") == s["id"] for x in shots_by_id.values()) else "")
+    linked = shot["match"].get("same_match_as") or any(x["match"].get("same_match_as") == s["id"] for x in shots_by_id.values())
+    # lines share a match only when linked by same_match_as or when they script exactly the same bodies
+    tag = s["id"] if linked else json.dumps((s.get("film") or {}).get("intents") or {}, sort_keys=True)
+    return (s["source"], m["map"], m["opening"], bool(m["old"]), tag)
 
 
-def seat_intent(shot):
-    steps = []
-    for p in shot["find"]:
-        if p["p"] == "event" and p["ev"] == "shove" and p.get("by") == "seat":
-            steps.append("shove_when_rival_within:3m")
-        if p["p"] == "event" and p["ev"] == "portal" and p.get("by") in ("seat", None):
-            steps.append("run")
-        if p["p"] == "looking_at":
-            steps.append("look:%s:%.0fs" % (p["landmark"], p.get("for_s", p.get("for_s_before", 1.0)) or 1))
-    return steps
+def intents_arg(group):
+    """`--intent=<body>=<steps>;...` merged over the group's film.intents (one match, several seats share one script)."""
+    first = (group[0].get("film") or {}).get("intents") or {}
+    for s in group[1:]:
+        if ((s.get("film") or {}).get("intents") or {}) != first:
+            raise SystemExit("PLAN REFUSED: %s and %s share one match but script different bodies: %r vs %r (bodies not named keep their brain)" % (
+                group[0]["id"], s["id"], first, (s.get("film") or {}).get("intents")))
+    return ";".join("%s=%s" % (b, st) for b, st in first.items())
+
 
 
 def main(argv=None):
@@ -67,29 +69,38 @@ def main(argv=None):
     matches, minutes, reuse_n, capture_n = [], 0.0, 0, 0
     for i, (key, group) in enumerate(groups.items()):
         source, map_, opening, old, _ = key
-        seats = sorted({s["seat"] for s in group})
+        film = group[0].get("film") or {}
+        seats, kinds = [], {}
+        for s in group:
+            kind = (s.get("film") or {}).get("seat") or s["seat"]
+            seat = kinds.get(kind, kind)
+            if seat == "runner:any":        # capture needs a body: the lowest runner not already filmed in this match
+                seat = next(x for x in ("runner:1", "runner:2", "runner:3") if x not in seats)
+            kinds[kind] = seat
+            if seat not in seats:
+                seats.append(seat)
         reused = [s["id"] for s in group if s["id"] in found]
         tape = found[reused[0]]["tape"] if reused and len(reused) == len(group) else None
         montage = any(s.get("montage") for s in group)
         seconds = SECONDS["montage"] if montage else SECONDS.get(source, 45)
-        takes = []
-        if not tape:
-            for j, seat in enumerate(seats):
-                intent = sorted({st for s in group if s["seat"] == seat for st in seat_intent(s)})
-                takes.append({"seat": seat, "seconds": seconds, "mode": "record" if j == 0 else "tape", "seat_intent": intent})
-                minutes += (TAKE_OVERHEAD + seconds) / 60.0
-            capture_n += len(group)
-        else:
+        if tape:
             reuse_n += len(group)
-        matches.append({"group": "g%d" % (i + 1), "source": source, "map": map_, "opening": opening, "old": old,
-                        "players": max(s["match"]["players"] for s in group), "seeds": [a.seed + i, a.seed + i + 1],
-                        "seats": seats, "lines": [s["id"] for s in group], "reuse": tape, "takes": takes})
+        else:
+            capture_n += len(group)
+            minutes += len(seats) * (TAKE_OVERHEAD + seconds) / 60.0
+        matches.append({"id": "g%d" % (i + 1), "map": map_, "opening": opening, "players": film.get("players", max(s["match"]["players"] for s in group)),
+                        "seed": a.seed + i, "seconds": seconds, "seats": seats, "old": old,
+                        "kill": "runner:0@3.0" if source == "studio" else None,
+                        "cam": (group[0].get("camera") or "orbit") if source == "establishing" else None,
+                        "seat_intent": None, "intent": intents_arg(group) or None, "reuse": bool(tape), "reuse_tape": tape,
+                        "lines": [s["id"] for s in group], "run_clip_args": None, "source": source})
     plan = {"matches": matches, "reuse_n": reuse_n, "capture_n": capture_n, "capture_minutes": round(minutes, 1)}
     json.dump(plan, open(a.out, "w"), indent=1)
     print("reuse %d / capture %d / %.1f minutes" % (reuse_n, capture_n, minutes))
     for m in matches:
-        print("  %s %s %s/%s old=%s seats=%s lines=%s %s" % (m["group"], m["source"], m["map"], m["opening"], m["old"], m["seats"], m["lines"],
-                                                           ("reuse " + m["reuse"]) if m["reuse"] else "capture %d takes" % len(m["takes"])))
+        print("  %s %s %s/%s old=%s seed=%d %ds seats=%s lines=%s %s intent=%s" % (
+            m["id"], m["source"], m["map"], m["opening"], m["old"], m["seed"], m["seconds"], m["seats"], m["lines"],
+            ("reuse " + m["reuse_tape"]) if m["reuse"] else "capture", m["intent"]))
     if minutes > MAX_MINUTES:
         print("PLAN REFUSED: %.1f minutes of capture is over %d" % (minutes, MAX_MINUTES))
         return 2

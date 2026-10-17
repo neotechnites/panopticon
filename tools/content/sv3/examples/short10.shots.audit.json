@@ -1,34 +1,43 @@
 [
  {
   "id": "L1",
-  "invented": [],
+  "invented": [
+   "hit",
+   "window.beat"
+  ],
   "missing": [],
-  "ok": true,
-  "why": "The translation correctly captures the sniper's POV, the location, and the action of shooting at runners."
+  "ok": false,
+  "why": "The note asks for shooting but not hitting, so the hit step is invented; beat alignment is not requested."
  },
  {
   "id": "L2",
-  "invented": [],
+  "invented": [
+   "window.beat"
+  ],
   "missing": [],
-  "ok": true,
-  "why": "The translation correctly implements the runner POV, watching shots land on other runners, and correctly applies the mandatory moving predicate for a runner POV."
+  "ok": false,
+  "why": "The note does not ask for beat alignment."
  },
  {
   "id": "L3",
   "invented": [
-   "moving(who='seat', min_mps=1.0, for_s_before=0.0)"
+   "for_s_before=0.0",
+   "window.beat"
   ],
   "missing": [
-   "continue the course"
+   "for_s_before=1.5",
+   "for_s_after=1.5"
   ],
   "ok": false,
-  "why": "The predicate for 'continue the course' is wrong; it should be moving(seat, for_s_after=1.5), not another moving with for_s_before."
+  "why": "walk up to requires for_s_before=1.5 (not 0.0), continue the course requires for_s_after=1.5, and beat alignment is not requested."
  },
  {
   "id": "L4",
-  "invented": [],
+  "invented": [
+   "window.beat"
+  ],
   "missing": [],
-  "ok": true,
-  "why": "The translation correctly captures the entire finale sequence from the runner's perspective, including reaching the portal and triggering the cinematic."
+  "ok": false,
+  "why": "The note does not ask for beat alignment."
  }
 ]

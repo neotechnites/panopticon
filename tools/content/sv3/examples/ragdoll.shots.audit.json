@@ -4,55 +4,61 @@
   "invented": [],
   "missing": [],
   "ok": true,
-  "why": "The translation correctly captures the sniper pov, the miss-then-hit sequence, the map, and shows the old animation."
+  "why": "The translation perfectly captures the sniper missing then hitting a runner."
  },
  {
   "id": "M2",
-  "invented": [],
+  "invented": [
+   "moving(other)"
+  ],
   "missing": [],
-  "ok": true,
-  "why": "The translation correctly maps 'grey space' to a studio source and the image URL to a gif_fade overlay."
+  "ok": false,
+  "why": "The note asks for a shot of the animation playing; it does not ask for the body to be idle before it."
  },
  {
   "id": "L3",
   "invented": [],
   "missing": [],
   "ok": true,
-  "why": "The translation correctly maps 'slow zoom out shot' to an establishing source with a dolly_out camera."
+  "why": "The establishing shot and dolly_out perfectly match the slow zoom out request."
  },
  {
   "id": "L4a",
   "invented": [],
   "missing": [],
   "ok": true,
-  "why": "This correctly captures the first part of the note (sniper POV) and adds the comment_card based on the line's text."
+  "why": "The sniper missing shots is correctly translated."
  },
  {
   "id": "L4b",
-  "invented": [],
+  "invented": [
+   "moving(victim)"
+  ],
   "missing": [],
-  "ok": true,
-  "why": "This correctly captures the second part of the note (runner POV), uses same_match_as for the cut, and aligns the beat."
+  "ok": false,
+  "why": "The note says 'the person in front of him'; it does not ask for that person to be moving/running."
  },
  {
   "id": "L5",
   "invented": [],
   "missing": [],
   "ok": true,
-  "why": "The translation correctly identifies a montage and correctly places the optional, unmappable physics request in unmapped[]."
+  "why": "The montage of sniper kills is correctly translated, and the unscriptable physics glitch is properly unmapped."
  },
  {
   "id": "L6",
   "invented": [],
-  "missing": [],
-  "ok": true,
-  "why": "The translation correctly interprets 'a bunch of' as a montage and captures the runner POV of shoves and ragdolls."
+  "missing": [
+   "other pov shots of a \"real game\" where the runners are getting shoved"
+  ],
+  "ok": false,
+  "why": "The translation only provides shots of the pov shoving someone, completely missing the requested shots where runners are getting shoved."
  },
  {
   "id": "L7",
   "invented": [],
   "missing": [],
   "ok": true,
-  "why": "The translation correctly maps the sequence of events and correctly identifies 'the usual cinematic shot' with until: finale_end."
+  "why": "The portal and finale_start events correctly cover the runner making it through the portal and the cinematic shove."
  }
 ]
