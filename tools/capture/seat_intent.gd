@@ -12,6 +12,10 @@ const ALIGNED_RADIANS: float = 0.03
 ## A scripted miss aims this far beside the target (degrees).
 const MISS_DEGREES: float = 4.0
 const GUARD_TURN_RATE: float = 2.5
+## A scripted hit waits this long for a runner to show, then gives up the step.
+const HIT_WAIT_SECONDS: float = 8.0
+## shove_when_rival_within ignores the spawn bunch for this long.
+const SPAWN_GRACE_SECONDS: float = 2.0
 
 var body: PlayerController = null
 var brain: RunnerBrain = null
@@ -24,6 +28,9 @@ var _clock: float = 0.0
 var _forward: bool = false
 var _done: bool = false
 var _shots_left: int = 0
+var _since_install: float = 0.0
+var _sure_profile: WeaponProfile = null
+var _shipped_profile: WeaponProfile = null
 var _say: Callable = Callable()
 
 
@@ -86,7 +93,9 @@ func _parse(raw: String) -> Dictionary:
 		"brawl":
 			return {"kind": "brawl"}
 		"shove_when_rival_within":
-			return {"kind": "shove", "metres": _number(parts, 1, 3.0), "timeout": _number(parts, 2, DEFAULT_SHOVE_TIMEOUT)}
+			return {"kind": "shove", "metres": _number(parts, 1, 3.0), "timeout": _number(parts, 2, DEFAULT_SHOVE_TIMEOUT), "cover": false}
+		"shove_when_rival_cover":
+			return {"kind": "shove", "metres": _number(parts, 1, 3.0), "timeout": _number(parts, 2, DEFAULT_SHOVE_TIMEOUT), "cover": true}
 		"miss":
 			return {"kind": "miss", "shots": int(_number(parts, 1, 1.0))}
 		"hit":
@@ -112,6 +121,7 @@ func _physics_process(delta: float) -> void:
 	if _index >= _steps.size():
 		_release("steps finished")
 		return
+	_since_install += delta
 	# The match re-arms brains on every wake (round start, settle); scripted hands stay in charge.
 	if shooter != null and shooter.is_physics_processing() or brain != null and shooter == null and brain.is_physics_processing():
 		_pause_brains(true)
@@ -166,7 +176,9 @@ func _tick_runner(delta: float) -> void:
 			# The match drives brawl bots itself; hand the body back for it.
 			_release("brawl: the match's own fight")
 		"shove":
-			var rival: Node3D = _rival_within(float(step["metres"]))
+			if not bool(step["cover"]) and _since_install < SPAWN_GRACE_SECONDS:
+				return
+			var rival: Node3D = _rival_within(float(step["metres"]), bool(step["cover"]))
 			if rival != null:
 				var error: float = _turn_towards(rival.global_position, delta, 0.2)
 				if absf(error) < 0.3:
@@ -193,27 +205,103 @@ func _tick_guard(delta: float) -> void:
 			if shooter.optic != null:
 				shooter.optic.set_zoomed(true)
 			_next()
-		"miss", "hit":
+		"miss":
 			var target: PlayerController = _nearest_runner()
 			if target == null:
 				return
-			var miss: bool = String(step["kind"]) == "miss"
-			if miss and _shots_left <= 0:
+			if _shots_left <= 0:
 				_shots_left = int(step["shots"])
-			var point: Vector3 = _aim_point(target, miss)
-			var error: Vector2 = _aim_guard(point, delta)
+			var error: Vector2 = _aim_guard(_aim_point(target, true), delta)
 			if shooter.optic != null:
 				shooter.optic.set_zoomed(true)
 			var settled: bool = shooter.optic == null or shooter.optic.is_fully_zoomed()
 			if settled and error.length() < deg_to_rad(0.6) and shooter.rifle != null and shooter.rifle.can_fire():
 				if shooter.rifle.try_fire():
-					_say.call("[intent] %5.2f guard %s at %s" % [_clock, "miss" if miss else "shot", target.name])
-					if miss:
-						_shots_left -= 1
-						if _shots_left <= 0:
-							_next()
-					else:
+					_say.call("[intent] %5.2f guard miss at %s" % [_clock, target.name])
+					_shots_left -= 1
+					if _shots_left <= 0:
 						_next()
+		"hit":
+			_tick_sure_hit()
+
+
+## A scripted hit: the nearest runner on screen, the aim written straight onto the chest with the round's lead
+## and drop, no spread for that one shot. Waits HIT_WAIT_SECONDS for a runner to show.
+func _tick_sure_hit() -> void:
+	if shooter.optic != null:
+		shooter.optic.set_zoomed(true)
+	if _clock >= HIT_WAIT_SECONDS:
+		_say.call("[intent] hit: no shot in %.0f s; step dropped" % HIT_WAIT_SECONDS)
+		_next()
+		return
+	var target: PlayerController = _visible_runner()
+	if target == null:
+		return
+	var point: Vector3 = _aim_point(target, false)
+	_set_aim(point)
+	if shooter.optic != null and not shooter.optic.is_fully_zoomed():
+		return
+	if shooter.rifle == null or not shooter.rifle.can_fire():
+		return
+	_hold_spread(true)
+	var fired: bool = shooter.rifle.try_fire()
+	_hold_spread(false)
+	if fired:
+		_say.call("[intent] %5.2f guard sure shot at %s, %.1f m" % [_clock, target.name, body.global_position.distance_to(target.global_position)])
+		_next()
+
+
+## The rifle's profile with no spread, for one shot; the shipped one comes back after.
+func _hold_spread(on: bool) -> void:
+	if shooter.rifle == null or shooter.rifle.profile == null:
+		return
+	if on:
+		if shooter.rifle.profile == _sure_profile:
+			return
+		_shipped_profile = shooter.rifle.profile
+		if _sure_profile == null:
+			_sure_profile = _shipped_profile.duplicate() as WeaponProfile
+			_sure_profile.spread_degrees = 0.0
+			_sure_profile.moving_spread_degrees = 0.0
+		shooter.rifle.profile = _sure_profile
+	elif _shipped_profile != null:
+		shooter.rifle.profile = _shipped_profile
+
+
+## Write the guard's yaw and head pitch so the camera's forward is exactly at [param point].
+func _set_aim(point: Vector3) -> void:
+	var eye: Node3D = body.get_node_or_null(^"Head/Camera") as Node3D
+	var from: Vector3 = eye.global_position if eye != null else body.global_position + Vector3.UP * body.get_eye_height()
+	var direction: Vector3 = (point - from).normalized()
+	body.rotation.y = atan2(-direction.x, -direction.z)
+	if body.head != null:
+		body.head.rotation.x = asin(clampf(direction.y, -1.0, 1.0))
+
+
+## The nearest living runner inside the guard's own frustum with a clear line to its chest.
+func _visible_runner() -> PlayerController:
+	var cam: Camera3D = body.get_node_or_null(^"Head/Camera") as Camera3D
+	if cam == null:
+		return _nearest_runner()
+	var space: PhysicsDirectSpaceState3D = cam.get_world_3d().direct_space_state
+	var best: PlayerController = null
+	var best_distance: float = 0.0
+	for node: Node in get_tree().get_nodes_in_group(MatchController.RUNNER_GROUP):
+		var rival: PlayerController = node as PlayerController
+		if rival == null or rival == body:
+			continue
+		var chest: Vector3 = rival.global_position + Vector3.UP * rival.get_eye_height() * 0.75
+		if not cam.is_position_in_frustum(chest):
+			continue
+		var query := PhysicsRayQueryParameters3D.create(cam.global_position, chest, 0xFFFFFFFF, [body.get_rid()])
+		var hit: Dictionary = space.intersect_ray(query)
+		if hit.is_empty() or (hit["collider"] as Node) != rival:
+			continue
+		var distance: float = cam.global_position.distance_to(chest)
+		if best == null or distance < best_distance:
+			best = rival
+			best_distance = distance
+	return best
 
 
 ## Where the guard aims: the runner's chest led by the round's flight, or beside it for a miss.
@@ -222,7 +310,11 @@ func _aim_point(target: PlayerController, miss: bool) -> Vector3:
 	var chest: Vector3 = target.global_position + Vector3.UP * target.get_eye_height() * 0.75
 	var speed: float = shooter.rifle.get_shot_speed() if shooter.rifle != null else 0.0
 	if speed > 0.0:
-		chest += target.velocity * (eye.distance_to(chest) / speed)
+		var flight: float = eye.distance_to(chest) / speed
+		flight = (chest + target.velocity * flight - eye).length() / speed
+		chest += target.velocity * flight
+		var gravity: float = shooter.rifle.profile.projectile_gravity if shooter.rifle.profile != null else 0.0
+		chest.y += 0.5 * gravity * flight * flight
 	if miss:
 		var aside: Vector3 = (chest - eye).cross(Vector3.UP).normalized()
 		chest += aside * tan(deg_to_rad(MISS_DEGREES)) * eye.distance_to(chest)
@@ -284,7 +376,7 @@ func _turn_towards(point: Vector3, delta: float, seconds: float) -> float:
 
 
 ## The nearest living rival within [param metres], ahead of the body.
-func _rival_within(metres: float) -> Node3D:
+func _rival_within(metres: float, at_cover: bool = false) -> Node3D:
 	var here: Vector3 = body.global_position
 	var forward: Vector3 = -body.global_transform.basis.z
 	forward.y = 0.0
@@ -301,10 +393,18 @@ func _rival_within(metres: float) -> Node3D:
 			continue
 		if forward.length_squared() > 1e-6 and forward.normalized().dot(offset / distance) < 0.0:
 			continue
+		if at_cover and not _is_at_cover(rival):
+			continue
 		if best == null or distance < best_distance:
 			best = rival
 			best_distance = distance
 	return best
+
+
+## True while [param rival]'s brain says it is stopped at cover.
+func _is_at_cover(rival: Node3D) -> bool:
+	var participant: MatchParticipant = controller.resolve_participant(rival)
+	return participant != null and participant.brain != null and participant.brain.get_state() == RunnerBrain.State.TAKE_COVER
 
 
 ## Hand the body back to its shipped brain.

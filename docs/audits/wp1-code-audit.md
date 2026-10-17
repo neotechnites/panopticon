@@ -53,3 +53,33 @@ Ruling: fixed 1 (--seat-intent ';' read as ','), 5 (a scripted guard fires only 
 6. **Missing map support for landmarks**: The code unconditionally queries tower and portal points, but on non-gameplay maps (like the `grey` studio map for M2 death captures), these may not exist, resulting in a null reference crash.
 *Fix*: Check if the landmarks exist in the current map context before attempting to calculate and unproject them.
 Ruling: fixed 1 (x/y are -1,-1 for a point behind the camera, bodies and landmarks alike), 3 (a ragdolling body's pos is its ragdoll's drawn centre). 4: the seat's own body pos is in bodies[]; the searcher reads moving() from it, not cam_pos. 2: the tower point is its spawn room (marker + 2 m), the portal the route's end point + 1 m; one point each, by design. 5/6 not real (ran; grey is the ring hidden).
+
+## Audit 4: sure hit, cover shove
+1. `tools/capture/seat_intent.gd:_visible_runner`
+The raycast and frustum check hardcodes the runner's camera path (`body.get_node(^"Head/Camera")`), which is null for the guard seat and falls back to a blind nearest-runner check.
+Fix: Change `var cam: Camera3D = body.get_node_or_null(^"Head/Camera") as Camera3D` to `var cam: Camera3D = get_viewport().get_camera_3d()`.
+
+2. `tools/capture/seat_intent.gd:_set_aim`
+The camera origin written is not the seat's own eye because it also hardcodes the runner's camera path.
+Fix: Change `var eye: Node3D = body.get_node_or_null(^"Head/Camera") as Node3D` to `var eye: Camera3D = get_viewport().get_camera_3d()`.
+
+3. `tools/capture/seat_intent.gd:_tick_sure_hit`
+The shot can still miss because the camera's `global_transform` updates lazily and does not reflect the new rotation before `try_fire()` executes.
+Fix: Call `get_viewport().get_camera_3d().force_update_transform()` immediately after `_set_aim(point)`.
+
+4. `tools/capture/seat_intent.gd:_tick_sure_hit`
+A step never ends if the runner is visible but the rifle is reloading or cooling down, because the timeout check is unreachable inside the `target == null` block.
+Fix: Move the `if _clock >= HIT_WAIT_SECONDS:` timeout block to the top of the function, before checking `target`.
+
+5. `tools/capture/seat_intent.gd:_tick_sure_hit`
+The recorded tape cannot replay the hit because calling `shooter.rifle.try_fire()` directly bypasses the `intent` system that the match logger records.
+Fix: Replace `var fired: bool = shooter.rifle.try_fire()` with `shooter.intent.fire = true; var fired: bool = true`.
+
+6. `tools/capture/seat_intent.gd:_tick_guard`
+The recorded tape cannot replay the scripted miss for the exact same reason: direct `try_fire()` calls bypass the intent logger.
+Fix: Replace `if shooter.rifle.try_fire():` with `shooter.intent.fire = true`.
+
+7. `tools/capture/seat_intent.gd:_hold_spread`
+The profile swap permanently breaks the shipped rifle if called while already active (e.g. across multiple frames waiting for a shot), as it overwrites the `_shipped_profile` backup with the 0-spread `_sure_profile`.
+Fix: Add `if shooter.rifle.profile != _sure_profile:` before `_shipped_profile = shooter.rifle.profile`.
+Ruling: fixed 4 (the 8 s cap now ends the step whatever blocked the shot), 7 (no double profile swap). Not real: 1/2 (the guard is the same body scene; its Head/Camera is the seat eye and the smoke hit 3/3), 3 (global_transform reads current), 5/6 (the tape records Rifle.fired, so direct try_fire replays).
