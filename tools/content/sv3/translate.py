@@ -253,6 +253,12 @@ def main(argv=None):
     else:
         client, types = _client()
         shots = translate(spec, client, types)
+        ids = {e["id"] for e in spec["lines"]} if isinstance(spec, dict) else {e["id"] for e in spec}
+        for sh in shots:                      # the model sometimes puts the line's TEXT in `line`: the id is the shot id's L/M number
+            if sh.get("line") not in ids:
+                m = re.match(r"([LM]\d+)", str(sh.get("id", "")))
+                if m and m.group(1) in ids:
+                    sh["line"] = m.group(1)
         problems = local_check(shots, spec)
         if problems:
             print("TRANSLATION FAILED LOCAL CHECK:\n  " + "\n  ".join(problems))
