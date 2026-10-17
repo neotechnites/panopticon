@@ -94,6 +94,7 @@ deliver() {
   cp "${WORK}/final.mp4" "${MAC_COPY}" && echo "delivered ${MAC_COPY}"
 }
 
+need seams seams;         step seams     sv3 seams
 need script script;       step script    sv3 script "${SCRIPT}" --out "${WORK}/spec.json"
 need translate translate; step translate sv3 translate "${WORK}/spec.json" --out "${WORK}/shots.json"
 step voice_table provisional_table
