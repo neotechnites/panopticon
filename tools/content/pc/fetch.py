@@ -2,7 +2,7 @@ r"""External footage through yt-dlp, credited as it lands.
 
 Runs ON THE PC (tools/content/fetch.sh pushes it):
 
-    python fetch.py <project dir> <url> <name> [--from T --to T] [--find WORD] [--cc-search QUERY]
+    python fetch.py <project dir> <url> <name> [--from T --to T] [--find WORD] [--cc-search QUERY] [--url]
 
   --find WORD      captions only (manual and auto, English) into external\src\,
                    then every cue containing WORD with its timestamp: the way
@@ -14,6 +14,8 @@ Runs ON THE PC (tools/content/fetch.sh pushes it):
                    nothing is cut.
   --cc-search Q    the first 15 search results whose licence says Creative
                    Commons, printed, nothing downloaded.
+  --url            a plain file URL (a gif Ryan names in a script), no yt-dlp:
+                   saved as external\<name>.<ext of the URL, gif by default>.
 
 Every download appends an entry to external\SOURCES.md: name, URL, title,
 uploader, upload date, licence ("Standard YouTube licence (NOT Creative
@@ -159,6 +161,44 @@ def download(project, url, name, t_from, t_to):
     print("fetched in %.0f s: %s%s" % (got, target, (" -> " + cut) if cut else ""))
 
 
+def download_url(project, url, name):
+    r"""A file at a URL straight into external\<name>.<ext>, credited in SOURCES.md."""
+    import urllib.request
+    from urllib.parse import urlparse
+    ext = os.path.splitext(urlparse(url).path)[1].lower() or ".gif"
+    if ext not in (".gif", ".png", ".jpg", ".jpeg", ".webp", ".mp4", ".webm"):
+        raise SystemExit("fetch --url: %s is not an image or video file" % url)
+    ext_dir = os.path.join(project, "external")
+    os.makedirs(ext_dir, exist_ok=True)
+    target = os.path.join(ext_dir, name + ext)
+    if os.path.exists(target):
+        print("fetched already: %s" % target)
+        return
+    t0 = time.time()
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=60) as r, open(target + ".part", "wb") as f:
+        total = 0
+        while True:
+            chunk = r.read(1 << 20)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > 200 << 20:
+                raise SystemExit("fetch --url: %s is over 200 MB" % url)
+            f.write(chunk)
+    os.replace(target + ".part", target)
+    probe = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=width,height:format=duration", "-of", "csv=p=0", target],
+                           capture_output=True, text=True).stdout.strip().replace("\n", " ")
+    if not probe:
+        os.remove(target)
+        raise SystemExit("fetch --url: %s is not a media file ffprobe can read" % url)
+    sources = os.path.join(ext_dir, "SOURCES.md")
+    with open(sources, "a", encoding="utf-8") as f:
+        f.write("\n## %s%s  (direct file)\n- URL: %s\n- Probe: %s\n- Fetched %s by tools/content/fetch.sh --url.\n"
+                % (name, ext, url, probe, time.strftime("%Y-%m-%d")))
+    print("fetched in %.0f s: %s (%s)" % (time.time() - t0, target, probe))
+
+
 def main():
     argv = sys.argv[1:]
     project, url, name = argv[0], argv[1], argv[2]
@@ -169,10 +209,16 @@ def main():
         if rest[i] in ("--from", "--to", "--find", "--cc-search"):
             opts[rest[i][2:]] = rest[i + 1]
             i += 2
+        elif rest[i] == "--url":
+            opts["url"] = True
+            i += 1
         else:
             raise SystemExit("unknown option %s" % rest[i])
     if "cc-search" in opts:
         cc_search(opts["cc-search"])
+        return 0
+    if "url" in opts:
+        download_url(project, url, name)
         return 0
     if "find" in opts:
         find_word(project, url, opts["find"])

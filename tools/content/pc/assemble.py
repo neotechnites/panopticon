@@ -7,7 +7,7 @@ Runs ON THE PC (tools/content/assemble.sh pushes it):
 The brief's ## script table maps every voice line to a clip and says how the
 clip fits the line (the v6 retime of the shove short, generalised):
 
-    | line | clip | in | len | fit | speed | text | card | grade |
+    | line | clip | in | len | fit | speed | text | card | grade | gif_fade |
 
   clip   one clip, or several comma separated -- `path[@in[:len]]` each -- played
          back to back as one slot, so a line whose voice outlasts the first clip
@@ -46,6 +46,11 @@ clip fits the line (the v6 retime of the shove short, generalised):
   grade  a grade named in the script header, applied to this line's picture only:
          `grade_hell: lift 2.6 3` scales RGB by 1 + (2.6 - 1) * (1 - max)^3 --
          shadows and mids up, hue and saturation kept, black and white fixed.
+  gif_fade  `<file> <at> <seconds> [end]`: the gif, full width, composited over this
+         slot's picture from `at` (slot seconds, or word:<w>[#n][+s]) with a linear
+         alpha fade-in over <seconds>; `end` (a beat only) ends the slot as the fade finishes.
+  clip = `title`: a black end card, the row's text centred (Impact, title_size: 84), `len`
+         seconds (1 by default); no voice, no caption (a card, not a line).
 
 Captions: pop = word by word under the voice; stack = each row's text as a quote
 ("..."), shown from the row's start to the end of the cut, each in its own slot of
@@ -255,6 +260,40 @@ def parse_card(cell):
     return card
 
 
+def parse_gif_fade(cell):
+    """`<file> <at> <seconds> [end]` -- see the module doc."""
+    cell = (cell or "").strip()
+    if not cell:
+        return None
+    bits = cell.split()
+    if len(bits) < 3:
+        raise SystemExit("assemble: gif_fade wants <file> <at> <seconds> [end]: %r" % cell)
+    gif = {"path": bits[0], "at": bits[1], "fade": float(bits[2]), "end": "end" in bits[3:]}
+    if gif["fade"] <= 0:
+        raise SystemExit("assemble: gif_fade: the fade must be longer than 0 s")
+    return gif
+
+
+def render_title(project, work, cache, key, text, seconds, head):
+    """The end card: black, the text centred in Impact, no voice and no caption."""
+    import textwrap
+    size = int(head.get("title_size", 84))
+    body = "\n".join(textwrap.wrap(text, max(8, int((W - 160) / (size * 0.5)))))
+    if not body:
+        raise SystemExit("assemble: %s: a title row with no text" % key)
+    txt = os.path.join(work, "title_%s.txt" % key)
+    with open(txt, "w", encoding="utf-8") as f:
+        f.write(body)
+    seg = os.path.join(cache, sha("title", body, size, "%.4f" % seconds, W, H, FPS) + ".mp4")
+    if not os.path.exists(seg):
+        rel = os.path.relpath(txt, project).replace("\\", "/")
+        vf = ("drawtext=fontfile='C\\:/Windows/Fonts/impact.ttf':textfile='%s':fontcolor=white:fontsize=%d:line_spacing=%d"
+              ":x=(w-text_w)/2:y=(h-text_h)/2" % (rel, size, size // 4)) + TAIL
+        run(FF + ["-f", "lavfi", "-i", "color=c=black:s=%dx%d:r=%d:d=%.4f" % (W, H, FPS, seconds), "-vf", vf,
+                  "-t", "%.4f" % seconds, "-an"] + LOSSLESS + [seg], cwd=project)
+    return seg
+
+
 def card_word_t(spec, ws, key):
     """`word[#n][+sec]` -> seconds: the nth (1-based) spoken `word` in the line, plus sec."""
     head, _, plus = spec.partition("+")
@@ -341,11 +380,30 @@ def main():
     used = []             # every clip the cut plays, for cuts\<tag>_used.txt
     for row in script["rows"]:
         key = row["line"]
+        if (row.get("clip") or "").strip().lower() == "title":
+            seg_len = snap(float(row.get("len") or 1.0))
+            starts[key] = cursor + carry
+            segments.append(render_title(project, work, cache, key, (row.get("text") or "").strip(), seg_len, head))
+            table.append("{0:<4} {1:>6.2f}s {2:>6.2f}s {3:<52} {4}".format(key, cursor, seg_len, "title (black end card)", "beat"))
+            cursor += seg_len
+            carry = 0.0
+            prev_clip, prev_rest = None, None
+            continue
         mode, opts = parse_fit(row.get("fit", "line") or "line")
         if mode not in ("line", "trim", "nohold", "wait", "window", "beat"):
             raise SystemExit(f"assemble: {key}: fit {mode} (line | trim | nohold | wait | window | beat)")
         raw_in = (row.get("in", "") or "0").strip()
         card = parse_card(row.get("card", ""))
+        gif = parse_gif_fade(row.get("gif_fade", ""))
+        gif_at = None
+        if gif:
+            gif["src"] = os.path.join(project, gif["path"].replace("/", os.sep))
+            if not os.path.exists(gif["src"]):
+                raise SystemExit(f"assemble: {key}: no gif at {gif['src']}")
+            spec = gif["at"]
+            gif_at = card_word_t(spec[5:], words_all.get(key, {}).get("words", []), key) if spec.startswith("word:") else float(spec)
+            if gif["end"] and mode != "beat":
+                raise SystemExit(f"assemble: {key}: gif_fade end only ends a beat (the voice would be cut)")
         line_len = (voice[key]["dur"] + pad) if key in voice else 0.0
 
         # --- the chain: one source window per clip part, in order -----------
@@ -432,6 +490,12 @@ def main():
         if carry > 0.005 and mode not in ("window", "beat"):
             fit += " [+{:.2f}s carried from prev line]".format(carry)
 
+        if gif and gif["end"]:
+            seg_len = snap(gif_at + gif["fade"])      # the cut ends right as the fade finishes
+            fit = "beat {:.2f}s, ends with the gif fade (clip {:.2f}s on screen)".format(seg_len, out_fixed)
+        if gif:
+            fit += "; gif {} full width from {:.2f}s, fade {:.2f}s".format(gif["path"], gif_at, gif["fade"])
+
         # --- the slot's seconds, spread over the parts in order -------------
         rem = seg_len
         for i, w in enumerate(wins):
@@ -515,19 +579,37 @@ def main():
                 if t_out + card["out"] > off and t_in < off + out_len:
                     card_over = card_mod.overlay_args(cw, ch, card["y"], t_in - off, card["in"],
                                                       t_out - off, card["out"], W, H)
+            gif_over = ""
+            if gif:
+                off = part_start - starts[key]
+                if gif_at < off + out_len:
+                    st = gif_at - off
+                    # fade's st is >= 0: a fade already running when this part starts is shortened
+                    gif_over = "scale=%d:-2,format=rgba,fade=t=in:st=%.4f:d=%.4f:alpha=1" % (
+                        W, max(st, 0.0), max(gif["fade"] + min(st, 0.0), 0.01))
             seg_key = sha(stat_key(w["src"]), "%.4f" % w["in"], "%.4f" % w["avail"], "%.6f" % w["speed"],
                           "%.4f" % out_len, vf, FPS, card_over,
-                          stat_key(card_png) if (card_png and card_over) else "")
+                          stat_key(card_png) if (card_png and card_over) else "",
+                          gif_over, stat_key(gif["src"]) if gif_over else "")
             seg = os.path.join(cache, seg_key + ".mp4")
             if not os.path.exists(seg):
                 args = FF + ["-ss", "%.4f" % w["in"], "-t", "%.4f" % w["avail"], "-i", w["src"]]
-                if card_over:
-                    # the pixel format is set after the overlay, so the card's alpha
-                    # is still there to blend with
+                if card_over or gif_over:
+                    # the pixel format is set after the overlays, so the card's and the
+                    # gif's alpha are still there to blend with
                     pic = vf.replace(TAIL, "", 1)
-                    args += ["-loop", "1", "-i", card_png, "-filter_complex",
-                             "[0:v]" + pic + "[pic];[1:v]format=rgba[card];[pic][card]overlay="
-                             + card_over + ":format=rgb" + TAIL + "[v]", "-map", "[v]"]
+                    graph, last, n = "[0:v]" + pic + "[pic]", "pic", 1
+                    if card_over:
+                        args += ["-loop", "1", "-i", card_png]
+                        graph += ";[%d:v]format=rgba[card];[%s][card]overlay=%s:format=rgb[pc]" % (n, last, card_over)
+                        last, n = "pc", n + 1
+                    if gif_over:
+                        args += ["-stream_loop", "-1", "-i", gif["src"]]
+                        graph += ";[%d:v]%s[gif];[%s][gif]overlay=0:(H-h)/2:enable='gte(t,%.4f)':format=rgb[pg]" % (
+                            n, gif_over, last, max(gif_at - (part_start - starts[key]), 0.0))
+                        last = "pg"
+                    graph += ";[%s]%s[v]" % (last, TAIL[1:])
+                    args += ["-filter_complex", graph, "-map", "[v]"]
                 else:
                     args += ["-vf", vf]
                 args += ["-t", "%.4f" % out_len, "-an"] + LOSSLESS + [seg]
@@ -739,7 +821,7 @@ def build_stack(rows, starts, words_all, head, band, total):
         if key in head.get("captions_reset", "").split():
             y = band[0]
         text = (row.get("text") or "").strip()
-        if not text or key not in starts:
+        if not text or key not in starts or (row.get("clip") or "").strip().lower() == "title":
             continue
         lines = textwrap.wrap(text if key in plain else "\u201c%s\u201d" % text, per_line)
         height = len(lines) * line_h

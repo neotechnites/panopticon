@@ -89,8 +89,16 @@ if (Test-Path \$d) {
   if (-not (Get-ChildItem \$d -Force)) { Remove-Item \$d -Force }
 }
 Get-ChildItem '%(dir)s' -File | ForEach-Object { \$_.Name + ' ' + \$_.Length }
+# A take the recorder refused still records a screen: its refusal lines and the length decide, not the sync frame.
+\$bad = Select-String -Path '%(glog)s' -Pattern '^Unknown |Harness: |is filmed with --pov|^No such ' | Select-Object -First 2
+if (\$bad) { Write-Output ('TAKE FAILED: Godot said: ' + ((\$bad | ForEach-Object Line) -join ' | ')); exit 4 }
+\$ci = [Globalization.CultureInfo]::InvariantCulture
+\$dur = [double]::Parse((ffprobe -v error -show_entries format=duration -of csv=p=0 '%(raw)s'), \$ci)
+\$t0 = [double]::Parse((Get-Content '%(raw)s.sync' -Raw).Trim(), \$ci)
+if ((\$dur - \$t0) -lt (%(seconds).2f - 0.5)) { Write-Output ('TAKE FAILED: ' + (\$dur - \$t0).ToString('0.00', \$ci) + ' s recorded after t=0, the take asked for %(seconds).2f'); exit 4 }
+Write-Output ('take length ' + (\$dur - \$t0).ToString('0.00', \$ci) + ' s after t=0')
 EOF
-""" % {"dir": pc_win, "sf": sf, "glog": glog, "raw": raw}
+""" % {"dir": pc_win, "sf": sf, "glog": glog, "raw": raw, "seconds": seconds}
     env = dict(os.environ, LIB=LIB, SIZE=SIZE, WHAT=what, EXPECTED=str(expected), ARGS=args)
     t0 = time.time()
     try:
