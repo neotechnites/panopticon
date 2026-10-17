@@ -9,7 +9,7 @@ Yeaeeeeeeeh I needed something better, but if my art didnt make it clear, I'm a 
 
 Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem? Ragdolls {a sniper pov, missing shots, then cut to the runner pov near the end, and he watches the person in front of him get shot}
 
-these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining {clip montage of the sniper hitting people dead in hell, and if we can, get one that freaks out and break the players model and go flying} {Ryan 10-12: "lets replace the gameplay of the hitting shots montage to be in the forest"; Ryan 10-17: "didnt i say it has to be in the forest?"}
+these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining {clip montage of the sniper hitting people dead in hell, and if we can, get one that freaks out and break the players model and go flying -- Ryan 10-12: "lets replace the gameplay of the hitting shots montage to be in the forest"; Ryan 10-17: "didnt i say it has to be in the forest?"}
 
 Once i had htis, i wanted to use it more. Now when you shove someone, they also ragdoll. {a bunch of runners shoving each other with the ragdoll, other pov shots of a "real game" where the runners are getting shoved}
 
