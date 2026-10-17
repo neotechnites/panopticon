@@ -102,7 +102,7 @@ step words pull_words
 need plan plan;           step plan      sv3 plan "${WORK}/shots.json" --pool "${POOL}" --out "${WORK}/plan.json"
 need capture capture;     step capture   sv3 capture "${WORK}/plan.json" --pool "${POOL}"
 need search search;       step search    sv3 search "${WORK}/plan.json" "${WORK}/shots.json" --pool "${POOL}" --words "${WORK}/voice/words.json" --out "${WORK}/edl.json"
-need edl edl;             step edl       sv3 edl "${WORK}/edl.json" "${WORK}/shots.json" "${WORK}/spec.json" --brief "${BRIEF}" --tag "${TAG}"
+need edl edl;             step edl       sv3 edl "${WORK}/edl.json" "${WORK}/shots.json" "${WORK}/spec.json" --brief "${BRIEF}" --tag "${TAG}" --words "${WORK}/voice/words.json"
 step assemble "${CONTENT_DIR}/assemble.sh" "${NAME}" --tag "${TAG}"
 step pull pull_final
 need review review;       step review    sv3 review "${WORK}/final.mp4" "${WORK}/edl.json" "${WORK}/shots.json" --out "${WORK}/review.json"
