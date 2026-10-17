@@ -1450,6 +1450,9 @@ func _build_match() -> void:
 		_kill_id = kill.get_slice("@", 0)
 		_kill_at = float(kill.get_slice("@", 1))
 	var steps: String = String(_options.get("seat-intent", ""))
+	if not steps.is_empty() and String(_options.get("tape", "")) != "":
+		print("[intent] ignored: a tape replays the seat's recorded inputs")
+		steps = ""
 	if not steps.is_empty() and _seat_participant != null:
 		_intent = SEAT_INTENT.new()
 		_intent.name = "ClipSeatIntent"
@@ -1610,7 +1613,9 @@ func _hook_match_events() -> void:
 				return
 			var by: String = _seat_holder_id() if cause == "shot" else ""
 			if _kill_by_flag:
+				# --kill: nobody shot them; the flag did.
 				by = "kill_flag"
+				cause = "kill_flag"
 				_kill_by_flag = false
 			var shove: Dictionary = _last_shover.get(victim, {})
 			if not shove.is_empty() and _elapsed - float(shove["t"]) <= SHOVE_OUTCOME_SECONDS:
@@ -1666,7 +1671,7 @@ func _hook_match_events() -> void:
 		func(guard: MatchParticipant, _seconds: float, _throw: Vector3) -> void:
 			var shover: String = _id_of(_controller.get_finisher())
 			_ev("shove", {"by": shover, "victim": _id_of(guard), "outcome": "tower_out"})
-			_ev("kill", {"by": shover, "victim": _id_of(guard), "cause": "finale"})
+			_ev("kill", {"by": shover, "victim": _id_of(guard), "cause": "shove_pit"})
 			_ev("finale_start", {"shover": shover, "guard": _id_of(guard)})
 			_finale_on = true
 	)
@@ -1787,7 +1792,7 @@ func _state_of(participant: MatchParticipant) -> String:
 	if participant.is_ghost:
 		return "ghost"
 	if participant.is_shooter:
-		return "guard"
+		return "dead" if participant.health <= 0 else "guard"
 	if not participant.is_running:
 		return "dead"
 	if _controller.get_phase() == MatchController.Phase.BRAWL:
@@ -1811,7 +1816,9 @@ func _sample_vis() -> void:
 		label = "finale"
 	elif _spectator != null and cam == _spectator.get(&"camera"):
 		label = "death"
-	var optic: WeaponOptic = _seat_body.get_node_or_null(^"Optic") as WeaponOptic if _seat_body != null else null
+	# Through the seat's own eyes: the seat body is never on screen and never occludes; a game view sees it like any other.
+	var through_eye: bool = _seat_body != null and cam == _eye_of(_seat_body)
+	var optic: WeaponOptic = _seat_body.get_node_or_null(^"Optic") as WeaponOptic if through_eye else null
 	var row: Dictionary = {
 		"t": snappedf(_elapsed, 0.1), "cam": label,
 		"yaw": snappedf(rad_to_deg(atan2(-forward.x, -forward.z)), 0.1), "pitch": snappedf(rad_to_deg(asin(clampf(forward.y, -1.0, 1.0))), 0.1),
@@ -1824,11 +1831,11 @@ func _sample_vis() -> void:
 			continue
 		var eye_y: float = maxf(body.get_eye_height(), 0.1)
 		var chest: Vector3 = body.global_position + Vector3.UP * eye_y * 0.75
-		var in_frustum: bool = body != _seat_body and cam.is_position_in_frustum(chest)
+		var in_frustum: bool = not (through_eye and body == _seat_body) and cam.is_position_in_frustum(chest)
 		var occ: bool = false
 		if in_frustum:
 			var query := PhysicsRayQueryParameters3D.create(cam.global_position, chest, 0xFFFFFFFF)
-			if _seat_body != null:
+			if through_eye:
 				query.exclude = [_seat_body.get_rid()]
 			var hit: Dictionary = space.intersect_ray(query)
 			occ = hit.is_empty() or (hit["collider"] as Node) != body
