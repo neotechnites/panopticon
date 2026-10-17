@@ -427,6 +427,7 @@ func _tick_run(delta: float) -> void:
 		input.command.move_direction = Vector2.ZERO
 	else:
 		_follow(delta)
+		_shove_a_rival(delta)
 	_tick_stuck(delta)
 
 
@@ -552,6 +553,37 @@ func _catch_pad_flight() -> bool:
 
 
 # --- TAKE_COVER ---------------------------------------------------------------
+
+## MatchRules.bots_shove_rivals: a running bot shoves the nearest living rival ahead within the match's
+## reach. Only the shover's own footing is checked (on the floor, not mid-cross); where the victim lands is the game.
+func _shove_a_rival(delta: float) -> void:
+	if rules == null or not rules.bots_shove_rivals or not controller.is_on_floor():
+		return
+	var here: Vector3 = controller.global_position
+	var forward: Vector3 = -controller.global_transform.basis.z
+	forward.y = 0.0
+	if forward.length_squared() < 1e-6:
+		return
+	forward = forward.normalized()
+	var best: Node3D = null
+	var best_distance: float = 0.0
+	for node: Node in controller.get_tree().get_nodes_in_group(MatchController.RUNNER_GROUP):
+		var rival: Node3D = node as Node3D
+		if rival == null or rival == controller or not is_instance_valid(rival):
+			continue
+		var offset: Vector3 = rival.global_position - here
+		offset.y = 0.0
+		var distance: float = offset.length()
+		if distance > rules.shove_range_metres or distance < 1e-3:
+			continue
+		if forward.dot(offset / distance) < MatchController.SHOVE_FACING_DOT:
+			continue
+		if best == null or distance < best_distance:
+			best = rival
+			best_distance = distance
+	if best != null:
+		_maybe_shove(best, delta)
+
 
 ## True when a body shoved from [param here] the way this one faces would land on safe mesh.
 func _shove_lands_safely(here: Vector3) -> bool:

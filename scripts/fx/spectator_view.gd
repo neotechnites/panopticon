@@ -79,6 +79,9 @@ signal spectating_changed(active: bool)
 ## take over and no mouse to borrow.
 @export var headless_inert: bool = true
 
+## The participant whose death this view shows; null means the human. A recording set to a bot's seat sets it.
+var watched: MatchParticipant = null
+
 const HEADLESS_DISPLAY: String = "headless"
 
 ## Gap between the tower's outer extent and the camera, metres.
@@ -164,7 +167,7 @@ func tick(delta: float) -> void:
 		return
 
 	var wanted: MatchController.Spectating = controller.get_spectating_state(
-		controller.get_human_participant()
+		watched if watched != null else controller.get_human_participant()
 	)
 	if wanted == MatchController.Spectating.NONE:
 		_pending_seconds = 0.0

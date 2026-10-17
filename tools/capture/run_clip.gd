@@ -199,6 +199,35 @@ var _tape: RefCounted = null
 var _built: bool = false
 var _done: bool = false
 var _exit_code: int = EXIT_OK
+## --match (see MATCH_RECORD.md): a real match from one seat, its events and what the seat sees logged.
+const SEAT_INTENT := preload("res://tools/capture/seat_intent.gd")
+const MATCH_SECONDS: float = 45.0
+const VIS_HZ: float = 10.0
+const SHOVE_OUTCOME_SECONDS: float = 3.0
+const MAP_ALIASES: Dictionary = {"hell": "bentham_ring", "grey": "bentham_ring"}
+var _match: bool = false
+var _opening: String = "seat"
+var _seat_spec: String = ""
+var _seat_body: PlayerController = null
+var _seat_participant: MatchParticipant = null
+var _ids: Dictionary = {}
+var _events: Array[Dictionary] = []
+var _pending_shoves: Array[Dictionary] = []
+var _last_shover: Dictionary = {}
+var _shoved_at: Dictionary = {}
+var _ragdolled: Dictionary = {}
+var _vis_lines: PackedStringArray = PackedStringArray()
+var _vis_next: float = 0.0
+var _finale_on: bool = false
+var _kill_id: String = ""
+var _kill_at: float = -1.0
+var _kill_by_flag: bool = false
+var _studio: bool = false
+var _intent: Node = null
+var _free_pose_set: bool = false
+var _reasserted: int = 0
+var _finale_view: FinaleView = null
+var _spectator: Node = null
 
 
 func _initialize() -> void:
@@ -230,6 +259,14 @@ func _initialize() -> void:
 		"record": "",
 		"tape": "",
 		"sync": 0,
+		"match": false,
+		"opening": "",
+		"seat": "",
+		"old": "",
+		"log": "",
+		"kill": "",
+		"cam": "",
+		"seat-intent": "",
 	})
 	_sync_frames = int(_options.get("sync", 0))
 	if _sync_frames > 0 and OS.has_feature("movie"):
@@ -281,6 +318,13 @@ func _process(delta: float) -> bool:
 
 	_elapsed += delta
 	_log_the_rifle()
+	if _match:
+		_tick_match(delta)
+		if _elapsed >= _seconds:
+			_finish_match()
+			_hush()
+			_done = true
+		return false
 	if _wants_chain() and _chain == null and _elapsed > 0.5:
 		_stage_chainrun()
 	if _plugin != null:
@@ -317,6 +361,9 @@ func _process(delta: float) -> bool:
 func _build() -> void:
 	if bool(_options.get("_error", false)):
 		_fail("Bad command line; nothing was filmed.")
+		return
+	if bool(_options.get("match", false)):
+		_build_match()
 		return
 
 	var shot: Dictionary = SHOTS.get_shot(String(_options.get("shot", "")))
@@ -378,12 +425,7 @@ func _build() -> void:
 		root.add_child(_camera)
 		_camera.current = true
 
-	if String(_options.get("shimmer", "1")) == "0":
-		for node: Node in match_root.find_children("*", "", true, false):
-			if node.get_script() != null and node.get_script().resource_path.ends_with("heat_shimmer.gd"):
-				node.set(&"strength", 0.0)
-				(node as Node3D).visible = false
-				print("[rs] heat shimmer off: %s" % node.name)
+	_switch_off_shimmer(match_root)
 	if String(_options.get("look", "")) == "social":
 		_light_for_social(match_root)
 	_take_the_eye(match_root)
@@ -470,6 +512,14 @@ func _make_it_bots_only(match_root: Node, bots: int) -> void:
 	var rules: MatchRules = _controller.get_rules().duplicate() as MatchRules
 	rules.prisoner_count = maxi(bots, 1)
 	var map_id: String = String(_options.get("map", ""))
+	if _match:
+		# --bots counts players including the guard; a match has at least two.
+		rules.prisoner_count = clampi(bots - 1, 1, 3)
+		rules.open_with_race = _opening == "race"
+		rules.open_with_tower_brawl = _opening == "brawl"
+		rules.opening_seat_index = 0
+		_studio = map_id == "grey"
+		map_id = String(MAP_ALIASES.get(map_id, map_id))
 	if not map_id.is_empty():
 		rules.map_id = StringName(map_id)
 	if _plugin != null:
@@ -506,6 +556,9 @@ func _make_it_bots_only(match_root: Node, bots: int) -> void:
 		"NetMatch", "HUD", "FeedbackRig", "SpectatorView", "SeatHandover",
 		"FreeCamera", "DeathScreen", "RoundTransition", "ResultScreen", "PauseMenu",
 	]
+	if _match and _seat_spec != "free":
+		# The game's own dead-player view runs for the seat (headless-inert; see FxSpectatorView.watched).
+		silenced.erase("SpectatorView")
 	if _pov != "":
 		# A POV clip is a player's view: it wants the camera kick, and the
 		# readouts only when asked for -- Ryan: no HUD elements on any shot.
@@ -630,6 +683,17 @@ func _arm_the_tower_when_landed() -> void:
 	shooter.profile = quick
 	_arm_after_landing = false
 	print("[stage] %s: victim landed standing; tower armed" % _stage)
+
+
+## --shimmer=0: hell's heat shimmer off for this take.
+func _switch_off_shimmer(match_root: Node) -> void:
+	if String(_options.get("shimmer", "1")) != "0":
+		return
+	for node: Node in match_root.find_children("*", "", true, false):
+		if node.get_script() != null and node.get_script().resource_path.ends_with("heat_shimmer.gd"):
+			node.set(&"strength", 0.0)
+			(node as Node3D).visible = false
+			print("[rs] heat shimmer off: %s" % node.name)
 
 
 ## Lift the ring's own environment until rock reads on a phone: more exposure and
@@ -1323,3 +1387,509 @@ func _turn_the_eye(delta: float) -> void:
 	var elsewhere: Vector3 = SHOTS.ring_point(EYE_ELSEWHERE_DEGREES, 52.0, 1.0)
 	var looked_at: Vector3 = elsewhere.lerp(_camera.global_position, smoothstep(0.0, 1.0, swing))
 	_eye.call(&"turn_toward", _eye.call(&"gaze_direction_for", looked_at), delta)
+
+
+# --- A real match from one seat (--match) --------------------------------------
+
+func _build_match() -> void:
+	_match = true
+	_pov = "seat"
+	_seconds = float(_options.get("seconds", 0.0))
+	_seconds = _seconds if _seconds > 0.0 else MATCH_SECONDS
+	_opening = String(_options.get("opening", ""))
+	_opening = _opening if _opening in ["race", "brawl", "seat"] else "seat"
+	_seat_spec = String(_options.get("seat", ""))
+	if _seat_spec.is_empty():
+		_seat_spec = "guard" if _opening == "seat" else "runner:0"
+	if _seat_spec == "guard" and _opening != "seat":
+		_fail("--seat=guard needs --opening=seat: a race or brawl has no guard until it is won; name a runner:K.")
+		return
+	var seed_value: int = int(_options.get("seed", 0))
+	if seed_value != 0:
+		seed(seed_value)
+	var packed: PackedScene = load(MATCH_SCENE) as PackedScene
+	var match_root: Node = packed.instantiate() if packed != null else null
+	_controller = match_root.get_node_or_null(^"MatchController") as MatchController if match_root != null else null
+	if _controller == null:
+		_fail("%s has no MatchController; nothing would play." % MATCH_SCENE)
+		return
+	_make_it_bots_only(match_root, int(_options.get("bots", 4)))
+	root.add_child(match_root)
+	_park_the_human(match_root)
+	_finale_view = _controller.get_node_or_null(^"../FinaleView") as FinaleView
+	_spectator = match_root.get_node_or_null(^"SpectatorView")
+	if _seat_spec == "free":
+		_camera = _make_camera()
+		root.add_child(_camera)
+		_camera.current = true
+	_switch_off_shimmer(match_root)
+	_listen_to_audio()
+	_seat = BotTowerSeat.new()
+	_seat.name = "ClipTowerSeat"
+	root.add_child(_seat)
+	_seat.install(_controller, _shooter_profile(), seed_value)
+	_controller.match_won.connect(func(_winner: MatchParticipant) -> void: _controller.restart())
+	_log_events()
+	_hook_match_events()
+	_controller.match_started.connect(func(_count: int) -> void: _name_the_bodies())
+	_controller.start_match()
+	if not _install_the_tape(match_root):
+		return
+	if not _lock_the_seat():
+		return
+	if String(_options.get("old", "")) == "1":
+		for participant: MatchParticipant in _controller.get_participants():
+			var avatar: PrisonerAvatar = PrisonerAvatar.of(participant.body)
+			if avatar != null:
+				avatar.set(&"_ragdoll", null)
+		print("[match] ragdoll off: a kill plays the old death clip")
+	if _studio:
+		_grey_studio()
+	var kill: String = String(_options.get("kill", ""))
+	if kill.contains("@"):
+		_kill_id = kill.get_slice("@", 0)
+		_kill_at = float(kill.get_slice("@", 1))
+	var steps: String = String(_options.get("seat-intent", ""))
+	if not steps.is_empty() and String(_options.get("tape", "")) != "":
+		print("[intent] ignored: a tape replays the seat's recorded inputs")
+		steps = ""
+	if not steps.is_empty() and _seat_participant != null:
+		_intent = SEAT_INTENT.new()
+		_intent.name = "ClipSeatIntent"
+		root.add_child(_intent)
+		var marks: Dictionary = {"tower": _tower_point(), "portal": _controller._end_point}
+		if not _intent.install(_seat_body, _seat_participant.brain, _controller, marks, steps, func(line: String) -> void: print(line)):
+			_fail("--seat-intent would not parse.")
+			return
+	var log_dir: String = String(_options.get("log", ""))
+	if not log_dir.is_empty() and not DirAccess.dir_exists_absolute(log_dir):
+		DirAccess.make_dir_recursive_absolute(log_dir)
+	print("[match] map %s opening %s seat %s bots %d seed %d for %.0f s; log %s" % [
+		_options.get("map", ""), _opening, _seat_spec, _controller.get_participants().size(), seed_value, _seconds, log_dir if not log_dir.is_empty() else "(stdout only)"])
+
+
+## Seat ids for the whole take: the opening guard is `guard`, everyone else `runner:K` in roster order.
+func _name_the_bodies() -> void:
+	_ids.clear()
+	var k: int = 0
+	var opening_seat: int = _controller._opening_seat() if _opening == "seat" else -1
+	for participant: MatchParticipant in _controller.get_participants():
+		if participant.body == null:
+			continue
+		if participant.index == opening_seat:
+			_ids[participant.body.get_instance_id()] = "guard"
+		else:
+			_ids[participant.body.get_instance_id()] = "runner:%d" % k
+			k += 1
+
+
+func _id_of(participant: MatchParticipant) -> String:
+	if participant == null or participant.body == null:
+		return ""
+	return String(_ids.get(participant.body.get_instance_id(), participant.body.name))
+
+
+func _participant_by_id(id: String) -> MatchParticipant:
+	for participant: MatchParticipant in _controller.get_participants():
+		if _id_of(participant) == id:
+			return participant
+	return null
+
+
+## The seat: one body's own eyes for the whole take.
+func _lock_the_seat() -> bool:
+	if _seat_spec == "free":
+		return true
+	_seat_participant = _participant_by_id(_seat_spec)
+	if _seat_participant == null:
+		_fail("--seat=%s is not in this match; the seats are %s." % [_seat_spec, ", ".join(_ids.values())])
+		return false
+	_seat_body = _seat_participant.body
+	_pov_body = _seat_body
+	var eye: Camera3D = _eye_of(_seat_body)
+	if eye == null:
+		_fail("%s has no Head/Camera." % _seat_body.name)
+		return false
+	eye.current = true
+	PrisonerAvatar.set_viewed_body(_seat_body)
+	if _spectator != null:
+		_spectator.set(&"watched", _seat_participant)
+		_spectator.set(&"player_camera", eye)
+	if String(_options.get("hud", "")) == "crosshair":
+		STAGE_LIB.show_only_the_crosshair(root)
+	_scope_for_the_seat()
+	print("[seat] %s is %s" % [_seat_spec, _seat_body.name])
+	return true
+
+
+## The scope overlay draws for the seat whenever it holds the rifle.
+func _scope_for_the_seat() -> void:
+	if _seat_body == null:
+		return
+	var rifle: Rifle = _find_kind(_seat_body, "Rifle") as Rifle
+	var vignette: ScopeVignette = rifle.get_node_or_null(^"ScopeVignette") as ScopeVignette if rifle != null else null
+	if vignette != null:
+		vignette.set_local_holder(true)
+
+
+func _tower_point() -> Vector3:
+	var marker: Node3D = _controller.arena.get_node_or_null(_controller.spawn_marker_path) as Node3D if _controller.arena != null else null
+	return marker.global_position if marker != null else _controller._tower_point
+
+
+## --map=grey: the ring's meshes hidden, a grey floor and a grey sky; collision untouched.
+func _grey_studio() -> void:
+	if _controller.arena == null:
+		return
+	for node: Node in _controller.arena.find_children("*", "MeshInstance3D", true, false):
+		(node as MeshInstance3D).visible = false
+	var floor_mesh := MeshInstance3D.new()
+	var disc := CylinderMesh.new()
+	disc.top_radius = 120.0
+	disc.bottom_radius = 120.0
+	disc.height = 0.05
+	var paint := StandardMaterial3D.new()
+	paint.albedo_color = Color(0.42, 0.42, 0.42)
+	disc.material = paint
+	floor_mesh.mesh = disc
+	root.add_child(floor_mesh)
+	var y: float = _seat_body.global_position.y if _seat_body != null else _controller._start_point.y
+	floor_mesh.global_position = Vector3(_controller._centre.x, y - 0.03, _controller._centre.z)
+	var world: WorldEnvironment = _find_node(_controller.arena, "WorldEnvironment") as WorldEnvironment
+	if world != null and world.environment != null:
+		var env: Environment = world.environment.duplicate() as Environment
+		env.background_mode = Environment.BG_COLOR
+		env.background_color = Color(0.55, 0.55, 0.55)
+		world.environment = env
+	print("[match] grey studio: ring hidden")
+
+
+func _ev(name: String, fields: Dictionary = {}) -> Dictionary:
+	var row: Dictionary = {"t": snappedf(_elapsed, 0.01), "ev": name}
+	row.merge(fields)
+	_events.append(row)
+	print("[ev] %s" % JSON.stringify(row))
+	return row
+
+
+func _seat_holder_id() -> String:
+	return _id_of(_controller.get_seat_participant())
+
+
+func _cause_of(participant: MatchParticipant) -> String:
+	match participant.death_cause:
+		MatchParticipant.DeathCause.SHOT:
+			return "shot"
+		MatchParticipant.DeathCause.FELL:
+			return "pit"
+		_:
+			return "lava"
+
+
+## Hit height on the capsule: head, torso or legs.
+func _part_of(body: PlayerController, at: Vector3) -> String:
+	var share: float = (at.y - body.global_position.y) / maxf(body.get_eye_height(), 0.1)
+	return "head" if share > 0.85 else ("torso" if share > 0.45 else "legs")
+
+
+## The match's own signals become events.jsonl rows.
+func _hook_match_events() -> void:
+	_controller.rifle.fired.connect(func(_o: Vector3, _e: Vector3) -> void: _ev("shot", {"by": _seat_holder_id()}))
+	_controller.rifle.target_hit.connect(
+		func(collider: Node3D, at: Vector3, _n: Vector3) -> void:
+			var victim: MatchParticipant = _controller.resolve_participant(collider)
+			if victim == null:
+				_ev("shot_result", {"by": _seat_holder_id(), "result": "miss"})
+			else:
+				_ev("shot_result", {"by": _seat_holder_id(), "result": "hit", "victim": _id_of(victim), "part": _part_of(victim.body, at)})
+	)
+	_controller.rifle.missed.connect(func(_e: Vector3) -> void: _ev("shot_result", {"by": _seat_holder_id(), "result": "miss"}))
+	_controller.participant_converted.connect(
+		func(participant: MatchParticipant) -> void:
+			var victim: String = _id_of(participant)
+			var cause: String = _cause_of(participant)
+			if _controller.get_phase() == MatchController.Phase.RACE:
+				_ev("out", {"body": victim, "cause": cause})
+				return
+			var by: String = _seat_holder_id() if cause == "shot" else ""
+			if _kill_by_flag:
+				# --kill: nobody shot them; the flag did.
+				by = "kill_flag"
+				cause = "kill_flag"
+				_kill_by_flag = false
+			var shove: Dictionary = _last_shover.get(victim, {})
+			if not shove.is_empty() and _elapsed - float(shove["t"]) <= SHOVE_OUTCOME_SECONDS:
+				(shove["ev"] as Dictionary)["outcome"] = "sights" if cause == "shot" else "pit"
+				if cause != "shot":
+					cause = "shove_pit"
+					by = String(shove["by"])
+				_pending_shoves.erase(shove)
+			_ev("kill", {"by": by, "victim": victim, "cause": cause})
+	)
+	_controller.participant_shoved.connect(
+		func(shover: MatchParticipant, victim: MatchParticipant) -> void:
+			var row: Dictionary = _ev("shove", {"by": _id_of(shover), "victim": _id_of(victim), "outcome": "ring"})
+			var pending: Dictionary = {"ev": row, "by": _id_of(shover), "t": _elapsed}
+			_pending_shoves.append(pending)
+			_last_shover[_id_of(victim)] = pending
+			_shoved_at[_id_of(victim)] = _elapsed
+	)
+	_controller.race_started.connect(func() -> void: _ev("race_start"))
+	_controller.brawl_started.connect(
+		func() -> void:
+			var bodies: Array = []
+			for participant: MatchParticipant in _controller.get_participants():
+				if participant.is_running:
+					bodies.append(_id_of(participant))
+			_ev("brawl_start", {"bodies": bodies})
+	)
+	_controller.brawler_out.connect(
+		func(participant: MatchParticipant, _throw: Vector3) -> void:
+			var shove: Dictionary = _last_shover.get(_id_of(participant), {})
+			var by: String = String(shove.get("by", "")) if not shove.is_empty() and _elapsed - float(shove["t"]) <= SHOVE_OUTCOME_SECONDS else ""
+			_ev("brawl_out", {"body": _id_of(participant), "by": by})
+	)
+	_controller.seat_changed.connect(
+		func(participant: MatchParticipant, turns: int) -> void:
+			if _controller.get_phase() == MatchController.Phase.RACE:
+				_ev("race_won", {"body": _id_of(participant)})
+			elif _controller.get_phase() == MatchController.Phase.BRAWL:
+				_ev("brawl_won", {"body": _id_of(participant)})
+			_ev("seat", {"body": _id_of(participant), "turn": turns})
+			_scope_for_the_seat.call_deferred()
+	)
+	_controller.round_started.connect(
+		func() -> void:
+			if _finale_on:
+				_finale_on = false
+				_ev("finale_end")
+			_ev("round_start", {"n": _controller.get_round_number()})
+	)
+	_controller.round_resolved.connect(func(_outcome: MatchController.Outcome) -> void: _ev("round_end", {"n": _controller.get_round_number()}))
+	_controller.finisher_armed.connect(func(_weapon: Rifle) -> void: _ev("portal", {"body": _id_of(_controller.get_finisher())}))
+	_controller.kill_beat_started.connect(
+		func(guard: MatchParticipant, _seconds: float, _throw: Vector3) -> void:
+			var shover: String = _id_of(_controller.get_finisher())
+			_ev("shove", {"by": shover, "victim": _id_of(guard), "outcome": "tower_out"})
+			_ev("kill", {"by": shover, "victim": _id_of(guard), "cause": "shove_pit"})
+			_ev("finale_start", {"shover": shover, "guard": _id_of(guard)})
+			_finale_on = true
+	)
+	_controller.match_started.connect(
+		func(_count: int) -> void:
+			for participant: MatchParticipant in _controller.get_participants():
+				var optic: WeaponOptic = participant.body.get_node_or_null(^"Optic") as WeaponOptic if participant.body != null else null
+				if optic != null and not optic.zoom_requested.is_connected(_on_zoom):
+					optic.zoom_requested.connect(_on_zoom.bind(participant))
+				if not _controller.get_rules().finisher_hunts_guard and participant.tracker != null:
+					participant.tracker.lap_finished.connect(
+						func(_e: float, _l: float) -> void:
+							if _controller.get_phase() == MatchController.Phase.ROUND:
+								_ev("portal", {"body": _id_of(participant)})
+					)
+	)
+
+
+func _on_zoom(zoomed: bool, participant: MatchParticipant) -> void:
+	_ev("scoped", {"by": _id_of(participant), "on": zoomed})
+
+
+func _tick_match(delta: float) -> void:
+	_hold_the_seat()
+	_watch_ragdolls()
+	for pending: Dictionary in _pending_shoves.duplicate():
+		if _elapsed - float(pending["t"]) > SHOVE_OUTCOME_SECONDS:
+			_pending_shoves.erase(pending)
+	if _kill_at >= 0.0 and _elapsed >= _kill_at:
+		_kill_at = -1.0
+		var victim: MatchParticipant = _participant_by_id(_kill_id)
+		if victim != null and victim.is_running:
+			victim.death_cause = MatchParticipant.DeathCause.SHOT
+			_kill_by_flag = true
+			_controller.convert_participant(victim)
+			var avatar: PrisonerAvatar = PrisonerAvatar.of(victim.body)
+			if avatar != null and avatar.get(&"_ragdoll") == null:
+				print("[match] %6.2f death clip '%s' plays on %s (ragdoll off)" % [_elapsed, avatar.death_clip, _kill_id])
+		else:
+			print("[match] --kill=%s: that body is not running; nothing killed" % _kill_id)
+	_vis_next -= delta
+	if _vis_next <= 0.0:
+		_vis_next = 1.0 / VIS_HZ
+		_sample_vis()
+
+
+## The seat's eye is current unless one of the game's own views (finale, death) has the screen.
+func _hold_the_seat() -> void:
+	if _seat_body == null:
+		_place_free_camera()
+		return
+	var eye: Camera3D = _eye_of(_seat_body)
+	var current: Camera3D = root.get_camera_3d()
+	if current == eye or eye == null:
+		pass
+	elif (_finale_view != null and current == _finale_view.camera) or (_spectator != null and current == _spectator.get(&"camera")):
+		pass
+	else:
+		eye.current = true
+		_reasserted += 1
+		print("[seat] %6.2f eye re-asserted over %s" % [_elapsed, current.name if current != null else "nothing"])
+	if _cross == null:
+		var hud: Node = STAGE_LIB.find_node(root, "HUD")
+		_cross = hud.get_node_or_null(^"Root/Crosshair") as CanvasItem if hud != null else null
+	if _cross != null:
+		_cross.visible = String(_options.get("hud", "")) == "crosshair" and _seat_participant.is_shooter and root.get_camera_3d() == eye
+
+
+## --seat=free: a tripod. --look=at:<id> stands 3.5 m in front of that body; otherwise it watches the ring.
+func _place_free_camera() -> void:
+	if _free_pose_set or _camera == null:
+		return
+	var look: String = String(_options.get("look", ""))
+	var centre: Vector3 = _controller._centre
+	if look.begins_with("at:"):
+		var target: MatchParticipant = _participant_by_id(look.substr(3))
+		if target == null:
+			for participant: MatchParticipant in _controller.get_participants():
+				if participant.body != null and participant.body.name == look.substr(3):
+					target = participant
+		if target == null or target.body == null:
+			return
+		var body: PlayerController = target.body
+		var forward: Vector3 = -body.global_transform.basis.z
+		var eye_y: float = body.get_eye_height()
+		_camera.global_position = body.global_position + forward * 3.5 + Vector3.UP * eye_y * 0.9
+		_camera.look_at(body.global_position + Vector3.UP * eye_y * 0.6, Vector3.UP)
+		_camera.fov = 50.0
+	else:
+		var route: RingRoute = _controller.get_route()
+		var radius: float = route.lane_radius(0) if route != null else RIM_R_FALLBACK
+		var deck: float = route.deck_height(0) if route != null else DECK_Y
+		_camera.global_position = centre + Vector3(radius * 1.7, deck + 16.0, 0.0)
+		_camera.look_at(Vector3(centre.x, deck, centre.z), Vector3.UP)
+		_camera.fov = 60.0
+	_camera.current = true
+	_free_pose_set = true
+
+
+func _ragdoll_active(body: PlayerController) -> bool:
+	var avatar: PrisonerAvatar = PrisonerAvatar.of(body) if body != null else null
+	var ragdoll: Variant = avatar.get(&"_ragdoll") if avatar != null else null
+	return ragdoll != null and ragdoll.is_active()
+
+
+func _watch_ragdolls() -> void:
+	for participant: MatchParticipant in _controller.get_participants():
+		var id: String = _id_of(participant)
+		var active: bool = _ragdoll_active(participant.body)
+		if active and not bool(_ragdolled.get(id, false)):
+			_ev("ragdoll", {"body": id})
+		_ragdolled[id] = active
+
+
+func _state_of(participant: MatchParticipant) -> String:
+	if _ragdoll_active(participant.body):
+		return "ragdoll"
+	if participant.is_ghost:
+		return "ghost"
+	if participant.is_shooter:
+		return "dead" if participant.health <= 0 else "guard"
+	if not participant.is_running:
+		return "dead"
+	if _controller.get_phase() == MatchController.Phase.BRAWL:
+		return "brawl"
+	if _elapsed - float(_shoved_at.get(_id_of(participant), -100.0)) <= _controller.get_rules().shove_air_lock_seconds:
+		return "shoved"
+	if participant.brain != null and participant.brain.get_state() == RunnerBrain.State.TAKE_COVER:
+		return "cover"
+	return "run"
+
+
+## One vis.jsonl row: what the current camera can see of every body.
+func _sample_vis() -> void:
+	var cam: Camera3D = root.get_camera_3d()
+	if cam == null:
+		return
+	var size: Vector2 = root.get_visible_rect().size
+	var forward: Vector3 = -cam.global_basis.z
+	var label: String = _seat_spec
+	if _finale_view != null and cam == _finale_view.camera:
+		label = "finale"
+	elif _spectator != null and cam == _spectator.get(&"camera"):
+		label = "death"
+	# Through the seat's own eyes: the seat body is never on screen and never occludes; a game view sees it like any other.
+	var through_eye: bool = _seat_body != null and cam == _eye_of(_seat_body)
+	var optic: WeaponOptic = _seat_body.get_node_or_null(^"Optic") as WeaponOptic if through_eye else null
+	var row: Dictionary = {
+		"t": snappedf(_elapsed, 0.1), "cam": label,
+		"yaw": snappedf(rad_to_deg(atan2(-forward.x, -forward.z)), 0.1), "pitch": snappedf(rad_to_deg(asin(clampf(forward.y, -1.0, 1.0))), 0.1),
+		"scoped": optic != null and optic.is_zoom_requested(), "bodies": [],
+	}
+	var space: PhysicsDirectSpaceState3D = cam.get_world_3d().direct_space_state
+	for participant: MatchParticipant in _controller.get_participants():
+		var body: PlayerController = participant.body
+		if body == null:
+			continue
+		var eye_y: float = maxf(body.get_eye_height(), 0.1)
+		var chest: Vector3 = body.global_position + Vector3.UP * eye_y * 0.75
+		var in_frustum: bool = not (through_eye and body == _seat_body) and cam.is_position_in_frustum(chest)
+		var occ: bool = false
+		if in_frustum:
+			var query := PhysicsRayQueryParameters3D.create(cam.global_position, chest, 0xFFFFFFFF)
+			if through_eye:
+				query.exclude = [_seat_body.get_rid()]
+			var hit: Dictionary = space.intersect_ray(query)
+			occ = hit.is_empty() or (hit["collider"] as Node) != body
+			if occ and OS.has_environment("VIS_DEBUG"):
+				print("[vis] %s blocked by %s" % [_id_of(participant), (hit["collider"] as Node).get_path() if not hit.is_empty() else "nothing"])
+		var head: Vector2 = cam.unproject_position(body.global_position + Vector3.UP * (eye_y + 0.15))
+		var feet: Vector2 = cam.unproject_position(body.global_position)
+		var at: Vector2 = cam.unproject_position(chest)
+		row["bodies"].append({
+			"id": _id_of(participant), "on": in_frustum and not occ,
+			"h": snappedf(absf(head.y - feet.y) / maxf(size.y, 1.0), 0.001) if in_frustum else 0.0,
+			"x": snappedf(at.x / maxf(size.x, 1.0), 0.001), "y": snappedf(at.y / maxf(size.y, 1.0), 0.001),
+			"d": snappedf(cam.global_position.distance_to(chest), 0.1), "occ": occ, "state": _state_of(participant),
+		})
+	_vis_lines.append(JSON.stringify(row))
+
+
+## Write events.jsonl, vis.jsonl and take.json; print the event counts.
+func _finish_match() -> void:
+	if _tape != null:
+		_tape.finish()
+	var counts: Dictionary = {}
+	for row: Dictionary in _events:
+		counts[row["ev"]] = int(counts.get(row["ev"], 0)) + 1
+	var summary: PackedStringArray = PackedStringArray()
+	for name: String in counts:
+		summary.append("%s %d" % [name, counts[name]])
+	print("[match] %.1f s, %d vis rows, eye re-asserted %d times; events: %s" % [_elapsed, _vis_lines.size(), _reasserted, ", ".join(summary) if not summary.is_empty() else "none"])
+	var log_dir: String = String(_options.get("log", ""))
+	if log_dir.is_empty():
+		return
+	var events: PackedStringArray = PackedStringArray()
+	for row: Dictionary in _events:
+		events.append(JSON.stringify(row))
+	_write(log_dir.path_join("events.jsonl"), "\n".join(events) + "\n")
+	_write(log_dir.path_join("vis.jsonl"), "\n".join(_vis_lines) + "\n")
+	var commit: Array = []
+	OS.execute("git", ["rev-parse", "--short", "HEAD"], commit)
+	var take: Dictionary = {
+		"args": OS.get_cmdline_user_args(), "commit": String(commit[0]).strip_edges() if not commit.is_empty() else "",
+		"seed": int(_options.get("seed", 0)), "map": _options.get("map", ""), "opening": _opening, "seat": _seat_spec,
+		"sync_frames": int(_options.get("sync", 0)), "t0": 0.0, "duration": snappedf(_elapsed, 0.01),
+		"tape": _options.get("record", "") if String(_options.get("record", "")) != "" else _options.get("tape", ""),
+		"old": String(_options.get("old", "")) == "1", "kill": _options.get("kill", ""), "events": counts,
+		"files": {"events": log_dir.path_join("events.jsonl"), "vis": log_dir.path_join("vis.jsonl")},
+	}
+	_write(log_dir.path_join("take.json"), JSON.stringify(take, "  "))
+	print("[match] wrote %s/{events.jsonl,vis.jsonl,take.json}" % log_dir)
+
+
+func _write(path: String, text: String) -> void:
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		printerr("[match] cannot write %s" % path)
+		return
+	file.store_string(text)
+	file.close()

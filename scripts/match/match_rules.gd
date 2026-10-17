@@ -577,6 +577,10 @@ enum MapPickMode {
 ## Seconds the victim has no air control after a shove.
 @export_range(0.0, 3.0, 0.05, "or_greater") var shove_air_lock_seconds: float = 1.4
 
+## A running bot shoves a living rival ahead of it within [member shove_range_metres]. [b]LIVE.[/b]
+## Off, bots only shove as ghosts, finishers and in the brawl.
+@export var bots_shove_rivals: bool = true
+
 # --- The AI in the tower ------------------------------------------------------
 
 ## The [ShooterProfile] an AI participant plays the tower on. [b]LIVE[/b],
