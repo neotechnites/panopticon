@@ -24,7 +24,7 @@ def clip_cell(entries):
     parts = []
     for e in entries:
         for p in e.get("parts") or [e]:
-            parts.append("%s@%.3f:%.3f" % (p["file"], p["in"], p["len"]))
+            parts.append("%s@%.3f:%.3f" % (p["file"], p["in"] + p.get("sync", 0.0), p["len"]))   # mkv time = log time + sync
     return ",".join(parts)
 
 

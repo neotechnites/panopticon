@@ -5,7 +5,8 @@ window is never shorter than the line's slot (voice + pad at speed 1). Exit 2 wi
     python -m sv3.search - shots.json --pool DIR --words words.json --out edl.json --take <tape> [--line L4]
         verify one filmed take (its logs under <pool>/<tape>/) for its lines: exit 2 with the failed predicates.
 
-edl.json: [{id, line, tape, seat, file, in, len, beat_t, fit, parts:[...]}] one entry per shot; a montage has `parts`.
+edl.json: [{id, line, tape, seat, file, sync, in, len, beat_t, fit, parts:[...]}] one entry per shot; a montage has `parts`.
+`in` is seconds since the take's t=0 (the log's clock); `sync` is where t=0 sits in the mkv, so the clip starts at in + sync.
 """
 import argparse
 import json
@@ -173,7 +174,7 @@ def search_shot(recs, shot, words, pad, same_tape=None, prev_len=0.0, exclude_vi
             why = [t for ok, t in results if not ok]
             r = {"ok": not why, "in": tin, "len": round(length, 3), "beat_t": None, "fit": "wait" if length > (slot or BEAT_LEN) + FRAME else "line",
                  "why": why, "score": 0.5 if not why else -1}
-            r.update(tape=rec.tape, seat=rec.seat, file=rec.file)
+            r.update(tape=rec.tape, seat=rec.seat, file=rec.file, sync=rec.sync)
             if why:
                 misses.append(r)
             elif best is None or r["score"] > best["score"]:
@@ -184,7 +185,7 @@ def search_shot(recs, shot, words, pad, same_tape=None, prev_len=0.0, exclude_vi
             if victim in exclude_victims:
                 continue
             r = try_anchor(rec, shot, occ["t"], victim, slot, words, pad, prev_len)
-            r.update(tape=rec.tape, seat=rec.seat, file=rec.file)
+            r.update(tape=rec.tape, seat=rec.seat, file=rec.file, sync=rec.sync)
             if r["ok"]:
                 if best is None or r["score"] > best["score"]:
                     best = r
@@ -221,7 +222,7 @@ def search_montage(recs, shot, words, pad):
         if why:
             misses.append({"tape": rec.tape, "seat": rec.seat, "score": -1, "why": why})
         else:
-            hits.append({"tape": rec.tape, "seat": rec.seat, "file": rec.file, "in": round(tin, 3), "len": round(part, 3),
+            hits.append({"tape": rec.tape, "seat": rec.seat, "file": rec.file, "sync": rec.sync, "in": round(tin, 3), "len": round(part, 3),
                          "beat_t": round(hit["anchor_t"] - tin, 3), "victim": hit["victim"]})
         used.add(hit["victim"])
     if len(hits) < n:
@@ -255,7 +256,7 @@ def run(plan, shots, pool, words, pad, out, take=None, only=None):
     chosen_tape = {}
     for shot in shots:
         if shot["source"] in ("card", "black"):
-            edl.append({"id": shot["id"], "line": shot["line"], "tape": None, "seat": None, "file": None, "in": 0, "len": slot_of(shot, words, pad) or 1.0, "beat_t": None, "fit": "line"})
+            edl.append({"id": shot["id"], "line": shot["line"], "tape": None, "seat": None, "file": None, "sync": 0.0, "in": 0, "len": slot_of(shot, words, pad) or 1.0, "beat_t": None, "fit": "line"})
             continue
         same = shot["match"].get("same_match_as")
         same_tape = chosen_tape.get(same) if same else None
@@ -282,14 +283,14 @@ def run(plan, shots, pool, words, pad, out, take=None, only=None):
             hits, misses = search_montage(recs, shot, words, pad)
             if hits:
                 edl.append({"id": shot["id"], "line": shot["line"], "tape": hits[0]["tape"], "seat": hits[0]["seat"], "file": hits[0]["file"],
-                            "in": hits[0]["in"], "len": round(sum(h["len"] for h in hits), 3), "beat_t": None,
+                            "sync": hits[0]["sync"], "in": hits[0]["in"], "len": round(sum(h["len"] for h in hits), 3), "beat_t": None,
                             "fit": "wait" if sum(h["len"] for h in hits) > slot_of(shot, words, pad) + FRAME else "line", "parts": hits})
                 chosen_tape[shot["id"]] = hits[0]["tape"]
                 continue
         else:
             hit, misses = search_shot(recs, shot, words, pad, same_tape, prev_len)
             if hit:
-                edl.append({k: hit[k] for k in ("tape", "seat", "file", "in", "len", "beat_t", "fit")} | {"id": shot["id"], "line": shot["line"], "anchor_t": hit.get("anchor_t"), "victim": hit.get("victim")})
+                edl.append({k: hit[k] for k in ("tape", "seat", "file", "sync", "in", "len", "beat_t", "fit")} | {"id": shot["id"], "line": shot["line"], "anchor_t": hit.get("anchor_t"), "victim": hit.get("victim")})
                 chosen_tape[shot["id"]] = hit["tape"]
                 print("found %s in %s/%s @%.2f len %.2f (%s)" % (shot["id"], hit["tape"], hit["seat"], hit["in"], hit["len"], hit["fit"]))
                 continue
