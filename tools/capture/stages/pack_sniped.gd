@@ -27,7 +27,8 @@ extends "res://tools/capture/stages/stage.gd"
 ## brain otherwise picks whoever its scan likes, which on a POV take was the
 ## ridden body).
 ##
-## Dials (--set=): start (144), end (214), fire_at (3.0), pov_index (3), victim_index (1).
+## Dials (--set=): start (144), end (214), fire_at (3.0), pov_index (3), victim_index (1),
+## pov_back (0: degrees the POV body is dealt behind its row), pack (5: the pack; 3 keeps a match at four players).
 
 const RADII: Array[float] = [54.9, 53.8, 56.0, 54.35, 55.45]
 const STAGGER: Array[float] = [0.0, -0.3, -0.2, -1.6, -1.7]
@@ -57,7 +58,7 @@ var _focus_set: bool = false
 
 
 func bots() -> int:
-	return 5
+	return int(option("pack", 5))
 
 
 func tune_rules(rules: MatchRules) -> void:
@@ -93,6 +94,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	var pov_index: int = int(option("pov_index", 3))
 	var pov: bool = String(option("pov", "")) == "runner"
 	var victim_index: int = int(option("victim_index", 1))
+	var pov_back: float = float(option("pov_back", 0.0))
 	for index: int in count:
 		var body: PlayerController = runners[index].controller
 		if index != victim_index:
@@ -104,7 +106,8 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			"do": "lane", "to": end, "r": RADII[index], "speed": PACE[index],
 			"weave": WEAVE[index], "period": PERIOD[index], "timeout": 30.0,
 		}
-		var steps: Array = [{"do": "place", "at": LIB.ring_point(start + STAGGER[index], RADII[index], 0.1)}]
+		var back: float = pov_back if (pov and index == pov_index) else 0.0
+		var steps: Array = [{"do": "place", "at": LIB.ring_point(start + STAGGER[index] - back, RADII[index], 0.1)}]
 		if pov and index == pov_index:
 			# A hand on the mouse: glances at the neighbours, the flinch when
 			# the one ahead-right drops. The pair ahead is on our right (inner).
