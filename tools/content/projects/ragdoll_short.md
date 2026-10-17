@@ -356,6 +356,34 @@ tape: forest_kills_97
 in: 0
 seconds: 34
 
+## 31
+said: L5, the same ask as 23 ("didnt i say it has to be in the forest?"): the ground lens, and on a hit it takes the body that was hit as its subject (shot 30 lost the fall to a re-pick); taped forest match seed 53, kill 15.85 s Runner_3
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --bots=3 --seed=53 --shimmer=0 --set=lift=1;spectate=1
+tape: forest_spec_53
+in: 0
+seconds: 18
+
+## 32
+said: L5, the same ask as 23 ("didnt i say it has to be in the forest?"): the ground lens, and on a hit it takes the body that was hit as its subject (shot 30 lost the fall to a re-pick); taped forest match seed 71, kill 16.82 s Runner_3
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --bots=3 --seed=71 --shimmer=0 --set=lift=1;spectate=1
+tape: forest_spec_71
+in: 0
+seconds: 19
+
+## 33
+said: L5, the same ask as 23 ("didnt i say it has to be in the forest?"): the ground lens, and on a hit it takes the body that was hit as its subject (shot 30 lost the fall to a re-pick); taped forest match seed 37, kill 22.52 s Runner_3
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --bots=3 --seed=37 --shimmer=0 --set=lift=1;spectate=1
+tape: forest_spec_37
+in: 0
+seconds: 25
+
+## 34
+said: L5, the same ask as 23 ("didnt i say it has to be in the forest?"): the ground lens, and on a hit it takes the body that was hit as its subject (shot 30 lost the fall to a re-pick); taped forest match seed 97, kill 9.25 s Runner_2 (shot 30 again)
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --bots=3 --seed=97 --shimmer=0 --set=lift=1;spectate=1
+tape: forest_kills_97
+in: 0
+seconds: 11.5
+
 ## script v17
 from: v16
 # v17 = v16 with L6 refilmed (shot 22, head review of v16; 20 and 21 ran the lens into the rim wall): the shove on "shove", the victim 1.8 m off the lens, the eye on the POV.

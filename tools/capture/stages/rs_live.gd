@@ -86,7 +86,12 @@ func on_shot(_confidence: float) -> void:
 
 
 func on_hit(collider: Node3D) -> void:
-	if collider is PlayerController and collider == _subject:
+	if collider is PlayerController and int(option("spectate", 0)) == 1:
+		if collider != _subject:
+			_subject = collider as PlayerController
+			_look = _subject.global_position + Vector3.UP * 1.0
+			if not _spot_ok or not _clear(_spot, _look, _subject):
+				_spot_ok = _pick_spot(_subject)
 		_hit_hold = float(option("spec_hold", 1.8))
 	if collider is PlayerController and _held_shooter != null:
 		_held = float(option("hold", 1.6))
