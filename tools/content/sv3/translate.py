@@ -15,7 +15,7 @@ import jsonschema
 
 from sv3 import schema as S
 
-MODEL = "gemini-2.5-pro"
+MODEL = "gemini-3.1-pro-preview"
 RULES = """Ryan's rules that bind the translation:
 - A "pov"/"runner pov"/"sniper pov" is a PLAYER's eyes (seat guard or runner:any), never a free camera (free only for studio/establishing).
 - Never slow motion; never a freeze; a hit body never goes transparent. These are cut rules, not predicates: do not emit them.
@@ -236,6 +236,8 @@ def main(argv=None):
     json.dump(verdict, open(os.path.splitext(a.out)[0] + ".audit.json", "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     summary(shots)
     bad = [v for v in verdict if not v["ok"] or v["invented"] or v["missing"]]
+    if {v["id"] for v in verdict} != {s["id"] for s in shots} and not a.fixture:
+        problems.append("audit answered for %s, shots are %s" % (sorted(v["id"] for v in verdict), sorted(s["id"] for s in shots)))
     um = unmapped_failures(shots)
     if problems or bad or um:
         print("\nTRANSLATION FAILED")

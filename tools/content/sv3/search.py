@@ -157,6 +157,8 @@ def search_shot(recs, shot, words, pad, same_tape=None, prev_len=0.0, exclude_vi
             shot["source"], shot["match"]["map"], shot["match"]["opening"], shot["match"]["old"], shot["seat"],
             (" in tape " + same_tape) if same_tape else "")], "score": -99}]
     anchor = anchor_pred(shot)
+    if anchor is None and shot["window"].get("beat"):
+        return None, [{"why": ["beat on %r but no event predicate to land" % shot["window"]["beat"]["event"]], "score": -99}]
     best = None
     for rec in cands:
         if anchor is None:
@@ -167,7 +169,8 @@ def search_shot(recs, shot, words, pad, same_tape=None, prev_len=0.0, exclude_vi
                 continue
             results = P.evaluate(rec, shot["find"], tin, tin + length, tin + length / 2, None)
             why = [t for ok, t in results if not ok]
-            r = {"ok": not why, "in": tin, "len": round(length, 3), "beat_t": None, "fit": "line", "why": why, "score": 0.5 if not why else -1}
+            r = {"ok": not why, "in": tin, "len": round(length, 3), "beat_t": None, "fit": "wait" if length > (slot or BEAT_LEN) + FRAME else "line",
+                 "why": why, "score": 0.5 if not why else -1}
             r.update(tape=rec.tape, seat=rec.seat, file=rec.file)
             if why:
                 misses.append(r)
@@ -200,9 +203,13 @@ def search_montage(recs, shot, words, pad):
         misses += miss
         if not hit:
             break
-        # a montage part is `part` seconds with the anchor at 55 %: re-check the predicates in that exact window
+        # a montage part is `part` seconds with the anchor at 55 % (a beat part keeps the window the beat word fixed);
+        # the last part takes what is left of the slot so the sum is never short. Re-check the predicates in that window.
         rec = next(r for r in recs if r.tape == hit["tape"] and r.seat == hit["seat"])
-        tin = max(0.0, hit["anchor_t"] - 0.55 * part)
+        if len(hits) == n - 1:
+            part = max(part, slot - sum(h["len"] for h in hits))
+        tin = hit["in"] if shot["window"].get("beat") else max(0.0, hit["anchor_t"] - 0.55 * part)
+        part = max(part, hit["len"]) if shot["window"].get("beat") else part
         if tin + part > rec.dur:
             misses.append({"tape": rec.tape, "seat": rec.seat, "score": -1, "why": ["montage part runs past the recording end"]})
             used.add(hit["victim"])
@@ -263,7 +270,8 @@ def run(plan, shots, pool, words, pad, out):
             hits, misses = search_montage(recs, shot, words, pad)
             if hits:
                 edl.append({"id": shot["id"], "line": shot["line"], "tape": hits[0]["tape"], "seat": hits[0]["seat"], "file": hits[0]["file"],
-                            "in": hits[0]["in"], "len": round(sum(h["len"] for h in hits), 3), "beat_t": None, "fit": "line", "parts": hits})
+                            "in": hits[0]["in"], "len": round(sum(h["len"] for h in hits), 3), "beat_t": None,
+                            "fit": "wait" if sum(h["len"] for h in hits) > slot_of(shot, words, pad) + FRAME else "line", "parts": hits})
                 chosen_tape[shot["id"]] = hits[0]["tape"]
                 continue
         else:

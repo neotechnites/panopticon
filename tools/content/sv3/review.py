@@ -42,7 +42,7 @@ def main(argv=None):
               "\"meets_note\":\"yes|no\",\"defects\":[...],\"words\":\"one line\"}],\"overall_defects\":[...]}.\n\nSHOTS:\n%s"
               % (", ".join(DEFECTS), json.dumps(lines, indent=1, ensure_ascii=False)))
     r = c.models.generate_content(
-        model="gemini-2.5-pro",
+        model="gemini-3.1-pro-preview",
         contents=[types.Part(file_data=types.FileData(file_uri=f.uri, mime_type=f.mime_type), video_metadata=types.VideoMetadata(fps=4)), prompt],
         config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.0))
     out = json.loads(r.text)

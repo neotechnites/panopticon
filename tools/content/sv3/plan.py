@@ -47,6 +47,7 @@ def main(argv=None):
     ap.add_argument("--out", required=True)
     ap.add_argument("--words")
     ap.add_argument("--seed", type=int, default=1000)
+    ap.add_argument("--from-scratch", action="store_true", help="rule 417: never reuse the pool, film every line new")
     a = ap.parse_args(argv)
     shots = json.load(open(a.shots))
     words = json.load(open(a.words)) if a.words else {}
@@ -57,7 +58,7 @@ def main(argv=None):
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         SE.run({}, shots, a.pool, words, SE.DEFAULT_PAD, tmp)
-    found = {e["id"]: e for e in json.load(open(tmp))}
+    found = {} if a.from_scratch else {e["id"]: e for e in json.load(open(tmp))}
     groups = {}
     for s in shots:
         if s["source"] in ("card", "black"):

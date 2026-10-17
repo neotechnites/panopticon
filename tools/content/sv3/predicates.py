@@ -106,8 +106,8 @@ def load_pool(pool):
         return recs
     for tape in sorted(os.listdir(pool)):
         d = os.path.join(pool, tape)
-        if not os.path.isfile(os.path.join(d, "take.json")):
-            continue
+        if not os.path.isfile(os.path.join(d, "take.json")) or "trailer" in tape:
+            continue      # rule 370: trailer footage never reaches a short
         for f in sorted(os.listdir(d)):
             if f.endswith(".events.jsonl"):
                 recs.append(Recording(pool, tape, f[:-len(".events.jsonl")].replace("_", ":")))

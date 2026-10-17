@@ -50,6 +50,9 @@ def rows_for(edl, shots, spec, words, pad):
     for line in spec:
         entries = by_line.get(line["id"], [])
         lshots = [s for s in shots if s["line"] == line["id"]]
+        if lshots and all(x["source"] in ("card", "black") for x in lshots):
+            rows.append("| %s | | | | title %.2f | | %s | |" % (line["id"], sum(e["len"] for e in entries) or 1.0, line["text"]))
+            continue
         if not entries or not all(e.get("file") for e in entries):
             problems.append("%s has no picture in edl.json" % line["id"])
             continue
@@ -73,11 +76,11 @@ def main(argv=None):
     ap.add_argument("spec")
     ap.add_argument("--brief", required=True)
     ap.add_argument("--tag", required=True)
-    ap.add_argument("--words")
+    ap.add_argument("--words", required=True)
     ap.add_argument("--pad", type=float, default=0.25)
     a = ap.parse_args(argv)
     edl, shots, spec = (json.load(open(p)) for p in (a.edl, a.shots, a.spec))
-    words = json.load(open(a.words)) if a.words else {}
+    words = json.load(open(a.words))
     rows, problems = rows_for(edl, shots, spec, words, a.pad)
     if problems:
         print("EDL REFUSED:\n  " + "\n  ".join(problems))
