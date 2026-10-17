@@ -1847,7 +1847,15 @@ func _sample_vis() -> void:
 		"t": snappedf(_elapsed, 0.1), "cam": label,
 		"yaw": snappedf(rad_to_deg(atan2(-forward.x, -forward.z)), 0.1), "pitch": snappedf(rad_to_deg(asin(clampf(forward.y, -1.0, 1.0))), 0.1),
 		"scoped": optic != null and optic.is_zoom_requested(), "bodies": [],
+		"cam_pos": _xyz(cam.global_position), "landmarks": {},
 	}
+	for mark: String in ["tower", "portal"]:
+		var point: Vector3 = _tower_point() + Vector3.UP * 2.0 if mark == "tower" else _controller._end_point + Vector3.UP
+		var seen: Vector2 = _screen(cam, point, size)
+		row["landmarks"][mark] = {
+			"on": cam.is_position_in_frustum(point), "x": seen.x, "y": seen.y,
+			"d": snappedf(cam.global_position.distance_to(point), 0.1),
+		}
 	var space: PhysicsDirectSpaceState3D = cam.get_world_3d().direct_space_state
 	for participant: MatchParticipant in _controller.get_participants():
 		var body: PlayerController = participant.body
@@ -1865,16 +1873,32 @@ func _sample_vis() -> void:
 			occ = hit.is_empty() or (hit["collider"] as Node) != body
 			if occ and OS.has_environment("VIS_DEBUG"):
 				print("[vis] %s blocked by %s" % [_id_of(participant), (hit["collider"] as Node).get_path() if not hit.is_empty() else "nothing"])
-		var head: Vector2 = cam.unproject_position(body.global_position + Vector3.UP * (eye_y + 0.15))
-		var feet: Vector2 = cam.unproject_position(body.global_position)
-		var at: Vector2 = cam.unproject_position(chest)
+		var head: Vector2 = _screen(cam, body.global_position + Vector3.UP * (eye_y + 0.15), size)
+		var feet: Vector2 = _screen(cam, body.global_position, size)
+		var at: Vector2 = _screen(cam, chest, size)
+		# A limp body is drawn at its ragdoll, not at the frozen capsule.
+		var avatar: PrisonerAvatar = PrisonerAvatar.of(body)
+		var drawn: Vector3 = avatar.drawn_centre() if avatar != null and _ragdoll_active(body) else body.global_position
 		row["bodies"].append({
 			"id": _id_of(participant), "on": in_frustum and not occ,
-			"h": snappedf(absf(head.y - feet.y) / maxf(size.y, 1.0), 0.001) if in_frustum else 0.0,
-			"x": snappedf(at.x / maxf(size.x, 1.0), 0.001), "y": snappedf(at.y / maxf(size.y, 1.0), 0.001),
+			"h": snappedf(absf(head.y - feet.y), 0.001) if in_frustum else 0.0,
+			"x": at.x, "y": at.y,
 			"d": snappedf(cam.global_position.distance_to(chest), 0.1), "occ": occ, "state": _state_of(participant),
+			"pos": _xyz(drawn),
 		})
 	_vis_lines.append(JSON.stringify(row))
+
+
+## Screen position in 0..1; (-1, -1) for a point behind the camera, where unproject mirrors.
+func _screen(cam: Camera3D, point: Vector3, size: Vector2) -> Vector2:
+	if cam.is_position_behind(point):
+		return Vector2(-1.0, -1.0)
+	var seen: Vector2 = cam.unproject_position(point)
+	return Vector2(snappedf(seen.x / maxf(size.x, 1.0), 0.001), snappedf(seen.y / maxf(size.y, 1.0), 0.001))
+
+
+func _xyz(point: Vector3) -> Array:
+	return [snappedf(point.x, 0.01), snappedf(point.y, 0.01), snappedf(point.z, 0.01)]
 
 
 ## Write events.jsonl, vis.jsonl and take.json; print the event counts.

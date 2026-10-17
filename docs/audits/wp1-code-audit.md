@@ -33,3 +33,23 @@ Not real: 1/2 (a ghost keeps the same body; ids are per body), 3 (the spectator 
 6. **seat_intent.gd:_tick_guard**: The `scope` step directly calls `shooter.optic.set_zoomed(true)` on non-seat bodies, which directly tweens the active camera FOV and zooms the player's view even when seated on another body. Fix: Use `shooter.input.zoom = true` instead of forcing the optic.
 7. **seat_intent.gd:_aim_guard**: Passes 3 arguments (including `delta`) to `shooter.input.aim()`, but `BotIntentSource.aim` only accepts 2 arguments (yaw, pitch) as seen in `_turn_towards`, causing a GDScript crash. Fix: Remove `delta` from the `aim()` call parameters.
 Ruling: fixed 1 (--seat-intent ';' read as ','), 5 (a scripted guard fires only once the scope has settled). Not real: 2 (compiles and ran), 4 (the grammar is cover:at:s, parsed at index 2), 6 (an optic zooms only its own body's camera, as the shipped brain does), 7 (BotIntentSource.aim takes delta). 3 is by design: brawl hands the body to the match's own fight and the entry ends there.
+
+## Audit 3: cam_pos, body pos, landmarks
+1. **Unproject behind camera lies**: `cam.unproject_position()` returns mirrored coordinates for points behind the camera that can falsely fall into the 0..1 screen space, tricking the searcher into evaluating `looking_at` as true.
+*Fix*: `var seen: Vector2 = cam.unproject_position(point) if not cam.is_position_behind(point) else Vector2(-1, -1)`
+
+2. **Landmark point ambiguity ("which point")**: A single base+2m point cannot spatially represent a massive tower; if the player looks at the top of the tower, this specific point will be off-screen (`on: false`), causing `looking_at(tower)` to falsely fail.
+*Fix*: Export a screen-space bounding box (AABB) or multiple reference points (e.g., base, center, top) for large landmarks.
+
+3. **Ragdoll state position lies**: For `dead` or `ragdoll` states, the kinematic `body.global_position` freezes at the death location while the visual skeleton flies, causing `moving(victim)` to falsely evaluate to 0 m/s.
+*Fix*: Export the active skeleton's center of mass or main bone position when the participant state is `ragdoll` or `dead`.
+
+4. **Head bob falsifies `moving(seat)` (Units/Velocity)**: `cam_pos` tracks the seat's camera/head, which bobs rapidly during idle/run animations, registering as high momentary velocity (meters per second) and falsely triggering `moving(seat, min_mps)` when the player is physically stationary.
+*Fix*: The searcher should evaluate `moving(seat)` using the seat's root body `pos` instead of `cam_pos`, or the logger must export a smoothed root position.
+
+5. **Undefined `_tower_point` scope**: `_tower_point()` is called globally without a reference to the match rules or controller, causing a GDScript runtime crash that breaks the capture.
+*Fix*: Prefix the method call to its correct owner, e.g., `_controller._tower_point()`.
+
+6. **Missing map support for landmarks**: The code unconditionally queries tower and portal points, but on non-gameplay maps (like the `grey` studio map for M2 death captures), these may not exist, resulting in a null reference crash.
+*Fix*: Check if the landmarks exist in the current map context before attempting to calculate and unproject them.
+Ruling: fixed 1 (x/y are -1,-1 for a point behind the camera, bodies and landmarks alike), 3 (a ragdolling body's pos is its ragdoll's drawn centre). 4: the seat's own body pos is in bodies[]; the searcher reads moving() from it, not cam_pos. 2: the tower point is its spawn room (marker + 2 m), the portal the route's end point + 1 m; one point each, by design. 5/6 not real (ran; grey is the ring hidden).
