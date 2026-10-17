@@ -443,8 +443,9 @@ captions_y: 0.72
 
 ## script v18
 from: v17
-# v18 (head on v17): L5 kills 2 and 4 replaced (shots 35, 37: teal and green, near, the lens still); L6 ends 0.2 s after the
-# body drops into the pit and L7 starts there, its in-point 1.1 s earlier, so every L7/L8 frame and voice start is where v17 had it.
+# v18 (head on v17): L5 kill 2 = shot 38 (teal, the lens still), kill 4 = shot 37 (green) cut before his legs reach the lens; L6 0.2 s
+# later (shove still inside "shove") and ends 0.4 s after the body drops; L7 starts there, 0.7 s earlier in its take (before 33.15 s
+# the rider's lens is inside rocks), so every L7/L8 frame from 32.95 s on is v17's.
 # v17 L5 = forest kills from the ground (Ryan: "didnt i say it has to be in the forest?"): shots 27, 34, 29, 33, rs_live spectate.
 # v17 = v16 with L6 refilmed (shot 22, head review of v16; 20 and 21 ran the lens into the rim wall): the shove on "shove", the victim 1.8 m off the lens, the eye on the POV.
 notes: ok, go fix ragdoll and get me a version that neess only my voiceover, and the comment. yes totally fine to use the old footage
@@ -467,7 +468,7 @@ captions_size: 76
 captions_y: 0.72
 | line | clip | in | len | fit | speed | text | card |
 | B1 | final/master/v14.mkv@0:21.7333 |  |  | beat 21.7333 |  |  |  |
-| L5 | cuts/27.mp4@12.5:1.85,cuts/35.mp4@7.1:1.3,cuts/29.mp4@3.9:1.55,cuts/37.mp4@0.75:1.7 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
-| L6 | cuts/22.mp4@1.61:3.8 |  |  | nohold |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
-| L7 | cuts/19.mp4 | 32.75 |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
+| L5 | cuts/27.mp4@12.5:1.85,cuts/38.mp4@31.85:1.75,cuts/29.mp4@3.9:1.55,cuts/37.mp4@0.75:1.3 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
+| L6 | cuts/22.mp4@1.41:4.2 |  |  | nohold |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
+| L7 | cuts/19.mp4 | 33.153 |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
 | L8 | cuts/19.mp4@42.0 |  |  | line |  | Let me know what else I should add in the comments |  |
