@@ -4,6 +4,11 @@
 #       3 taped bot matches, shots 16-18, 6 kills): every kill hidden by the tower's own pillars or canopy, the scope drops on the bolt.
 #   L7+L8: shot 19 (rs_live seed 2, untaped): corridor, portal, the finale cinematic's shove with no particles, the flat throw cut before
 #       the guard drops through the pit floor; L8 a ring runner. Captions, voice (Andrew +5%), card and L8 text unchanged; no music.
+# v17 from v16 (ragdoll_short_v17.mp4, master final\master\v17.mkv): frames 0-1303 and 1977-2410 framemd5-identical to v16.
+#   L5: forest (Ryan: "didnt i say it has to be in the forest?"): four taped bot-match kills from a ground lens (rs_live spectate),
+#       cuts 27, 34, 29, 33; tracer and ragdoll in frame, 1.45-1.75 s each. Weak: kill 2 is small and far, 3 of 4 victims wear pink,
+#       and kill 4's lens re-picks through a trunk at the hit.
+#   L6: shot 22 (rs_pitshove pack=3, 4 players), the shove on "shove", the victim 1.8 m off the lens, the eye on the POV, he stops short of the rim wall.
 
 ## v7 | ragdoll_short_rough_v7.mp4 | 2026-10-12 18:30
 ragdoll is ok i think, the last shot shows the gaurd clipping into the map after being chucked, and shouldnt. also this sint youre fault, bur we now have a forest map we should be using for some gameplay clips. lets replace the gameplay of the hitting shots montage to be in the forest. also, we should cut after "not an animator" and then the shot of the person getting shoved off and ragdolling, is geniunely, a perfect shot, with the execption that the eye isnt looking at the pov player, and needs to be. so please run that exactly how it was and just fix the eye thing.
