@@ -216,3 +216,60 @@ captions_y: 0.72
 | L6 | cuts/06.mp4@0 |  |  | line |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
 | L7 | cuts/08_v10.mp4 | 37.0 |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
 | L8 | cuts/08_v10.mp4 | cont |  | line |  | Let me know what else I should add in the comments |  |
+
+## script v16
+from: v14
+notes: ok, go fix ragdoll and get me a version that neess only my voiceover, and the comment. yes totally fine to use the old footage
+# v12's rows; L4 = v7's own tower take refilmed with a longer lead-in (cut 12), L5 = forest_window at scope fov 10 (cut 14).
+notes: ragdoll is ok i think, the last shot shows the gaurd clipping into the map after being chucked, and shouldnt. also this sint youre fault, bur we now have a forest map we should be using for some gameplay clips. lets replace the gameplay of the hitting shots montage to be in the forest. also, we should cut after "not an animator" and then the shot of the person getting shoved off and ragdolling, is geniunely, a perfect shot, with the execption that the eye isnt looking at the pov player, and needs to be. so please run that exactly how it was and just fix the eye thing.
+# Built from v7 (ragdoll_short_rough_v7.mp4), not v8: L1-L3 are v7's own picture and sound to L4's start (12.72 s).
+# L4 the tower refilm alone after "not an animator" (hit 8.68 s into cuts/04 on "Ragdolls" 8.108 s), L5 the forest
+# guard scope (cut 10), L6 the pit shove with the eye on the POV (cut 06), L7+L8 the finale refilm (08_v10, shove 40.1 s).
+voice: en-US-AndrewNeural +5%
+pad: 0.25
+game: 1
+captions: pop
+captions_font: Impact
+captions_size: 76
+captions_y: 0.72
+| line | clip | in | len | fit | speed | text | card |
+| V7 | ragdoll_short_rough_v7.mp4@0:12.7167 |  |  | beat 12.7167 |  |  |  |
+| L4 | cuts/12.mp4@0.572 |  |  | line |  | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem. Ragdolls | cards/L4_card0.png w=940 y=0.2 from=this to=Ragdolls+0.6 |
+| L5 | cuts/14.mp4@0.9:3.0,cuts/14.mp4@5.6 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
+| L6 | cuts/06.mp4@0 |  |  | line |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
+| L7 | cuts/08_v10.mp4 | 37.0 |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
+| L8 | cuts/08_v10.mp4 | cont |  | line |  | Let me know what else I should add in the comments |  |
+
+## 16
+said: L5 -- Ryan: "lets replace the gameplay of the hitting shots montage to be in the forest"; "fast clips of the sniper hitting shots"; "dont last long enough for you to see the ragdoll, and every single one is an ariel snipe"; "none of the snipes have projectiles. they need to": a plain forest bot match down the shipped guard's scope, 3 runners; probe_ring --los (forest, eye 28.9): open at r 50-54 on 4, 12, 24-36, 44-48, 60, 72, 80-84, 96, 116, 124, 140-144, 152, 160, 176, 188, 196, 204, 212-216, 224-232, 240, 248-252, 264, 272, 288, 296-300, 316, 324-328, 336, 344-356 deg (canopy between). Taped kills: 0.95 s Runner_3 at 15.7 deg, 19.47 s Runner_1 at 230.8 deg
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --pov=guard --bots=3 --seed=11 --shimmer=0 --set=lift=1
+tape: forest_kills_11
+hud: crosshair
+in: 0
+seconds: 21.5
+motion: 0.005
+
+## 17
+said: L5, the same ask: the same forest match on seed 89; taped kills 3.92 s Runner_3 at 50.8 deg, 20.13 s Runner_1 at 209.5 deg
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --pov=guard --bots=3 --seed=89 --shimmer=0 --set=lift=1
+tape: forest_kills_89
+hud: crosshair
+in: 0
+seconds: 22
+motion: 0.005
+
+## 18
+said: L5, the same ask: the same forest match on seed 97; taped kills 9.25 s Runner_2 at 102.1 deg, 32.33 s Runner_2 at 9.5 deg
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --pov=guard --bots=3 --seed=97 --shimmer=0 --set=lift=1
+tape: forest_kills_97
+hud: crosshair
+in: 0
+seconds: 34
+motion: 0.005
+
+## 19
+said: L7+L8 -- the shove on the guard hidden (v12 diff: "the shove is hidden by orange portal particles"); Ryan: "the gaurd flys off and through the walls of the map, which he shouldnt do"; "the last shot shows the gaurd clipping into the map after being chucked, and shouldnt": shot 8's match (rs_live, seed 2, riding Runner_1, 3 runners + the guard) with the rider's lens widened to fov 100 inside the tower (tower_fov), so the guard is whole in frame when he is shoved; taped: Runner_1 takes the tower at 42.80 s
+capture: --shot=s3_open_lane --stage=rs_live --pov=runner --bots=3 --seed=2 --shimmer=0 --set=ride=Runner_1;tower_fov=100
+tape: finale_wide
+in: 0
+seconds: 48

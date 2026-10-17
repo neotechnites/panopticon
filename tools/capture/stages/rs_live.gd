@@ -3,12 +3,15 @@ extends "res://tools/capture/stages/stage.gd"
 ## rs_live: a normal match, the shipped bot guard (TowerShooter) shooting at bullet speed; nothing staged.
 ## No hit marker; see on_shot for the scope's hold.
 ## Dials: speed (195, rules.guard_projectile_speed), hold (1.6), flight (0.45), follow (5: how fast the scope eases after the body), lift (1, the guard_alone grade), clear (0.74), old (0),
-## ride (a runner's name: --pov=runner stays on that body), beat (the finale's kill beat, shipped 2.0).
+## ride (a runner's name: --pov=runner stays on that body), beat (the finale's kill beat, shipped 2.0),
+## ahead and sure (the bot's cover look-ahead and sure-shot confidence; shipped 0.35, 0.9),
+## tower_fov (0: off; the ridden runner's lens fov inside the tower until he holds it, so the shove shows the guard whole).
 
 var _guard: PlayerController = null
 var _held: float = 0.0
 var _held_shooter: TowerShooter = null
 var _fallen: PlayerController = null
+var _base_fov: float = 0.0
 
 
 ## --bots sets the ring (shorts cap at 4 players with the guard).
@@ -27,9 +30,10 @@ func tune_rules(rules: MatchRules) -> void:
 	rules.kill_beat_seconds = float(option("beat", rules.kill_beat_seconds))
 
 
-## The shipped profile, untouched: the base would stand the tower down.
-func tune_shooter(_profile: ShooterProfile) -> void:
-	pass
+## The shipped profile unless ahead/sure are set: the base would stand the tower down.
+func tune_shooter(profile: ShooterProfile) -> void:
+	profile.cover_lookahead_seconds = float(option("ahead", profile.cover_lookahead_seconds))
+	profile.sure_shot_confidence = float(option("sure", profile.sure_shot_confidence))
 
 
 func before_start() -> void:
@@ -88,6 +92,7 @@ func _watch_the_fall(delta: float) -> void:
 
 
 func tick(delta: float) -> void:
+	_widen_in_the_tower()
 	if _held > 0.0:
 		_held -= delta
 		if _fallen != null and is_instance_valid(_fallen) and _held_shooter != null:
@@ -111,3 +116,22 @@ func tick(delta: float) -> void:
 	_guard = shooter.controller
 	LIB.open_the_scope(_guard, float(option("clear", 0.74)))
 	say("rs_live: bot guard %s, projectile %.0f m/s" % [_guard.name, controller().rules.guard_projectile_speed])
+
+
+## tower_fov: the ridden runner's eye widens once he is in the tower room (r < 15) and still a prisoner.
+func _widen_in_the_tower() -> void:
+	var fov: float = float(option("tower_fov", 0.0))
+	var body: PlayerController = clip._pov_body as PlayerController
+	if fov <= 0.0 or clip._pov != "runner" or body == null or not is_instance_valid(body):
+		return
+	var eye: Camera3D = clip._eye_of(body)
+	var inside: bool = Vector2(body.global_position.x, body.global_position.z).length() < 15.0
+	if eye == null:
+		return
+	if inside and not body.is_in_group(MatchController.GUARD_GROUP):
+		if _base_fov <= 0.0:
+			_base_fov = eye.fov
+		eye.fov = fov
+	elif _base_fov > 0.0:
+		eye.fov = _base_fov
+		_base_fov = -1.0
