@@ -34,8 +34,13 @@ PICK = {"type": "array", "items": {"type": "object", "additionalProperties": Fal
 
 
 def choosable(stages):
-    """name -> stage for every stage a short may pick: for_shorts and at least one approved entry."""
-    return {k: v for k, v in (stages.get("stages") or {}).items() if v.get("for_shorts") and v.get("approved")}
+    """name -> stage a short may pick: for_shorts, with approved entries that carry expect: clauses (the smoke gate needs them)."""
+    out = {}
+    for k, v in (stages.get("stages") or {}).items():
+        smoked = [e for e in (v.get("approved") or []) if e.get("expect")]
+        if v.get("for_shorts") and smoked:
+            out[k] = dict(v, approved=smoked)
+    return out
 
 
 def tokens(text):

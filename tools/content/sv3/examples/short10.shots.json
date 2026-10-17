@@ -1,249 +1,74 @@
 [
  {
   "id": "L1",
-  "film": {
-   "seat": "guard",
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "intents": {
-    "guard": "miss:2,hit",
-    "runner:1": "run",
-    "runner:2": "run"
-   }
-  },
-  "line": "L1",
-  "source": "match",
-  "match": {
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "same_match_as": null
-  },
-  "seat": "guard",
-  "find": [
-   {
-    "p": "event",
-    "ev": "shot_result",
-    "by": "seat"
-   },
-   {
-    "p": "on_screen",
-    "who": "runner:any",
-    "min_h": 0.05,
-    "for_s_before": 1.0
-   }
-  ],
-  "window": {
-   "lead_s": 0.8,
-   "tail_s": 1.0,
-   "until": "shot_result",
-   "beat": {
-    "word": "tower",
-    "event": "shot_result",
-    "tol_s": 0.1
-   }
-  },
-  "overlays": [],
+  "line": 1,
+  "text": "I'm making a game where one of your friends is a sniper in a tower",
   "note": "pov sniper shooting at runners in hell",
-  "unmapped": [],
-  "interpreted": "guard seat in hell, shooting at runners"
+  "stage": "haters_hell",
+  "pov": "guard",
+  "dials": {},
+  "approved": {
+   "project": "haters",
+   "entry": 3
+  },
+  "same_take_as": null,
+  "beat": null,
+  "card": null,
+  "needs_stage": false,
+  "why": null
  },
  {
   "id": "L2",
-  "film": {
-   "seat": "runner:1",
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "intents": {
-    "guard": "miss:2,hit",
-    "runner:1": "run,shove_when_rival_within:3",
-    "runner:2": "run,cover:at:2"
-   }
-  },
-  "line": "L2",
-  "source": "match",
-  "match": {
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "same_match_as": null
-  },
-  "seat": "runner:any",
-  "find": [
-   {
-    "p": "event",
-    "ev": "shot_result",
-    "by": "guard"
-   },
-   {
-    "p": "on_screen",
-    "who": "runner:any"
-   },
-   {
-    "p": "moving",
-    "who": "seat",
-    "min_mps": 1.0
-   }
-  ],
-  "window": {
-   "lead_s": 0.8,
-   "tail_s": 1.0,
-   "until": "shot_result",
-   "beat": {
-    "word": "him.",
-    "event": "shot_result",
-    "tol_s": 0.1
-   }
-  },
-  "overlays": [],
+  "line": 2,
+  "text": ", and everyone else has to get past him.",
   "note": "pov runner in the back watching the shots at them",
-  "unmapped": [],
-  "interpreted": "runner pov watching shots, intents shared with L3 as they are the same match"
+  "stage": "pack_sniped",
+  "pov": "runner",
+  "dials": {},
+  "approved": {
+   "project": "ragdoll_short",
+   "entry": 39
+  },
+  "same_take_as": null,
+  "beat": null,
+  "card": null,
+  "needs_stage": false,
+  "why": null
  },
  {
   "id": "L3",
-  "film": {
-   "seat": "runner:1",
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "intents": {
-    "guard": "miss:2,hit",
-    "runner:1": "run,shove_when_rival_within:3",
-    "runner:2": "run,cover:at:2"
-   }
-  },
-  "line": "L3",
-  "source": "match",
-  "match": {
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "same_match_as": "L2"
-  },
-  "seat": "runner:any",
-  "find": [
-   {
-    "p": "moving",
-    "who": "seat",
-    "min_mps": 1.0,
-    "for_s_before": 0.0
-   },
-   {
-    "p": "state",
-    "who": "other",
-    "state": "cover"
-   },
-   {
-    "p": "event",
-    "ev": "shove",
-    "by": "seat",
-    "outcome": "sights"
-   },
-   {
-    "p": "event",
-    "ev": "kill",
-    "victim": "other",
-    "cause": "shot",
-    "anchor": true
-   },
-   {
-    "p": "before",
-    "a": {
-     "ev": "shove"
-    },
-    "b": {
-     "ev": "kill"
-    }
-   },
-   {
-    "p": "moving",
-    "who": "seat",
-    "min_mps": 1.0,
-    "for_s_before": 0.0
-   }
-  ],
-  "window": {
-   "lead_s": 1.0,
-   "tail_s": 1.5,
-   "until": "ragdoll",
-   "beat": {
-    "word": "run.",
-    "event": "kill",
-    "tol_s": 0.1
-   }
-  },
-  "overlays": [],
+  "line": 3,
+  "text": "Shove the guy next to you into his sights, and run.",
   "note": "same shot, walk up to a runner stopped at cover, shove him, he gets shot and ragdolls, continue the course",
-  "unmapped": [],
-  "interpreted": "same match as L2, runner shoves another into sights, guard hits"
+  "stage": null,
+  "pov": null,
+  "dials": {},
+  "approved": null,
+  "same_take_as": "L2",
+  "beat": null,
+  "card": null,
+  "needs_stage": true,
+  "why": "No approved runner-POV entry has the POV walking up to a runner stopped at cover and shoving him into the guard's sights, where he is shot and ragdolls, then running on (shovecover 2 has this action but no runner POV)."
  },
  {
   "id": "L4",
-  "film": {
-   "seat": "runner:1",
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "intents": {
-    "runner:1": "run,portal"
-   }
-  },
-  "line": "L4",
-  "source": "match",
-  "match": {
-   "map": "hell",
-   "opening": "seat",
-   "players": 4,
-   "old": false,
-   "same_match_as": null
-  },
-  "seat": "runner:any",
-  "find": [
-   {
-    "p": "looking_at",
-    "landmark": "portal",
-    "for_s": 1.0
-   },
-   {
-    "p": "event",
-    "ev": "portal",
-    "by": "seat"
-   },
-   {
-    "p": "event",
-    "ev": "shove",
-    "by": "seat",
-    "outcome": "tower_out"
-   },
-   {
-    "p": "moving",
-    "who": "seat",
-    "min_mps": 1.0
-   }
-  ],
-  "window": {
-   "lead_s": 1.0,
-   "tail_s": 1.0,
-   "until": "finale_end",
-   "beat": {
-    "word": "sniper.",
-    "event": "shove",
-    "tol_s": 0.1
-   }
-  },
-  "overlays": [],
+  "line": 4,
+  "text": "the first one to make it throws him out, and now, they're the sniper.",
   "note": "different shot, get up to the portal, go through, shove him, they go flying",
-  "unmapped": [],
-  "interpreted": "runner goes through portal and shoves guard out"
+  "stage": "rs_live",
+  "pov": "runner",
+  "dials": {},
+  "approved": {
+   "project": "ragdoll_short",
+   "entry": 19
+  },
+  "same_take_as": null,
+  "beat": null,
+  "card": {
+   "text": "beta link in bio",
+   "seconds": 1.0
+  },
+  "needs_stage": false,
+  "why": null
  }
 ]

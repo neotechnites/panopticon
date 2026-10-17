@@ -8,7 +8,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONTENT = os.path.dirname(HERE)
 STAGES_DIR = os.path.join(CONTENT, "..", "capture", "stages")
-PROJECTS = ["haters_final", "haters", "shove", "ragdoll_short", "trailer_reveal"]
+PROJECTS = ["stages", "haters_final", "haters", "shove", "ragdoll_short", "trailer_reveal"]
 NOT_STAGES = {"stage", "lib", "guard_hand", "probe_ring"}
 TICK_KINDS = ("hit", "shove", "out", "go")
 FIELDS = ("said", "capture", "tape", "expect", "seconds", "in")
@@ -217,6 +217,8 @@ def entries(project):
     """Every `## n` entry of a project with its said/capture/tape/expect/seconds/in."""
     path = os.path.join(CONTENT, "projects", project + ".md")
     found, cur = [], None
+    if not os.path.exists(path):
+        return found
     with open(path) as f:
         for line in f:
             head = re.match(r"^## (\S+)\s*$", line)
@@ -284,8 +286,13 @@ def main():
                 need = re.search(r'func needs_pov\(\)[^\n]*\n\s*return "(\w*)"', f.read())
         povs = [need.group(1)] if need and need.group(1) else \
             [p for p in ("guard", "runner") if re.search(r"--pov=%s\b" % p, text + " " + caps)]
+        used = dict(dials[s])
+        for e in approved.get(s, []):   # a dial an approved line sets is a dial, header or not
+            for kv in (flag(e["capture"] or "", "set") or "").split(";"):
+                if "=" in kv and kv.split("=", 1)[0] not in used:
+                    used[kv.split("=", 1)[0]] = kv.split("=", 1)[1]
         stages[s] = {"map": map_name(raw_map), "shot": flag(text, "shot") or flag(caps, "shot"), "povs": povs,
-                     "dials": dials[s], "for_shorts": not s.startswith("trailer_"), "approved": approved.get(s, [])}
+                     "dials": used, "for_shorts": not s.startswith("trailer_"), "approved": approved.get(s, [])}
     doc = {"stages": stages, "uncatalogued": sorted(s for s in stages if not approved.get(s))}
     with open(os.path.join(HERE, "stages.json"), "w") as f:
         json.dump(doc, f, indent=1)

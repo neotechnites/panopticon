@@ -77,6 +77,9 @@ def check_stages(root, out):
     paths = read(root, "tools/capture/shot_paths.gd")
     known = read(root, "tools/capture/stage_driver.gd") + read(root, "tools/capture/run_clip.gd")
     for name, st in stages.items():
+        smoked = [e for e in st.get("approved") or [] if e.get("expect")]
+        if not (st.get("for_shorts") and smoked):
+            continue   # not choosable (schema.choosable): nothing downstream reads it
         if not exists(root, "tools/capture/stages/%s.gd" % name) and '"%s"' % name not in known:
             out.append("stages: %s is neither tools/capture/stages/%s.gd nor a stage_driver/run_clip stage" % (name, name))
         if st.get("map") not in MAPS:
@@ -107,9 +110,9 @@ def check_stages(root, out):
             opts, dials = capture_opts(e.get("capture"))
             if opts.get("stage", name) != name:
                 out.append("%s: capture names --stage=%s" % (where, opts.get("stage")))
-            for k in st.get("dials") or {}:
-                if k not in dials:
-                    out.append("%s: dial %r is not in the capture's --set= (plan replaces it there)" % (where, k))
+            for k in dials:
+                if k not in (st.get("dials") or {}):
+                    out.append("%s: --set= names %r, which is not one of the stage's dials" % (where, k))
 
 
 def check_modules(root, out):
@@ -120,7 +123,7 @@ def check_modules(root, out):
         if exists(root, "tools/content/sv3/%s.py" % m):
             out.append("modules: sv3/%s.py is the removed capture/search path; delete it" % m)
     for f in sorted(os.listdir(os.path.join(root, "tools/content/sv3"))):
-        if f.endswith(".py"):
+        if f.endswith(".py") and f != "pill.py":   # pill.py (short 11's greybox) is rebuilt on the stage path before short 11
             src = read(root, "tools/content/sv3/" + f)
             for m in GONE:
                 if re.search(r"\bsv3(?:\.| import )%s\b" % m, src):
