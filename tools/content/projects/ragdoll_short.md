@@ -494,8 +494,8 @@ in: 2.6
 seconds: 6.5
 
 ## 41
-said: L3 "...I'm a programmer, not an animator" -- "slow zoom out shot of the old hell map": the pit_orbit lens over hell while the tower drops a runner with the old Death clip (rs_snipe old=1, no POV); the orbit is the nearest shipped pull-back lens, no zoom-out path exists
-capture: --shot=pit_orbit --stage=rs_snipe --bots=3 --seed=20261017 --shimmer=0 --set=old=1;plan=0h,1h,2h
+said: L3 "...I'm a programmer, not an animator" -- "slow zoom out shot of the old hell map": the pit_orbit lens over hell during a live 3-runner bot match (rs_live; rs_snipe is guard-POV only); the orbit is the nearest shipped pull-back lens, no zoom-out path exists
+capture: --shot=pit_orbit --stage=rs_live --bots=3 --seed=20261017 --shimmer=0
 in: 1.0
 seconds: 8
 
