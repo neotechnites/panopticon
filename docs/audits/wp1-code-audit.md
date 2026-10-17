@@ -95,3 +95,17 @@ Here are the real defects in the provided diff against the design and rules:
 6. **seat_intent.gd:is_at_cover**: It immediately returns `true` for a brain in the `TAKE_COVER` state without checking its horizontal speed, falsely logging a bot actively sprinting to cover as "stopped at cover".
 7. **run_clip.gd:_state_of**: Calling `SEAT_INTENT.is_at_cover()` uses an undeclared all-caps identifier instead of `SeatIntent`, which will cause a compiler/runtime crash.
 Ruling: fixed 3 (stand while nobody is at cover), 4 (only waypoints nearer the goal than the body), 6 (the shove's cover test also needs the rival stopped; vis keeps the brain's own TAKE_COVER as the game state). Not real: 1 (_elapsed_seconds is RunnerBrain's), 2 (_parse always writes timeout), 5 (brain.input is the body's BotIntentSource), 7 (SEAT_INTENT is the preload const).
+
+## Audit 6: runner perception seeded from --seed
+1. **A brain that reads the seed before it is written**: The bot's own internal `match_started` listener connects earlier and fires first, reading `perception_seed` before this lambda can set it.
+*Fix:* Move the `for participant` seeding loop completely out of the signal, placing it immediately before `_controller.start_match()`.
+
+2. **A seed of 0**: Runs that don't pass `--seed` (like tape replays) leave `seed_value` at 0, unintentionally forcing the bots to use a 0-seed.
+*Fix:* Add a condition to only assign the seed `if seed_value != 0:`.
+
+3. **A tape replay changed by it**: Overwriting the brain's seed during a `--tape` replay resets its RNG state, altering its perception and desyncing the exact deterministic execution of the tape.
+*Fix:* Skip seeding entirely if a tape is being loaded (e.g., `if tape_path.is_empty():`).
+
+4. **A restart (match_won -> restart) that reseeds differently**: The lambda fires on every round restart, resetting the bots' RNG mid-match instead of letting it progress naturally (which forces an identical round 2).
+*Fix:* Restrict the seeding to the initial match start by checking `if _count == 1:` inside the lambda.
+Ruling: fixed 2 (no seeding on --seed=0, entropy). Not real: 1 (brains read the seed at placement, after match_started; no participant exists before start_match), 3 (a tape replays inputs; perception does not touch them), 4 (a restart reseeds exactly as the shipped sweep does).

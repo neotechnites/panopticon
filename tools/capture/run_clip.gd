@@ -1432,7 +1432,14 @@ func _build_match() -> void:
 	_controller.match_won.connect(func(_winner: MatchParticipant) -> void: _controller.restart())
 	_log_events()
 	_hook_match_events()
-	_controller.match_started.connect(func(_count: int) -> void: _name_the_bodies())
+	_controller.match_started.connect(
+		func(_count: int) -> void:
+			_name_the_bodies()
+			# As the sweep seeds them: a different --seed is a different match, not the same one renamed.
+			for participant: MatchParticipant in _controller.get_participants():
+				if participant.brain != null and seed_value != 0:
+					participant.brain.perception_seed = BotHarness.stream_seed(seed_value, BotHarness.Stream.PERCEPTION, participant.index)
+	)
 	_controller.start_match()
 	if not _install_the_tape(match_root):
 		return
