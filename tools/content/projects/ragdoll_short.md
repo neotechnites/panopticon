@@ -408,7 +408,7 @@ captions_size: 76
 captions_y: 0.72
 | line | clip | in | len | fit | speed | text | card |
 | B1 | final/master/v14.mkv@0:21.7333 |  |  | beat 21.7333 |  |  |  |
-| L5 | cuts/27.mp4@12.6:1.6,cuts/34.mp4@10.0:1.7,cuts/29.mp4@4.0:1.45,cuts/33.mp4@22.65:1.6 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
+| L5 | cuts/27.mp4@12.55:1.75,cuts/34.mp4@10.0:1.5,cuts/29.mp4@4.0:1.45,cuts/33.mp4@22.65:1.65 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
 | L6 | cuts/22.mp4 | 1.61 |  | line |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
 | L7 | cuts/19.mp4 | 33.85 |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
 | L8 | cuts/19.mp4@42.0 |  |  | line |  | Let me know what else I should add in the comments |  |
