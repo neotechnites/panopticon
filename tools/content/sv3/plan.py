@@ -108,7 +108,10 @@ def build(shots, stages, words, name, tag, base_n):
             ent.append("hud: crosshair")
         if e.get("expect"):
             ent.append("expect: %s" % e["expect"])
-        ent += ["seconds: %s" % fmt(float(e["seconds"])), "in: %s" % fmt(float(e["in"])), "refilm: %s" % tag]
+        ent += ["seconds: %s" % fmt(float(e["seconds"])), "in: %s" % fmt(float(e["in"]))]
+        if e.get("motion") not in (None, ""):   # the approved take's motion floor for shot.sh's gate
+            ent.append("motion: %s" % e["motion"])
+        ent.append("refilm: %s" % tag)
         entries.append("\n".join(ent))
         cut = "cuts/%02d_%s.mp4" % (n, tag)
         text = (s.get("text") or "").strip()
