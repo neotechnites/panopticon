@@ -527,7 +527,7 @@ captions_size: 76
 captions_y: 0.72
 | line | clip | in | len | fit | speed | text | card |
 | L1 | cuts/40.mp4 | 2.6 |  | line |  | The death animation in my game was really bad. |  |
-| M2 | cuts/40.mp4 | cont |  | beat 1.6 |  |  |  |
+| M2 | cuts/40.mp4 | cont |  | beat 1.35 |  |  |  |
 | L3 | cuts/41.mp4 | 1.0 |  | line |  | Yeaeeeeeeeh I needed something better, but if my art didnt make it clear, I'm a programmer, not an animator |  |
 | L4 | cuts/42.mp4@1.0:6.7,cuts/39_v19.mp4@1.2:3.6 |  |  | wait |  | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem. Ragdolls | cards/L4_card0.png w=940 y=0.2 in=0.05 out=0.2 from=this to=Ragdolls+0.6 |
 | L5 | cuts/27_v19.mp4@11.85:2.65,cuts/37_v19.mp4@0.6833:1.4167,cuts/29_v19.mp4@3.25:2.25 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
