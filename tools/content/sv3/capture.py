@@ -92,7 +92,7 @@ if (Test-Path \$d) {
 }
 Get-ChildItem '%(dir)s' -File | ForEach-Object { \$_.Name + ' ' + \$_.Length }
 # A take the recorder refused still records a screen: its refusal lines and the length decide, not the sync frame.
-\$bad = Select-String -Path '%(glog)s' -Pattern '^Unknown |Harness: |is filmed with --pov|^No such ' | Select-Object -First 2
+\$bad = Select-String -Path '%(glog)s' -Pattern '^Unknown |Harness: |is filmed with --pov|^No such |^--intent |^--seat=|refuses|would not parse|cannot read step|has no MatchController' | Select-Object -First 2
 if (\$bad) { Write-Output ('TAKE FAILED: Godot said: ' + ((\$bad | ForEach-Object Line) -join ' | ')); exit 4 }
 \$ci = [Globalization.CultureInfo]::InvariantCulture
 \$dur = [double]::Parse((ffprobe -v error -show_entries format=duration -of csv=p=0 '%(raw)s'), \$ci)
