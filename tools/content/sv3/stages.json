@@ -2119,17 +2119,257 @@
    },
    "for_shorts": false,
    "approved": []
+  },
+  "decoy": {
+   "map": "hell",
+   "shot": null,
+   "povs": [],
+   "dials": {},
+   "for_shorts": true,
+   "approved": []
+  },
+  "ghostcatch": {
+   "map": "hell",
+   "shot": null,
+   "povs": [],
+   "dials": {},
+   "for_shorts": true,
+   "approved": []
+  },
+  "ghostchase": {
+   "map": "hell",
+   "shot": null,
+   "povs": [],
+   "dials": {},
+   "for_shorts": true,
+   "approved": []
+  },
+  "ghostchase_victim": {
+   "map": "hell",
+   "shot": null,
+   "povs": [],
+   "dials": {},
+   "for_shorts": true,
+   "approved": []
+  },
+  "lavadeath": {
+   "map": "hell",
+   "shot": null,
+   "povs": [],
+   "dials": {},
+   "for_shorts": true,
+   "approved": []
+  },
+  "missstreak": {
+   "map": "hell",
+   "shot": null,
+   "povs": [],
+   "dials": {},
+   "for_shorts": true,
+   "approved": []
+  },
+  "padflight": {
+   "map": "hell",
+   "shot": null,
+   "povs": [],
+   "dials": {},
+   "for_shorts": true,
+   "approved": []
+  },
+  "shovecatch": {
+   "map": "hell",
+   "shot": "s2_gap",
+   "povs": [],
+   "dials": {},
+   "for_shorts": true,
+   "approved": [
+    {
+     "project": "shove",
+     "entry": 1,
+     "said": "[mine] hook, for the first frame: the best single shove landing, the victim flying into the lava (the same beat as shot 4, cut tight on the hit)",
+     "capture": "--stage=shovecatch --shot=s2_gap --bots=2 --look=social --audio=near --track=victim",
+     "tape": null,
+     "expect": null,
+     "seconds": 3.0,
+     "in": 3.65,
+     "ticks": {
+      "hit": null,
+      "shove": null,
+      "out": null,
+      "go": null
+     }
+    }
+   ]
+  },
+  "shovecover": {
+   "map": "hell",
+   "shot": "pocket_cover",
+   "povs": [],
+   "dials": {},
+   "for_shorts": true,
+   "approved": [
+    {
+     "project": "shove",
+     "entry": 2,
+     "said": "\"cover\" -- someone doing that to another person: a runner crouched behind the pocket rock at 196 deg is shoved up the lane out from behind it by another runner, and the tower's line to them opens up (it fires). Ryan on the first cut: \"just a shot that misses, then another shot that hits, with them crouching\" -- so now the shove stands them up, and the tower's one shot, once they have landed upright in the open, is the kill",
+     "capture": "--stage=shovecover --shot=pocket_cover --bots=2 --look=social --audio=near --track=victim",
+     "tape": null,
+     "expect": null,
+     "seconds": 3.6,
+     "in": 0.9,
+     "ticks": {
+      "hit": null,
+      "shove": null,
+      "out": null,
+      "go": null
+     }
+    }
+   ]
+  },
+  "shovecover_victim": {
+   "map": "hell",
+   "shot": null,
+   "povs": [],
+   "dials": {},
+   "for_shorts": true,
+   "approved": []
+  },
+  "shoveedge": {
+   "map": "hell",
+   "shot": "rim_edge",
+   "povs": [
+    "runner"
+   ],
+   "dials": {},
+   "for_shorts": true,
+   "approved": [
+    {
+     "project": "shove",
+     "entry": 3,
+     "said": "\"edge\" -- a runner stood at the pit rim on the S3 deck is shoved over it from behind by another runner and falls out of frame",
+     "capture": "--stage=shoveedge --shot=rim_edge --bots=2 --look=social --audio=near --track=victim",
+     "tape": null,
+     "expect": null,
+     "seconds": 3.8,
+     "in": 1.2,
+     "ticks": {
+      "hit": null,
+      "shove": null,
+      "out": null,
+      "go": null
+     }
+    },
+    {
+     "project": "shove",
+     "entry": 5,
+     "said": "\"for the last part, first person perspective of getting shoved off the ledge\" -- the victim's own eyes, no HUD: stood at the pit rim looking out over it, shoved from behind, over the edge and falling, held until the death",
+     "capture": "--pov=runner --stage=shoveedge --shot=rim_edge --bots=2 --look=social --audio=near",
+     "tape": null,
+     "expect": null,
+     "seconds": 4.4,
+     "in": 0.8,
+     "ticks": {
+      "hit": null,
+      "shove": null,
+      "out": null,
+      "go": null
+     }
+    }
+   ]
+  },
+  "shoveedge_look": {
+   "map": "hell",
+   "shot": "rim_edge",
+   "povs": [
+    "runner"
+   ],
+   "dials": {},
+   "for_shorts": true,
+   "approved": [
+    {
+     "project": "shove",
+     "entry": 6,
+     "said": "Ryan on shot 5: \"that works, so keep it, but if you can have the player look back and then get shoved off the edge so we can see what's happening, that would be better\" -- the same POV, a look back over the shoulder as the shover comes in, the shove landing as they turn back, then over the edge to the death",
+     "capture": "--pov=runner --stage=shoveedge_look --shot=rim_edge --bots=2 --look=social --audio=near",
+     "tape": null,
+     "expect": null,
+     "seconds": 4.6,
+     "in": 0.8,
+     "ticks": {
+      "hit": null,
+      "shove": null,
+      "out": null,
+      "go": null
+     }
+    }
+   ]
+  },
+  "shoveedge_look_victim": {
+   "map": "hell",
+   "shot": null,
+   "povs": [],
+   "dials": {},
+   "for_shorts": true,
+   "approved": []
+  },
+  "shoveedge_victim": {
+   "map": "hell",
+   "shot": null,
+   "povs": [],
+   "dials": {},
+   "for_shorts": true,
+   "approved": []
+  },
+  "shovelake": {
+   "map": "hell",
+   "shot": "lake_bank",
+   "povs": [],
+   "dials": {},
+   "for_shorts": true,
+   "approved": [
+    {
+     "project": "shove",
+     "entry": 4,
+     "said": "\"lava\" -- Ryan on the chain take: \"use the other lava sections that are wider, this is pretty janky\" -- so the S5 lava lake: a runner on the lip of the bank is shoved from behind out over the open lake and dies in the lava in front of the lens",
+     "capture": "--stage=shovelake --shot=lake_bank --bots=2 --look=social --audio=near --track=victim",
+     "tape": null,
+     "expect": null,
+     "seconds": 3.4,
+     "in": 0.9,
+     "ticks": {
+      "hit": null,
+      "shove": null,
+      "out": null,
+      "go": null
+     }
+    }
+   ]
+  },
+  "shovelake_victim": {
+   "map": "hell",
+   "shot": null,
+   "povs": [],
+   "dials": {},
+   "for_shorts": true,
+   "approved": []
   }
  },
  "uncatalogued": [
   "alive",
   "conga",
   "cover_both",
+  "decoy",
   "faceshove",
   "finale",
+  "ghostcatch",
+  "ghostchase",
+  "ghostchase_victim",
   "guard_alone",
   "human_run",
+  "lavadeath",
   "melee",
+  "missstreak",
+  "padflight",
   "polish_aerial",
   "polish_crack",
   "polish_crack_run",
@@ -2140,6 +2380,10 @@
   "polish_sigil",
   "projectile_lead",
   "scope_hunt",
+  "shovecover_victim",
+  "shoveedge_look_victim",
+  "shoveedge_victim",
+  "shovelake_victim",
   "trailer_duel",
   "trailer_finish",
   "trailer_forest_shove",

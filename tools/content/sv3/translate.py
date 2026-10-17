@@ -1,279 +1,130 @@
-"""spec.json -> shots.json by extraction only (Claude opus via sv3.llm, JSON schema), then a second Claude call audits every
-predicate against its note. Exit 2 on an unmapped (non-optional) phrase or a disagreement, with both answers printed.
-
-    python -m sv3.translate spec.json --out shots.json [--fixture shots.json]   (fixture = offline, no model call)
-"""
+"""spec.json + stages.json -> shots.json: Claude (sv3.llm) picks per line a choosable stage by name, pov, dials, beat; then audits
+each pick against its note. Any needs_stage -> exit 2 listing ids + notes.  --fixture: offline, no model call."""
 import argparse
-import copy
 import json
 import os
 import sys
-
-import re
 
 import jsonschema
 
 from sv3 import llm
 from sv3 import schema as S
 
-RULES = """Ryan's rules that bind the translation:
-- A "pov"/"runner pov"/"sniper pov" is a PLAYER's eyes (seat guard or runner:any), never a free camera (free only for studio/establishing).
-- Never slow motion; never a freeze; a hit body never goes transparent. These are cut rules, not predicates: do not emit them.
-- At most 4 players including the guard. Two perspectives of one game = same_match_as the earlier shot.
-- "same shot" continues the previous line's capture: same_match_as that line, same seat.
-- Montage ("clip montage", "a bunch of") = montage:N clips (3 unless the note says) with distinct(victim).
-- The note is copied byte-for-byte into `note`. You may NOT paraphrase, summarise, add, or drop any requirement.
-- film{} is REQUIRED on every match/studio shot: the exact seat body, map, opening, players, old, and intents for every
-  body the note scripts (only steps from the closed vocabulary; a note's action you cannot script goes to unmapped[]).
-  same_match_as shots share one film{} (same intents, different seat). film.seat for runner povs is runner:1 unless the
-  note's action needs another body as the pov.
-- A phrase is MAPPED when any field expresses it: match.map ("in hell", "forest"), match.old ("old", "pills", "how it started";
-  "how its going" = old false), match.opening ("race", "brawl"/"starting shove tower minigame"), seat ("pov", "sniper pov",
-  "runner pov"), source, camera, window.until/beat ("ragdolls" = until ragdoll or event ragdoll), overlays (cards, image URLs),
-  montage, same_match_as ("same shot"), or a predicate. Only a requirement NO field or predicate can express goes into unmapped[] verbatim; optional:true only when the note itself
-  says "if we can"/"preferably"/"prefferable". Do not invent predicates the note does not ask for; `interpreted` is one line
-  saying what you decided (e.g. which map when the note names none: the short's other lines decide, else hell).
-- A beat (text "") is a shot with no voice; its length comes from the window. A `{...image URL...}` note is a gif_fade overlay
-  with url = the URL and at = "t:0" (the fade starts when the shot starts), seconds = 1.5.
-- A comment-card: the note or text says "this guy"/a comment -> overlays comment_card at "word:<the words in the text>".
-- Beat alignment: if the note says the event happens when a word is said ("when i say X", "near the end", "right at the end"
-  with a line of text), window.beat = {word: that word (the last word of the text for "end"), event, tol_s: 0.1}.
-- One line may need several shots in sequence ("then cut to ..."): emit several entries with the same `line` and ids L4a, L4b.
-- players: hell 4 unless the note says, forest 4, grey 1. seat: a shot described from the sniper = guard, from a runner = runner:any.
-- Covered phrases, never unmapped: "slow fade in of an image" = overlays gif_fade; "slow zoom out shot" = source establishing +
-  camera "dolly_out" (orbit/dolly_in/dolly_out/bust); "in the back"/"the person in front of him" = on_screen(runner:any or
-  victim) from a runner seat (what a runner sees is ahead of him); "watching the shots at them" = event(shot_result, by=guard)
-  + on_screen(runner:any); "the usual cinematic shot" = until finale_end; "a 'real game'" = source match.
-- Rule 419 (Ryan): a runner never sits there. Every runner:any pov carries moving(seat, min_mps 1.0); it is required framing.
-- moving() takes for_s_before / for_s_after (never for_s): "walk up to" = moving(seat, 1.0, for_s_before=1.5);
-  "continue the course"/"and run" = moving(seat, 1.0, for_s_before=0, for_s_after=1.5). Idle = min_mps 0, max_mps 0.2.
-- `until`: the event the window runs to before tail_s (e.g. "we cut a little after the animation plays out" -> until ragdoll,
-  tail_s 1.0). lead_s is the seconds of picture before the first required event (0.8 default)."""
+RULES = """Rules (Ryan's, binding). You CHOOSE; you never invent how a take is made.
+- One pick per script line, `id` = the line's id, in script order.
+- `stage` is a stage NAME from CHOOSABLE exactly; `entry` is the number of one of that stage's approved entries; `pov` is
+  guard or runner and must be the --pov of that entry's capture line. Pick only when that entry's said:/capture: shows what
+  the note asks for: the map, the pov, and every action. A pov is a player's eyes ("sniper" = guard, "runner" = runner).
+- If no approved entry films the note: needs_stage true, stage/pov/entry/beat null, dials {}, `why` = which part of the note
+  no entry has. Never pick a near miss.
+- `dials`: {} unless the note needs a dial moved; only that stage's dial names; never a dial the catalogue does not list.
+- `same_take_as`: the earlier line's id when this line is another view or the continuation of the SAME take (same stage,
+  same dials); "same shot" means the same take. Else null.
+- `beat`: {tick, word} when the note's event (hit, shove, out, go) has a non-null tick in the chosen entry: `word` is one word
+  copied from the line's text, the one the note ties the event to, else the word it reads best on (default the last word).
+  null when the entry has no tick for the note's event.
+- `why`: null on a pick; one line on needs_stage."""
 
-EXAMPLES = json.dumps([
-    {"id": "L1", "line": "L1", "source": "match",
-     "match": {"map": "hell", "opening": "seat", "players": 4, "old": True, "same_match_as": None}, "seat": "guard",
-     "film": {"seat": "guard", "map": "hell", "opening": "seat", "players": 4, "old": True, "intents": {"guard": "scope,miss:2,hit", "runner:1": "run", "runner:2": "run"}},
-     "find": [{"p": "event", "ev": "shot_result", "result": "miss", "by": "seat", "count": 2},
-              {"p": "event", "ev": "kill", "by": "seat", "cause": "shot", "count": 1, "anchor": True},
-              {"p": "before", "a": {"ev": "shot_result", "result": "miss"}, "b": {"ev": "kill"}},
-              {"p": "on_screen", "who": "victim", "min_h": 0.06, "for_s_before": 0.5, "for_s_after": 1.5}],
-     "window": {"lead_s": 0.8, "tail_s": 1.0, "until": "ragdoll", "beat": None}, "overlays": [],
-     "note": "pov of the sniper shooting at some runners and missing, hell map, right at the end, they hit one, and we cut a little after the animation plays out",
-     "unmapped": [], "interpreted": "old=true because the short is about the OLD death animation; 'right at the end' = the kill is the last event, no spoken-word beat since the text ends before"},
-    {"id": "L4b", "line": "L4", "source": "match",
-     "match": {"map": "hell", "opening": "seat", "players": 4, "old": False, "same_match_as": "L4a"}, "seat": "runner:any",
-     "film": {"seat": "runner:1", "map": "hell", "opening": "seat", "players": 4, "old": False, "intents": {"guard": "scope,miss:2,hit", "runner:1": "run", "runner:2": "run"}},
-     "find": [{"p": "event", "ev": "kill", "victim": "other", "cause": "shot", "count": 1, "anchor": True},
-              {"p": "on_screen", "who": "victim", "min_h": 0.12, "for_s_before": 1.0, "for_s_after": 1.2},
-              {"p": "moving", "who": "victim", "min_mps": 1.0}, {"p": "moving", "who": "seat", "min_mps": 1.0}],
-     "window": {"lead_s": 1.0, "tail_s": 1.2, "until": None, "beat": {"word": "Ragdolls", "event": "kill", "tol_s": 0.1}}, "overlays": [],
-     "note": "runner pov near the end, he watches the person in front of him get shot", "unmapped": [],
-     "interpreted": "the same match as the sniper shot, seen from a runner's eyes; the kill lands on the last word"},
-], indent=0)
+AUDIT = """You audit stage picks for a short. For EACH picked shot answer one question: is the chosen stage's approved entry
+(its map, pov, said:, capture:) WHAT the note says? Judge what is seen, never how it is made: seeds, dials, durations, ticks,
+bot counts, window lengths and lens details are how, never a defect. ok=false only when the entry shows a different map, a
+different pov, or is missing an action the note asks for (name it in `why`). Return JSON [{"id":..., "ok": bool, "why": "one line"}]."""
+
+AUDIT_SCHEMA = {"type": "array", "items": {"type": "object", "additionalProperties": False, "required": ["id", "ok", "why"],
+                "properties": {"id": {"type": "string"}, "ok": {"type": "boolean"}, "why": {"type": "string"}}}}
 
 
-
-OPTIONAL_RE = re.compile(r"if we can|prefer|if possible|ideally|would be nice|bonus", re.I)
-FIELDS = {"event": {"ev", "by", "victim", "body", "cause", "result", "outcome", "count", "anchor"},
-          "no_event": {"ev", "by", "victim", "body", "cause", "result", "outcome"}, "before": {"a", "b"},
-          "on_screen": {"who", "min_h", "for_s_before", "for_s_after"}, "moving": {"who", "min_mps", "max_mps", "for_s_before", "for_s_after"},
-          "seat_state": {"state"}, "distinct": {"who"}, "scoped": {"value"}, "looking_at": {"landmark", "for_s", "for_s_before", "for_s_after"},
-          "state": {"who", "state"}}
+def lines_of(spec):
+    return spec["lines"] if isinstance(spec, dict) else spec
 
 
-DROPPED = []
-
-
-def normalise(shots):
-    """moving(for_s) -> for_s_before (no meaning change); any other field a predicate has no use for FAILS the translation."""
-    for s in shots:
-        for p in s["find"]:
-            if p["p"] == "moving" and "for_s" in p:
-                p["for_s_before"] = p.pop("for_s")
-            for k in [k for k in list(p) if k != "p" and k not in FIELDS.get(p["p"], set())]:
-                DROPPED.append("%s %s(): field %s=%r is not a field of that predicate" % (s["id"], p["p"], k, p.pop(k)))
-    return shots
-
-
-def _nullify(shots):
-    for s in shots:
-        if s["match"].get("same_match_as") in ("", "null", "None"):
-            s["match"]["same_match_as"] = None
-        w = s["window"]
-        if w.get("until") in ("", "null", "none", "None"):
-            w["until"] = None
-        b = w.get("beat")
-        if isinstance(b, dict) and (not b.get("word") or str(b["word"]).strip().lower() in ("null", "none")):
-            w["beat"] = None          # the model writes the string "null" for no beat; search would look for that word
-        if s.get("camera") in ("", "null", "None"):
-            s["camera"] = None
-    return shots
-
-
-def _client():
-    """Kept for the call shape; the model is the Claude Code CLI (sv3.llm), no key and no client object."""
-    return None, None
-
-
-def _ask_json(client, types, prompt, json_schema):
-    return llm.ask_json(prompt, json_schema, model="opus")
-
-
-def film_check(s):
-    f = s.get("film") or {}
-    out = []
-    for body, steps in (f.get("intents") or {}).items():
-        pat = S.GUARD_STEP if body == "guard" else S.RUNNER_STEP
-        for st in [x.strip() for x in steps.split(",") if x.strip()]:
-            if not re.match(pat, st):
-                out.append("%s film.intents[%s]: %r is not a step" % (s["id"], body, st))
-    if s["source"] in ("match", "studio") and s["seat"] != "free" and f.get("seat") != s["seat"] and not (
-            s["seat"] == "runner:any" and str(f.get("seat", "")).startswith("runner")):
-        out.append("%s film.seat %r does not match seat %r" % (s["id"], f.get("seat"), s["seat"]))
+def catalogue(stages):
+    """The choosable stages as the model sees them: map, povs, dial names, each approved entry with its own map and pov."""
+    out = {}
+    for name, st in S.choosable(stages).items():
+        out[name] = {"shot": st["shot"], "povs": st["povs"], "dials": sorted(st["dials"]), "approved": [
+            {"entry": e["entry"], "project": e["project"], "map": S.capture_arg(e["capture"], "map") or st["map"],
+             "pov": S.capture_arg(e["capture"], "pov"), "said": e["said"], "capture": e["capture"],
+             "ticks": {k: v for k, v in (e.get("ticks") or {}).items() if v is not None}} for e in st["approved"]]}
     return out
 
 
-def local_check(shots, spec):
-    """What no model may get wrong: the schema, the note byte-for-byte, every line covered, same_take_as honoured."""
-    jsonschema.validate(shots, S.SHOTS)
-    problems = [x for s in shots for x in film_check(s)] + list(DROPPED)
-    by_line = {}
-    for s in shots:
-        by_line.setdefault(s["line"], []).append(s)
-    for e in spec:
-        if e["id"] not in by_line:
-            problems.append("line %s has no shot" % e["id"])
-            continue
-        for s in by_line[e["id"]]:
-            if s["note"] != e["note"]:
-                problems.append("%s note differs from the script: %r != %r" % (s["id"], s["note"], e["note"]))
-            if e.get("same_take_as") and s["match"]["same_match_as"] not in (e["same_take_as"],) + tuple(
-                    x["id"] for x in by_line.get(e["same_take_as"], [])):
-                problems.append("%s: note says same shot as %s but same_match_as=%r" % (s["id"], e["same_take_as"], s["match"]["same_match_as"]))
-            for u in s["unmapped"]:
-                if u.get("optional") and not OPTIONAL_RE.search(e["note"]):
-                    problems.append("%s: %r marked optional but the note never says 'if we can'/'preferably'" % (s["id"], u["phrase"]))
-            if s["source"] == "match" and s["seat"] == "free":
-                problems.append("%s: a match shot with a free camera (a pov is a player's eyes)" % s["id"])
-    for s in shots:
-        if s["line"] not in {e["id"] for e in spec}:
-            problems.append("%s names a line that is not in the script" % s["id"])
-    return problems
+def pick(spec, stages):
+    rest = sorted(set(stages.get("stages", {})) - set(S.choosable(stages))) + list(stages.get("uncatalogued") or [])
+    prompt = ("You pick, per line of a short's script, the approved staged take that films its note.\n\n" + RULES
+              + "\n\nCHOOSABLE:\n" + json.dumps(catalogue(stages), indent=1, ensure_ascii=False)
+              + "\n\nNOT CHOOSABLE (never pick): " + (", ".join(rest) or "-")
+              + "\n\nTHE SCRIPT (spec.json). Return the JSON array of picks:\n"
+              + json.dumps(lines_of(spec), indent=1, ensure_ascii=False))
+    return llm.ask_json(prompt, S.PICK, model="opus")
 
 
-def unmapped_failures(shots):
-    return [(s["id"], u["phrase"]) for s in shots for u in s["unmapped"] if not u.get("optional")]
-
-
-def translate(spec, client, types):
-    prompt = ("You translate a short's script into shots.json for a search over real match logs. EXTRACTION ONLY.\n\n"
-              + S.PREDICATE_DOC + "\n\n" + RULES + "\n\nTwo worked examples (format only):\n" + EXAMPLES
-              + "\n\nThe script (spec.json). Return a JSON array with one or more shots per line, in script order:\n"
-              + json.dumps(spec, indent=1, ensure_ascii=False))
-    shots = normalise(_nullify(_ask_json(client, types, prompt, S.SHOTS)))
+def assemble(spec, picks, stages):
+    """Shots in script order: text/note/line/same_take_as from spec.json verbatim, the rest from the model's pick."""
+    by_id = {p["id"]: p for p in picks}
+    shots = []
+    for i, e in enumerate(lines_of(spec), 1):
+        p = by_id.get(e["id"]) or {"needs_stage": True, "why": "the model gave no pick for this line"}
+        st = S.choosable(stages).get(p.get("stage") or "") or {"approved": []}
+        ent = next((a for a in st["approved"] if a["entry"] == p.get("entry")), None)
+        shots.append({"id": e["id"], "line": i, "text": e["text"], "note": e["note"], "stage": p.get("stage"),
+                      "pov": p.get("pov"), "dials": p.get("dials") or {},
+                      "approved": {"project": ent["project"], "entry": ent["entry"]} if ent else (
+                          {"project": "?", "entry": p["entry"]} if p.get("entry") is not None else None),
+                      "same_take_as": e.get("same_take_as") or p.get("same_take_as"), "beat": p.get("beat"),
+                      "card": None, "needs_stage": bool(p.get("needs_stage")), "why": p.get("why")})
+    if shots:
+        shots[-1]["card"] = dict(S.CARD)
     return shots
 
 
-def audit(spec, shots, client, types):
-    prompt = ("You audit a translation of Ryan's shot notes into predicates. For EACH shot list: `invented` = predicates or\n"
-              "match/seat/window choices or film.intents steps the note (plus the whole script) does not ask for; `missing` =\n"
-              "requirements in the note that film.intents does not script (every action the note describes must be a step of\n"
-              "the body that does it) and that\n"
-              "note that no field (match.map/old/opening, seat, source, camera, window.until/beat, overlays, montage,\n"
-              "same_match_as), predicate or unmapped[] entry covers. A phrase in unmapped[] is NOT a defect even when a field\n"
-              "also covers it; a field choice the note implies is NOT invented. on_screen() of the actors of the note's event\n"
-              "(the victim of a kill the pov watches, the runners a sniper shoots at) is framing that makes the event visible,\n"
-              "never invented; window lead_s/tail_s/until (e.g. until ragdoll so the body's fall is seen) are framing: NEVER list them as invented. moving() uses for_s_before/for_s_after (for_s_before\n"
-              "defaults 1.0): read them literally before judging. moving(seat) in a runner pov is Ryan's rule 419 (a runner\n"
-              "never sits there), never invented. film.intents are HOW the shot is made, not what is seen: a step the note's action needs\n"
-              "(scope before a sniper's shot, run before a shove, look before a turn) is implied, never invented; list an intent\n"
-              "only when it CONTRADICTS the note (a shove the note forbids, a seat other than the pov the note names).\n"
-              "Durations (for_s_before/after, lead_s, wait:s, cover:at:s) are the translator's defaults, never `missing`.\n"
-              "Flag only real drops and real inventions. Return JSON: "
-              "[{\"id\":..., \"invented\":[...], \"missing\":[...], \"ok\": true|false, \"why\": \"one line\"}].\n\n"
-              + S.PREDICATE_DOC + "\n\n" + RULES + "\n\nSCRIPT:\n" + json.dumps(spec, indent=1, ensure_ascii=False)
-              + "\n\nTRANSLATION:\n" + json.dumps(shots, indent=1, ensure_ascii=False))
-    audit_schema = {"type": "array", "items": {"type": "object", "properties": {
-        "id": {"type": "string"}, "invented": {"type": "array", "items": {"type": "string"}},
-        "missing": {"type": "array", "items": {"type": "string"}}, "ok": {"type": "boolean"}, "why": {"type": "string"}},
-        "required": ["id", "invented", "missing", "ok", "why"]}}
-    return _ask_json(client, types, prompt, audit_schema)
-
-
-def summary(shots):
-    for s in shots:
-        preds = ", ".join(p["p"] + "(" + ",".join("%s=%s" % (k, v) for k, v in p.items() if k != "p") + ")" for p in s["find"])
-        extra = (" montage=%d" % s["montage"]) if s.get("montage") else ""
-        print("%-4s %-12s seat=%-10s %s/%s old=%s same=%s%s\n     find: %s\n     window: %s" % (
-            s["id"], s["source"], s["seat"], s["match"]["map"], s["match"]["opening"], s["match"]["old"],
-            s["match"]["same_match_as"], extra, preds or "-", json.dumps(s["window"])))
-        for u in s["unmapped"]:
-            print("     UNMAPPED%s: %s" % (" (optional)" if u["optional"] else "", u["phrase"]))
+def audit(shots, stages):
+    """Second pass: is each picked stage what its note says (what, not how). A no becomes needs_stage."""
+    picked = [s for s in shots if not s["needs_stage"]]
+    if not picked:
+        return []
+    cat = catalogue(stages)
+    rows = [{"id": s["id"], "note": s["note"], "text": s["text"], "stage": s["stage"], "pov": s["pov"],
+             "entry": next(e for e in cat[s["stage"]]["approved"] if e["entry"] == s["approved"]["entry"])} for s in picked]
+    verdict = llm.ask_json(AUDIT + "\n\nPICKS:\n" + json.dumps(rows, indent=1, ensure_ascii=False), AUDIT_SCHEMA, model="opus")
+    v = {x["id"]: x for x in verdict}
+    for s in picked:
+        x = v.get(s["id"])
+        if x is None or not x["ok"]:
+            S.needs(s, "audit: " + (x["why"] if x else "the audit gave no verdict"))
+    return verdict
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("spec")
+    ap.add_argument("--stages", default=os.path.join(os.path.dirname(__file__), "stages.json"))
     ap.add_argument("--out", required=True)
-    ap.add_argument("--fixture", help="offline: take this shots.json instead of calling the model (selftest)")
+    ap.add_argument("--fixture", help="offline: take this shots.json instead of calling the model")
     a = ap.parse_args(argv)
     spec = json.load(open(a.spec, encoding="utf-8"))
+    stages = json.load(open(a.stages, encoding="utf-8"))
     if a.fixture:
-        shots = json.load(open(a.fixture, encoding="utf-8"))
-        verdict = [{"id": s["id"], "invented": [], "missing": [], "ok": True, "why": "fixture"} for s in shots]
+        shots, verdict = S.validate(json.load(open(a.fixture, encoding="utf-8")), stages), []
     else:
-        client, types = _client()
-        shots = translate(spec, client, types)
-        ids = {e["id"] for e in spec["lines"]} if isinstance(spec, dict) else {e["id"] for e in spec}
-        for sh in shots:                      # the model sometimes puts the line's TEXT in `line`: the id is the shot id's L/M number
-            if sh.get("line") not in ids:
-                m = re.match(r"([LM]\d+)", str(sh.get("id", "")))
-                if m and m.group(1) in ids:
-                    sh["line"] = m.group(1)
-        problems = local_check(shots, spec)
-        if problems:
-            print("TRANSLATION FAILED LOCAL CHECK:\n  " + "\n  ".join(problems))
-            json.dump(shots, open(a.out + ".rejected.json", "w"), indent=1)
-            return 2
-        verdict = audit(spec, shots, client, types)
-    for sh in shots:                      # design §2: moving() for_s_before defaults to 1.0; a 0.0 negates the predicate
-        for pr in sh.get("find", []):
-            if pr.get("p") == "moving":
-                for k in ("for_s_before", "for_s_after"):
-                    if pr.get(k) in (0, 0.0):
-                        pr[k] = 1.0
-    problems = local_check(shots, spec)
+        shots = S.validate(assemble(spec, pick(spec, stages), stages), stages)
+        verdict = audit(shots, stages)
+        S.validate(shots, stages)                 # an audit no cascades to every same_take_as of it
+    jsonschema.validate(shots, S.SHOTS)
     json.dump(shots, open(a.out, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     json.dump(verdict, open(os.path.splitext(a.out)[0] + ".audit.json", "w", encoding="utf-8"), indent=1, ensure_ascii=False)
-    summary(shots)
-    # The audit FAILS the plan only on hard fields (map, seat, source, opening, old, same_match_as, a note phrase it
-    # says was dropped); predicate strictness and durations are judgement calls the audit flaps on: warnings, kept in the file.
-    HARD = ("map", "wrong seat", "seat guard", "seat runner", "seat=", "source", "opening", "old=", "same_match",
-            "dropped", "phrase", "not in the note", "contradict")
-    def hard(items):
-        return [i for i in items if any(h in i.lower() for h in HARD)]
-    for v in verdict:
-        soft = [i for i in v["invented"] + v["missing"] if i not in hard(v["invented"]) + hard(v["missing"])]
-        if soft:
-            print("  audit %s (warning, not fatal): %s -- %s" % (v["id"], soft, v["why"]))
-        v["invented"], v["missing"] = hard(v["invented"]), hard(v["missing"])
-        v["ok"] = v["ok"] or not (v["invented"] or v["missing"])
-    bad = [v for v in verdict if v["invented"] or v["missing"]]
-    if {v["id"] for v in verdict} != {s["id"] for s in shots} and not a.fixture:
-        problems.append("audit answered for %s, shots are %s" % (sorted(v["id"] for v in verdict), sorted(s["id"] for s in shots)))
-    um = unmapped_failures(shots)
-    if problems or bad or um:
-        print("\nTRANSLATION FAILED")
-        for p in problems:
-            print("  local: " + p)
-        for i, ph in um:
-            print("  %s unmapped: %s" % (i, ph))
-        for v in bad:
-            print("  audit %s: invented=%s missing=%s -- %s" % (v["id"], v["invented"], v["missing"], v["why"]))
-            print("  translator said: %s" % json.dumps(next((s for s in shots if s["id"] == v["id"]), {})))
+    for s in shots:
+        print("%-4s %s" % (s["id"], "NEEDS STAGE: " + s["why"] if s["needs_stage"] else "%s --pov=%s entry %s:%d%s beat %s%s" % (
+            s["stage"], s["pov"], s["approved"]["project"], s["approved"]["entry"],
+            (" dials " + json.dumps(s["dials"])) if s["dials"] else "", json.dumps(s["beat"]),
+            (" same take as " + s["same_take_as"]) if s["same_take_as"] else "")))
+    needs = [s for s in shots if s["needs_stage"]]
+    if needs:
+        print("\nNEEDS STAGE (nothing improvised):")
+        for s in needs:
+            print("  %s: %s" % (s["id"], s["note"]))
         return 2
-    print("\nOK: %d shots, audit agrees" % len(shots))
+    print("\nOK: %d shots, every one a catalogued stage" % len(shots))
     return 0
 
 

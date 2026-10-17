@@ -52,3 +52,19 @@ Written by `python -m sv3.catalogue` from the stage headers and approved entries
 | trailer_scope | hell | - | - | zoom_at=1.7, degs=34,42,49,57,64,72,80, rs=49.4,47.8,50.1,48.3,49.7,47.6,48.9, scan=0, shots=3, start=1.5, beat=2.5, fire_at=1.2, lead_in=-13.0, lift=1, clear=0.74 | uncatalogued | - | no |
 | trailer_shove | hell | - | - | squeeze=0.3, cam=205.6,55.2,1.3, look=212.2,51.6,0.9, fov=56.0, victim=198.5,49.4, runner=201.8,48.2, runner_to=186.0,48.2, shover=206.0,50.5, watch=192.5,50.5, runner_speed=0.6, runner_wait=2.0, shover_speed=0.65, shover_wait=5.0, impulse=12.0, up=5.0 | uncatalogued | - | no |
 | trailer_victim | hell | - | - | up_right=78.0, up_pitch=13.0, start=144.0, end=214.0, fire_at=3.0, pov_index=3, victim_index=1, pov_back=0.0, pack=5 | uncatalogued | - | no |
+| decoy | hell | - | - | - | uncatalogued | - | yes |
+| ghostcatch | hell | - | - | - | uncatalogued | - | yes |
+| ghostchase | hell | - | - | - | uncatalogued | - | yes |
+| ghostchase_victim | hell | - | - | - | uncatalogued | - | yes |
+| lavadeath | hell | - | - | - | uncatalogued | - | yes |
+| missstreak | hell | - | - | - | uncatalogued | - | yes |
+| padflight | hell | - | - | - | uncatalogued | - | yes |
+| shovecatch | hell | s2_gap | - | - | shove#1 | - | yes |
+| shovecover | hell | pocket_cover | - | - | shove#2 | - | yes |
+| shovecover_victim | hell | - | - | - | uncatalogued | - | yes |
+| shoveedge | hell | rim_edge | runner | - | shove#3, shove#5 | -; - | yes |
+| shoveedge_look | hell | rim_edge | runner | - | shove#6 | - | yes |
+| shoveedge_look_victim | hell | - | - | - | uncatalogued | - | yes |
+| shoveedge_victim | hell | - | - | - | uncatalogued | - | yes |
+| shovelake | hell | lake_bank | - | - | shove#4 | - | yes |
+| shovelake_victim | hell | - | - | - | uncatalogued | - | yes |

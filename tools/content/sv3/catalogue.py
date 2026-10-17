@@ -246,15 +246,25 @@ def flag(text, name):
     return m.group(1) if m else None
 
 
+def builtin_stages():
+    """Stage names matched in stage_driver.gd's steps_for (the shove short's first beats live there)."""
+    with open(os.path.join(STAGES_DIR, "..", "stage_driver.gd")) as f:
+        body = f.read()
+    m = re.search(r"func steps_for\(.*?\n(.*?)\n(?:static )?func ", body, re.S)
+    rows = re.findall(r'^\s*((?:"\w+"\s*,?\s*)+):\s*$', m.group(1) if m else "", re.M)
+    return {n for row in rows for n in re.findall(r'"(\w+)"', row)}
+
+
 def main():
     files = sorted(f[:-3] for f in os.listdir(STAGES_DIR) if f.endswith(".gd") and f[:-3] not in NOT_STAGES)
+    builtin = builtin_stages()   # stage_driver.steps_for names: a stage with no file of its own
     approved, missing = {}, []
     for project in PROJECTS:
         for e in entries(project):
             stage = flag(e["capture"], "stage")
             if not stage:
                 continue
-            if stage not in files:
+            if stage not in files and stage not in builtin:
                 missing.append("%s ## %s: --stage=%s" % (project, e["entry"], stage))
                 continue
             approved.setdefault(stage, []).append({k: e[k] for k in ("project", "entry") + FIELDS + ("ticks",)})
@@ -262,25 +272,27 @@ def main():
     dials = Lazy(lambda s: parse_dials(s, heads[s], code_defaults(os.path.join(STAGES_DIR, s + ".gd")), dials)
                  if s in heads else {})
     stages = {}
-    for s in files:
-        text = " ".join(heads[s])
+    for s in files + sorted(builtin - set(files)):
+        text = " ".join(heads.get(s, []))
         caps = " ".join(e["capture"] or "" for e in approved.get(s, []))
         raw_map = flag(text, "map") or flag(caps, "map")
         if raw_map in (None, ")"):
             raw_map = "hell"
-        with open(os.path.join(STAGES_DIR, s + ".gd")) as f:
-            need = re.search(r'func needs_pov\(\)[^\n]*\n\s*return "(\w*)"', f.read())
+        need = None
+        if s in heads:
+            with open(os.path.join(STAGES_DIR, s + ".gd")) as f:
+                need = re.search(r'func needs_pov\(\)[^\n]*\n\s*return "(\w*)"', f.read())
         povs = [need.group(1)] if need and need.group(1) else \
             [p for p in ("guard", "runner") if re.search(r"--pov=%s\b" % p, text + " " + caps)]
         stages[s] = {"map": map_name(raw_map), "shot": flag(text, "shot") or flag(caps, "shot"), "povs": povs,
                      "dials": dials[s], "for_shorts": not s.startswith("trailer_"), "approved": approved.get(s, [])}
-    doc = {"stages": stages, "uncatalogued": sorted(s for s in files if not approved.get(s))}
+    doc = {"stages": stages, "uncatalogued": sorted(s for s in stages if not approved.get(s))}
     with open(os.path.join(HERE, "stages.json"), "w") as f:
         json.dump(doc, f, indent=1)
         f.write("\n")
     rows = ["# Stages", "", "Written by `python -m sv3.catalogue` from the stage headers and approved entries; stages.json is the source.", "",
             "| stage | map | shot | povs | dials | approved entries | ticks | for_shorts |", "|---|---|---|---|---|---|---|---|"]
-    for s in files:
+    for s in stages:
         d = stages[s]
         dial = ", ".join("%s=%s" % (k, v) for k, v in d["dials"].items())
         ents = ", ".join("%s#%s" % (e["project"], e["entry"]) for e in d["approved"]) or "uncatalogued"
