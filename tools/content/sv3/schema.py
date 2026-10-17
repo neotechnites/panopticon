@@ -55,8 +55,8 @@ PREDICATE = {
     "required": ["p"],
 }
 
-RUNNER_STEP = r"^(run|cover:at:\d+(\.\d+)?|shove_when_rival_within:\d+(\.\d+)?|look:tower:\d+(\.\d+)?|portal|wait:\d+(\.\d+)?|brawl|idle)$"
-GUARD_STEP = r"^(miss:\d+|hit|scope|idle)$"
+RUNNER_STEP = r"^(run(:\d+(\.\d+)?)?|stop|cover:at:\d+(\.\d+)?|shove_when_rival_within:\d+(\.\d+)?(:\d+(\.\d+)?)?|shove_when_rival_cover:\d+(\.\d+)?(:\d+(\.\d+)?)?|look:(tower|portal)(:\d+(\.\d+)?)?|portal(:\d+(\.\d+)?)?|wait:\d+(\.\d+)?|brawl|idle(:\d+(\.\d+)?)?)$"
+GUARD_STEP = r"^(wait:\d+(\.\d+)?|scope|miss:\d+|hit|idle(:\d+(\.\d+)?)?)$"
 
 FILM = {
     "type": "object",
@@ -68,7 +68,7 @@ FILM = {
         "old": {"type": "boolean"},
         "intents": {
             "type": "object",
-            "description": "body -> comma-joined steps; runner steps: run, cover:at:<s>, shove_when_rival_within:<m>, look:tower:<s>, portal, wait:<s>, brawl, idle; guard steps: miss:N, hit, scope, idle. Bodies not named keep their shipped brain.",
+            "description": "body -> comma-joined steps; runner steps: run, stop, cover:at:<s>, shove_when_rival_within:<m>, shove_when_rival_cover:<m> (shove a rival stopped at cover: the one for "walk up to a runner stopped at cover, shove him"), look:tower:<s>, look:portal:<s>, portal, wait:<s>, brawl, idle; guard steps: wait:<s>, scope, miss:N, hit (always lands), idle. Bodies not named keep their shipped brain.",
             "properties": {"guard": {"type": "string"}, "runner:1": {"type": "string"}, "runner:2": {"type": "string"}, "runner:3": {"type": "string"}},
         },
     },
@@ -149,7 +149,7 @@ seat's eyes: film.intents gives each scripted body its steps (comma-joined, in o
 brain. Runner steps: run, cover:at:<s> (stop at cover at <s> seconds), shove_when_rival_within:<m>, look:tower:<s>,
 portal, wait:<s>, brawl, idle. Guard steps: miss:N (N deliberate misses), hit, scope, idle. The guard that shoots at
 runners and misses twice then hits = intents {"guard": "miss:2,hit"}; the runner the pov watches get shot = that runner
-"run" and the guard "hit"; a shove into the sights = shover "run,shove_when_rival_within:3", victim "run,cover:at:4".
+"run" and the guard "hit"; a shove into the sights = victim "run,cover:at:3", shover "run,wait:3,shove_when_rival_cover:3", guard "scope,miss:2,hit" (the hit lands after the shove). Beats: only when the note names a word ("when i say ragdolls"); never a beat on a line without one. Predicates must be consistent with the intents: a kill by the guard needs guard "hit"; a shove by the seat needs the seat's shove step.
 film.seat names the exact body filmed (runner:1 for a runner pov). The `find` predicates then VERIFY the take's logs.
 Predicates (closed set; p = the predicate name; every field optional unless named):
 - event(ev, by?, victim?, body?, cause?, result?, outcome?, count>=n, anchor?) : the event occurs >= count times in the window.
