@@ -55,6 +55,8 @@ const HUNT_REACH_SHARE: float = 0.6
 const HUNT_FIRST_SHOVE_SECONDS: float = 0.6
 ## A shoved body flies about this far with no air control; it must come down on safe mesh.
 const SHOVE_THROW_METRES: float = 12.0
+## No rival shove in the spawn bunch: the field is dealt shoulder to shoulder.
+const SHOVE_SPAWN_GRACE_SECONDS: float = 2.0
 const SHOVE_CLEARANCE_METRES: float = 2.0
 const EDGE_CHECK_TICKS: int = 6
 ## Probes along the path for an open trapdoor: this many, this far apart, this much margin.
@@ -558,6 +560,8 @@ func _catch_pad_flight() -> bool:
 ## reach. Only the shover's own footing is checked (on the floor, not mid-cross); where the victim lands is the game.
 func _shove_a_rival(delta: float) -> void:
 	if rules == null or not rules.bots_shove_rivals or not controller.is_on_floor():
+		return
+	if _elapsed_seconds < SHOVE_SPAWN_GRACE_SECONDS:
 		return
 	var here: Vector3 = controller.global_position
 	var forward: Vector3 = -controller.global_transform.basis.z

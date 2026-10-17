@@ -30,6 +30,8 @@ var _done: bool = false
 var _shots_left: int = 0
 var _since_install: float = 0.0
 var _sure_profile: WeaponProfile = null
+var _path: PackedVector3Array = PackedVector3Array()
+var _path_age: float = 10.0
 var _shipped_profile: WeaponProfile = null
 var _say: Callable = Callable()
 
@@ -176,8 +178,26 @@ func _tick_runner(delta: float) -> void:
 			# The match drives brawl bots itself; hand the body back for it.
 			_release("brawl: the match's own fight")
 		"shove":
+			if _clock >= float(step["timeout"]):
+				_say.call("[intent] shove step timed out after %.1f s" % _clock)
+				_next()
+				return
 			if not bool(step["cover"]) and _since_install < SPAWN_GRACE_SECONDS:
 				return
+			if bool(step["cover"]):
+				# Walk up to the nearest rival stopped at cover, then shove once within reach.
+				var covering: Node3D = _rival_within(1000.0, true)
+				if covering == null:
+					# Nobody at cover yet: stand, as a player waiting for the moment would.
+					source.command.move_direction = Vector2.ZERO
+					return
+				var gap: float = _flat_distance(covering.global_position)
+				if gap > float(step["metres"]) * 0.8:
+					_walk_to(covering.global_position, delta)
+					if OS.has_environment("STAGE_DEBUG") and Engine.get_physics_frames() % 60 == 0:
+						_say.call("[intent] %5.2f walking to %s, %.1f m, speed %.1f" % [_clock, covering.name, gap, body.get_horizontal_speed()])
+					return
+				_turn_towards(covering.global_position, delta, 0.3)
 			var rival: Node3D = _rival_within(float(step["metres"]), bool(step["cover"]))
 			if rival != null:
 				var error: float = _turn_towards(rival.global_position, delta, 0.2)
@@ -185,9 +205,6 @@ func _tick_runner(delta: float) -> void:
 					source.command.shove_pressed = true
 					_say.call("[intent] %5.2f shove at %s" % [_clock, rival.name])
 					_next()
-			elif _clock >= float(step["timeout"]):
-				_say.call("[intent] shove_when_rival_within timed out after %.1f s" % _clock)
-				_next()
 
 
 ## The guard: aim at the nearest living runner (beside it for a miss, led for a hit) and pull when the rifle is ready.
@@ -391,7 +408,7 @@ func _rival_within(metres: float, at_cover: bool = false) -> Node3D:
 		var distance: float = offset.length()
 		if distance > metres or distance < 1e-3:
 			continue
-		if forward.length_squared() > 1e-6 and forward.normalized().dot(offset / distance) < 0.0:
+		if not at_cover and forward.length_squared() > 1e-6 and forward.normalized().dot(offset / distance) < 0.0:
 			continue
 		if at_cover and not _is_at_cover(rival):
 			continue
@@ -401,10 +418,52 @@ func _rival_within(metres: float, at_cover: bool = false) -> Node3D:
 	return best
 
 
-## True while [param rival]'s brain says it is stopped at cover.
+func _flat_distance(point: Vector3) -> float:
+	return Vector2(point.x - body.global_position.x, point.z - body.global_position.z).length()
+
+
+## Walk to [param point] along the ring bake's path (the brain's own planner), re-planned twice a second.
+func _walk_to(point: Vector3, delta: float) -> void:
+	_path_age += delta
+	var bake: RingBake = brain.get_navigation() if brain != null else null
+	if bake != null and bake.is_ready() and _path_age >= 0.5:
+		_path = bake.find_path(body.global_position, point)
+		_path_age = 0.0
+	# The first waypoint ahead: past 1.2 m from the body and nearer the goal than the body is.
+	var next: Vector3 = point
+	var left: float = _flat_distance(point)
+	for waypoint: Vector3 in _path:
+		if _flat_distance(waypoint) > 1.2 and Vector2(point.x - waypoint.x, point.z - waypoint.z).length() < left - 0.5:
+			next = waypoint
+			break
+	_turn_towards(next, delta, 0.3)
+	_drive_towards(next)
+
+
+## Walk at [param point] whatever the body faces; move_direction is body-local.
+func _drive_towards(point: Vector3) -> void:
+	var flat: Vector2 = Vector2(point.x - body.global_position.x, point.z - body.global_position.z)
+	var basis: Basis = body.global_transform.basis
+	var right: Vector2 = Vector2(basis.x.x, basis.x.z)
+	var forward: Vector2 = Vector2(-basis.z.x, -basis.z.z)
+	brain.input.command.move_direction = Vector2(flat.dot(right), flat.dot(forward)).normalized()
+
+
+## True while [param rival] is stopped at cover: its brain says so, or its hands do (stood still past the spawn).
 func _is_at_cover(rival: Node3D) -> bool:
 	var participant: MatchParticipant = controller.resolve_participant(rival)
-	return participant != null and participant.brain != null and participant.brain.get_state() == RunnerBrain.State.TAKE_COVER
+	if participant == null or participant.body == null or not participant.is_running:
+		return false
+	# Stopped, not still running to its cover point.
+	return participant.body.get_horizontal_speed() < 0.3 and is_at_cover(participant, _since_install >= SPAWN_GRACE_SECONDS)
+
+
+## Cover as the recorder and the searcher read it; [param settled] is false in the spawn bunch.
+static func is_at_cover(participant: MatchParticipant, settled: bool) -> bool:
+	if participant.brain != null and participant.brain.get_state() == RunnerBrain.State.TAKE_COVER:
+		return true
+	var body: PlayerController = participant.body
+	return settled and body != null and body.is_on_floor() and body.get_horizontal_speed() < 0.3
 
 
 ## Hand the body back to its shipped brain.

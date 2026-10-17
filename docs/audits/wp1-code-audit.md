@@ -83,3 +83,15 @@ Fix: Replace `if shooter.rifle.try_fire():` with `shooter.intent.fire = true`.
 The profile swap permanently breaks the shipped rifle if called while already active (e.g. across multiple frames waiting for a shot), as it overwrites the `_shipped_profile` backup with the 0-spread `_sure_profile`.
 Fix: Add `if shooter.rifle.profile != _sure_profile:` before `_shipped_profile = shooter.rifle.profile`.
 Ruling: fixed 4 (the 8 s cap now ends the step whatever blocked the shot), 7 (no double profile swap). Not real: 1/2 (the guard is the same body scene; its Head/Camera is the seat eye and the smoke hit 3/3), 3 (global_transform reads current), 5/6 (the tape records Rifle.fired, so direct try_fire replays).
+
+## Audit 5: cover shove walks to its rival; brain spawn grace
+Here are the real defects in the provided diff against the design and rules:
+
+1. **runner_brain.gd:_shove_a_rival**: `_elapsed_seconds` is undefined in `RunnerBrain` and will crash the shipped bot; it must use a valid match time source (e.g., `controller.get_elapsed()`).
+2. **seat_intent.gd:_tick_runner**: Accessing `step["timeout"]` directly will throw a `KeyError` crash when the optional `[:timeout]` parameter is omitted, permanently halting the step; use `step.get("timeout", default)`.
+3. **seat_intent.gd:_tick_runner**: Setting `source.command.move_direction = Vector2(0.0, 1.0)` when `covering == null` forces the bot to blindly march forward indefinitely into lava instead of waiting or timing out. 
+4. **seat_intent.gd:_walk_to**: The loop breaks at the *first* waypoint `> 1.2`m away; because the path only updates every 0.5s, the bot will pass its start point, see it is now `> 1.2`m behind it, and turn back to it, oscillating forever and never arriving.
+5. **seat_intent.gd:_drive_towards**: Writing to `brain.input.command.move_direction` attempts to drive the detached shipped brain instead of the seat's `source.command.move_direction`, meaning the intent body receives no inputs and never arrives.
+6. **seat_intent.gd:is_at_cover**: It immediately returns `true` for a brain in the `TAKE_COVER` state without checking its horizontal speed, falsely logging a bot actively sprinting to cover as "stopped at cover".
+7. **run_clip.gd:_state_of**: Calling `SEAT_INTENT.is_at_cover()` uses an undeclared all-caps identifier instead of `SeatIntent`, which will cause a compiler/runtime crash.
+Ruling: fixed 3 (stand while nobody is at cover), 4 (only waypoints nearer the goal than the body), 6 (the shove's cover test also needs the rival stopped; vis keeps the brain's own TAKE_COVER as the game state). Not real: 1 (_elapsed_seconds is RunnerBrain's), 2 (_parse always writes timeout), 5 (brain.input is the body's BotIntentSource), 7 (SEAT_INTENT is the preload const).

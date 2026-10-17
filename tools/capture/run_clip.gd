@@ -1823,7 +1823,7 @@ func _state_of(participant: MatchParticipant) -> String:
 		return "brawl"
 	if _elapsed - float(_shoved_at.get(_id_of(participant), -100.0)) <= _controller.get_rules().shove_air_lock_seconds:
 		return "shoved"
-	if participant.brain != null and participant.brain.get_state() == RunnerBrain.State.TAKE_COVER:
+	if SEAT_INTENT.is_at_cover(participant, _elapsed >= 2.0):
 		return "cover"
 	return "run"
 
