@@ -1,0 +1,153 @@
+"""shots.json contract: the closed predicate set (design §2 + §7.4) and the jsonschema translate.py enforces."""
+
+EVENTS = ["shot", "shot_result", "kill", "shove", "out", "portal", "seat", "race_start", "race_won", "brawl_start",
+          "brawl_out", "brawl_won", "finale_start", "finale_end", "round_start", "round_end", "scoped", "ragdoll"]
+WHO = ["seat", "victim", "other", "guard", "runner:any", "any"]
+BODY_STATES = ["run", "cover", "dead", "ragdoll", "ghost", "shoved", "brawl"]
+LANDMARKS = ["tower", "portal", "lava", "cover"]
+PREDICATES = ["event", "before", "on_screen", "moving", "no_event", "seat_state", "distinct", "scoped", "looking_at", "state"]
+
+_EVENT_MATCH = {
+    "type": "object",
+    "properties": {
+        "ev": {"type": "string", "enum": EVENTS},
+        "by": {"type": "string", "enum": WHO},
+        "victim": {"type": "string", "enum": WHO},
+        "body": {"type": "string", "enum": WHO},
+        "cause": {"type": "string", "enum": ["shot", "pit", "lava", "trap", "shove_pit", "brawl"]},
+        "result": {"type": "string", "enum": ["hit", "miss"]},
+        "outcome": {"type": "string", "enum": ["ring", "pit", "sights", "tower_out"]},
+    },
+    "required": ["ev"],
+}
+
+PREDICATE = {
+    "type": "object",
+    "properties": {
+        "p": {"type": "string", "enum": PREDICATES},
+        # event / no_event
+        "ev": {"type": "string", "enum": EVENTS},
+        "by": {"type": "string", "enum": WHO},
+        "victim": {"type": "string", "enum": WHO},
+        "body": {"type": "string", "enum": WHO},
+        "cause": {"type": "string", "enum": ["shot", "pit", "lava", "trap", "shove_pit", "brawl"]},
+        "result": {"type": "string", "enum": ["hit", "miss"]},
+        "outcome": {"type": "string", "enum": ["ring", "pit", "sights", "tower_out"]},
+        "count": {"type": "integer", "minimum": 1},
+        "anchor": {"type": "boolean"},
+        # before(a, b)
+        "a": _EVENT_MATCH,
+        "b": _EVENT_MATCH,
+        # on_screen / moving / state / distinct
+        "who": {"type": "string", "enum": WHO},
+        "min_h": {"type": "number", "minimum": 0, "maximum": 1},
+        "for_s_before": {"type": "number", "minimum": 0},
+        "for_s_after": {"type": "number", "minimum": 0},
+        "min_mps": {"type": "number", "minimum": 0},
+        "max_mps": {"type": "number", "minimum": 0},
+        "state": {"type": "string", "enum": BODY_STATES + ["alive"]},
+        # scoped
+        "value": {"type": "boolean"},
+        # looking_at
+        "landmark": {"type": "string", "enum": LANDMARKS},
+        "for_s": {"type": "number", "minimum": 0},
+    },
+    "required": ["p"],
+}
+
+SHOT = {
+    "type": "object",
+    "properties": {
+        "id": {"type": "string"},
+        "line": {"type": "string"},
+        "source": {"type": "string", "enum": ["match", "studio", "establishing", "card", "black"]},
+        "match": {
+            "type": "object",
+            "properties": {
+                "map": {"type": "string", "enum": ["hell", "forest", "marble", "grey"]},
+                "opening": {"type": "string", "enum": ["race", "brawl", "seat"]},
+                "players": {"type": "integer", "minimum": 1, "maximum": 4},
+                "old": {"type": "boolean"},
+                "same_match_as": {"type": ["string", "null"]},
+            },
+            "required": ["map", "opening", "players", "old", "same_match_as"],
+        },
+        "seat": {"type": "string", "enum": ["guard", "runner:any", "free"]},
+        "find": {"type": "array", "items": PREDICATE},
+        "montage": {"type": "integer", "minimum": 1, "maximum": 6},
+        "window": {
+            "type": "object",
+            "properties": {
+                "lead_s": {"type": "number", "minimum": 0},
+                "tail_s": {"type": "number", "minimum": 0},
+                "until": {"type": ["string", "null"], "enum": EVENTS + [None]},
+                "beat": {
+                    "type": ["object", "null"],
+                    "properties": {
+                        "word": {"type": "string"},
+                        "event": {"type": "string", "enum": EVENTS},
+                        "tol_s": {"type": "number", "minimum": 0},
+                    },
+                    "required": ["word", "event", "tol_s"],
+                },
+            },
+            "required": ["lead_s", "tail_s", "until", "beat"],
+        },
+        "overlays": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "kind": {"type": "string", "enum": ["comment_card", "gif_fade"]},
+                    "at": {"type": "string"},
+                    "url": {"type": "string"},
+                    "seconds": {"type": "number", "minimum": 0},
+                },
+                "required": ["kind", "at"],
+            },
+        },
+        "camera": {"type": ["string", "null"]},
+        "note": {"type": "string"},
+        "unmapped": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"phrase": {"type": "string"}, "optional": {"type": "boolean"}},
+                "required": ["phrase", "optional"],
+            },
+        },
+        "interpreted": {"type": "string"},
+    },
+    "required": ["id", "line", "source", "match", "seat", "find", "window", "overlays", "note", "unmapped", "interpreted"],
+}
+
+SHOTS = {"type": "array", "items": SHOT}
+
+PREDICATE_DOC = """Predicates (closed set; p = the predicate name; every field optional unless named):
+- event(ev, by?, victim?, body?, cause?, result?, outcome?, count>=n, anchor?) : the event occurs >= count times in the window.
+  by/victim/body are roles: seat (the recorded player), other (any other body), guard, runner:any, any.
+  anchor:true marks the event the window is built around (default: the beat event, else the last event predicate).
+- before(a, b) : a {ev,...} happens before b {ev,...} inside the window.
+- on_screen(who, min_h, for_s_before, for_s_after) : who (victim|seat|other|guard|runner:any) is visible (vis `on`)
+  with screen height >= min_h for for_s_before seconds before the anchor and for_s_after after it.
+- moving(who, min_mps, max_mps?, for_s_before=1.0, for_s_after=0) : who moves at >= min_mps (and <= max_mps when given;
+  idle = min_mps 0, max_mps 0.2) over for_s_before seconds before the anchor and for_s_after after it ("walk up to" =
+  moving(seat) before; "continue the course"/"and run" = moving(seat, for_s_after=1.5) after).
+- no_event(ev, by?) : the event never occurs in the window.
+- seat_state(state=alive|dead|ghost) : the seat body's state through the window.
+- distinct(who=victim) : for a montage, every clip has a different victim.
+- scoped(value) : the guard seat is (not) scoped at the anchor.
+- looking_at(landmark=tower|portal|lava|cover, for_s, for_s_after?) : the landmark is on screen for for_s seconds before the
+  anchor (and for_s_after after it). "the lava parkour section" = looking_at(lava, ...); "get up to the portal" = looking_at(portal) + event(portal, by=seat).
+- state(who, state=run|cover|dead|ragdoll|ghost|shoved|brawl) : who is in that game state before the anchor.
+Game vocabulary: `kill` cause shot|pit|lava|trap|shove_pit|brawl; `shot_result` result hit|miss; `shove` outcome
+ring|pit|sights|tower_out; `portal` = a runner enters the tower portal; `finale_start`/`finale_end` = the shove-the-guard
+cinematic; `brawl_*` = the opening brawl in the tower; `race_*` = the opening race; `ragdoll` = a body ragdolls.
+Seats: guard = the sniper's own scope camera; runner:any = a runner's own eyes; free = studio/establishing only.
+The finale ("the usual cinematic shot", "watch them go flying", "they go flying") is what the SHOVING PLAYER sees in the game:
+seat runner:any, event(portal, by=seat), event(finale_start, by=seat) or event(shove, by=seat, outcome=tower_out), until finale_end.
+A "bust shot"/close shot of a body "idle animating" = source studio, match.map = the named map (grey if none), players 1,
+seat free, camera "bust", find on_screen(other, min_h 0.5) + moving(other, min_mps 0, max_mps 0.2).
+Openings: seat (guard already seated, the round runs), brawl (everyone starts in the tower), race.
+Sources: match (a real bot match), studio (grey room, one body, --kill at 3.0 s), establishing (camera move over the
+map, no bodies, camera "orbit"|"dolly"), card, black. "old"=true means the old death animation (pre-ragdoll build)."""

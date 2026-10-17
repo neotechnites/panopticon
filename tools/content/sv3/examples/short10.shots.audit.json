@@ -1,0 +1,34 @@
+[
+ {
+  "id": "L1",
+  "invented": [],
+  "missing": [],
+  "ok": true,
+  "why": "The translation correctly captures the sniper's POV, the location, and the action of shooting at runners."
+ },
+ {
+  "id": "L2",
+  "invented": [],
+  "missing": [],
+  "ok": true,
+  "why": "The translation correctly implements the runner POV, watching shots land on other runners, and correctly applies the mandatory moving predicate for a runner POV."
+ },
+ {
+  "id": "L3",
+  "invented": [
+   "moving(who='seat', min_mps=1.0, for_s_before=0.0)"
+  ],
+  "missing": [
+   "continue the course"
+  ],
+  "ok": false,
+  "why": "The predicate for 'continue the course' is wrong; it should be moving(seat, for_s_after=1.5), not another moving with for_s_before."
+ },
+ {
+  "id": "L4",
+  "invented": [],
+  "missing": [],
+  "ok": true,
+  "why": "The translation correctly captures the entire finale sequence from the runner's perspective, including reaching the portal and triggering the cinematic."
+ }
+]
