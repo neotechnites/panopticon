@@ -321,6 +321,41 @@ tape: forest_kills_97
 in: 0
 seconds: 34
 
+## 26
+said: L5, the same ask as 23 ("didnt i say it has to be in the forest?"): the ground lens now also needs him in sight along his run for the next 1.6 s (3 of 4 points), so the round and the fall stay clear of the trunks; taped forest match seed 17, kills 7.43 s Runner_2 at 82.5 deg, 28.27 s Runner_3 at 341.7 deg
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --bots=3 --seed=17 --shimmer=0 --set=lift=1;spectate=1
+tape: forest_spec_17
+in: 0
+seconds: 30
+
+## 27
+said: L5, the same ask as 23 ("didnt i say it has to be in the forest?"): the ground lens now also needs him in sight along his run for the next 1.6 s (3 of 4 points), so the round and the fall stay clear of the trunks; taped forest match seed 31, kills 12.45 s Runner_3 at 152.9 deg, 35.38 s Runner_0 at 10.5 deg
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --bots=3 --seed=31 --shimmer=0 --set=lift=1;spectate=1
+tape: forest_spec_31
+in: 0
+seconds: 37.5
+
+## 28
+said: L5, the same ask as 23 ("didnt i say it has to be in the forest?"): the ground lens now also needs him in sight along his run for the next 1.6 s (3 of 4 points), so the round and the fall stay clear of the trunks; taped forest match seed 23, kills 4.48 s Runner_3 at 57.7 deg, 43.67 s Runner_3 at 143.2 deg
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --bots=3 --seed=23 --shimmer=0 --set=lift=1;spectate=1
+tape: forest_spec_23
+in: 0
+seconds: 45.5
+
+## 29
+said: L5, the same ask as 23 ("didnt i say it has to be in the forest?"): the ground lens now also needs him in sight along his run for the next 1.6 s (3 of 4 points), so the round and the fall stay clear of the trunks; taped forest match seed 89, kills 3.92 s, 20.13 s (shot 24 again)
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --bots=3 --seed=89 --shimmer=0 --set=lift=1;spectate=1
+tape: forest_kills_89
+in: 0
+seconds: 22
+
+## 30
+said: L5, the same ask as 23 ("didnt i say it has to be in the forest?"): the ground lens now also needs him in sight along his run for the next 1.6 s (3 of 4 points), so the round and the fall stay clear of the trunks; taped forest match seed 97, kills 9.25 s, 32.33 s (shot 25 again)
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --bots=3 --seed=97 --shimmer=0 --set=lift=1;spectate=1
+tape: forest_kills_97
+in: 0
+seconds: 34
+
 ## script v17
 from: v16
 # v17 = v16 with L6 refilmed (shot 22, head review of v16; 20 and 21 ran the lens into the rim wall): the shove on "shove", the victim 1.8 m off the lens, the eye on the POV.

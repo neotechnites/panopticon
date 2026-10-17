@@ -239,7 +239,15 @@ func _pick_spot(body: PlayerController) -> bool:
 			var eye: Vector3 = Vector3(at.x, floor_y + 1.4, at.z)
 			if not _roomy(space, eye) or not _clear(eye, p + Vector3.UP * 1.0, body) or not _clear(eye, p + Vector3.UP * 0.25, body):
 				continue
-			var score: float = dir.dot(out) * 1.0 + (1.0 - absf(dir.dot(run))) * 0.8 - absf(d - want) * 0.05
+			# He must stay in sight along his run for the next 1.6 s: the round's flight and the fall.
+			var seen: int = 0
+			for t: float in [0.4, 0.8, 1.2, 1.6]:
+				var ahead: Vector3 = p + body.velocity * Vector3(t, 0.0, t)
+				if _clear(eye, ahead + Vector3.UP * 0.6, body):
+					seen += 1
+			if seen < 3:
+				continue
+			var score: float = dir.dot(out) * 1.0 + (1.0 - absf(dir.dot(run))) * 0.8 - absf(d - want) * 0.05 + seen * 0.3
 			if score > best_score:
 				best_score = score
 				_spot = eye
