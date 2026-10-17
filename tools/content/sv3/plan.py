@@ -25,8 +25,10 @@ def group_key(shot, shots_by_id):
         seen.add(s["id"])
         s = shots_by_id[s["match"]["same_match_as"]]
     m = s["match"]
-    return (s["source"], m["map"], m["opening"], bool(m["old"]), s["id"] if shot["match"].get("same_match_as") or any(
-        x["match"].get("same_match_as") == s["id"] for x in shots_by_id.values()) else "")
+    linked = shot["match"].get("same_match_as") or any(x["match"].get("same_match_as") == s["id"] for x in shots_by_id.values())
+    # lines share a match only when linked by same_match_as or when they script exactly the same bodies
+    tag = s["id"] if linked else json.dumps((s.get("film") or {}).get("intents") or {}, sort_keys=True)
+    return (s["source"], m["map"], m["opening"], bool(m["old"]), tag)
 
 
 def intents_arg(group):
