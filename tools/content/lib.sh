@@ -93,15 +93,23 @@ EOF
   done
   export PC_LOCK_TOKEN="${token}"
   echo "pc lock: held for ${what} after $(since "${t_wait}") in line" >&2
-  ( while sleep 30; do pc <<EOF >/dev/null 2>&1 || true
+  trap pc_unlock EXIT
+  [ "${PC_LOCK_RENEW:-1}" = 1 ] || return 0   # a per-take lease is not renewed: it expires on its own
+  ( while sleep 30 && kill -0 $$ 2>/dev/null; do pc <<EOF >/dev/null 2>&1 || true   # dies with its script
 \$f = 'C:\\dev\\locks\\screen\\owner.json'
 \$o = Get-Content \$f -Raw -EA SilentlyContinue | ConvertFrom-Json -EA SilentlyContinue
 if (\$o -and \$o.token -eq '${token}') { \$o.expires = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() + ${PC_LOCK_TTL}; Set-Content -Path \$f -Value (\$o | ConvertTo-Json -Compress) }
 EOF
   done ) &
   PC_LOCK_RENEWER=$!
-  trap pc_unlock EXIT
 }
+
+# Per-take lease (shorts v3, sv3/capture.py): one take, expiry 3x its expected seconds, no renewer,
+# so a Mac that dies mid-take leaves a lease that expires by itself; pc_lock waits on a live one.
+pc_lock_take() {  # pc_lock_take <what> <expected-seconds>
+  PC_LOCK_TTL=$(( ${2:-60} * 3 )) PC_LOCK_RENEW=0 pc_lock "$1"
+}
+pc_unlock_take() { pc_unlock; }
 
 pc_unlock() {
   [ -n "${PC_LOCK_RENEWER:-}" ] && kill "${PC_LOCK_RENEWER}" 2>/dev/null

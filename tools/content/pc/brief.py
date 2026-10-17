@@ -77,8 +77,9 @@ def parse(path):
 
 
 def voice_rows(script):
-    """Rows that carry a voice line (text and not a beat)."""
-    return [r for r in script["rows"] if r.get("text") and not r.get("fit", "").startswith("beat")]
+    """Rows that carry a voice line (text, not a beat, not a `title` end card)."""
+    return [r for r in script["rows"] if r.get("text") and not r.get("fit", "").startswith("beat")
+            and (r.get("clip") or "").strip().lower() != "title"]
 
 
 if __name__ == "__main__":
