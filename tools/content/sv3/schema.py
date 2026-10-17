@@ -61,15 +61,15 @@ GUARD_STEP = r"^(wait:\d+(\.\d+)?|scope|miss:\d+|hit|idle(:\d+(\.\d+)?)?)$"
 FILM = {
     "type": "object",
     "properties": {
-        "seat": {"type": "string", "enum": ["guard", "runner:1", "runner:2", "runner:3", "free"]},
+        "seat": {"type": "string", "enum": ["guard", "runner:0", "runner:1", "runner:2", "free"]},
         "map": {"type": "string", "enum": ["hell", "forest", "marble", "grey"]},
         "opening": {"type": "string", "enum": ["race", "brawl", "seat"]},
         "players": {"type": "integer", "minimum": 1, "maximum": 4},
         "old": {"type": "boolean"},
         "intents": {
             "type": "object",
-            "description": "body -> comma-joined steps; runner steps: run, stop, cover:at:<s>, shove_when_rival_within:<m>, shove_when_rival_cover:<m> (shove a rival stopped at cover: the step for 'walk up to a runner stopped at cover, shove him'), look:tower:<s>, look:portal:<s>, portal, wait:<s>, brawl, idle; guard steps: wait:<s>, scope, miss:N, hit (always lands), idle. Bodies not named keep their shipped brain.",
-            "properties": {"guard": {"type": "string"}, "runner:1": {"type": "string"}, "runner:2": {"type": "string"}, "runner:3": {"type": "string"}},
+            "description": "body -> comma-joined steps; runner steps: run, stop, cover:at:<s>, shove_when_rival_within:<m>, shove_when_rival_cover:<m> (shove a rival stopped at cover: the step for 'walk up to a runner stopped at cover, shove him'), look:tower:<s>, look:portal:<s>, portal, wait:<s>, brawl, idle; guard steps: wait:<s>, scope, miss:N, hit (always lands), idle. Roster: `players` includes the guard; the runners are runner:0 .. runner:(players-2) (4 players = guard, runner:0, runner:1, runner:2); never name a body outside it. Bodies not named keep their shipped brain.",
+            "properties": {"guard": {"type": "string"}, "runner:0": {"type": "string"}, "runner:1": {"type": "string"}, "runner:2": {"type": "string"}},
         },
     },
     "required": ["seat", "map", "opening", "players", "old", "intents"],

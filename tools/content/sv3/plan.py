@@ -34,6 +34,12 @@ def group_key(shot, shots_by_id):
 def intents_arg(group):
     """`--intent=<body>=<steps>;...` merged over the group's film.intents (one match, several seats share one script)."""
     first = (group[0].get("film") or {}).get("intents") or {}
+    players = int((group[0].get("film") or {}).get("players") or (group[0].get("match") or {}).get("players") or 4)
+    roster = {"guard"} | {"runner:%d" % k for k in range(max(0, players - 1))}
+    dropped = sorted(set(first) - roster)
+    if dropped:                                       # the recorder refuses a body outside the roster; the schema should never emit one
+        print("  intents: dropping %s (roster for %d players is %s)" % (dropped, players, sorted(roster)))
+        first = {k: v for k, v in first.items() if k in roster}
     for s in group[1:]:
         if ((s.get("film") or {}).get("intents") or {}) != first:
             raise SystemExit("PLAN REFUSED: %s and %s share one match but script different bodies: %r vs %r (bodies not named keep their brain)" % (
@@ -75,7 +81,7 @@ def main(argv=None):
             kind = (s.get("film") or {}).get("seat") or s["seat"]
             seat = kinds.get(kind, kind)
             if seat == "runner:any":        # capture needs a body: the lowest runner not already filmed in this match
-                seat = next(x for x in ("runner:1", "runner:2", "runner:3") if x not in seats)
+                seat = next(x for x in ("runner:0", "runner:1", "runner:2") if x not in seats)
             kinds[kind] = seat
             if seat not in seats:
                 seats.append(seat)
