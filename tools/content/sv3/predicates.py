@@ -16,8 +16,11 @@ class Recording:
         self.take = json.load(open(tj if os.path.exists(tj) else os.path.join(d, "take.json")))
         self.events = _jsonl(os.path.join(d, fs + ".events.jsonl"))
         self.vis = _jsonl(os.path.join(d, fs + ".vis.jsonl"))
+        # The clip as assemble.py (PC, cwd = content/<project>) opens it: the pool is content/_tapes, the project's sibling.
         self.file = (self.take.get("files") or {}).get(seat) or (self.take.get("files") or {}).get(fs) \
-            or "_tapes/%s/%s.mkv" % (tape, fs)
+            or "../_tapes/%s/%s.mkv" % (tape, fs)
+        sp = os.path.join(d, fs + ".mkv.sync")           # pc_rough: seconds of recording before the take's t=0
+        self.sync = float(open(sp).read().strip()) if os.path.exists(sp) else 0.0
         self.dur = float(self.take.get("duration") or (self.vis[-1]["t"] if self.vis else 0.0))
 
     def occurrences(self, match, victim=None, lo=-1e9, hi=1e9):

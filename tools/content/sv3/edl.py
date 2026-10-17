@@ -16,7 +16,7 @@ captions: stack
 captions_font: Impact
 captions_size: 52
 captions_band: 0.06 0.55
-| line | clip | in | len | fit | speed | text | card |
+| line | clip | in | len | fit | speed | text | card | gif_fade |
 """
 
 
@@ -24,12 +24,13 @@ def clip_cell(entries):
     parts = []
     for e in entries:
         for p in e.get("parts") or [e]:
-            parts.append("%s@%.3f:%.3f" % (p["file"], p["in"], p["len"]))
+            parts.append("%s@%.3f:%.3f" % (p["file"], p["in"] + p.get("sync", 0.0), p["len"]))   # mkv time = log time + sync
     return ",".join(parts)
 
 
 def card_cell(shots, spec_line, entries):
-    cells = []
+    """(card cell, gif_fade cell): assemble.py reads each from its own column."""
+    cells, gifs = [], []
     for s in shots:
         for o in s.get("overlays") or []:
             if o["kind"] == "comment_card":
@@ -38,8 +39,8 @@ def card_cell(shots, spec_line, entries):
                 cells.append("cards/%s_card0.png w=940 y=0.2 in=0.05 out=0.2 from=%s to=%s+0.6" % (spec_line["id"], word.split()[0], last))
             elif o["kind"] == "gif_fade":
                 at = o["at"].split(":", 1)[1] if ":" in o["at"] else "0"
-                cells.append("gif_fade external/%s %s %.1f" % (os.path.basename(o.get("url", "image.gif")).split("?")[0], at, o.get("seconds", 1.5)))
-    return " ".join(cells)
+                gifs.append("external/%s %s %.1f" % (os.path.basename(o.get("url", "image.gif")).split("?")[0], at, o.get("seconds", 1.5)))
+    return " ".join(cells), " ".join(gifs)
 
 
 def rows_for(edl, shots, spec, words, pad):
@@ -51,7 +52,8 @@ def rows_for(edl, shots, spec, words, pad):
         entries = by_line.get(line["id"], [])
         lshots = [s for s in shots if s["line"] == line["id"]]
         if lshots and all(x["source"] in ("card", "black") for x in lshots):
-            rows.append("| %s | | | | title %.2f | | %s | |" % (line["id"], sum(e["len"] for e in entries) or 1.0, line["text"]))
+            # assemble.py's end card: clip `title`, len seconds (brief.py voice_rows skips it: no voice)
+            rows.append("| %s | title | | %.2f | | | %s | | |" % (line["id"], sum(e["len"] for e in entries) or 1.0, line["text"]))
             continue
         if not entries or not all(e.get("file") for e in entries):
             problems.append("%s has no picture in edl.json" % line["id"])
@@ -64,8 +66,9 @@ def rows_for(edl, shots, spec, words, pad):
             if w and total + 1e-6 < w["dur"] + pad:
                 problems.append("%s picture %.2f s is shorter than its voice + pad %.2f s" % (line["id"], total, w["dur"] + pad))
             fit = "wait" if any(e.get("fit") == "wait" for e in entries) else "line"
-        rows.append("| %s | %s |  |  | %s |  | %s | %s |" % (line["id"], clip_cell(entries), fit, line["text"], card_cell(lshots, line, entries)))
-    rows.append("| T | | | | title 1.0 | | beta link in bio | |")
+        card, gif = card_cell(lshots, line, entries)
+        rows.append("| %s | %s |  |  | %s |  | %s | %s | %s |" % (line["id"], clip_cell(entries), fit, line["text"].replace("|", "/"), card, gif))
+    rows.append("| T | title | | 1.0 | | | beta link in bio | | |")
     return rows, problems
 
 

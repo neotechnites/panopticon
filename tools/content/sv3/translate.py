@@ -104,8 +104,8 @@ def _nullify(shots):
         if w.get("until") in ("", "null", "none", "None"):
             w["until"] = None
         b = w.get("beat")
-        if isinstance(b, dict) and not b.get("word"):
-            w["beat"] = None
+        if isinstance(b, dict) and (not b.get("word") or str(b["word"]).strip().lower() in ("null", "none")):
+            w["beat"] = None          # the model writes the string "null" for no beat; search would look for that word
         if s.get("camera") in ("", "null", "None"):
             s["camera"] = None
     return shots
