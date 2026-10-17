@@ -384,6 +384,27 @@ tape: forest_kills_97
 in: 0
 seconds: 11.5
 
+## 35
+said: L5 (head on v17, Ryan's notes): kill 2 "small and far" and kill 4's lens through a trunk replaced; not "the same yellow gy" twice: the ground lens at 11 m (spec_d), held still through the fall (no re-pick at the hit); kill chosen by the headless log (lens on the victim, clear ray, not the pink runner): seed 17, 7.43 s Runner_2 (teal), lens 6.9 m, clear
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --bots=3 --seed=17 --shimmer=0 --set=lift=1;spectate=1;spec_d=11
+tape: forest_near_17
+in: 0
+seconds: 10
+
+## 36
+said: L5 (head on v17, Ryan's notes): kill 2 "small and far" and kill 4's lens through a trunk replaced; not "the same yellow gy" twice: the ground lens at 11 m (spec_d), held still through the fall (no re-pick at the hit); kill chosen by the headless log (lens on the victim, clear ray, not the pink runner): seed 71, 39.32 s Runner_2 (teal), lens 7.1 m, clear
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --bots=3 --seed=71 --shimmer=0 --set=lift=1;spectate=1;spec_d=11
+tape: forest_near_71
+in: 0
+seconds: 42
+
+## 37
+said: L5 (head on v17, Ryan's notes): kill 2 "small and far" and kill 4's lens through a trunk replaced; not "the same yellow gy" twice: the ground lens at 11 m (spec_d), held still through the fall (no re-pick at the hit); kill chosen by the headless log (lens on the victim, clear ray, not the pink runner): seed 103, 1.22 s Runner_2 (teal), lens 5.8 m, clear
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --bots=3 --seed=103 --shimmer=0 --set=lift=1;spectate=1;spec_d=11
+tape: forest_near_103
+in: 0
+seconds: 3.5
+
 ## script v17
 from: v16
 # v17 L5 = forest kills from the ground (Ryan: "didnt i say it has to be in the forest?"): shots 27, 34, 29, 33, rs_live spectate.
