@@ -386,6 +386,7 @@ seconds: 11.5
 
 ## script v17
 from: v16
+# v17 L5 = forest kills from the ground (Ryan: "didnt i say it has to be in the forest?"): shots 27, 34, 29, 33, rs_live spectate.
 # v17 = v16 with L6 refilmed (shot 22, head review of v16; 20 and 21 ran the lens into the rim wall): the shove on "shove", the victim 1.8 m off the lens, the eye on the POV.
 notes: ok, go fix ragdoll and get me a version that neess only my voiceover, and the comment. yes totally fine to use the old footage
 # v16 = v14's own frames (final/master/v14.mkv: B1 = L1-L4 with the placeholder card, B6 = L6) with two lines changed:
@@ -407,7 +408,7 @@ captions_size: 76
 captions_y: 0.72
 | line | clip | in | len | fit | speed | text | card |
 | B1 | final/master/v14.mkv@0:21.7333 |  |  | beat 21.7333 |  |  |  |
-| L5 | v7_05_g4.mp4@1.53:1.30,v7_05_j78.mp4@10.70:1.25,v7_05_h40.mp4@5.76:1.30,v7_05_g12.mp4@12.41:1.25,v7_05_g10.mp4@7.95:1.30 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
+| L5 | cuts/27.mp4@12.6:1.6,cuts/34.mp4@10.0:1.7,cuts/29.mp4@4.0:1.45,cuts/33.mp4@22.65:1.6 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
 | L6 | cuts/22.mp4 | 1.61 |  | line |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
 | L7 | cuts/19.mp4 | 33.85 |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
 | L8 | cuts/19.mp4@42.0 |  |  | line |  | Let me know what else I should add in the comments |  |
