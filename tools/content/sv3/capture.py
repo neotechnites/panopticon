@@ -87,8 +87,6 @@ echo "  godot+record $(since "$t0")"
 pc <<EOF
 \$d = '%(dir)s\%(sf)s'
 if (Test-Path \$d) {
-  foreach (\$f in 'events.jsonl', 'vis.jsonl', 'take.json') { if (Test-Path "\$d\\\$f") { Move-Item -Force "\$d\\\$f" '%(dir)s\%(sf)s.'+\$f } }
-  if (-not (Get-ChildItem \$d -Force)) { Remove-Item \$d -Force }
 }
 Get-ChildItem '%(dir)s' -File | ForEach-Object { \$_.Name + ' ' + \$_.Length }
 # A take the recorder refused still records a screen: its refusal lines and the length decide, not the sync frame.
@@ -116,11 +114,13 @@ EOF
     mac_dir = os.path.join(pool_mac, key)
     os.makedirs(mac_dir, exist_ok=True)
     host, keyfile = pc_host()
+    # The recorder writes <log dir>/{events.jsonl,vis.jsonl,take.json}; they land here as <seat>.<file>.
     want = ["%s.events.jsonl" % sf, "%s.vis.jsonl" % sf, "%s.take.json" % sf, "%s.mkv.sync" % sf, "%s.log" % sf, "tape.json"]
+    remote = {"%s.%s" % (sf, f): "%s/%s" % (sf, f) for f in ("events.jsonl", "vis.jsonl", "take.json")}
     got = []
     for name in want:
         try:
-            r = subprocess.run(["scp", "-q", "-i", keyfile, "%s:%s/%s" % (host, pc_dir, name), os.path.join(mac_dir, name)],
+            r = subprocess.run(["scp", "-q", "-i", keyfile, "%s:%s/%s" % (host, pc_dir, remote.get(name, name)), os.path.join(mac_dir, name)],
                                capture_output=True, text=True, timeout=120)
         except subprocess.TimeoutExpired:
             raise SystemExit("capture: pulling %s/%s hung for 120 s" % (key, name))
