@@ -130,8 +130,7 @@ step voice "${CONTENT_DIR}/voice.sh" "${NAME}" --tag "${TAG}"
 step words pull_words
 step unprovision unprovision
 need plan plan;           step plan      sv3 plan "${WORK}/shots.json" --stages "${STAGES}" --words "${WORK}/voice/words.json" --brief "${BRIEF}" --tag "${TAG}"
-if [ "${MAC_ONLY}" = 1 ]; then
-  tapes() {  # one tape per name, recorded headless on the PC (tape.sh) before any smoke or take plays it
+tapes() {  # one tape per name, recorded headless on the PC (tape.sh) before any smoke or take plays it
   local seen="" sync=""
   for id in $(grep '^## [0-9]' "${BRIEF}" | awk '{print $2}'); do
     local t; t=$(brief_field "${BRIEF}" "${id}" tape)
@@ -144,7 +143,8 @@ if [ "${MAC_ONLY}" = 1 ]; then
   [ -z "${seen}" ] || (cd "${REPO_DIR}" && git add "tools/content/projects/${NAME}/tapes" && git -c user.name=Ryan -c user.email=ryan@olympus.local commit -qm "${NAME} ${TAG}: tapes${seen}" ) || true
 }
 step tapes tapes
-step short "${CONTENT_DIR}/short.sh" "${NAME}" --tag "${TAG}" --smoke-only
+if [ "${MAC_ONLY}" = 1 ]; then
+  step short "${CONTENT_DIR}/short.sh" "${NAME}" --tag "${TAG}" --smoke-only
   echo "short3 ${NAME} ${TAG} --mac-only: Mac smokes passed in $(since "${T_ALL}"); timings in ${TIMING}"
   exit 0
 fi
