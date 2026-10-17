@@ -1,3 +1,10 @@
+# What each version changed (the agent's record; Ryan's notes are the ## entries below, verbatim).
+# v16 from v14 (ragdoll_short_v16.mp4, master final\master\v16.mkv): frames 0-1303 (L1-L4, card) and 1683-1976 (L6) are v14's own, framemd5-identical.
+#   L5: v7's hell montage, five live kills (v7_05 g4, j78, h40, g12, g10), 1.2-1.3 s each. Forest tried by numbers (probe_ring --los,
+#       3 taped bot matches, shots 16-18, 6 kills): every kill hidden by the tower's own pillars or canopy, the scope drops on the bolt.
+#   L7+L8: shot 19 (rs_live seed 2, untaped): corridor, portal, the finale cinematic's shove with no particles, the flat throw cut before
+#       the guard drops through the pit floor; L8 a ring runner. Captions, voice (Andrew +5%), card and L8 text unchanged; no music.
+
 ## v7 | ragdoll_short_rough_v7.mp4 | 2026-10-12 18:30
 ragdoll is ok i think, the last shot shows the gaurd clipping into the map after being chucked, and shouldnt. also this sint youre fault, bur we now have a forest map we should be using for some gameplay clips. lets replace the gameplay of the hitting shots montage to be in the forest. also, we should cut after "not an animator" and then the shot of the person getting shoved off and ragdolling, is geniunely, a perfect shot, with the execption that the eye isnt looking at the pov player, and needs to be. so please run that exactly how it was and just fix the eye thing.
 
