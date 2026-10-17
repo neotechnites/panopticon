@@ -53,6 +53,8 @@ def run_clip_args(m, seat, first, tape_pc, log_pc):
             a.append("--%s=%s" % (k, m[k]))
     if m.get("seat_intent"):
         a.append("--seat-intent=%s" % m["seat_intent"])
+    if m.get("intent"):                     # the plan's scripted players: body=step,step;body=...
+        a.append("--intent=%s" % m["intent"])
     a.append(("--record=%s" if first else "--tape=%s") % tape_pc)
     return " ".join(a) + " --log=%s" % log_pc
 
