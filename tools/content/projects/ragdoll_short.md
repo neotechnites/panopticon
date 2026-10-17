@@ -292,6 +292,14 @@ tape: pit_shove_3b
 in: 0
 seconds: 8
 
+
+## 22
+said: L6, the same ask as 20; after the shove shots 20 and 21 ran on into the rim wall (walled from 62 deg, r 47-47.3) with the eyes on the pit, the lens against it: he stops at 57 deg (after_to, he halts at 58.4) and watches the fall; taped, the shove unchanged (4.20 s, 49.2 deg, 1.78 m, in the pit 6.28 s)
+capture: --shot=s3_open_lane --stage=rs_pitshove --pov=runner --bots=3 --seed=7 --shimmer=0 --set=pack=3;shove_gap=1.3;turn_gap=2.6;shover_r=50.2;from=13;back=8.5;after_to=57
+tape: pit_shove_3c
+in: 0
+seconds: 8
+
 ## script v17
 from: v16
 # v17 = v16 with L6 refilmed (shot 20, head review of v16): the shove on "shove", the victim 1.8 m off the lens, the eye on the POV.

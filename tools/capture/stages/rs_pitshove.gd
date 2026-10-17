@@ -8,7 +8,8 @@ extends "res://tools/capture/stages/stage.gd"
 # He is ahead in the narrow portrait frame from the start: 4 m up the lane, 0.7 m inside, run down at pace 0.8.
 # Dials: from (31), back (4.6 deg), pace (0.8), turn_gap (1.9 m), flinch_gap (1.6), shove_gap (0.45: beside him, so the throw is across the pit), follow (1.1 s),
 # victim_r (48.9), shover_r (49.6), exposure (2.2; 0 keeps the map's), ahead (1: two more runners up the lane), impulse (16) and up (7): the shipped shove,
-# pack (4: runners on the ring; 3 keeps a short's 4-player cap with one runner ahead).
+# pack (4: runners on the ring; 3 keeps a short's 4-player cap with one runner ahead), after_r (48.6) and after_to (70 deg):
+# where he runs on after the shove (the rim wall starts at 62 deg).
 
 const ON_TO: float = 70.0
 
@@ -167,7 +168,7 @@ func on_shove(_from: MatchParticipant, victim: MatchParticipant) -> void:
 	say("shove: %s at %.1f deg r %.2f, %.2f m from %s, facing %.0f deg off the lane" % [_victim.name, LIB.bearing_of(_victim.global_position), LIB.radius_of(_victim.global_position), _victim.global_position.distance_to(_shover.global_position), _shover.name, _right_of(_lane_of(_shover), -_shover.global_transform.basis.z)])
 	# His feet go inside the 52-54 deg rock (r 50.5) while his eyes stay on the fall.
 	_drivers_by_body[_shover].retarget([
-		{"do": "lane", "to": ON_TO, "r": float(option("after_r", 48.6)), "speed": 1.0, "weave": 0.02, "period": 1.1, "timeout": 12.0, "carry": true,
+		{"do": "lane", "to": float(option("after_to", ON_TO)), "r": float(option("after_r", 48.6)), "speed": 1.0, "weave": 0.02, "period": 1.1, "timeout": 12.0, "carry": true,
 			"glances": [{"t": 0.0, "right": 30.0, "pitch": -15.0}]},
 		{"do": "hold", "seconds": 60.0},
 	])
