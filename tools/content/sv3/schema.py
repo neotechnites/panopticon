@@ -55,8 +55,8 @@ PREDICATE = {
     "required": ["p"],
 }
 
-RUNNER_STEP = r"^(run|cover:at:\d+(\.\d+)?|shove_when_rival_within:\d+(\.\d+)?|look:(tower|portal):\d+(\.\d+)?|portal|wait:\d+(\.\d+)?|brawl|idle)$"
-GUARD_STEP = r"^(miss:\d+|hit|scope|idle|wait:\d+(\.\d+)?)$"
+RUNNER_STEP = r"^(run|cover:at:\d+(\.\d+)?|shove_when_rival_within:\d+(\.\d+)?|look:tower:\d+(\.\d+)?|portal|wait:\d+(\.\d+)?|brawl|idle)$"
+GUARD_STEP = r"^(miss:\d+|hit|scope|idle)$"
 
 FILM = {
     "type": "object",
