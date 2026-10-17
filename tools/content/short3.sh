@@ -12,6 +12,7 @@ source "$(dirname "$0")/lib.sh"
 
 USAGE="usage: tools/content/short3.sh <script.md> --name <project> --tag vN [--mac-only]"
 SCRIPT="${1:?${USAGE}}"; shift
+SCRIPT="$(cd "$(dirname "${SCRIPT}")" && pwd)/$(basename "${SCRIPT}")"   # sv3 steps run from tools/content
 NAME=""; TAG=""; MAC_ONLY=0
 while [ $# -gt 0 ]; do
   case "$1" in --name) NAME="$2"; shift ;; --tag) TAG="$2"; shift ;; --mac-only) MAC_ONLY=1 ;; *) die "unknown option $1 (${USAGE})" ;; esac
