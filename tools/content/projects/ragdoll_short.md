@@ -490,6 +490,7 @@ said: L1 "The death animation in my game was really bad." -- Ryan: "start form s
 capture: --shot=s3_open_lane --stage=rs_snipe --pov=guard --bots=3 --seed=20261017 --shimmer=0 --set=old=1;plan=0m,1m,2h;start=1.0
 hud: crosshair
 motion: 0.005
+freeze: 1
 in: 2.6
 seconds: 6.5
 
@@ -504,6 +505,7 @@ said: L4 -- Ryan: "a sniper pov, missing shots, then cut to the runner pov near 
 capture: --shot=s3_open_lane --stage=rs_snipe --pov=guard --bots=3 --seed=20261017 --shimmer=0 --set=plan=0m,1m,2m,0m
 hud: crosshair
 motion: 0.005
+freeze: 1
 in: 1.0
 seconds: 7.5
 
@@ -527,7 +529,7 @@ captions_y: 0.72
 | L1 | cuts/40.mp4 | 2.6 |  | line |  | The death animation in my game was really bad. |  |
 | M2 | cuts/40.mp4 | cont |  | beat 1.6 |  |  |  |
 | L3 | cuts/41.mp4 | 1.0 |  | line |  | Yeaeeeeeeeh I needed something better, but if my art didnt make it clear, I'm a programmer, not an animator |  |
-| L4 | cuts/42.mp4@1.0:6.7,cuts/39.mp4@1.2:3.6 |  |  | wait |  | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem. Ragdolls | cards/L4_card0.png w=940 y=0.2 in=0.05 out=0.2 from=this to=Ragdolls+0.6 |
-| L5 | cuts/27.mp4@11.85:2.65,cuts/37.mp4@0.6833:1.4167,cuts/29.mp4@3.25:2.25 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
-| L6 | cuts/22.mp4@1.21:4.25 |  |  | nohold |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
-| L7 | cuts/19.mp4 | 33.2 |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
+| L4 | cuts/42.mp4@1.0:6.7,cuts/39_v19.mp4@1.2:3.6 |  |  | wait |  | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem. Ragdolls | cards/L4_card0.png w=940 y=0.2 in=0.05 out=0.2 from=this to=Ragdolls+0.6 |
+| L5 | cuts/27_v19.mp4@11.85:2.65,cuts/37_v19.mp4@0.6833:1.4167,cuts/29_v19.mp4@3.25:2.25 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
+| L6 | cuts/22_v19.mp4@1.21:4.25 |  |  | nohold |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
+| L7 | cuts/19_v19.mp4 | 33.2 |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
