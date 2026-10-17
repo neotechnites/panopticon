@@ -68,7 +68,7 @@ FILM = {
         "old": {"type": "boolean"},
         "intents": {
             "type": "object",
-            "description": "body -> comma-joined steps; runner steps: run, stop, cover:at:<s>, shove_when_rival_within:<m>, shove_when_rival_cover:<m> (shove a rival stopped at cover: the one for "walk up to a runner stopped at cover, shove him"), look:tower:<s>, look:portal:<s>, portal, wait:<s>, brawl, idle; guard steps: wait:<s>, scope, miss:N, hit (always lands), idle. Bodies not named keep their shipped brain.",
+            "description": "body -> comma-joined steps; runner steps: run, stop, cover:at:<s>, shove_when_rival_within:<m>, shove_when_rival_cover:<m> (shove a rival stopped at cover: the step for 'walk up to a runner stopped at cover, shove him'), look:tower:<s>, look:portal:<s>, portal, wait:<s>, brawl, idle; guard steps: wait:<s>, scope, miss:N, hit (always lands), idle. Bodies not named keep their shipped brain.",
             "properties": {"guard": {"type": "string"}, "runner:1": {"type": "string"}, "runner:2": {"type": "string"}, "runner:3": {"type": "string"}},
         },
     },
