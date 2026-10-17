@@ -7,7 +7,8 @@ extends "res://tools/capture/stages/stage.gd"
 # forest shot in trailer v35, but in hell". Probe --floor: rocks at 36 r53, 48 r51.5-52, 52-54 r50.5, 58 r53.
 # He is ahead in the narrow portrait frame from the start: 4 m up the lane, 0.7 m inside, run down at pace 0.8.
 # Dials: from (31), back (4.6 deg), pace (0.8), turn_gap (1.9 m), flinch_gap (1.6), shove_gap (0.45: beside him, so the throw is across the pit), follow (1.1 s),
-# victim_r (48.9), shover_r (49.6), exposure (2.2; 0 keeps the map's), ahead (1: two more runners up the lane), impulse (16) and up (7): the shipped shove.
+# victim_r (48.9), shover_r (49.6), exposure (2.2; 0 keeps the map's), ahead (1: two more runners up the lane), impulse (16) and up (7): the shipped shove,
+# pack (4: runners on the ring; 3 keeps a short's 4-player cap with one runner ahead).
 
 const ON_TO: float = 70.0
 
@@ -22,7 +23,7 @@ var _eyes_front: bool = false
 
 
 func bots() -> int:
-	return 4
+	return int(option("pack", 4))
 
 
 func needs_pov() -> String:
@@ -47,7 +48,7 @@ func before_start() -> void:
 
 
 func cast(runners: Array[RunnerBrain]) -> bool:
-	if runners.size() < 4:
+	if runners.size() < 2:
 		return false
 	for brain: RunnerBrain in runners:
 		if brain.controller == null:
@@ -75,7 +76,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "hold", "seconds": 60.0},
 	], 1, "ClipPitShover")
 	# Two more up the lane in his eyeline (inside the 48-54 deg rocks), the race he is in: they run on.
-	for i: int in [2, 3]:
+	for i: int in range(2, runners.size()):
 		var lead: float = from + (6.0 if i == 2 else 10.0)
 		var r: float = 49.4 if i == 2 else 48.3
 		if int(option("ahead", 1)) == 0:

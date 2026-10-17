@@ -276,3 +276,10 @@ said: L7+L8 -- the shove on the guard hidden (v12 diff: "the shove is hidden by 
 capture: --shot=s3_open_lane --stage=rs_live --pov=runner --bots=3 --seed=2 --shimmer=0 --set=ride=Runner_1;tower_fov=100
 in: 0
 seconds: 48
+
+## 20
+said: L6 -- Ryan: "when i say "shove someone" the pov runner shoves a person in front of them off into the pit"; "the eye isnt looking at the pov player, and needs to be"; no camera clipping into models: shot 6's rim shove at the 4-player cap (pack=3: the victim, the POV, one ahead + the guard), the shove from 1.8 m (shove_gap 1.3, shover_r 50.2) so his head stays out of the lens, a longer run-down (from 13, back 8.5) so the walk-up covers "once I had this I wanted to use it more"; taped: shove 4.20 s at 49.2 deg r 48.8, 42 deg off the lane, in the pit 6.28 s
+capture: --shot=s3_open_lane --stage=rs_pitshove --pov=runner --bots=3 --seed=7 --shimmer=0 --set=pack=3;shove_gap=1.3;turn_gap=2.6;shover_r=50.2;from=13;back=8.5
+tape: pit_shove_3
+in: 0
+seconds: 8
