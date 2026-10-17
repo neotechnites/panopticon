@@ -56,6 +56,7 @@ extends SceneTree
 ## --out=DIR        directory the clip is destined for; created if missing
 ## --record=PATH    write the take's tape (tools/capture/clip_tape.gd) to PATH
 ## --tape=PATH      play a recorded tape: every input and trigger pull from it, no brains
+## --frame=WxH     the take's frame for the [lens] probe's cover grid (a headless smoke is 64x64)
 ## --sync=N         real-time rough take: N white frames before the world is built, gone
 ##                  on the take's first frame, so a screen recording finds t=0 by it
 ## [/codeblock]
@@ -84,6 +85,7 @@ extends SceneTree
 const SHOTS := preload("res://tools/capture/shot_paths.gd")
 const CHAIN_STAGE := preload("res://tools/capture/chain_stage.gd")
 const CLIP_TAPE := preload("res://tools/capture/clip_tape.gd")
+const LENS_PROBE := preload("res://tools/capture/lens_probe.gd")
 const STAGE_DRIVER := preload("res://tools/capture/stage_driver.gd")
 const STAGE_LIB := preload("res://tools/capture/stages/lib.gd")
 const STAGES_DIR: String = "res://tools/capture/stages/"
@@ -198,6 +200,7 @@ var _dials: Dictionary = {}
 var _tape: RefCounted = null
 var _built: bool = false
 var _done: bool = false
+var _lens: RefCounted = null
 var _exit_code: int = EXIT_OK
 ## --match (see MATCH_RECORD.md): a real match from one seat, its events and what the seat sees logged.
 const SEAT_INTENT := preload("res://tools/capture/seat_intent.gd")
@@ -268,6 +271,7 @@ func _initialize() -> void:
 		"cam": "",
 		"seat-intent": "",
 		"intent": "",
+		"frame": "",
 	})
 	_sync_frames = int(_options.get("sync", 0))
 	if _sync_frames > 0 and OS.has_feature("movie"):
@@ -344,14 +348,18 @@ func _process(delta: float) -> bool:
 		_ride_a_body()
 		_meet_the_eye(delta)
 		_crosshair_only_through_the_eye()
+		_log_the_lens(delta)
 	else:
 		if _plugin == null or not _plugin.lens(delta):
 			var progress: float = clampf((_elapsed - _delay) / _seconds, 0.0, 1.0)
 			_aim_camera(_key_start + progress * _key_span)
 		_turn_the_eye(delta)
+	_probe_the_lens()
 	if _elapsed >= _delay + _seconds:
 		if _tape != null:
 			_tape.finish()
+		if _lens != null:
+			_lens.free_space()
 		_hush()
 		_done = true
 	return false
@@ -996,6 +1004,39 @@ func _log_the_rifle() -> void:
 
 
 ## Print the match's beats, so a take can be judged off its log.
+## One line per frame for shot.sh's jump gate: time, frame delta, the ridden body's top speed, the lens position.
+func _log_the_lens(delta: float) -> void:
+	var lens: Camera3D = root.get_viewport().get_camera_3d()
+	var body: PlayerController = _pov_body as PlayerController
+	if lens == null or body == null or not is_instance_valid(body):
+		return
+	var top: float = body.profile.ground_speed * body.speed_scale * body.run_speed_scale
+	var at: Vector3 = lens.global_position
+	print("[cam] %.4f %.4f %.3f %.4f %.4f %.4f" % [_elapsed, delta, top, at.x, at.y, at.z])
+
+
+## One [lens] line per frame for expect.py's lens_clear and lens_cover: metres to the nearest thing, frame share within 2 m.
+func _probe_the_lens() -> void:
+	var viewer: Camera3D = root.get_camera_3d()
+	if viewer == null or _controller == null:
+		return
+	if _lens == null:
+		_lens = LENS_PROBE.new()
+		_lens.build(_controller.get_parent())
+		print("[lens] probe: %d meshes, %d triangles, frame %s" % [_lens.meshes, _lens.triangles, _lens_frame()])
+	var seen: Dictionary = _lens.measure(viewer, _pov_body, _lens_frame())
+	print("[lens] %.3f near=%.2f cover=%.2f" % [_elapsed, seen["near"], seen["cover"]])
+
+
+
+## The take's frame: --frame=WxH (a headless smoke's viewport is not the take's), else the viewport.
+func _lens_frame() -> Vector2:
+	var asked: PackedStringArray = String(_options.get("frame", "")).split("x")
+	if asked.size() == 2 and asked[0].to_float() > 0.0 and asked[1].to_float() > 0.0:
+		return Vector2(asked[0].to_float(), asked[1].to_float())
+	return root.get_visible_rect().size
+
+
 func _log_events() -> void:
 	_controller.participant_shoved.connect(
 		func(shover: MatchParticipant, victim: MatchParticipant) -> void:

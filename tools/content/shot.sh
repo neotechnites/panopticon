@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Capture and render ONE shot of a project on the PC, from its entry in the brief.
 #
-#   tools/content/shot.sh <project> <n> [--crosshair] [--movie] [--name NAME]
+#   tools/content/shot.sh <project> <n> [--crosshair] [--movie] [--name NAME] [--smoke]
+#   --smoke: only the Mac headless smoke of the entry's expect: lines (required), then exit.
 #
 # Rough (the default): ONE take at real speed, the screen recorded (lib.sh pc_rough);
 # a portrait take is 810x1440, scaled to 1080x1920 at the cut. A failed gate prints why
-# and stops: no retry, no fallback. --movie (final only): Movie Maker, native 1080x1920.
+# and stops: no retry, no fallback. The gate also fails a take that cuts inside the shot
+# (a scene change, the camera changing body, or a POV lens jumping position) or whose POV body is out or shoved in it. --movie (final only): Movie Maker, native 1080x1920.
 # --name: the cut is cuts\NAME.mp4 (default NN). A cut an earlier tag used is never overwritten.
 #
 # Entry fields it reads: capture (run_clip args) or still (shot.gd args), tape (a
@@ -18,7 +20,8 @@
 # line is the same as hud: crosshair -- a guard POV keeps the crosshair, nothing
 # else is drawn on any shot), and file (a name: the same cut is also written on
 # its own, in the brief's aspect, to final\<file>.mp4 -- a shot handed over as a
-# clip, not a timeline).
+# clip, not a timeline). expect: lines (tools/content/expect.py) run the capture headless on the
+# Mac first, fixed fps, same seed; any miss stops here with the numbers and the PC is never touched.
 #
 # A short is filmed PORTRAIT through a temporary override.cfg in its own PC checkout
 # (C:\dev\worktrees\content_<project>, lib.sh pc_use_project); the
@@ -33,13 +36,13 @@
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
-USAGE="usage: tools/content/shot.sh <project> <n> [--crosshair] [--movie] [--name NAME]"
+USAGE="usage: tools/content/shot.sh <project> <n> [--crosshair] [--movie] [--name NAME] [--smoke]"
 PROJECT="${1:?${USAGE}}"
 N="${2:?${USAGE}}"
-CROSSHAIR=0; MODE=rough; OUT=""
+CROSSHAIR=0; MODE=rough; OUT=""; SMOKE_ONLY=0
 set -- "${@:3}"
 while [ $# -gt 0 ]; do
-  case "$1" in --crosshair) CROSSHAIR=1 ;; --movie) MODE=movie ;; --name) OUT="$2"; shift ;; *) die "unknown flag $1" ;; esac
+  case "$1" in --crosshair) CROSSHAIR=1 ;; --movie) MODE=movie ;; --name) OUT="$2"; shift ;; --smoke) SMOKE_ONLY=1 ;; *) die "unknown flag $1" ;; esac
   shift
 done
 BRIEF=$(brief_path "${PROJECT}")
@@ -59,6 +62,8 @@ AT=$(brief_field "${BRIEF}" "${N}" at)
 REF=$(brief_field "${BRIEF}" "${N}" ref)   # capture this one shot at a git ref, with that ref's own tools
 HOLD=$(brief_field "${BRIEF}" "${N}" hold 3)
 TAKES_MAX=$(brief_field "${BRIEF}" "${N}" takes "${TAKES_MAX}")
+JUMP_SPEEDS=3   # a POV lens moving over 3x its body's top speed in one frame is a teleport: the take fails
+SCENE_CUT=0.5   # a frame-to-frame scene score above this inside the cut is a camera cut: the take fails
 # A pinned seed plays the same take every time; retrying it buys nothing. Rough is one take.
 [[ "${CAPTURE}" == *--seed=* ]] && TAKES_MAX=1
 [ "${MODE}" = rough ] && TAKES_MAX=1
@@ -99,6 +104,25 @@ fi
 # No HUD on any shot unless the entry asks: hud: crosshair (a guard POV) or hud: on.
 if [ -n "${HUD}" ] && [[ "${CAPTURE}" != *--hud=* ]]; then CAPTURE="${CAPTURE} --hud=${HUD}"; fi
 echo "shot ${NN} -> cuts\\${OUT}.mp4 (${MODE} ${SIZE}): ${SAID}"
+
+# expect: lines (expect.py): the same capture headless on the Mac first, fixed fps, same seed; a miss never reaches the PC.
+EXPECT=$(awk -v n="${N}" '/^## / { inside = ($2 == n); next } inside && /^expect:/ { sub("^expect:[ \t]*", ""); print }' "${BRIEF}")
+[ "${SMOKE_ONLY}" = 0 ] || [ -n "${EXPECT}" ] || die "shot ${NN}: no expect: lines; every capture shot is smoked before a take"
+# short.sh smokes every shot before the first take and sets SMOKE_PASSED so a passed smoke is not run twice.
+if [ -n "${EXPECT}" ] && [ -n "${CAPTURE}" ] && [ "${SMOKE_PASSED:-0}" = 0 ]; then
+  SMOKE_LOG=$(mktemp -t "smoke_${NAME}_${NN}")
+  SMOKE_ARGS="${CAPTURE}"; [[ "${SMOKE_ARGS}" == *--seed=* ]] || SMOKE_ARGS="${SMOKE_ARGS} --seed=${SEED:-20260930}"
+  T0=$(now_ms)
+  STAGE_DEBUG=1 "${MAC_GODOT:-godot}" --headless --path "${REPO_DIR}" --fixed-fps "${FPS}" --script res://tools/capture/run_clip.gd -- \
+    ${SMOKE_ARGS} --frame="${SIZE}" --seconds="$(python3 -c "print(${IN} + ${SECONDS_WANTED} + ${GAP} + 1.0)")" > "${SMOKE_LOG}" 2>&1 || true
+  IFS=$'\n' read -r -d '' -a EXPECT_LINES <<< "${EXPECT}" || true
+  if ! EXPECT_WINDOW="${IN} ${SECONDS_WANTED}" python3 "${CONTENT_DIR}/expect.py" "${SMOKE_LOG}" "${EXPECT_LINES[@]}"; then
+    die "shot ${NN}: the Mac smoke missed its expect: lines (log ${SMOKE_LOG}); nothing was filmed"
+  fi
+  echo "  smoke: passed on the Mac in $(since "$T0")"
+  rm -f "${SMOKE_LOG}"
+fi
+[ "${SMOKE_ONLY}" = 0 ] || exit 0
 
 # Film only from this branch's own commit; the sync is outside the lock (it covers capture and assemble).
 if [ "$(pc <<< "git -C $(ff "${PC_PROJECT}") rev-parse HEAD" | tr -d '\r')" != "$(git -C "${REPO_DIR}" rev-parse HEAD)" ]; then
@@ -152,7 +176,32 @@ $(ss_ps "${avi}")
 \$f = ffmpeg -hide_banner -nostats -ss \$ss -t ${TOTAL} -i '${avi}' -an -vf "freezedetect=n=${FREEZE_NOISE_DB}dB:d=${FREEZE_MAX_SECONDS}" -f null - 2>&1 | Select-String 'freeze_duration' | Measure-Object
 \$line = ('motion={0:N4} freeze={1}' -f \$motion, \$f.Count)
 Set-Content -Path '${DIR}\\takes\\${tag}.txt' -Value \$line
-Write-Output \$line
+\$inv = [Globalization.CultureInfo]::InvariantCulture
+\$cuts = @(ffmpeg -hide_banner -nostats -ss \$ss -t ${TOTAL} -i '${avi}' -an -vf "scale=160:-2,select='gt(scene,${SCENE_CUT})',metadata=print:file=-" -f null - 2>\$null | Select-String 'pts_time:([0-9.]+)' | ForEach-Object { [math]::Round([double]::Parse(\$_.Matches[0].Groups[1].Value, \$inv) + ${IN}, 2) })
+\$lo = [double]${IN}; \$hi = [double]${IN} + [double]${TOTAL}; \$pov = ''; \$bad = @(); \$cam = \$null; \$jumps = @()
+foreach (\$l in (Get-Content '${log}' -EA SilentlyContinue)) {
+  if (\$l -match '^\[cam\]\s+([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)\s+(\S+)\s+(\S+)\s+(\S+)') {
+    \$t = [double]::Parse(\$Matches[1], \$inv); \$xyz = @(4,5,6 | ForEach-Object { [double]::Parse(\$Matches[\$_], \$inv) })
+    if (\$cam -and \$t -gt \$lo -and \$t -le \$hi) {
+      \$d = [math]::Sqrt([math]::Pow(\$xyz[0]-\$cam[0],2) + [math]::Pow(\$xyz[1]-\$cam[1],2) + [math]::Pow(\$xyz[2]-\$cam[2],2))
+      \$cap = ${JUMP_SPEEDS} * [double]::Parse(\$Matches[3], \$inv) * [double]::Parse(\$Matches[2], \$inv)
+      if (\$d -gt \$cap -and \$jumps.Count -lt 5) { \$jumps += ('{0:N2} s ({1:N2} m in a frame, cap {2:N2})' -f \$t, \$d, \$cap) }
+    }
+    \$cam = \$xyz
+  } elseif (\$l -match '^\[pov\]\s+([0-9.]+)\s+(ride|guard|ghost)\s+(\S+)') {
+    \$t = [double]::Parse(\$Matches[1], \$inv)
+    if (\$t -gt \$lo -and \$t -lt \$hi -and \$pov -and \$pov -ne \$Matches[3]) { \$bad += "the camera changes body at \$t s (\$pov -> \$(\$Matches[3]))" }
+    if (\$t -lt \$hi) { \$pov = \$Matches[3] }
+  } elseif (\$pov -and \$l -match '^\[event\]\s+([0-9.]+)\s+(out|shove|catch|ghosted)\s+(.*)$') {
+    \$t = [double]::Parse(\$Matches[1], \$inv); \$kind = \$Matches[2]; \$rest = \$Matches[3]
+    \$who = switch (\$kind) { 'shove' { (\$rest -split '->')[1].Trim().Split(' ')[0] } 'catch' { (\$rest -split 'took')[1].Trim().Split(' ')[0] } default { \$rest.Trim().Split(' ')[0] } }
+    if (\$t -ge \$lo -and \$t -le \$hi -and \$who -eq \$pov) { \$bad += "the POV body \$pov is \$kind at \$t s" }
+  }
+}
+if (\$cuts.Count -gt 0) { Write-Output ('FAILED: the take cuts inside the shot (scene change at ' + (\$cuts -join ', ') + ' s); one continuous camera only') }
+elseif (\$jumps.Count -gt 0) { Write-Output ('FAILED: the POV camera jumps position at ' + (\$jumps -join ', ') + '; a POV moves only as a player can') }
+elseif (\$bad.Count -gt 0) { Write-Output ('FAILED: ' + (\$bad -join '; ')) }
+else { Write-Output \$line }
 EOF
   echo "  take ${tag}: gate $(since "$t0")" >&2
 }

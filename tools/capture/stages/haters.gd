@@ -7,7 +7,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## runner's POV: being shot at (tracers past him), then shoving another runner
 ## off the lane into the pit" / "the shover turns back and gets sniped".
 ##
-## [code]--stage=haters --shot=s3_open_lane --map=forest --bots=3 --seconds=8.6 --seed=20261012[/code]
+## [code]--stage=haters --shot=s3_open_lane --map=forest --bots=4 --seconds=8.6 --seed=20261012[/code]
 ##
 ## The beat, clip seconds: three runners on the lane's last leg to the portal
 ## (bearing rising, 320 -> 340 deg; the portal at 345). The tower brain is

@@ -47,7 +47,7 @@ if grep -q '^## script' "${BRIEF}"; then
   pc_push "${CONTENT_DIR}/pc/card.py" "$(ff "${DIR}")/scripts/card.py"
   pc <<EOF
 \$ErrorActionPreference = 'Continue'
-& '${PC_PYTHON}' '${DIR}\\scripts\\assemble.py' '${DIR}' '${DIR}\\notes\\brief.md' '${TAG}' ${CAPTIONS} 2>&1
+& '${PC_PYTHON}' '${DIR}\\scripts\\assemble.py' '${DIR}' '${DIR}\\notes\\brief.md' '${TAG}' ${CAPTIONS} 2>&1 | ForEach-Object { "$_" }
 exit \$LASTEXITCODE
 EOF
   echo "assemble done in $(since "$T_ALL"): ${DIR}\\final\\${TAG}.mp4"
