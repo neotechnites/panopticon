@@ -81,8 +81,9 @@ class Recording:
         """Metres per second of `who` over [lo, hi] from vis `pos` (bodies) / `cam_pos` (the seat); None when the log lacks them."""
         pts = []
         for s in self.samples(lo, hi):
-            if who == "seat":
-                p = s.get("cam_pos")
+            if who == "seat":    # the seat body's own pos (head bob makes cam_pos lie), else the camera
+                sb = next((b for b in s.get("bodies", []) if b.get("id") == self.seat), None)
+                p = (sb.get("pos") if sb else None) or s.get("cam_pos")
             else:
                 b = self.body_in(s, who, victim)
                 p = b.get("pos") if b else None
