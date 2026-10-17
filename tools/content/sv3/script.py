@@ -27,8 +27,9 @@ def select(raw, block=None, section=None):
     if block == "last":
         chunks = [c for c in re.split(r"\n[ \t]*\n[ \t]*\n[ \t]*\n+", raw) if c.strip()]
         raw = chunks[-1]
-    # markdown `# header` lines are labels, never voice
-    return "\n".join(l for l in raw.splitlines() if not l.startswith("# "))
+    # markdown `# header` lines and `key: value` header lines (kind:, voice:, music:) are labels, never voice
+    hdr = re.compile(r"^(kind|voice|music|captions|aspect|format|base|cutoff):\s", re.I)
+    return "\n".join(l for l in raw.splitlines() if not l.startswith("# ") and not hdr.match(l))
 
 
 def parse(raw):
