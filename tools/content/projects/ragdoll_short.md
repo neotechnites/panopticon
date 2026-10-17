@@ -268,8 +268,7 @@ seconds: 34
 motion: 0.005
 
 ## 19
-said: L7+L8 -- the shove on the guard hidden (v12 diff: "the shove is hidden by orange portal particles"); Ryan: "the gaurd flys off and through the walls of the map, which he shouldnt do"; "the last shot shows the gaurd clipping into the map after being chucked, and shouldnt": shot 8's match (rs_live, seed 2, riding Runner_1, 3 runners + the guard) with the rider's lens widened to fov 100 inside the tower (tower_fov), so the guard is whole in frame when he is shoved; taped: Runner_1 takes the tower at 42.80 s
+said: L7+L8 -- the shove on the guard hidden (v12 diff: "the shove is hidden by orange portal particles"); Ryan: "the gaurd flys off and through the walls of the map, which he shouldnt do"; "the last shot shows the gaurd clipping into the map after being chucked, and shouldnt": shot 8's match (rs_live, seed 2, riding Runner_1, 3 runners + the guard) with the rider's lens widened to fov 100 inside the tower (tower_fov), so the guard is whole in frame when he is shoved; real time, untaped (the tape replayed a different match): headless, Runner_1 takes the tower at 42.80 s
 capture: --shot=s3_open_lane --stage=rs_live --pov=runner --bots=3 --seed=2 --shimmer=0 --set=ride=Runner_1;tower_fov=100
-tape: finale_wide
 in: 0
 seconds: 48

@@ -121,8 +121,10 @@ func tick(delta: float) -> void:
 ## tower_fov: the ridden runner's eye widens once he is in the tower room (r < 15) and still a prisoner.
 func _widen_in_the_tower() -> void:
 	var fov: float = float(option("tower_fov", 0.0))
+	if fov <= 0.0 or clip._pov != "runner" or not is_instance_valid(clip._pov_body):
+		return
 	var body: PlayerController = clip._pov_body as PlayerController
-	if fov <= 0.0 or clip._pov != "runner" or body == null or not is_instance_valid(body):
+	if body == null:
 		return
 	var eye: Camera3D = clip._eye_of(body)
 	var inside: bool = Vector2(body.global_position.x, body.global_position.z).length() < 15.0
