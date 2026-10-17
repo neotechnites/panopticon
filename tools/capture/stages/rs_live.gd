@@ -5,6 +5,8 @@ extends "res://tools/capture/stages/stage.gd"
 ## Dials: speed (195, rules.guard_projectile_speed), hold (1.6), flight (0.45), follow (5: how fast the scope eases after the body), lift (1, the guard_alone grade), clear (0.74), old (0),
 ## ride (a runner's name: --pov=runner stays on that body), beat (the finale's kill beat, shipped 2.0),
 ## ahead and sure (the bot's cover look-ahead and sure-shot confidence; shipped 0.35, 0.9),
+## spectate (0; 1 with no --pov: a ground camera beside the runner the guard aims at, kept in clear sight of him, held on the body after a hit),
+## spec_fov (38), spec_d (14 m), spec_hold (1.8 s),
 ## tower_fov (0: off; the ridden runner's lens fov inside the tower until he holds it, so the shove shows the guard whole).
 
 var _guard: PlayerController = null
@@ -12,6 +14,15 @@ var _held: float = 0.0
 var _held_shooter: TowerShooter = null
 var _fallen: PlayerController = null
 var _base_fov: float = 0.0
+var _runners: Array[PlayerController] = []
+var _subject: PlayerController = null
+var _candidate: PlayerController = null
+var _candidate_for: float = 0.0
+var _spot: Vector3 = Vector3.ZERO
+var _spot_ok: bool = false
+var _blind_for: float = 0.0
+var _look: Vector3 = Vector3.ZERO
+var _hit_hold: float = 0.0
 
 
 ## --bots sets the ring (shorts cap at 4 players with the guard).
@@ -50,6 +61,9 @@ func before_start() -> void:
 func cast(runners: Array[RunnerBrain]) -> bool:
 	var ride: String = String(option("ride", ""))
 	for brain: RunnerBrain in runners:
+		if brain.controller != null:
+			_runners.append(brain.controller)
+	for brain: RunnerBrain in runners:
 		if brain.controller != null and brain.controller.name == ride:
 			stage_body(brain.controller)
 			say("rs_live: riding %s" % ride)
@@ -72,6 +86,8 @@ func on_shot(_confidence: float) -> void:
 
 
 func on_hit(collider: Node3D) -> void:
+	if collider is PlayerController and collider == _subject:
+		_hit_hold = float(option("spec_hold", 1.8))
 	if collider is PlayerController and _held_shooter != null:
 		_held = float(option("hold", 1.6))
 		_fallen = collider as PlayerController
@@ -137,3 +153,108 @@ func _widen_in_the_tower() -> void:
 	elif _base_fov > 0.0:
 		eye.fov = _base_fov
 		_base_fov = -1.0
+
+
+# --- spectate: a ground camera on the runner the guard is aiming at ---------------------------
+
+func lens(delta: float) -> bool:
+	if int(option("spectate", 0)) != 1 or _guard == null or not is_instance_valid(_guard):
+		return false
+	var cam: Camera3D = camera()
+	cam.fov = float(option("spec_fov", 38.0))
+	if _hit_hold > 0.0:
+		_hit_hold -= delta
+		var avatar: PrisonerAvatar = PrisonerAvatar.of(_subject) if is_instance_valid(_subject) else null
+		if avatar != null:
+			_look = _look.lerp(avatar.drawn_centre(), 1.0 - exp(-delta * 6.0))
+		_place(cam)
+		return true
+	var aimed: PlayerController = _aimed_at()
+	if aimed != _candidate:
+		_candidate = aimed
+		_candidate_for = 0.0
+	_candidate_for += delta
+	if _candidate != null and _candidate != _subject and (_subject == null or _candidate_for > 0.5):
+		_subject = _candidate
+		_spot_ok = _pick_spot(_subject)
+		_look = _subject.global_position + Vector3.UP * 1.0
+	if _subject == null or not is_instance_valid(_subject):
+		return _spot_ok
+	var chest: Vector3 = _subject.global_position + Vector3.UP * 1.0
+	_blind_for = 0.0 if _clear(_spot, chest, _subject) else _blind_for + delta
+	if not _spot_ok or _blind_for > 0.3 or _spot.distance_to(chest) > 24.0:
+		_spot_ok = _pick_spot(_subject)
+		_blind_for = 0.0
+		_look = chest
+	_look = _look.lerp(chest, 1.0 - exp(-delta * 8.0))
+	_place(cam)
+	return _spot_ok
+
+
+func _place(cam: Camera3D) -> void:
+	if _spot_ok and _spot.distance_to(_look) > 0.5:
+		cam.global_position = _spot
+		cam.look_at(_look, Vector3.UP)
+
+
+## The runner nearest the guard's line of aim.
+func _aimed_at() -> PlayerController:
+	var eye: Camera3D = _guard.get_node_or_null(^"Head/Camera") as Camera3D
+	if eye == null:
+		return null
+	var fwd: Vector3 = -eye.global_transform.basis.z
+	var best: PlayerController = null
+	var best_dot: float = 0.97
+	for body: PlayerController in _runners:
+		if not is_instance_valid(body) or body == _guard or absf(body.global_position.y - 23.0) > 6.0:
+			continue
+		var d: float = fwd.dot((body.global_position + Vector3.UP - eye.global_position).normalized())
+		if d > best_dot:
+			best_dot = d
+			best = body
+	return best
+
+
+## A standing spot 9-20 m from the body with a clear line to his chest and feet, preferring the
+## outside of the ring (the tower behind him) and side-on to his run.
+func _pick_spot(body: PlayerController) -> bool:
+	var space: PhysicsDirectSpaceState3D = body.get_world_3d().direct_space_state
+	var p: Vector3 = body.global_position
+	var out: Vector3 = Vector3(p.x, 0.0, p.z).normalized()
+	var run: Vector3 = Vector3(body.velocity.x, 0.0, body.velocity.z)
+	run = run.normalized() if run.length() > 0.5 else out.cross(Vector3.UP)
+	var want: float = float(option("spec_d", 14.0))
+	var best_score: float = -INF
+	for a: int in range(0, 360, 15):
+		var dir: Vector3 = out.rotated(Vector3.UP, deg_to_rad(float(a)))
+		for d: float in [want - 4.0, want, want + 4.0, want + 7.0]:
+			var at: Vector3 = p + dir * d
+			var q := PhysicsRayQueryParameters3D.create(at + Vector3.UP * 6.0, at + Vector3.DOWN * 8.0)
+			var hit: Dictionary = space.intersect_ray(q)
+			if hit.is_empty():
+				continue
+			var floor_y: float = (hit["position"] as Vector3).y
+			if absf(floor_y - p.y) > 2.5:
+				continue
+			var eye: Vector3 = Vector3(at.x, floor_y + 1.4, at.z)
+			if not _roomy(space, eye) or not _clear(eye, p + Vector3.UP * 1.0, body) or not _clear(eye, p + Vector3.UP * 0.25, body):
+				continue
+			var score: float = dir.dot(out) * 1.0 + (1.0 - absf(dir.dot(run))) * 0.8 - absf(d - want) * 0.05
+			if score > best_score:
+				best_score = score
+				_spot = eye
+	return best_score > -INF
+
+
+func _roomy(space: PhysicsDirectSpaceState3D, eye: Vector3) -> bool:
+	for v: Vector3 in [Vector3.RIGHT, Vector3.LEFT, Vector3.FORWARD, Vector3.BACK, Vector3.UP]:
+		if not space.intersect_ray(PhysicsRayQueryParameters3D.create(eye, eye + v * 0.8)).is_empty():
+			return false
+	return true
+
+
+func _clear(from: Vector3, to: Vector3, body: PlayerController) -> bool:
+	var space: PhysicsDirectSpaceState3D = body.get_world_3d().direct_space_state
+	var q := PhysicsRayQueryParameters3D.create(from, to)
+	var hit: Dictionary = space.intersect_ray(q)
+	return hit.is_empty() or hit["collider"] == body or (hit["position"] as Vector3).distance_to(to) < 0.4

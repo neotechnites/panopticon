@@ -300,9 +300,30 @@ tape: pit_shove_3c
 in: 0
 seconds: 8
 
+## 23
+said: L5 -- Ryan: "didnt i say it has to be in the forest?"; "lets replace the gameplay of the hitting shots montage to be in the forest"; "fast clips of the sniper hitting shots"; "dont last long enough for you to see the ragdoll, and every single one is an ariel snipe"; "none of the snipes have projectiles. they need to": shot 16's taped forest match (seed 11) seen from the ground, not the scope: rs_live spectate=1 puts the lens 10-21 m from the runner the guard aims at, on a spot with a clear ray to his chest and feet (the forest's trunks were what hid every scope kill), outside him with the tower behind, and holds on the body 1.8 s after a hit; taped kills 0.95 s Runner_3 at 15.7 deg, 19.47 s Runner_1 at 230.8 deg
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --bots=3 --seed=11 --shimmer=0 --set=lift=1;spectate=1
+tape: forest_kills_11
+in: 0
+seconds: 21.5
+
+## 24
+said: L5 -- Ryan: "didnt i say it has to be in the forest?"; "lets replace the gameplay of the hitting shots montage to be in the forest"; "fast clips of the sniper hitting shots"; "dont last long enough for you to see the ragdoll, and every single one is an ariel snipe"; "none of the snipes have projectiles. they need to": shot 17's taped forest match (seed 89) seen from the ground, not the scope: rs_live spectate=1 puts the lens 10-21 m from the runner the guard aims at, on a spot with a clear ray to his chest and feet (the forest's trunks were what hid every scope kill), outside him with the tower behind, and holds on the body 1.8 s after a hit; taped kills 3.92 s Runner_3 at 50.8 deg, 20.13 s Runner_1 at 209.5 deg
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --bots=3 --seed=89 --shimmer=0 --set=lift=1;spectate=1
+tape: forest_kills_89
+in: 0
+seconds: 22
+
+## 25
+said: L5 -- Ryan: "didnt i say it has to be in the forest?"; "lets replace the gameplay of the hitting shots montage to be in the forest"; "fast clips of the sniper hitting shots"; "dont last long enough for you to see the ragdoll, and every single one is an ariel snipe"; "none of the snipes have projectiles. they need to": shot 18's taped forest match (seed 97) seen from the ground, not the scope: rs_live spectate=1 puts the lens 10-21 m from the runner the guard aims at, on a spot with a clear ray to his chest and feet (the forest's trunks were what hid every scope kill), outside him with the tower behind, and holds on the body 1.8 s after a hit; taped kills 9.25 s Runner_2 at 102.1 deg, 32.33 s Runner_2 at 9.5 deg
+capture: --map=forest --shot=s3_open_lane --stage=rs_live --bots=3 --seed=97 --shimmer=0 --set=lift=1;spectate=1
+tape: forest_kills_97
+in: 0
+seconds: 34
+
 ## script v17
 from: v16
-# v17 = v16 with L6 refilmed (shot 20, head review of v16): the shove on "shove", the victim 1.8 m off the lens, the eye on the POV.
+# v17 = v16 with L6 refilmed (shot 22, head review of v16; 20 and 21 ran the lens into the rim wall): the shove on "shove", the victim 1.8 m off the lens, the eye on the POV.
 notes: ok, go fix ragdoll and get me a version that neess only my voiceover, and the comment. yes totally fine to use the old footage
 # v16 = v14's own frames (final/master/v14.mkv: B1 = L1-L4 with the placeholder card, B6 = L6) with two lines changed:
 # L5 = v7's hell montage (v6's kills g4 j78 h40 g12 g10; forest timed out: shots 16-18 unreadable), L7+L8 = shot 19:
@@ -324,6 +345,6 @@ captions_y: 0.72
 | line | clip | in | len | fit | speed | text | card |
 | B1 | final/master/v14.mkv@0:21.7333 |  |  | beat 21.7333 |  |  |  |
 | L5 | v7_05_g4.mp4@1.53:1.30,v7_05_j78.mp4@10.70:1.25,v7_05_h40.mp4@5.76:1.30,v7_05_g12.mp4@12.41:1.25,v7_05_g10.mp4@7.95:1.30 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
-| L6 | cuts/20.mp4 | 1.61 |  | line |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
+| L6 | cuts/22.mp4 | 1.61 |  | line |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
 | L7 | cuts/19.mp4 | 33.85 |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
 | L8 | cuts/19.mp4@42.0 |  |  | line |  | Let me know what else I should add in the comments |  |
