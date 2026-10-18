@@ -4,7 +4,7 @@ kind: library
 Smoked reference entries for stages with no approved project yet; sv3.catalogue reads them.
 
 ## 1
-said: short 10 L1, guard POV in hell: the hand at the 62 deg window puts a round 1.4 m behind the lead (2.0 s) and the middle man (3.4 s), then drops the lead in the open past the 066 lip rock (hit 5.86 s, 82.3 deg); the picture ends before the shove. Mac smoke: shove 10.00, the shoved man hit in the air 10.43.
+said: short 10 L1, guard POV in hell: the hand at the 62 deg window puts a round 1.4 m behind the lead (2.0 s) and the middle man (3.4 s), then drops the lead in the open past the 066 lip rock (hit 5.86 s, 82.3 deg); the picture ends before the shove. Mac smoke: shove 9.98, the shoved man hit in the air 10.40.
 capture: --shot=s3_open_lane --stage=hell_explainer --pov=guard --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017
 tape: stages_hell_explainer
 hud: crosshair
@@ -13,12 +13,11 @@ seconds: 8.4
 in: 1.2
 
 ## 2
-said: short 10 L2+L3, the SAME tape from the back runner: the rounds land by the pack, the lead drops; the middle man stops crouched in the 066 rock's shadow at 69.0 deg, the POV walks up and shoves him from 1.8 m (10.00 s), the hand drops him in the air before he lands (hit 10.43, 74.2 deg), ragdolls; the POV watches 1.1 s and runs on up S2. The POV lives.
+said: short 10 L2+L3, the SAME tape from the back runner: the rounds land by the pack, the lead drops; the middle man jogs into the 066 rock's shadow and stops crouched at 68.6 deg (9.37 s); the POV runs the lane without a stop (42.5 deg at 7.2 s, 53.4 at 8.5, 62.4 at 9.5) and shoves him from 1.8 m in stride (9.98 s), the hand drops him in the air before he lands (hit 10.40, 73.6 deg), ragdolls; the POV watches 1.1 s and runs on up S2. The POV lives.
 capture: --shot=s3_open_lane --stage=hell_explainer --pov=runner --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017
 tape: stages_hell_explainer
 expect: hit Runner_1 5.75-5.95; out Runner_1 +0.0-0.3; shove Runner_2 9.9-10.1; in_frame Runner_2 10.35-10.5; out Runner_2 10.35-10.5; alive Runner_3; lens_clear; lens_cover <= 0.5
-
-seconds: 13.0
+seconds: 12.2
 motion: 0.011
 in: 1.2
 

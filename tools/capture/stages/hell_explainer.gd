@@ -11,9 +11,9 @@ extends "res://tools/capture/stages/stage.gd"
 ##
 ## The beat: three run the S1 deck into S2 at r 49.5, bearing rising (the course's way). The
 ## hand (guard_hand at the window, never a brain) puts a round behind the lead, one behind the
-## middle man, then drops the lead in the open past the lip rock. The middle man stops crouched
-## in the rock's shadow; the POV (the back man) comes in behind him, slows to a walk, shoves him
-## from 1.8 m with the shipped shove; the hand drops him in the air, before he lands (he
+## middle man, then drops the lead in the open past the lip rock. The middle man jogs in and stops
+## crouched in the rock's shadow 0.6 s before the shove; the POV (the back man) runs in behind him
+## and shoves him from 1.8 m in stride, never stopping, with the shipped shove; the hand drops him in the air, before he lands (he
 ## ragdolls, CATCH_AND_SWAP); the POV runs on up the S2 lane.
 ##
 ## The numbers (probe_ring.gd, eye at the 62 deg window, 5.6 m off the axis, 5.9 m over the deck):
@@ -25,9 +25,9 @@ extends "res://tools/capture/stages/stage.gd"
 ## throws a man out of. The shipped 16 m/s shove carries a man ~5.5 m (6.4 deg at r 49.5): from
 ## 68.5 he lands near 75, open deck. 11 m/s ground speed x 0.70 pace is ~8.9 deg/s at r 49.5.
 ##
-## Dials (--set=): start ("lead,mid,pov" deg; 34,30,25), r (49.5), stop (68.5, the mid man's
-## crouch), pov_stop (65.0), walk_at (9.6, clip s the POV walks in: shove ~10.0, >= 4.0 s after
-## the lead hit 5.86), walk (0.35), reach (1.8),
+## Dials (--set=): start ("lead,mid,pov" deg; 34,22,4.8), r (49.5), stop (68.5, the mid man's
+## crouch), mid_pace (0.41), pov_pace (0.45, to pov_mid 42.0 at ~7.1 s), pov_run (0.70, from there
+## into the shove ~10.0, >= 4.0 s after the lead hit 5.86), reach (1.8),
 ## watch (1.1 s the POV stands after the shove), run_to (100.0), window (62.0), hand_at (0.8), zoom_at (1.2), miss_lead (2.0), miss_mid (3.4),
 ## miss_by (1.4 m), drop_at (5.5, the lead's squeeze), air_delay (0.05 s after the shove, the
 ## shoved man's squeeze: the round reaches him in the air),
@@ -81,13 +81,12 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	for index: int in 3:
 		if runners[index].controller == null:
 			return false
-	var starts: PackedStringArray = String(option("start", "34,30,25")).split(",", false)
+	var starts: PackedStringArray = String(option("start", "34,22,4.8")).split(",", false)
 	var r: float = float(option("r", 49.5))
-	var cast_at: float = elapsed()
 	var stop: float = float(option("stop", 68.5))
 	var run_to: float = float(option("run_to", 100.0))
 	for index: int in 3:
-		var deg: float = float(starts[index]) if starts.size() == 3 else [34.0, 30.0, 25.0][index]
+		var deg: float = float(starts[index]) if starts.size() == 3 else [34.0, 22.0, 4.8][index]
 		var lane: Dictionary = {
 			"do": "lane", "to": run_to, "r": r - (0.7 if index == LEAD else 0.0), "speed": PACE[index],
 			"weave": WEAVE[index], "period": PERIOD[index], "timeout": 30.0,
@@ -99,10 +98,12 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		]
 		if index == MID:
 			lane["to"] = stop
+			lane["speed"] = float(option("mid_pace", 0.41))
 			# Crouched in the rock's shadow, peeking up the open lane ahead.
 			steps.append({"do": "hold", "seconds": 60.0, "crouch": true, "sway": 10.0, "period": 2.4})
 		elif index == POV:
-			lane["to"] = float(option("pov_stop", 65.0))
+			lane["to"] = float(option("pov_mid", 42.0))
+			lane["speed"] = float(option("pov_pace", 0.45))
 			# Eyes up the lane on the men ahead; on a hit a jerk and back.
 			lane["glances"] = [
 				{"t": 0.0, "right": 0.0, "pitch": -2.0},
@@ -116,9 +117,12 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 				{"t": 0.12, "right": 4.0, "pitch": -3.0},
 				{"t": 0.4, "right": 0.0, "pitch": -1.5},
 			]
-			steps.append({"do": "until", "t": float(option("walk_at", 9.6)) - cast_at})
-			steps.append({"do": "chase", "victim": runners[MID].controller, "range": float(option("reach", 1.8)),
-				"speed": float(option("walk", 0.35)), "timeout": 4.0})
+			# No wait: up the lane at the pack's pace and into the shove in one stride.
+			var reach: float = float(option("reach", 1.8))
+			var run: float = float(option("pov_run", 0.70))
+			steps.append({"do": "lane", "to": stop - rad_to_deg((reach + 0.4) / r), "r": r, "speed": run,
+				"weave": 0.03, "period": 1.6, "timeout": 10.0})
+			steps.append({"do": "chase", "victim": runners[MID].controller, "range": reach, "speed": run, "timeout": 4.0})
 			# Watch him fly and drop, then continue the course.
 			steps.append({"do": "hold", "seconds": float(option("watch", 1.1))})
 			steps.append({"do": "lane", "to": run_to, "r": r, "speed": 0.72, "weave": 0.03, "period": 1.6, "timeout": 30.0})
