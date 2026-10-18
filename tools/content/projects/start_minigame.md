@@ -27,7 +27,7 @@ expect: hit Runner_1 8.9-9.1; in_frame Runner_1 +0.0-0.05; lens_clear; lens_cove
 seconds: 4.6
 in: 5.4
 motion: 0.012
-refilm: v1,v2,v4
+refilm: v1,v2,v4,v7
 
 ## 4
 said: pov of race in forest
@@ -55,7 +55,15 @@ expect: brawl_start 0.0-0.1; shove Runner_1 2.37-2.57; brawl_out Runner_1 3.3-3.
 seconds: 14.65
 in: 0.3
 motion: 0.012
-refilm: v1,v2,v3,v4,v5,v6
+refilm: v1,v2,v3,v4,v5,v6,v7
+
+## 7
+said: second shot of the race in forest, another racer's eyes over the same course (Ryan on v6: "the running in the forest is too long, and we need to break it up with a second shot. dealers choice")
+capture: --shot=s3_open_lane --stage=forest_race --map=forest --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017 --set=ride=2
+expect: race_start 0-0.5; lens_clear; lens_cover <= 0.5
+seconds: 8
+in: 7.5
+refilm: v7
 
 ## script v1
 pad: 0.2
@@ -141,4 +149,22 @@ pad: 0.2
 | L4 | cuts/04_v4.mp4 | 0 | 19.5 | line | | so, i implemented a race, every player does the course with no sniper, and the first one to complete it gets to be the sniper. this, was the worst part of my game. it wasnt fun, everyone was the same speed, and it took to long | |
 | L5 | cuts/04_v4.mp4 | cont | | line | | so how did i fix it? | |
 | L6 | cuts/06_v6.mp4 | 0 | 14.65 | line | | instead of everyone running to the tower, everyone starts in the tower, and the way you get to be the sniper, is to be the last one standing in it. so now, instead of a long drawn out boring race, its a fast, chaotic, brawl to see who goes first | |
+| end | title | | 1.75 | | | beta signup in bio | |
+
+## script v7
+from: v6
+notes: Ryan on short 9 (v6, task #601): "for the minigame short, two things, one the host of the running in the forest is too long, and we need to break it up with a second shot. dealers choice. tow, the sniper keeps trcaking, but theyre not standing where a sniper would stand, and when they do shoot its through the column of the tower. the death animation, in the gray space, is still fucking shit, becuase the model is blood red like they are in he.l. you already did this one successfully i have no idea what youre problem is. other than that its good."
+notes: Ryan on short 9 (v5, task #601): "short 9 is good, with the one acception that at the end, the very very end, the sniper sits looing at nothing for like a second"
+notes: Ryan on n2 (v4, task #601): "for the shove one, the gameplay of the shove minigame is super weird because of the way the bots behave, and its unclear thats whats happening. change the minigame so instead of everyone facing away, everyone starts closer to the edge facing in. that can be an actual gameplay change. then record that instead"
+notes: Ryan on n1 (v3, task #601): "for 9, shot one, should only be the shove and the cinematic, not the going into the portal at all. the next two shots are fine, the shot of the player can just be removed. then, why is the last shot not from the perspective of a player? and also, why do the player charactes look like that in game? we made such a detailed model, what the fuck is going on? is the branch youre on not useing the most up to date game?"
+notes: Agent frame check of v2 (task #601, not Ryan's notes; v2 was not shown to him): L6 the last one standing runs out of frame for 1.4 s before he is seated (the room reads empty).
+notes: Agent frame check of v1 (task #601, not Ryan's notes; v1 was not shown to him): L1 the kill-beat camera loses the guard for the last 0.8 s; L3 the scope holds 2 s on empty lava after the drop; L5 the bust cuts off the top of his head; L6 the PC brawl ran untaped and diverged from the smoke (an empty room before the seat).
+pad: 0.2
+| line | clip | in | len | fit | speed | text | card |
+| L1 | cuts/01_v4.mp4 | 0 | 2.5 | wait | | Heres how i fixed the worst part about my game | |
+| L2 | cuts/02_v4.mp4 | 0 | 6.4 | line | | In my game, youre either the sniper in the gaurd tower, or youre running an obsticle course to become the sniper. | |
+| L3 | cuts/03_v7.mp4 | 0.2 | 4.4 | line | | but this has a problem, whos the sniper first? i wanted it to be earned | |
+| L4 | cuts/04_v4.mp4@0:6.4,cuts/07_v7.mp4 | 0 | | line | | so, i implemented a race, every player does the course with no sniper, and the first one to complete it gets to be the sniper. this, was the worst part of my game. it wasnt fun, everyone was the same speed, and it took to long | |
+| L5 | cuts/04_v4.mp4@0:6.4,cuts/07_v7.mp4 | cont | | line | | so how did i fix it? | |
+| L6 | cuts/06_v7.mp4 | 0 | 14.65 | line | | instead of everyone running to the tower, everyone starts in the tower, and the way you get to be the sniper, is to be the last one standing in it. so now, instead of a long drawn out boring race, its a fast, chaotic, brawl to see who goes first | |
 | end | title | | 1.75 | | | beta signup in bio | |

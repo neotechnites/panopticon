@@ -12,3 +12,6 @@ Ryan on n2 (v4, task #601): "for the shove one, the gameplay of the shove miniga
 
 ## v5 | start_minigame_v5.mp4 | 2026-10-18 08:45
 Ryan on short 9 (v5, task #601): "short 9 is good, with the one acception that at the end, the very very end, the sniper sits looing at nothing for like a second"
+
+## v6 | start_minigame_v6.mp4 | 2026-10-18 11:40
+Ryan on short 9 (v6, task #601): "for the minigame short, two things, one the host of the running in the forest is too long, and we need to break it up with a second shot. dealers choice. tow, the sniper keeps trcaking, but theyre not standing where a sniper would stand, and when they do shoot its through the column of the tower. the death animation, in the gray space, is still fucking shit, becuase the model is blood red like they are in he.l. you already did this one successfully i have no idea what youre problem is. other than that its good."

@@ -135,6 +135,8 @@ func _scope_the_runners() -> void:
 	for p: MatchParticipant in controller().get_participants():
 		if p != _ride and p.body != null:
 			pool.append(p.body)
+	# He takes the opening a guard aims from (seat_deg, seat_r out): a clear line over the lake, no pier in the scope.
+	LIB.guard_to_window(_ride.body, float(option("seat_deg", 25.0)), float(option("seat_r", 6.2)))
 	_hand = GUARD_HAND.new()
 	_hand.name = "BrawlWinnerHand"
 	clip.root.add_child(_hand)

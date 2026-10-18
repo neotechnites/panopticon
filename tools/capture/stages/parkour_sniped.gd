@@ -12,7 +12,8 @@ extends "res://tools/capture/stages/lavaparkour.gd"
 ## (r 54.8: 298, 309.5, 321, 332.6) open; every inner top (r 50.2) hidden by the S5 rim. From 315 or 325 the tower's own
 ## wall blocks the lake; 305 is the window.
 ##
-## Dials (--set=): window (305.0), look_to (3.4, he turns off the tower), misses ("1.9,3.0": the squeezes that miss), miss_by (1.5),
+## He aims from the 295 opening's centre, 6.2 m out at the sill (guard_deg, guard_r): the 305 spot put the 315 pier in the scope as it swung.
+## Dials (--set=): window (305.0, where the runner looks), look_to (3.4, he turns off the tower), misses ("1.9,3.0": the squeezes that miss), miss_by (1.5),
 ## hand_at (0.8), zoom_at (1.2), drop_at (0.0 = no drop), hold_to (0.0),
 ## look_drift (1.4 m: the eyes wander on the window so the look is never a frozen frame; 0 drift froze the take).
 
@@ -99,7 +100,7 @@ func _raise_the_hand() -> void:
 	if shooter == null or shooter.controller == null:
 		return
 	_guard = shooter.controller
-	LIB.guard_to_window(_guard, float(option("window", 305.0)), 5.6)
+	LIB.guard_to_window(_guard, float(option("guard_deg", 295.0)), float(option("guard_r", 6.2)))
 	LIB.open_the_scope(_guard, float(option("clear", 0.74)))
 	_hand = GUARD_HAND.new()
 	_hand.name = "ClipGuardHand"
