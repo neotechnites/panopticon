@@ -34,7 +34,9 @@ extends "res://tools/capture/stages/stage.gd"
 ## miss_by (1.4 m), drop_at (5.5, the lead's squeeze), hold_to (9.0, the hand holds on the fallen lead), air_delay (0.05 s after the shove, the
 ## shoved man's squeeze: the round reaches him in the air),
 ## impulse / up (0 = the shipped shove). follow (0 off; ragdoll_short L4): the POV runs this many metres behind the
-## lead on pov_r at follow_pace (the lead's pace), stops at the drop and watches him ragdoll.
+## lead on pov_r at follow_pace (the lead's pace), stops at the drop and watches him ragdoll. fling (0: the shipped
+## 70) / carry (1.0): the lead's death ragdoll impulse along the round and the share of his run he keeps (v24 L4: thrown by it);
+## follow_right (0 deg): the follower's eyes off the lane; watch_limp (0): his watch rides the limp body, not where it was shot.
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
@@ -57,6 +59,8 @@ var _landed: bool = false
 var _last_beat_at: float = 0.0
 ## Whether the POV's own eye arms are on the shove, for the [pov] arms log.
 var _arms_out: bool = false
+## watch_limp: where the follower's watch looks, on the lead's limp body once he is shot.
+var _limp_mark: Node3D = null
 
 
 func bots() -> int:
@@ -144,6 +148,13 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		if index == MID:
 			_mid_driver = driver
 		_bodies.append(runners[index].controller)
+	if float(option("fling", 0.0)) > 0.0:
+		var avatar: PrisonerAvatar = PrisonerAvatar.of(_bodies[LEAD])
+		var ragdoll: Object = avatar.get(&"_ragdoll") if avatar != null else null
+		if ragdoll != null:
+			ragdoll.set(&"impulse", float(option("fling", 0.0)))
+			ragdoll.set(&"carry_velocity", float(option("carry", 1.0)))
+			say("hell_explainer: %s's ragdoll impulse %.0f, carry %.2f" % [_bodies[LEAD].name, float(option("fling", 0.0)), float(option("carry", 1.0))])
 	victim_body(_bodies[MID])
 	stage_body(_bodies[POV])
 	say("hell_explainer: lead %s, mid %s (stops %.1f), POV %s, r %.1f" % [_bodies[LEAD].name, _bodies[MID].name, stop, _bodies[POV].name, r])
@@ -156,16 +167,26 @@ func _cast_follower(runners: Array[RunnerBrain], lead_deg: float, follow: float,
 	var deg: float = lead_deg - rad_to_deg(follow / pov_r)
 	var hit_at: float = float(option("drop_at", 5.5)) + 0.37
 	var lead: PlayerController = runners[LEAD].controller
+	var right: float = float(option("follow_right", 0.0))
+	var seen: Node3D = lead
+	var seen_h: float = float(option("watch_h", 0.5))
+	if float(option("watch_limp", 0.0)) > 0.0:
+		_limp_mark = Node3D.new()
+		_limp_mark.name = "ClipLimpMark"
+		clip.root.add_child(_limp_mark)
+		_limp_mark.global_position = lead.global_position + Vector3.UP * seen_h
+		seen = _limp_mark
+		seen_h = 0.0
 	var steps: Array = [
 		{"do": "place", "at": LIB.ring_point(deg, pov_r, 0.1), "face": LIB.tangent_at(deg)},
 		{"do": "human", "on": true},
 		{"do": "lane", "to": run_to, "r": pov_r, "speed": float(option("follow_pace", pace)), "weave": 0.03, "period": 1.7,
 			"timeout": hit_at + float(option("pull_up", 0.15)) - elapsed(),
-			"glances": [{"t": 0.0, "right": 0.0, "pitch": -4.0}, {"t": 1.6, "right": -3.0, "pitch": -3.0}, {"t": 3.2, "right": 2.0, "pitch": -4.0}],
+			"glances": [{"t": 0.0, "right": right, "pitch": -4.0}, {"t": 1.6, "right": right - 3.0, "pitch": -3.0}, {"t": 3.2, "right": right + 2.0, "pitch": -4.0}],
 			"flinch_on": "hit",
 			"flinch_glances": [{"t": 0.0, "right": -4.0, "pitch": 3.0}, {"t": 0.12, "right": 2.0, "pitch": -6.0}]},
 		{"do": "steer", "on": true},
-		{"do": "watch", "body": lead, "seconds": float(option("watch", 1.1)), "height": float(option("watch_h", 0.5))},
+		{"do": "watch", "body": seen, "seconds": float(option("watch", 1.1)), "height": seen_h},
 		{"do": "hold", "seconds": 60.0},
 	]
 	drive(runners[POV], steps, POV)
@@ -177,9 +198,27 @@ func tick(_delta: float) -> void:
 		var line: String = ""
 		for body: PlayerController in _bodies:
 			line += " %s %.1f/%.2f" % [body.name, LIB.bearing_of(body.global_position), LIB.radius_of(body.global_position)]
+		var lens: Camera3D = clip.root.get_viewport().get_camera_3d()
+		if lens != null and _bodies.size() > POV:
+			var at: Vector3 = _bodies[LEAD].global_position + Vector3.UP
+			var avatar: PrisonerAvatar = PrisonerAvatar.of(_bodies[LEAD])
+			var ragdoll: Object = avatar.get(&"_ragdoll") if avatar != null else null
+			if ragdoll != null and bool(ragdoll.call(&"is_active")):
+				at = ragdoll.call(&"centre")
+				line += " limp %.1f/%.2f y%.2f" % [LIB.bearing_of(at), LIB.radius_of(at), at.y - LIB.DECK_Y]
+			var to: Vector3 = lens.global_transform.affine_inverse() * at
+			line += " | lead %.2f m, %.1f right %.1f up" % [at.distance_to(lens.global_position),
+				rad_to_deg(atan2(to.x, -to.z)), rad_to_deg(atan2(to.y, -to.z))]
 		say("at" + line)
 	if _bodies.is_empty():
 		return
+	if _limp_mark != null:
+		var limp: PrisonerAvatar = PrisonerAvatar.of(_bodies[LEAD])
+		var body: Object = limp.get(&"_ragdoll") if limp != null else null
+		if body != null and bool(body.call(&"is_active")):
+			_limp_mark.global_position = body.call(&"centre")
+		else:
+			_limp_mark.global_position = _bodies[LEAD].global_position + Vector3.UP * float(option("watch_h", 0.5))
 	var avatar: PrisonerAvatar = PrisonerAvatar.of(_bodies[POV])
 	if avatar != null and bool(avatar.get("_fp_shoving")) != _arms_out:
 		_arms_out = not _arms_out
