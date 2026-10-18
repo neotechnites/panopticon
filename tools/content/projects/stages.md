@@ -145,7 +145,7 @@ expect: shove Runner_0 3.48-3.78; arrive Runner_1 2.0-2.25; tower_out Runner_0 +
 seconds: 6.5
 in: 0.9
 
-## 9
+## 19
 said: Ryan (short 9, L4): "so, i implemented a race, every player does the course with no sniper, and the first one to complete it gets to be the sniper. this, was the worst part of my game. it wasnt fun, everyone was the same speed, and it took to long" {pov of race in forest}. The game's own opening race (start_race) in the forest, four racers and nobody in the tower, bot brains running it: the POV runs 2nd of 4, the man ahead ~5 deg up the lane in frame, all at the same pace; nobody finishes inside the cut (a lap is ~28.6 s). Mac smoke: race_start 0.02, no seat the whole race.
 capture: --shot=s3_open_lane --stage=forest_race --map=forest --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017
 tape: stages_forest_race
@@ -153,7 +153,7 @@ expect: race_start 0-0.5; lens_clear; lens_cover <= 0.5
 seconds: 19.5
 in: 1.0
 
-## 10
+## 20
 said: Ryan (short 9, L5): "so how did i fix it?" {bust shot of runner in hell idle animating}. One prisoner stood on bare S1 deck (42 deg r 52), head to mid chest at eye height from 2.5 m (fov 24), the S1 spires behind him, the rig's shipped Idle breathing, a handheld drift on the lens; nobody shoots. Mac smoke: idle 0.65, Idle playing at 0.00 m/s.
 capture: --shot=s1_cave --stage=hell_idle_bust --bots=1 --look=social --shimmer=0 --seed=20261017
 expect: idle Runner_1 0.6-0.9; alive Runner_1; lens_clear; lens_cover <= 0.5
@@ -161,15 +161,15 @@ seconds: 3.0
 in: 1.2
 motion: 0.005
 
-## 11
-said: Ryan (short 9, L2): "In my game, youre either the sniper in the gaurd tower, or youre running an obsticle course to become the sniper." {runner pov, looking over at the tower while hes shooting, then look forward and start doing the lava parkour section}. ONE take with ## 12: the runner on the S5 near bank (290.4 deg) looks over at the tower's 305 deg window (0.1 deg off it from 1.4 s) while the hand puts two rounds by him (1.92, 3.02; they land on the 286 lip beside him), turns forward at 3.4 and hops the S5 lava platforms (lands 3.60, 4.38, 5.27, 5.97, 6.93); the cut ends 7.9, before the round that drops him lands (8.00). Two more players stand out of frame up the S1 lane. Mac smoke: as listed.
+## 21
+said: Ryan (short 9, L2): "In my game, youre either the sniper in the gaurd tower, or youre running an obsticle course to become the sniper." {runner pov, looking over at the tower while hes shooting, then look forward and start doing the lava parkour section}. ONE take with ## 22: the runner on the S5 near bank (290.4 deg) looks over at the tower's 305 deg window (0.1 deg off it from 1.4 s) while the hand puts two rounds by him (1.92, 3.02; they land on the 286 lip beside him), turns forward at 3.4 and hops the S5 lava platforms (lands 3.60, 4.38, 5.27, 5.97, 6.93); the cut ends 7.9, before the round that drops him lands (8.00). Two more players stand out of frame up the S1 lane. Mac smoke: as listed.
 capture: --shot=s3_open_lane --stage=parkour_sniped --pov=runner --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=drop_at=7.6
 tape: stages_parkour_sniped
 expect: hop1 Runner_1 3.5-3.7; hop2 Runner_1 +0.7-0.9; alive Runner_1; lens_clear; lens_cover <= 0.5
 seconds: 6.9
 in: 1.0
 
-## 12
+## 22
 said: Ryan (short 9, L3): "but this has a problem, whos the sniper first? i wanted it to be earned" {pov of the sniper sniping at the runner from the previous shot}. The SAME tape from the guard at the 305 deg window, scoped (fov 20): the hand rides the parkour runner hop to hop across the lava platforms and squeezes at 7.62; the round drops him as he leaves the 322 deg top (hit 8.00, in frame) and the hand holds on him. Mac smoke: hit 8.00 in frame.
 capture: --shot=s3_open_lane --stage=parkour_sniped --pov=guard --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=drop_at=7.6
 tape: stages_parkour_sniped
@@ -179,7 +179,7 @@ seconds: 5.6
 in: 3.6
 motion: 0.012
 
-## 13
+## 23
 said: Ryan (short 9, L6): "everyone starts in the tower, and the way you get to be the sniper, is to be the last one standing in it. so now, instead of a long drawn out boring race, its a fast, chaotic, brawl to see who goes first" {Shot of starting shove tower minigame in hell}. The game's own opening tower brawl (start_brawl): four players in the tower room, only the shove, the game's brawl bots shove each other out of the windows (outs 2.75, 6.37, 7.28); the last one standing (Runner_2) takes the seat (8.80) and the lens, hung under the ceiling against the 0 deg pier, cranes in over his shoulder as he takes the window as the sniper and shoots at the runners starting the round. Mac smoke: as listed.
 capture: --shot=s3_open_lane --stage=tower_brawl --bots=3 --shimmer=0 --look=social --seed=20261017
 tape: stages_tower_brawl
