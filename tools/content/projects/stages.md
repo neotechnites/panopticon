@@ -33,5 +33,5 @@ in: 1.2
 said: Ryan (short 10, L4): "the first one to make it throws him out, and now, they're the sniper." {different shot, get up to the portal, go through, shove him, they go flying}. The ## 3 finale cut for a 3.5 s voice line: the runner POV runs 6.0 m into the portal at 345 deg (picture opens 1.2 s before the arrival), walks up behind the guard scoped at his window at pace 1.0 and shoves 0.89 s after arriving; the kill beat throws him and the POV takes the tower. Mac smoke: arrive 2.12, shove 3.01, tower_out 5.00.
 capture: --shot=s3_open_lane --stage=finale --pov=runner --bots=3 --shimmer=0 --seed=20261012 --set=lead=6.0;stand=3.0;pace=1.0
 expect: shove Runner_0 2.85-3.15; arrive Runner_1 2.0-2.25; tower_out Runner_0 +1.9-2.1; alive Runner_1; lens_clear; lens_cover <= 0.5
-seconds: 4.6
+seconds: 4.9
 in: 0.9
