@@ -47,13 +47,13 @@ motion: 0.005
 refilm: v1,v2
 
 ## 6
-said: Shot of starting shove tower minigame in hell; on n1: "why is the last shot not from the perspective of a player?" Runner_2's eyes in the brawl: shoves Runner_0 (3.18), shoved by Runner_3 (3.63), throws Runner_3 out (6.33), the last one standing (7.28) looks out after him, seated (8.80) he scopes the runners below.
-capture: --shot=s3_open_lane --stage=tower_brawl --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017
+said: Shot of starting shove tower minigame in hell; on n1: "why is the last shot not from the perspective of a player?" Runner_2's eyes in the brawl: his hand turns him onto the first fight (Runner_0 throws Runner_1 out, 2.75), then the game's brawl brain: he shoves (2.97, 5.58, 8.92), is shoved (3.75, 6.97, 9.40), throws Runner_3 out (12.08, out 13.03), and Runner_0 throws him out of the window (14.18); the cut ends as he falls (14.95, before the wall fills the lens).
+capture: --shot=s3_open_lane --stage=tower_brawl --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017 --set=watch=1;turn_at=1.0
 tape: start_minigame_v4_brawl
 shoved: ok
-expect: brawl_start 0.0-0.1; brawl_out Runner_1 2.6-2.9; shove Runner_2 3.08-3.28; shove Runner_3 3.53-3.73; brawl_out Runner_0 6.2-6.5; brawl_out Runner_3 7.1-7.4; brawl_won Runner_2 7.1-7.4; seat Runner_2 8.7-8.9; lens_cover <= 0.5
-seconds: 15.5
-in: 0.4
+expect: brawl_start 0.0-0.1; brawl_out Runner_1 2.6-2.9; shove Runner_2 2.87-3.07; shove Runner_3 3.65-3.85; brawl_out Runner_3 12.9-13.15; brawl_out Runner_2 15.0-15.25; brawl_won Runner_0 15.0-15.25; lens_cover <= 0.5
+seconds: 14.65
+in: 0.3
 motion: 0.012
 refilm: v1,v2,v3,v4
 
@@ -107,5 +107,5 @@ pad: 0.2
 | L3 | cuts/03_v4.mp4 | 0.2 | 4.4 | line | | but this has a problem, whos the sniper first? i wanted it to be earned | |
 | L4 | cuts/04_v4.mp4 | 0 | 19.5 | line | | so, i implemented a race, every player does the course with no sniper, and the first one to complete it gets to be the sniper. this, was the worst part of my game. it wasnt fun, everyone was the same speed, and it took to long | |
 | L5 | cuts/04_v4.mp4 | cont | | line | | so how did i fix it? | |
-| L6 | cuts/06_v4.mp4 | 0 | 15.5 | line | | instead of everyone running to the tower, everyone starts in the tower, and the way you get to be the sniper, is to be the last one standing in it. so now, instead of a long drawn out boring race, its a fast, chaotic, brawl to see who goes first | |
+| L6 | cuts/06_v4.mp4 | 0 | 14.65 | line | | instead of everyone running to the tower, everyone starts in the tower, and the way you get to be the sniper, is to be the last one standing in it. so now, instead of a long drawn out boring race, its a fast, chaotic, brawl to see who goes first | |
 | end | title | | 1.75 | | | beta signup in bio | |

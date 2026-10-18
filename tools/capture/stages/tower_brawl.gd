@@ -18,7 +18,8 @@ extends "res://tools/capture/stages/stage.gd"
 ## follow (0.55, share of the look on the bodies, the rest on the room's middle), rate (3.0, look easing per s),
 ## drift (0.03 m, handheld), zoom_fov (40.0), zoom_s (2.5), orbit (6.0 deg/s round the room once he is seated; a held lens froze 1.1 s).
 ## --pov=runner (Ryan on n1: "why is the last shot not from the perspective of a player?"): ride (2, roster index) is a brawler on the
-## game's own brawl brain, shoving and shoved; won, his eyes go out the window after the last man thrown; seated, a hand scopes the runners (park_deg 25).
+## game's own brawl brain (until it joins, his hand turns him onto watch, 1), shoved and shoving; won, he looks out after the last man
+## thrown; seated, a hand scopes the runners (park_deg 25) and drops one (fire_at 3.5 s after the seat).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
@@ -34,6 +35,8 @@ var _after: Node = null
 var _hand: Node = null
 var _sat: bool = false
 var _won_at: float = -1.0
+var _grace: Node = null
+var _joins_at: float = 0.0
 
 
 func bots() -> int:
@@ -52,6 +55,11 @@ func tune_shooter(_profile: ShooterProfile) -> void:
 
 
 func tick(_delta: float) -> void:
+	if _grace != null and elapsed() >= _joins_at:
+		_grace.release()
+		_grace.queue_free()
+		_grace = null
+		_ride.brain.input.command.clear()
 	if _after != null and elapsed() >= _won_at + MatchController.BRAWL_END_SECONDS - 0.1:
 		# The game seats a bot body only on its own input: handed back, its last brawl command dropped.
 		_after.release()
@@ -86,6 +94,11 @@ func tick(_delta: float) -> void:
 		var roster: Array[MatchParticipant] = match_controller.get_participants()
 		_ride = roster[clampi(int(option("ride", 2)), 0, roster.size() - 1)]
 		stage_body(_ride.body)
+		# Until the game's brawl brain joins him in, a hand turns him round onto the first fight instead of a held stare at the wall.
+		_joins_at = elapsed() + MatchController.BRAWL_GRACE_SECONDS + MatchController.BRAWL_BOT_STAGGER_SECONDS * float(_ride.index) - 0.05
+		var watched: MatchParticipant = roster[clampi(int(option("watch", 1)), 0, roster.size() - 1)]
+		_grace = drive(_ride.brain, [{"do": "steer", "on": true, "rate": 240.0, "gain": 6.0}, {"do": "human", "on": true},
+			{"do": "hold", "seconds": float(option("turn_at", 0.3))}, {"do": "watch", "body": watched.body, "seconds": 30.0, "height": 1.2}], int(_ride.index), "BrawlGraceEyes")
 	say("tower_brawl: %d in the room, floor y %.2f r %.2f" % [match_controller.get_participants().size(), match_controller._brawl_floor_y, match_controller._brawl_floor_radius])
 
 
@@ -124,7 +137,7 @@ func _scope_the_runners() -> void:
 	_hand.install(_ride.body, controller(), elapsed())
 	_hand.start_at = elapsed()
 	_hand.park = LIB.ring_point(float(option("park_deg", 25.0)), 52.0, 1.0)
-	_hand.beats.append({"from": pool, "seconds": 120.0})
+	_hand.beats.append({"from": pool, "seconds": 120.0, "fire_at": float(option("fire_at", 3.5)), "clear": true, "watch": true, "hold": true})
 	clip._pov = "guard"
 	say("tower_brawl: %s seated, hand on %d runners" % [_ride.body.name, pool.size()])
 
