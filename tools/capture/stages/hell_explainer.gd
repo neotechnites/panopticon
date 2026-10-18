@@ -13,7 +13,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## hand (guard_hand at the window, never a brain) puts a round behind the lead, one behind the
 ## middle man, then drops the lead in the open past the lip rock. The middle man jogs in and stops
 ## crouched in the rock's shadow 0.6 s before the shove; the POV (the back man) runs in behind him
-## and shoves him from 1.8 m in stride, never stopping, with the shipped shove; the hand drops him in the air, before he lands (he
+## eases in to 1.5 m, eyes down on his back, and shoves him without stopping, with the shipped shove; the hand drops him in the air, before he lands (he
 ## ragdolls, CATCH_AND_SWAP); the POV runs on up the S2 lane.
 ##
 ## The numbers (probe_ring.gd, eye at the 62 deg window, 5.6 m off the axis, 5.9 m over the deck):
@@ -26,8 +26,8 @@ extends "res://tools/capture/stages/stage.gd"
 ## 68.5 he lands near 75, open deck. 11 m/s ground speed x 0.70 pace is ~8.9 deg/s at r 49.5.
 ##
 ## Dials (--set=): start ("lead,mid,pov" deg; 34,22,4.8), r (49.5), stop (68.5, the mid man's
-## crouch), mid_pace (0.41), pov_pace (0.45, to pov_mid 42.0 at ~7.1 s), pov_run (0.70, from there
-## into the shove ~10.0, >= 4.0 s after the lead hit 5.86), reach (1.8),
+## crouch), mid_pace (0.41), pov_pace (0.45, to pov_mid 42.0 at ~7.1 s), pov_run (0.70, from there to
+## close 4.0 m behind him), close_pace (0.4, into reach 1.5, look 14 deg down; the shove >= 4.0 s after the lead hit),
 ## watch (1.1 s the POV stands after the shove), run_to (100.0), window (62.0), hand_at (0.8), zoom_at (1.2), miss_lead (2.0), miss_mid (3.4),
 ## miss_by (1.4 m), drop_at (5.5, the lead's squeeze), air_delay (0.05 s after the shove, the
 ## shoved man's squeeze: the round reaches him in the air),
@@ -117,15 +117,18 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 				{"t": 0.12, "right": 4.0, "pitch": -3.0},
 				{"t": 0.4, "right": 0.0, "pitch": -1.5},
 			]
-			# No wait: up the lane at the pack's pace and into the shove in one stride.
-			var reach: float = float(option("reach", 1.8))
+			# No wait: up the lane at the pack's pace, eases in behind him, eyes on his back, and shoves.
+			var reach: float = float(option("reach", 1.5))
 			var run: float = float(option("pov_run", 0.70))
-			steps.append({"do": "lane", "to": stop - rad_to_deg((reach + 0.4) / r), "r": r, "speed": run,
+			steps.append({"do": "lane", "to": stop - rad_to_deg(float(option("close", 4.0)) / r), "r": r, "speed": run,
 				"weave": 0.03, "period": 1.6, "timeout": 10.0})
-			steps.append({"do": "chase", "victim": runners[MID].controller, "range": reach, "speed": run, "timeout": 4.0})
+			steps.append({"do": "steer", "on": true})
+			steps.append({"do": "chase", "victim": runners[MID].controller, "range": reach,
+				"speed": float(option("close_pace", 0.4)), "look_down": float(option("look", 14.0)), "timeout": 4.0})
 			# Watch him fly and drop, then continue the course.
-			steps.append({"do": "hold", "seconds": float(option("watch", 1.1))})
-			steps.append({"do": "lane", "to": run_to, "r": r, "speed": 0.72, "weave": 0.03, "period": 1.6, "timeout": 30.0})
+			steps.append({"do": "watch", "body": runners[MID].controller, "seconds": float(option("watch", 1.1)), "height": 1.0})
+			steps.append({"do": "lane", "to": run_to, "r": r, "speed": 0.72, "weave": 0.03, "period": 1.6,
+				"look_down": 2.0, "timeout": 30.0})
 		steps.append({"do": "hold", "seconds": 60.0})
 		var driver: Node = drive(runners[index], steps, index)
 		if index == MID:

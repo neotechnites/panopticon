@@ -7,7 +7,8 @@ extends "res://tools/capture/stages/stage.gd"
 ## (steered, not snapped) and shoves on the normal input once in reach; the
 ## game's own kill-beat throw and cinematic follow. Filmed with --pov=runner.
 ## Dials (--set=): lead (metres short of the portal, 5.0), stand (guard's metres
-## out from the tower axis toward his window, 3.0), pace (the walk up, 0.6).
+## out from the tower axis toward his window, 3.0), pace (the walk up, 0.6),
+## beat (the kill beat's seconds, the rules' kill_beat_seconds; shipped 2.0).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const WINDOW_PHASE: float = 25.0
@@ -24,6 +25,10 @@ var _thrown: String = ""
 
 func bots() -> int:
 	return 2
+
+
+func tune_rules(rules: MatchRules) -> void:
+	rules.kill_beat_seconds = float(option("beat", rules.kill_beat_seconds))
 
 
 func needs_pov() -> String:
