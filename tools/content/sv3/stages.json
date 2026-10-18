@@ -82,6 +82,7 @@
      "seconds": 9.8,
      "in": 1.2,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": 6.95,
@@ -99,9 +100,65 @@
      "seconds": 4.9,
      "in": 0.9,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": 3.0,
+      "out": null,
+      "go": null
+     }
+    }
+   ]
+  },
+  "forest_going": {
+   "map": "forest",
+   "shot": "s3_open_lane",
+   "povs": [
+    "guard",
+    "runner"
+   ],
+   "dials": {
+    "pace": 0.62,
+    "scope_fov": 24.0,
+    "hand_at": 0.8,
+    "drop_lead": 2.3,
+    "drop_mid": 3.7,
+    "track": 5.0
+   },
+   "for_shorts": true,
+   "approved": [
+    {
+     "project": "stages",
+     "entry": 7,
+     "said": "Ryan (short 11): \"Just, how it started, vs how its going, pills, cut to forest, get both sniper and runners perspective for both\". How its going, the sniper: the forest, guard at the 32 deg window scoped (fov 24), three runners on the lane from 29-37 deg; the hand drops the lead in the open (2.30 s, 49.8 deg) and the middle man (3.70 s, 56.4 deg), then tracks the back man running on. One tape with ## 8. Mac smoke: hits 2.30 and 3.70, both in frame; the back man lives.",
+     "capture": "--shot=s3_open_lane --stage=forest_going --map=forest --pov=guard --bots=3 --shimmer=0 --look=social --seed=20261017",
+     "tape": "stages_forest_going",
+     "expect": "hit Runner_1 2.2-2.4; in_frame Runner_1 +0.0-0.05; hit Runner_2 +1.3-1.5; in_frame Runner_2 +1.3-1.5; alive Runner_3; lens_clear; lens_cover <= 0.5",
+     "seconds": 4.0,
+     "in": 1.2,
+     "motion": "0.012",
+     "ref": null,
+     "ticks": {
+      "hit": 2.3,
+      "shove": null,
+      "out": null,
+      "go": null
+     }
+    },
+    {
+     "project": "stages",
+     "entry": 8,
+     "said": "Ryan (short 11): \"Just, how it started, vs how its going, pills, cut to forest, get both sniper and runners perspective for both\". How its going, the runner: the SAME tape from the back man: he runs the forest lane behind the other two, eyes up the lane; the lead drops ahead of him (2.30), a flinch, the middle man drops (3.70), he runs on past them; the cut ends 1.0 s after (before the 59 deg trunk covers the lens at 4.77). Mac smoke: hits 2.30 and 3.70 in frame; he lives.",
+     "capture": "--shot=s3_open_lane --stage=forest_going --map=forest --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017",
+     "tape": "stages_forest_going",
+     "expect": "hit Runner_1 2.2-2.4; in_frame Runner_1 +0.0-0.05; hit Runner_2 +1.3-1.5; in_frame Runner_2 +1.3-1.5; alive Runner_3; lens_clear; lens_cover <= 0.5",
+     "seconds": 3.7,
+     "in": 1.0,
+     "motion": null,
+     "ref": null,
+     "ticks": {
+      "hit": 2.3,
+      "shove": null,
       "out": null,
       "go": null
      }
@@ -129,6 +186,7 @@
      "seconds": 10.0,
      "in": 0.8,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -160,6 +218,7 @@
      "seconds": 9.0,
      "in": 1.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -177,6 +236,7 @@
      "seconds": 9.0,
      "in": 1.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -235,6 +295,7 @@
      "seconds": 5.5,
      "in": 1.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -252,6 +313,7 @@
      "seconds": 8.2,
      "in": 1.6,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -285,6 +347,7 @@
      "seconds": 5.5,
      "in": 1.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -302,6 +365,7 @@
      "seconds": 5.5,
      "in": 1.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -319,6 +383,7 @@
      "seconds": 6.5,
      "in": 1.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -336,6 +401,7 @@
      "seconds": 7.0,
      "in": 1.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -353,6 +419,7 @@
      "seconds": 7.0,
      "in": 1.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -370,6 +437,7 @@
      "seconds": 9.0,
      "in": 0.6,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -400,6 +468,7 @@
      "seconds": 7.0,
      "in": 1.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -417,6 +486,7 @@
      "seconds": 7.0,
      "in": 1.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -466,6 +536,7 @@
      "seconds": 4.83,
      "in": 0.9,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": 3.4,
@@ -483,6 +554,7 @@
      "seconds": 3.0,
      "in": 0.8,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": 2.3,
@@ -523,6 +595,7 @@
      "seconds": 9.3,
      "in": 1.0,
      "motion": "0.012",
+     "ref": null,
      "ticks": {
       "hit": 7.775,
       "shove": null,
@@ -540,6 +613,7 @@
      "seconds": 3.8,
      "in": 6.16,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": 7.775,
       "shove": null,
@@ -557,6 +631,7 @@
      "seconds": 5.8,
      "in": 1.67,
      "motion": "0.012",
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -574,6 +649,7 @@
      "seconds": 5.2,
      "in": 3.7,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -624,6 +700,7 @@
      "seconds": 6.1,
      "in": 1.2,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": 5.85,
       "shove": null,
@@ -641,6 +718,7 @@
      "seconds": 12.2,
      "in": 1.2,
      "motion": "0.011",
+     "ref": null,
      "ticks": {
       "hit": 5.85,
       "shove": 10.25,
@@ -682,6 +760,7 @@
      "seconds": 5.5,
      "in": 1.2,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -732,11 +811,60 @@
      "seconds": 7.0,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
       "out": null,
       "go": null
+     }
+    }
+   ]
+  },
+  "pill_era": {
+   "map": "hell",
+   "shot": "guard_scope",
+   "povs": [
+    "guard",
+    "runner"
+   ],
+   "dials": {},
+   "for_shorts": true,
+   "approved": [
+    {
+     "project": "stages",
+     "entry": 5,
+     "said": "Ryan (short 11): \"Just, how it started, vs how its going, pills, cut to forest, get both sniper and runners perspective for both\". How it started, the sniper: the c4943a47 pill greybox (orange pills, grey ring boxes), the tower player on the centre platform scoped (fov 28), the hand drops the r 44.5 pill (2.07 s) and the r 38.5 pill (4.63 s) and swings onto the spared r 51.0 pill, tracking him. Guard and three pills, no powers. Mac smoke at the ref: go 1.00, hits 2.07 and 4.63, both in frame.",
+     "capture": "--stage=pill_era --shot=guard_scope --pov=guard --bots=3 --fov=28 --cross=44 --seed=20261017",
+     "tape": null,
+     "expect": "hit Runner_r44_5 1.95-2.2; in_frame Runner_r44_5 +0.0-0.05; hit Runner_r38_5 +2.45-2.7; in_frame Runner_r38_5 +2.45-2.7; go Runner_r51_0 0.9-1.1",
+     "seconds": 4.9,
+     "in": 0.6,
+     "motion": "0.012",
+     "ref": "how-started-era-c4943a47",
+     "ticks": {
+      "hit": 2.075,
+      "shove": null,
+      "out": null,
+      "go": 1.0
+     }
+    },
+    {
+     "project": "stages",
+     "entry": 6,
+     "said": "Ryan (short 11): \"Just, how it started, vs how its going, pills, cut to forest, get both sniper and runners perspective for both\". How it started, the runner: the SAME pill match from the spared r 51.0 pill's eyes (fov 70, his own pill hidden): he sets off 1.0 s behind the other two, runs his lane, his head eases onto the nearest mate; both drop ahead of him in frame (2.07 at 9 deg right, 4.63 at 16 deg right). Mac smoke at the ref: go 1.00, hits 2.07 and 4.63, both in frame.",
+     "capture": "--stage=pill_era --shot=guard_scope --pov=runner --bots=3 --fov=70 --seed=20261017",
+     "tape": null,
+     "expect": "hit Runner_r44_5 1.95-2.2; in_frame Runner_r44_5 +0.0-0.05; hit Runner_r38_5 +2.45-2.7; in_frame Runner_r38_5 +2.45-2.7; go Runner_r51_0 0.9-1.1",
+     "seconds": 4.5,
+     "in": 1.0,
+     "motion": null,
+     "ref": "how-started-era-c4943a47",
+     "ticks": {
+      "hit": 2.075,
+      "shove": null,
+      "out": null,
+      "go": 1.0
      }
     }
    ]
@@ -901,6 +1029,7 @@
      "seconds": 50.0,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -918,6 +1047,7 @@
      "seconds": 45.0,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -935,6 +1065,7 @@
      "seconds": 21.5,
      "in": 0.0,
      "motion": "0.005",
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -952,6 +1083,7 @@
      "seconds": 22.0,
      "in": 0.0,
      "motion": "0.005",
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -969,6 +1101,7 @@
      "seconds": 34.0,
      "in": 0.0,
      "motion": "0.005",
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -986,6 +1119,7 @@
      "seconds": 48.0,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1003,6 +1137,7 @@
      "seconds": 21.5,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1020,6 +1155,7 @@
      "seconds": 22.0,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1037,6 +1173,7 @@
      "seconds": 34.0,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1054,6 +1191,7 @@
      "seconds": 30.0,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1071,6 +1209,7 @@
      "seconds": 37.5,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1088,6 +1227,7 @@
      "seconds": 45.5,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1105,6 +1245,7 @@
      "seconds": 22.0,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1122,6 +1263,7 @@
      "seconds": 34.0,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1139,6 +1281,7 @@
      "seconds": 18.0,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1156,6 +1299,7 @@
      "seconds": 19.0,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1173,6 +1317,7 @@
      "seconds": 25.0,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1190,6 +1335,7 @@
      "seconds": 11.5,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1207,6 +1353,7 @@
      "seconds": 10.0,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1224,6 +1371,7 @@
      "seconds": 42.0,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1241,6 +1389,7 @@
      "seconds": 3.5,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1258,6 +1407,7 @@
      "seconds": 34.5,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1275,6 +1425,7 @@
      "seconds": 8.0,
      "in": 1.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1320,6 +1471,7 @@
      "seconds": 5.2,
      "in": 0.6,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1337,6 +1489,7 @@
      "seconds": 8.0,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1354,6 +1507,7 @@
      "seconds": 8.0,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1371,6 +1525,7 @@
      "seconds": 8.0,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1403,6 +1558,7 @@
      "seconds": 6.5,
      "in": 2.6,
      "motion": "0.005",
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1420,6 +1576,7 @@
      "seconds": 7.5,
      "in": 1.0,
      "motion": "0.005",
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1455,6 +1612,7 @@
      "seconds": 10.6,
      "in": 1.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1472,6 +1630,7 @@
      "seconds": 10.6,
      "in": 1.0,
      "motion": "0.01",
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1539,6 +1698,7 @@
      "seconds": 3.5,
      "in": 1.7,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1556,6 +1716,7 @@
      "seconds": 2.6,
      "in": 1.95,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1615,6 +1776,7 @@
      "seconds": 7.5,
      "in": 1.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1632,6 +1794,7 @@
      "seconds": 7.5,
      "in": 1.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1649,6 +1812,7 @@
      "seconds": 2.6,
      "in": 5.5,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1666,6 +1830,7 @@
      "seconds": 2.4,
      "in": 3.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1701,6 +1866,7 @@
      "seconds": 5.2,
      "in": 0.9,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1718,6 +1884,7 @@
      "seconds": 3.6,
      "in": 2.6,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1763,6 +1930,7 @@
      "seconds": 5.0,
      "in": 0.9,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1800,6 +1968,7 @@
      "seconds": 3.4,
      "in": 1.5,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1817,6 +1986,7 @@
      "seconds": 3.4,
      "in": 1.2,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1834,6 +2004,7 @@
      "seconds": 5.0,
      "in": 0.9,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1851,6 +2022,7 @@
      "seconds": 4.5,
      "in": 0.0,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1868,6 +2040,7 @@
      "seconds": 5.0,
      "in": 0.9,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1885,6 +2058,7 @@
      "seconds": 5.0,
      "in": 0.9,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1902,6 +2076,7 @@
      "seconds": 5.0,
      "in": 0.9,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1945,6 +2120,7 @@
      "seconds": 2.5,
      "in": 1.04,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1962,6 +2138,7 @@
      "seconds": 1.8,
      "in": 2.96,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1979,6 +2156,7 @@
      "seconds": 2.5,
      "in": 1.04,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -1996,6 +2174,7 @@
      "seconds": 2.3,
      "in": 2.96,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -2047,6 +2226,7 @@
      "seconds": 3.6,
      "in": 0.8,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -2088,6 +2268,7 @@
      "seconds": 2.6,
      "in": 1.2,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -2105,6 +2286,7 @@
      "seconds": 3.4,
      "in": 2.5,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -2122,6 +2304,7 @@
      "seconds": 3.2,
      "in": 2.75,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -2156,6 +2339,7 @@
      "seconds": 2.2,
      "in": 1.6,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -2173,6 +2357,7 @@
      "seconds": 3.4,
      "in": 1.8,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -2215,6 +2400,7 @@
      "seconds": 4.0,
      "in": 0.9,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -2232,6 +2418,7 @@
      "seconds": 5.0,
      "in": 0.9,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -2249,6 +2436,7 @@
      "seconds": 4.8,
      "in": 0.75,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -2413,6 +2601,7 @@
      "seconds": 3.0,
      "in": 3.65,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -2439,6 +2628,7 @@
      "seconds": 3.6,
      "in": 0.9,
      "motion": "0.007    # a fixed lens on two small bodies against dark rock: 0.007-0.013 by nature (freeze 0); the flight and the tracer are the motion",
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -2475,6 +2665,7 @@
      "seconds": 3.8,
      "in": 1.2,
      "motion": "0.002    # a fixed lens, the run-up and the flight both down its own axis: 0.002 by nature (freeze 0)",
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -2492,6 +2683,7 @@
      "seconds": 4.4,
      "in": 0.8,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -2520,6 +2712,7 @@
      "seconds": 4.6,
      "in": 0.8,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,
@@ -2562,6 +2755,7 @@
      "seconds": 3.4,
      "in": 0.9,
      "motion": null,
+     "ref": null,
      "ticks": {
       "hit": null,
       "shove": null,

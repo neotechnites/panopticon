@@ -34,3 +34,39 @@ capture: --shot=s3_open_lane --stage=finale --pov=runner --bots=3 --shimmer=0 --
 expect: shove Runner_0 2.85-3.15; arrive Runner_1 2.0-2.25; tower_out Runner_0 +0.7-0.9; alive Runner_1; lens_clear; lens_cover <= 0.5
 seconds: 4.9
 in: 0.9
+
+## 5
+said: Ryan (short 11): "Just, how it started, vs how its going, pills, cut to forest, get both sniper and runners perspective for both". How it started, the sniper: the c4943a47 pill greybox (orange pills, grey ring boxes), the tower player on the centre platform scoped (fov 28), the hand drops the r 44.5 pill (2.07 s) and the r 38.5 pill (4.63 s) and swings onto the spared r 51.0 pill, tracking him. Guard and three pills, no powers. Mac smoke at the ref: go 1.00, hits 2.07 and 4.63, both in frame.
+capture: --stage=pill_era --shot=guard_scope --pov=guard --bots=3 --fov=28 --cross=44 --seed=20261017
+ref: how-started-era-c4943a47
+hud: crosshair
+expect: hit Runner_r44_5 1.95-2.2; in_frame Runner_r44_5 +0.0-0.05; hit Runner_r38_5 +2.45-2.7; in_frame Runner_r38_5 +2.45-2.7; go Runner_r51_0 0.9-1.1
+seconds: 4.9
+in: 0.6
+motion: 0.012
+
+## 6
+said: Ryan (short 11): "Just, how it started, vs how its going, pills, cut to forest, get both sniper and runners perspective for both". How it started, the runner: the SAME pill match from the spared r 51.0 pill's eyes (fov 70, his own pill hidden): he sets off 1.0 s behind the other two, runs his lane, his head eases onto the nearest mate; both drop ahead of him in frame (2.07 at 9 deg right, 4.63 at 16 deg right). Mac smoke at the ref: go 1.00, hits 2.07 and 4.63, both in frame.
+capture: --stage=pill_era --shot=guard_scope --pov=runner --bots=3 --fov=70 --seed=20261017
+ref: how-started-era-c4943a47
+expect: hit Runner_r44_5 1.95-2.2; in_frame Runner_r44_5 +0.0-0.05; hit Runner_r38_5 +2.45-2.7; in_frame Runner_r38_5 +2.45-2.7; go Runner_r51_0 0.9-1.1
+seconds: 4.5
+in: 1.0
+
+## 7
+said: Ryan (short 11): "Just, how it started, vs how its going, pills, cut to forest, get both sniper and runners perspective for both". How its going, the sniper: the forest, guard at the 32 deg window scoped (fov 24), three runners on the lane from 29-37 deg; the hand drops the lead in the open (2.30 s, 49.8 deg) and the middle man (3.70 s, 56.4 deg), then tracks the back man running on. One tape with ## 8. Mac smoke: hits 2.30 and 3.70, both in frame; the back man lives.
+capture: --shot=s3_open_lane --stage=forest_going --map=forest --pov=guard --bots=3 --shimmer=0 --look=social --seed=20261017
+tape: stages_forest_going
+hud: crosshair
+expect: hit Runner_1 2.2-2.4; in_frame Runner_1 +0.0-0.05; hit Runner_2 +1.3-1.5; in_frame Runner_2 +1.3-1.5; alive Runner_3; lens_clear; lens_cover <= 0.5
+seconds: 4.0
+in: 1.2
+motion: 0.012
+
+## 8
+said: Ryan (short 11): "Just, how it started, vs how its going, pills, cut to forest, get both sniper and runners perspective for both". How its going, the runner: the SAME tape from the back man: he runs the forest lane behind the other two, eyes up the lane; the lead drops ahead of him (2.30), a flinch, the middle man drops (3.70), he runs on past them; the cut ends 1.0 s after (before the 59 deg trunk covers the lens at 4.77). Mac smoke: hits 2.30 and 3.70 in frame; he lives.
+capture: --shot=s3_open_lane --stage=forest_going --map=forest --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017
+tape: stages_forest_going
+expect: hit Runner_1 2.2-2.4; in_frame Runner_1 +0.0-0.05; hit Runner_2 +1.3-1.5; in_frame Runner_2 +1.3-1.5; alive Runner_3; lens_clear; lens_cover <= 0.5
+seconds: 3.7
+in: 1.0

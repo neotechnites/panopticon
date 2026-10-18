@@ -114,7 +114,15 @@ if [ -n "${EXPECT}" ] && [ -n "${CAPTURE}" ] && [ "${SMOKE_PASSED:-0}" = 0 ]; th
   SMOKE_LOG=$(mktemp -t "smoke_${NAME}_${NN}")
   SMOKE_ARGS="${CAPTURE}"; [[ "${SMOKE_ARGS}" == *--seed=* ]] || SMOKE_ARGS="${SMOKE_ARGS} --seed=${SEED:-20260930}"
   T0=$(now_ms)
-  STAGE_DEBUG=1 "${MAC_GODOT:-godot}" --headless --path "${REPO_DIR}" --fixed-fps "${FPS}" --script res://tools/capture/run_clip.gd -- \
+  SMOKE_REPO="${REPO_DIR}"
+  if [ -n "${REF}" ]; then   # a ref: shot is smoked at that ref with its own tools, as the PC films it
+    SMOKE_REPO="$(dirname "${REPO_DIR}")/.smoke-ref-$(echo "${REF}" | tr '/' '_')"
+    [ -d "${SMOKE_REPO}/.git" ] || [ -f "${SMOKE_REPO}/.git" ] || git -C "${REPO_DIR}" worktree add -q --detach "${SMOKE_REPO}" "${REF}"
+    if [ "$(git -C "${SMOKE_REPO}" rev-parse HEAD)" != "$(git -C "${REPO_DIR}" rev-parse "${REF}^{commit}")" ] || [ ! -d "${SMOKE_REPO}/.godot" ]; then
+      git -C "${SMOKE_REPO}" checkout -q --detach "${REF}" && "${MAC_GODOT:-godot}" --headless --path "${SMOKE_REPO}" --import > /dev/null 2>&1 || true
+    fi
+  fi
+  STAGE_DEBUG=1 "${MAC_GODOT:-godot}" --headless --path "${SMOKE_REPO}" --fixed-fps "${FPS}" --script res://tools/capture/run_clip.gd -- \
     ${SMOKE_ARGS} --frame="${SIZE}" --seconds="$(python3 -c "print(${IN} + ${SECONDS_WANTED} + ${GAP} + 1.0)")" > "${SMOKE_LOG}" 2>&1 || true
   IFS=$'\n' read -r -d '' -a EXPECT_LINES <<< "${EXPECT}" || true
   if ! EXPECT_WINDOW="${IN} ${SECONDS_WANTED}" python3 "${CONTENT_DIR}/expect.py" "${SMOKE_LOG}" "${EXPECT_LINES[@]}"; then

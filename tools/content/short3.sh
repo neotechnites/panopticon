@@ -37,7 +37,7 @@ mkdir -p "${WORK}/voice" "${WORK}/frames" || die "cannot make ${WORK}"
 NN_DIR=$(ls -d "${SOCIAL}"/[0-9][0-9]_"${NAME}" 2>/dev/null | head -1)
 if [ -z "${NN_DIR}" ]; then
   LAST=$(ls "${SOCIAL}" 2>/dev/null | grep -o '^[0-9][0-9]' | sort -n | tail -1)
-  NN_DIR="${SOCIAL}/$(printf '%02d' $(( ${LAST:-0} + 1 )))_${NAME}"
+  NN_DIR="${SOCIAL}/$(printf '%02d' $(( 10#${LAST:-0} + 1 )))_${NAME}"
 fi
 MAC_COPY="${NN_DIR}/${NAME}_${TAG}.mp4"
 [ ! -e "${MAC_COPY}" ] || die "short3 refuses: ${MAC_COPY} exists; delivery never overwrites (cut a new tag)"
@@ -113,7 +113,12 @@ for r in b.parse(brief)["scripts"][tag]["rows"]:
 json.dump(edl, open(out, "w"), indent=1)
 PY
 }
-pull_words() { pc_pull "$(ff "${DIR}")/voice/words.json" "${WORK}/voice/words.json"; }
+pull_words() {  # a voiceless script (every line a beat) has no words: {} so plan reads one shape
+  if python3 -c "import json,sys; s=json.load(open(sys.argv[1])); s=s['lines'] if isinstance(s,dict) else s; sys.exit(any(l.get('text') and not l.get('beat') for l in s))" "${WORK}/spec.json"; then
+    echo '{}' > "${WORK}/voice/words.json"; return 0
+  fi
+  pc_pull "$(ff "${DIR}")/voice/words.json" "${WORK}/voice/words.json"
+}
 pull_final() { pc_pull "$(ff "${DIR}")/final/${TAG}.mp4" "${WORK}/final.mp4"; }
 frames() { ffmpeg -loglevel error -y -i "${WORK}/final.mp4" -vf fps=1 "${WORK}/frames/%03d.png"; }
 deliver() {

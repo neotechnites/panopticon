@@ -1,0 +1,22 @@
+[
+ {
+  "id": "M1",
+  "ok": true,
+  "why": "The pill greybox match is shown from the scoped sniper on the tower (guard pov), dropping two pills. This is the 'how it started, pills' sniper view."
+ },
+ {
+  "id": "M2",
+  "ok": true,
+  "why": "The same pill match is shown through the eyes of the spared runner (runner pov), and both drops land in frame. This is the pills runner view."
+ },
+ {
+  "id": "M3",
+  "ok": true,
+  "why": "The forest map is shown from the scoped guard at the window (guard pov), who drops two runners in the open. This is the 'how its going, forest' sniper view."
+ },
+ {
+  "id": "M4",
+  "ok": true,
+  "why": "The same forest tape is shown from the back runner (runner pov), who sees both drops ahead and keeps running. This is the forest runner view."
+ }
+]

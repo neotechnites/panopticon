@@ -410,8 +410,9 @@ pc_import_ps() {
 
 # pc_checkout <ref> : put the scratch checkout (PC_PROJECT) at <ref> and import it.
 # The real checkout is never touched.
-pc_checkout() {
+pc_checkout() {  # an era ref leaves untracked .uid files that block the way back: they go first
   pc <<EOF
+git -C $(ff "${PC_PROJECT}") clean -fq -- '*.uid'
 git -C $(ff "${PC_PROJECT}") checkout -q $1
 $(pc_import_ps)
 Write-Output ('checkout at ' + (git -C $(ff "${PC_PROJECT}") log --oneline -1))

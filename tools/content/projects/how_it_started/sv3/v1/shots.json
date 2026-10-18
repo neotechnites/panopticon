@@ -1,0 +1,77 @@
+[
+ {
+  "id": "M1",
+  "line": 1,
+  "text": "",
+  "note": "how it started, pills: sniper perspective",
+  "stage": "pill_era",
+  "pov": "guard",
+  "dials": {},
+  "approved": {
+   "project": "stages",
+   "entry": 5
+  },
+  "same_take_as": null,
+  "beat": null,
+  "card": null,
+  "needs_stage": false,
+  "why": null
+ },
+ {
+  "id": "M2",
+  "line": 2,
+  "text": "",
+  "note": "how it started, pills: runners perspective",
+  "stage": "pill_era",
+  "pov": "runner",
+  "dials": {},
+  "approved": {
+   "project": "stages",
+   "entry": 6
+  },
+  "same_take_as": "M1",
+  "beat": null,
+  "card": null,
+  "needs_stage": false,
+  "why": null
+ },
+ {
+  "id": "M3",
+  "line": 3,
+  "text": "",
+  "note": "vs how its going, cut to forest: sniper perspective",
+  "stage": "forest_going",
+  "pov": "guard",
+  "dials": {},
+  "approved": {
+   "project": "stages",
+   "entry": 7
+  },
+  "same_take_as": null,
+  "beat": null,
+  "card": null,
+  "needs_stage": false,
+  "why": null
+ },
+ {
+  "id": "M4",
+  "line": 4,
+  "text": "",
+  "note": "how its going, forest: runners perspective",
+  "stage": "forest_going",
+  "pov": "runner",
+  "dials": {},
+  "approved": {
+   "project": "stages",
+   "entry": 8
+  },
+  "same_take_as": "M3",
+  "beat": null,
+  "card": {
+   "text": "beta signup in bio",
+   "seconds": 1.0
+  },
+  "needs_stage": false,
+  "why": null
+ }
+]

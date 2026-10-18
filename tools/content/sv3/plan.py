@@ -9,7 +9,7 @@ import re
 import sys
 
 PAD = 0.2           # assemble's default `pad:` after each voice line
-CARD = "beta link in bio"
+CARD = "beta signup in bio"
 
 
 class Refused(Exception):
@@ -121,7 +121,7 @@ def build(shots, stages, words, name, tag, base_n):
             continue
         n += 1
         ent = ["## %d" % n, "said: %s" % s["note"], "capture: %s" % with_dials(e["capture"], s.get("pov"), s.get("dials"))]
-        if root[s["id"]] in shared:
+        if root[s["id"]] in shared and e.get("tape"):   # an era (ref:) stage has no tape: its match is the ref's own
             ent.append("tape: %s_%s" % (name, tag) if len(shared) == 1 else "tape: %s_%s_%s" % (name, tag, root[s["id"]].lower()))
         if s.get("pov") == "guard":
             ent.append("hud: crosshair")
@@ -130,6 +130,8 @@ def build(shots, stages, words, name, tag, base_n):
         ent += ["seconds: %s" % fmt(float(e["seconds"])), "in: %s" % fmt(float(e["in"]))]
         if e.get("motion") not in (None, ""):   # the approved take's motion floor for shot.sh's gate
             ent.append("motion: %s" % e["motion"])
+        if e.get("ref"):                         # an era stage: shot.sh smokes and films it at that ref
+            ent.append("ref: %s" % e["ref"])
         ent.append("refilm: %s" % tag)
         entries.append("\n".join(ent))
         cut = "cuts/%02d_%s.mp4" % (n, tag)
@@ -181,7 +183,9 @@ def main(argv=None):
     except Refused as why:
         print("PLAN REFUSED: %s" % why)
         return 2
-    table = ["## script %s" % a.tag, "pad: %s" % fmt(PAD), "| line | clip | in | len | fit | speed | text | card |"] + rows
+    voiceless = not any((s.get("text") or "").strip() for s in shots)
+    # No voice: no words to caption; the takes' own sound is the mix.
+    table = ["## script %s" % a.tag] + (["captions: none", "game: 1.0"] if voiceless else []) + ["pad: %s" % fmt(PAD), "| line | clip | in | len | fit | speed | text | card |"] + rows
     out = text.rstrip("\n") + "\n\n" + "\n\n".join(entries + ["\n".join(table)]) + "\n"
     with open(a.brief, "w", encoding="utf-8") as f:
         f.write(out)
