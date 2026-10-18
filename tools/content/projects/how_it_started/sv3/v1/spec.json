@@ -1,0 +1,34 @@
+[
+ {
+  "id": "M1",
+  "text": "",
+  "note": "how it started, pills: sniper perspective",
+  "beat": true,
+  "same_take_as": null,
+  "direction": "no voice: a direction, not a line"
+ },
+ {
+  "id": "M2",
+  "text": "",
+  "note": "how it started, pills: runners perspective",
+  "beat": true,
+  "same_take_as": null,
+  "direction": "no voice: a direction, not a line"
+ },
+ {
+  "id": "M3",
+  "text": "",
+  "note": "vs how its going, cut to forest: sniper perspective",
+  "beat": true,
+  "same_take_as": null,
+  "direction": "no voice: a direction, not a line"
+ },
+ {
+  "id": "M4",
+  "text": "",
+  "note": "how its going, forest: runners perspective",
+  "beat": true,
+  "same_take_as": null,
+  "direction": "no voice: a direction, not a line"
+ }
+]
