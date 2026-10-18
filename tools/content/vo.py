@@ -89,30 +89,43 @@ def read_doc(db):
     return out
 
 
+class _Live:
+    """The db, its doc read from `autosave` when Audacity holds unsaved edits (a track added since the last save)."""
+    def __init__(self, db):
+        self.db = db
+        self.table = "autosave" if db.execute("select count(*) from autosave").fetchone()[0] else "project"
+
+    def execute(self, q, *args):
+        return self.db.execute(q.replace("from project", "from " + self.table), *args)
+
+
 def clips(aup4):
-    """Every clip of every unmuted track, in time order: (name, mono float32 samples with Audacity's trims applied, rate)."""
+    """Every clip of every track, in time order: (track index, name, mono float32 samples with the trims applied, rate)."""
     with tempfile.TemporaryDirectory() as tmp:
         copy = os.path.join(tmp, "copy.aup4")
-        shutil.copy2(aup4, copy)                  # the recording itself is never opened for writing
+        for ext in ("", "-wal", "-shm"):          # the recording itself is never opened for writing
+            if os.path.exists(aup4 + ext):
+                shutil.copy2(aup4 + ext, copy + ext)
         db = sqlite3.connect(copy)
-        stack, track, clip, found = [], None, None, []
-        for o in read_doc(db):
+        stack, track, clip, found, nt = [], None, None, [], -1
+        for o in read_doc(_Live(db)):
             if o[0] == "start":
                 stack.append(o[1])
                 if o[1] == "wavetrack":
-                    track = {"rate": 44100.0, "mute": False, "channel": 0}
+                    nt += 1
+                    track = {"rate": 44100.0, "mute": False, "channel": 0, "n": nt}
                 elif o[1] == "waveclip":
                     clip = {"blocks": [], "trimLeft": 0.0, "trimRight": 0.0, "offset": 0.0, "name": ""}
                 continue
             if o[0] == "end":
                 tag = stack.pop()
                 if tag == "waveclip" and clip is not None:
-                    if not track["mute"] and clip["blocks"]:
+                    if clip["blocks"]:   # mute is ignored: a later track is a retake, muted or not
                         x = np.concatenate([np.frombuffer(db.execute("select samples from sampleblocks where blockid=?",
                                                                      (b,)).fetchone()[0], dtype="<f4") for b in clip["blocks"]])
                         r = track["rate"]
                         x = x[int(round(clip["trimLeft"] * r)):len(x) - int(round(clip["trimRight"] * r))]
-                        found.append((clip["offset"], clip["name"], x.astype(np.float32), int(r)))
+                        found.append((track["n"], clip["offset"], clip["name"], x.astype(np.float32), int(r)))
                     clip = None
                 continue
             _, k, v = o
@@ -124,7 +137,7 @@ def clips(aup4):
             elif where == "waveblock" and k == "blockid" and clip is not None:
                 clip["blocks"].append(int(v))
         db.close()
-    return [(n, x, r) for _, n, x, r in sorted(found, key=lambda c: c[0])]
+    return [(t, n, x, r) for t, _, n, x, r in sorted(found, key=lambda c: c[:2])]
 
 
 def frames_db(x, r):
@@ -221,6 +234,29 @@ def level(src, dst):
     subprocess.run(FF + ["-i", src, "-af", af, "-ar", str(OUT_RATE), "-ac", "2", "-c:a", "pcm_s16le", dst], check=True)
 
 
+def split(lines, takes, heard, base=False, share=0.0):
+    """Line id -> [(take, start, end)] for the lines these words say (base: one clip per line; share: of the line's words heard)."""
+    pieces = {k: [] for k, _ in lines}
+    if base:
+        for i, (k, _) in enumerate(lines):
+            pieces[k].append((i, 0, len(takes[i][1])))
+        return pieces
+    owner = assign(lines, heard)
+    for li, (k, _) in enumerate(lines):
+        idx = [j for j, o in enumerate(owner) if o == li]
+        if len(idx) < share * len([w for w in lines[li][1].split() if norm(w)]):
+            continue
+        for t in sorted({heard[j]["take"] for j in idx}):
+            x, r = takes[t][1], takes[t][2]
+            mine = [j for j in idx if heard[j]["take"] == t]
+            prev = mine[0] - 1 if mine[0] > 0 and heard[mine[0] - 1]["take"] == t else None
+            nxt = mine[-1] + 1 if mine[-1] + 1 < len(heard) and heard[mine[-1] + 1]["take"] == t else None
+            s0 = 0 if prev is None else quietest(x, r, heard[prev]["t"] + heard[prev]["dur"], heard[mine[0]]["t"])
+            s1 = len(x) if nxt is None else quietest(x, r, heard[mine[-1]]["t"] + heard[mine[-1]]["dur"], heard[nxt]["t"])
+            pieces[k].append((t, s0, s1))
+    return pieces
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("aup4")
@@ -234,7 +270,9 @@ def main(argv=None):
     if not script:
         raise SystemExit("vo: %s has no ## script %s" % (a.brief, a.tag))
     lines = [(r["line"], r["text"]) for r in brief_mod.voice_rows(script)]
-    takes = [(n, cut_ends(x, r), r) for n, x, r in clips(a.aup4)]
+    found = clips(a.aup4)
+    takes = [(n, cut_ends(x, r), r) for _, n, x, r in found]
+    track = [t for t, _, _, _ in found]
     if not takes or not lines:
         raise SystemExit("vo: %d clips, %d voice lines" % (len(takes), len(lines)))
     from faster_whisper import WhisperModel
@@ -248,24 +286,22 @@ def main(argv=None):
         heard += [dict(w, take=i) for w in transcribe(model, p)[1]]
     if not heard:
         raise SystemExit("vo: nothing heard in %s" % a.aup4)
+    # The first track is the take; a later track is a retake of the lines it says, the newest track winning.
     pieces = {k: [] for k, _ in lines}        # line id -> [(take index, start sample, end sample)]
-    if len(takes) == len(lines):              # one clip per line: the split is the clip boundary
-        for i, (k, _) in enumerate(lines):
-            pieces[k].append((i, 0, len(takes[i][1])))
-    else:                                     # otherwise: split the takes at the silence between lines
-        owner = assign(lines, heard)
-        for li, (k, _) in enumerate(lines):
-            idx = [j for j, o in enumerate(owner) if o == li]
-            if not idx:
-                raise SystemExit("vo: line %s was not heard in the recording" % k)
-            for t in sorted({heard[j]["take"] for j in idx}):
-                x, r = takes[t][1], takes[t][2]
-                mine = [j for j in idx if heard[j]["take"] == t]
-                prev = mine[0] - 1 if mine[0] > 0 and heard[mine[0] - 1]["take"] == t else None
-                nxt = mine[-1] + 1 if mine[-1] + 1 < len(heard) and heard[mine[-1] + 1]["take"] == t else None
-                s0 = 0 if prev is None else quietest(x, r, heard[prev]["t"] + heard[prev]["dur"], heard[mine[0]]["t"])
-                s1 = len(x) if nxt is None else quietest(x, r, heard[mine[-1]]["t"] + heard[mine[-1]]["dur"], heard[nxt]["t"])
-                pieces[k].append((t, s0, s1))
+    for tr in sorted(set(track)):
+        mine = [w for w in heard if track[w["take"]] == tr]
+        if not mine:
+            continue
+        first = tr == min(track)
+        got = split(lines, takes, mine, base=len(set(track)) == 1 and len(takes) == len(lines), share=0.0 if first else 0.5)
+        if not first:
+            print("vo: track %d retakes %s" % (tr, ", ".join(k for k in got if got[k])))
+        for k, v in got.items():
+            if v:
+                pieces[k] = v
+    missing = [k for k, v in pieces.items() if not v]
+    if missing:
+        raise SystemExit("vo: line %s was not heard in the recording" % ", ".join(missing))
     words_all = {}
     for k, _ in lines:
         parts, ws, at, lead = [], [], 0, None
