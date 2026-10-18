@@ -4,7 +4,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## [code]--map=forest --shot=s3_open_lane --stage=forest_ragdolls --bots=3 --rifle=projectile --seed=20261017[/code]
 ## Probe (probe_ring --map=forest): deck flat at 23 on 44-60 deg r 50-54; a trunk at 46-48 deg r 48.5-50.5, a rock at
 ## 54 deg r 52-53.5; --eye=59.5:51:1.5 and the 32 deg window (32:4.4:5.9) both see 44-52 deg at r 51.2-51.8.
-## Dials (--set=): pace (0.45), hits (2.4,4.4,6.4: squeeze seconds, one per man), fire_deg (49.5), lens (59.0,51.0,1.5), fov (50), hold (1.5).
+## Dials (--set=): pace (0.45), hits (2.4,4.4,6.4: squeeze seconds, one per man), fire_deg (47.5), lens (59.0,51.0,1.5), look (53.2,52.1,0.4), fov (50).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
@@ -13,14 +13,11 @@ const LANES: Array = [51.3, 51.8, 51.5]
 ## Smoke-measured run, deg/s at pace 1 from 0.7 s; a man starts where he reaches fire_deg at his squeeze.
 const DEG_PER_S_AT_PACE: float = 11.5
 const MOVE_AT: float = 0.7
-const LOOK_EASE: float = 0.35
 const LOOK_HEIGHT: float = 0.9
 
 var _bodies: Array[PlayerController] = []
 var _hit_at: Dictionary = {}
 var _hand: Node = null
-var _look: Vector3 = Vector3.ZERO
-var _look_set: bool = false
 var _checks: Dictionary = {}
 
 
@@ -58,7 +55,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	var pace: float = float(option("pace", 0.45))
 	var hits: PackedFloat64Array = _hits()
 	for index: int in 3:
-		var start: float = float(option("fire_deg", 49.5)) - DEG_PER_S_AT_PACE * pace * (hits[index] - MOVE_AT)
+		var start: float = float(option("fire_deg", 47.5)) - DEG_PER_S_AT_PACE * pace * (hits[index] - MOVE_AT)
 		var at := Vector2(start, float(LANES[index]))
 		drive(runners[index], [
 			{"do": "place", "at": LIB.ring_point(at.x, at.y, 0.1), "face": LIB.tangent_at(at.x)},
@@ -105,15 +102,6 @@ func tick(_delta: float) -> void:
 	say("forest_ragdolls: hand on %s at the 32 deg window" % guard.name)
 
 
-## The man the lens is on: the first not yet down for hold seconds.
-func _subject() -> PlayerController:
-	var hold: float = float(option("hold", 1.5))
-	for body: PlayerController in _bodies:
-		if not _hit_at.has(body) or elapsed() - float(_hit_at[body]) < hold:
-			return body
-	return _bodies[_bodies.size() - 1]
-
-
 func _centre(body: PlayerController) -> Vector3:
 	var avatar: PrisonerAvatar = PrisonerAvatar.of(body)
 	var ragdoll: Object = avatar.get(&"_ragdoll") if avatar != null else null
@@ -122,17 +110,12 @@ func _centre(body: PlayerController) -> Vector3:
 	return body.global_position + Vector3.UP * LOOK_HEIGHT
 
 
-func lens(delta: float) -> bool:
+func lens(_delta: float) -> bool:
 	if _bodies.is_empty() or camera() == null:
 		return false
-	var spot: Vector3 = LIB.polar(String(option("lens", "59.0,51.0,1.5")), LIB.ring_point(59.0, 51.0, 1.5))
-	var want: Vector3 = _centre(_subject())
-	if not _look_set:
-		_look_set = true
-		_look = want
-	_look = _look.lerp(want, 1.0 - exp(-delta / LOOK_EASE))
-	camera().global_position = spot
-	camera().look_at(_look, Vector3.UP)
+	# Fixed and framed on the whole kill zone: tracking the pelvis bone dived the lens off the lying body.
+	camera().global_position = LIB.polar(String(option("lens", "59.0,51.0,1.5")), LIB.ring_point(59.0, 51.0, 1.5))
+	camera().look_at(LIB.polar(String(option("look", "53.2,52.1,0.4")), LIB.ring_point(53.2, 52.1, 0.4)), Vector3.UP)
 	camera().fov = float(option("fov", 50.0))
 	camera().current = true
 	return true
