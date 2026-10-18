@@ -9,7 +9,7 @@ import re
 import sys
 
 PAD = 0.2           # assemble's default `pad:` after each voice line
-CARD = "beta link in bio"
+CARD = "beta signup in bio"
 
 
 class Refused(Exception):
@@ -111,6 +111,8 @@ def build(shots, stages, words, name, tag, base_n):
         ent += ["seconds: %s" % fmt(float(e["seconds"])), "in: %s" % fmt(float(e["in"]))]
         if e.get("motion") not in (None, ""):   # the approved take's motion floor for shot.sh's gate
             ent.append("motion: %s" % e["motion"])
+        if e.get("ref"):                         # an era stage: shot.sh smokes and films it at that ref
+            ent.append("ref: %s" % e["ref"])
         ent.append("refilm: %s" % tag)
         entries.append("\n".join(ent))
         cut = "cuts/%02d_%s.mp4" % (n, tag)

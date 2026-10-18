@@ -4,7 +4,7 @@ import re
 
 POVS = ("guard", "runner")
 TICKS = ("hit", "shove", "out", "go")
-CARD = {"text": "beta link in bio", "seconds": 1.0}
+CARD = {"text": "beta signup in bio", "seconds": 1.0}
 
 _N = {"type": ["string", "null"]}
 _BEAT = {"type": ["object", "null"], "properties": {"tick": {"enum": list(TICKS)}, "word": {"type": "string"}},
@@ -75,7 +75,7 @@ def _why_not(s, stages, by_id):
         return "dials %s are not dials of %s (%s)" % (bad, s["stage"], sorted(st["dials"]))
     ticks = {k: v for k, v in (e.get("ticks") or {}).items() if v is not None}
     b = s["beat"]
-    if not b and ticks:
+    if not b and ticks and s["text"].strip():   # a voiceless line has no word for the event to land on
         return "beat missing: %s %d has ticks %s; the line needs the word the event lands on" % (e["project"], e["entry"], sorted(ticks))
     if b:
         if b["tick"] not in TICKS or (e.get("ticks") or {}).get(b["tick"]) is None:

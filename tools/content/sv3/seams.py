@@ -18,10 +18,10 @@ GONE = ["capture", "search", "predicates", "mocklogs"]
 MAPS = {"hell", "forest", "marble"}
 POVS = {"guard", "runner"}
 TICKS = {"hit", "shove", "out", "go"}
-APPROVED_KEYS = {"project", "entry", "said", "capture", "tape", "expect", "seconds", "in", "motion", "ticks"}
+APPROVED_KEYS = {"project", "entry", "said", "capture", "tape", "expect", "seconds", "in", "motion", "ref", "ticks"}
 SHOT_KEYS = ["id", "line", "text", "note", "stage", "pov", "dials", "approved", "same_take_as", "beat", "card", "needs_stage", "why"]
 PLAN_READS = ["stage", "pov", "dials", "approved", "same_take_as", "beat", "card"]
-ENTRY_FIELDS = ["said:", "capture:", "tape:", "expect:", "seconds:", "in:", "motion:", "refilm:", "hud:"]
+ENTRY_FIELDS = ["said:", "capture:", "tape:", "expect:", "seconds:", "in:", "motion:", "refilm:", "hud:", "ref:"]
 TABLE_COLS = ["line", "clip", "in", "len", "fit", "speed", "text", "card"]
 FIT_MODES = ["line", "trim", "nohold", "wait", "window", "beat"]
 

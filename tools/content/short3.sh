@@ -37,7 +37,7 @@ mkdir -p "${WORK}/voice" "${WORK}/frames" || die "cannot make ${WORK}"
 NN_DIR=$(ls -d "${SOCIAL}"/[0-9][0-9]_"${NAME}" 2>/dev/null | head -1)
 if [ -z "${NN_DIR}" ]; then
   LAST=$(ls "${SOCIAL}" 2>/dev/null | grep -o '^[0-9][0-9]' | sort -n | tail -1)
-  NN_DIR="${SOCIAL}/$(printf '%02d' $(( ${LAST:-0} + 1 )))_${NAME}"
+  NN_DIR="${SOCIAL}/$(printf '%02d' $(( 10#${LAST:-0} + 1 )))_${NAME}"
 fi
 MAC_COPY="${NN_DIR}/${NAME}_${TAG}.mp4"
 [ ! -e "${MAC_COPY}" ] || die "short3 refuses: ${MAC_COPY} exists; delivery never overwrites (cut a new tag)"
