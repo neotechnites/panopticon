@@ -21,7 +21,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## figures are large and fill the middle of the tall frame.
 ##
 ## Dials (--set=): deg (195), r (52), ring (the starting circle's radius, 1.9),
-## cooldown (0.8), seconds (how long they brawl, 12).
+## cooldown (0.8), seconds (how long they brawl, 12), count (5 runners; 3 keeps a short's 4-player cap).
 
 const SAFE := {"from": 181.0, "to": 208.5, "r_min": 47.6, "r_max": 56.5}
 const LENS_BACK_DEGREES: float = 4.8
@@ -37,7 +37,7 @@ var _lens_set: bool = false
 
 
 func bots() -> int:
-	return 5
+	return int(option("count", 5))
 
 
 func tune_rules(rules: MatchRules) -> void:

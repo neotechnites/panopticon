@@ -13,6 +13,7 @@ const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const LEAD: int = 0
 const MID: int = 1
 const POV: int = 2
+## fling (0: off): the lead's death ragdoll impulse (shipped 70), so the first kill throws him (short 4 L5 "go flying").
 ## deg, r of each runner's start: the back man starts behind the other two.
 const STARTS: Array = [Vector2(37.0, 51.6), Vector2(33.5, 51.0), Vector2(29.0, 51.5)]
 const WATCH_SECONDS: float = 0.5
@@ -74,6 +75,12 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			{"do": "hold", "seconds": 60.0, "fidget": true},
 		], index, "ClipGoingRunner%d" % index)
 		_bodies.append(runners[index].controller)
+	if float(option("fling", 0.0)) > 0.0:
+		var avatar: PrisonerAvatar = PrisonerAvatar.of(_bodies[LEAD])
+		var ragdoll: Object = avatar.get(&"_ragdoll") if avatar != null else null
+		if ragdoll != null:
+			ragdoll.set(&"impulse", float(option("fling", 0.0)))
+			say("forest_going: %s's ragdoll impulse %.0f" % [_bodies[LEAD].name, float(option("fling", 0.0))])
 	victim_body(_bodies[LEAD])
 	stage_body(_bodies[POV])
 	say("forest_going: lead %s, mid %s, POV %s; pace %.2f" % [_bodies[LEAD].name, _bodies[MID].name, _bodies[POV].name, pace])
