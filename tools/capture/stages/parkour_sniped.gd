@@ -13,7 +13,8 @@ extends "res://tools/capture/stages/lavaparkour.gd"
 ## wall blocks the lake; 305 is the window.
 ##
 ## Dials (--set=): window (305.0), look_to (3.4, he turns off the tower), misses ("1.9,3.0": the squeezes that miss), miss_by (1.5),
-## hand_at (0.8), zoom_at (1.2), drop_at (0.0 = no drop), hold_to (0.0).
+## hand_at (0.8), zoom_at (1.2), drop_at (0.0 = no drop), hold_to (0.0),
+## look_drift (1.4 m: the eyes wander on the window so the look is never a frozen frame; 0 drift froze the take).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const WATCH_SECONDS: float = 0.5
@@ -71,8 +72,10 @@ func tick(delta: float) -> void:
 	if _runner == null:
 		return
 	if _pov_driver != null and is_instance_valid(_pov_driver) and elapsed() < float(option("look_to", 3.4)):
-		# Over at the tower while it shoots.
-		_pov_driver.eyes(_window_eye())
+		# Over at the tower while it shoots, the eyes never dead still (look_drift m at the window, ~1.5 deg).
+		var t: float = elapsed()
+		var drift: float = float(option("look_drift", 1.4))
+		_pov_driver.eyes(_window_eye() + Vector3(sin(t * 1.7) + 0.5 * sin(t * 3.1), 0.6 * sin(t * 1.1 + 0.7), cos(t * 1.3)) * drift)
 	var step: int = int(_pov_driver.get("_index")) if _pov_driver != null and is_instance_valid(_pov_driver) else 0
 	var hop: int = int(_pov_meta[mini(step, _pov_meta.size() - 1)]["hop"]) if not _pov_meta.is_empty() else 0
 	if hop != _hop_seen:
