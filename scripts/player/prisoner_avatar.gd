@@ -151,6 +151,16 @@ const FLOP_WAIT_SECONDS: float = 0.35
 ## The least a flop lasts, and how long he must be down before getting up, seconds.
 const FLOP_LEAST_SECONDS: float = 0.3
 const FLOP_DOWN_SECONDS: float = 0.12
+## The shove on the eye's own arms, eye space, right then left: shoulders, elbow poles, palms under the frame and at full push.
+const SHOVE_SHOULDERS: Array[Vector3] = [Vector3(0.2, -0.36, 0.1), Vector3(-0.2, -0.36, 0.1)]
+const SHOVE_ELBOWS: Array[Vector3] = [Vector3(0.7, -0.8, 0.0), Vector3(-0.7, -0.8, 0.0)]
+const SHOVE_FROM: Array[Vector3] = [Vector3(0.2, -0.55, -0.2), Vector3(-0.2, -0.55, -0.2)]
+const SHOVE_TO: Array[Vector3] = [Vector3(0.17, -0.16, -0.62), Vector3(-0.17, -0.16, -0.62)]
+## Shares of the shove spent pushing out and holding there; the rest draws back.
+const SHOVE_OUT: float = 0.3
+const SHOVE_HOLD: float = 0.25
+## Palms square to the view, fingers up and a little forward, backs of the hands to the eye.
+const SHOVE_PALM: Basis = Basis(Vector3(0.0, 0.34, 0.94), Vector3(0.0, 0.94, -0.34), Vector3(-1.0, 0.0, 0.0))
 
 @export var body: PlayerController
 
@@ -442,6 +452,7 @@ var _has_shove: bool = false
 ## Seconds of [member shove_clip] left to play. Above zero the shove owns the
 ## body and every other pose waits, which is the whole of its state.
 var _shove_remaining: float = 0.0
+var _shove_length: float = 0.0
 
 ## This body's own camera, or null. Current, with no claim standing, means the
 ## view is out of this body and it must be shown its own legs.
@@ -466,6 +477,9 @@ var _hold_hands: RifleHold = null
 ## The owner's own rifle arms on the eye, drawn in place of the body's while it is looked out of.
 var _fp_arms: FirstPersonArms = null
 var _fp_arms_mesh: MeshInstance3D = null
+## The eye's shove palms, and whether the eye's arms are on them rather than the rifle.
+var _shove_hands: Array[Node3D] = []
+var _fp_shoving: bool = false
 
 ## Whether each of those is collapsed right now. Edges, like [member _in_slide].
 var _spine_hidden: bool = false
@@ -1033,6 +1047,7 @@ func _on_body_shoved() -> void:
 	if not _has_shove or _dead:
 		return
 	_shove_remaining = animation.get_animation(shove_clip).length / maxf(shove_rate, 0.01)
+	_shove_length = _shove_remaining
 	_in_slide = false
 	_in_crouch = false
 	_in_air = false
@@ -1059,21 +1074,25 @@ func tick_first_person() -> void:
 	if mesh.layers != want_layers:
 		mesh.layers = want_layers
 
-	# The torso goes with the head: in first person the body is in the way. The
-	# shove is the one clip whose point is seeing your own arms, so it gets them
-	# back -- the head stays collapsed throughout, on its own modifier.
-	var hide_spine: bool = want and _shove_remaining <= 0.0
+	# The torso goes with the head: in first person the body is in the way. A shove is drawn on the eye's own arms.
+	var hide_spine: bool = want
+	var shoving: bool = want and _shove_remaining > 0.0 and not _shove_hands.is_empty()
 	if _spine_hider != null and hide_spine != _spine_hidden:
 		_spine_hidden = hide_spine
 		_spine_hider.set_hidden(hide_spine)
 
-	# Redundant while the spine is down, and not while the shove has it back.
+	# Redundant while the spine is down.
 	var hide_arms: bool = hide_spine and (body.is_guard or body.is_armed)
 	# A drawn rifle is held by the eye's own arms; a third-person one sits at the drawn eye.
 	if _hold_lean != null:
 		_hold_lean.follow_eye = not want
 	if _fp_arms != null:
-		var drawn: bool = hide_arms and _held_model != null and _held_model.is_visible_in_tree()
+		var drawn: bool = shoving or (hide_arms and _held_model != null and _held_model.is_visible_in_tree())
+		if shoving != _fp_shoving:
+			_fp_shoving = shoving
+			_put_fp_arms_on(shoving)
+		if shoving:
+			_pose_shove_hands()
 		if drawn != _fp_arms.active:
 			_fp_arms.active = drawn
 			_fp_arms_mesh.visible = drawn
@@ -1185,6 +1204,33 @@ func _build_first_person_arms(skeleton: Skeleton3D) -> void:
 	_fp_arms.active = false
 	arms.add_child(_fp_arms)
 	_fp_arms.bind(arms, [&"UpperArm.R", &"UpperArm.L", &"LowerArm.R", &"LowerArm.L", &"Hand.R", &"Hand.L"])
+	for i in 2:
+		var palm: Marker3D = Marker3D.new()
+		palm.name = "ShovePalm%d" % i
+		body.head.add_child(palm)
+		_shove_hands.append(palm)
+
+
+## The eye's arms on the shove's palms and shoulders, or back on the rifle's.
+func _put_fp_arms_on(shove: bool) -> void:
+	for i in 2:
+		_fp_arms.anchors[i] = _shove_hands[i] if shove else (_hold_lean.anchors[i] if _hold_lean != null else null)
+	_fp_arms.shoulders = SHOVE_SHOULDERS if shove else FirstPersonArms.SHOULDERS
+	_fp_arms.elbows = SHOVE_ELBOWS if shove else FirstPersonArms.ELBOWS
+
+
+## Out fast, hold, draw back: the palms along the shove's share played so far.
+func _pose_shove_hands() -> void:
+	var played: float = 1.0 - _shove_remaining / maxf(_shove_length, 0.001)
+	var reach: float = 0.0
+	if played < SHOVE_OUT:
+		reach = 1.0 - pow(1.0 - played / SHOVE_OUT, 3.0)
+	elif played < SHOVE_OUT + SHOVE_HOLD:
+		reach = 1.0
+	else:
+		reach = 1.0 - smoothstep(SHOVE_OUT + SHOVE_HOLD, 1.0, played)
+	for i in 2:
+		_shove_hands[i].transform = Transform3D(SHOVE_PALM, SHOVE_FROM[i].lerp(SHOVE_TO[i], reach))
 
 
 func _add_hold_stage(skeleton: Skeleton3D, stage: int, node_name: String) -> RifleHold:
@@ -1236,8 +1282,8 @@ func _hold(rifle: Rifle) -> void:
 		if stage != null:
 			stage.active = holding
 	if _fp_arms != null:
-		_fp_arms.anchors[0] = _hold_lean.anchors[0]
-		_fp_arms.anchors[1] = _hold_lean.anchors[1]
+		_fp_shoving = false
+		_put_fp_arms_on(false)
 		_fp_arms.active = false
 		_fp_arms_mesh.visible = false
 

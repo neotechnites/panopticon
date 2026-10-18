@@ -18,7 +18,8 @@ extends Node
 ## eye can see both the man and the ground he is led into, for up to CLEAR_WAIT.
 ## [code]watch[/code] (false) keeps the hand on the man after the squeeze so the
 ## frame the round arrives in still has him in it. [code]shots[/code] (1) lets a
-## beat fire more than once: miss, re-lead, fire again.
+## beat fire more than once: miss, re-lead, fire again. [code]hold[/code] (false)
+## watches past the hit: the hand slows onto where he lies, breathing sway only.
 ##
 ## [codeblock]
 ## var hand: Node = GUARD_HAND.new()
@@ -61,6 +62,11 @@ const STEADY_TOLERANCE: float = 1.6
 const STEADY_FLOOR: float = 2.0
 ## Longest a "clear" beat waits for a gap in the columns before it fires anyway.
 const CLEAR_WAIT: float = 1.2
+## A hold beat: seconds past the squeeze before the hand slows, how long it slows over, its slow omega, the aim over his body.
+const HOLD_AFTER: float = 0.4
+const HOLD_EASE: float = 0.8
+const HOLD_OMEGA: float = 2.5
+const HOLD_HEIGHT: float = 0.35
 
 var beats: Array = []
 var park: Vector3 = Vector3.ZERO
@@ -76,6 +82,8 @@ var _rate: Vector2 = Vector2.ZERO
 var _fired: Array = []
 ## Shots taken on each beat, so a beat may work a man rather than fire once.
 var _shots: Dictionary = {}
+## Beat-seconds each beat last fired at.
+var _fired_into: Dictionary = {}
 var _last_aim: Array = []
 var _installed: bool = false
 ## Per body: where it was, a slow average of its velocity, and a fast one.
@@ -151,6 +159,11 @@ func _physics_process(delta: float) -> void:
 		if entry != null:
 			body = _body_of(entry)
 	var aim: Vector3
+	# hold: past the hit the hand slows onto where he lies.
+	var settled: float = 0.0
+	if _spent(k, beat) and bool(beat.get("hold", false)):
+		settled = clampf((into - float(_fired_into.get(k, into)) - HOLD_AFTER) / HOLD_EASE, 0.0, 1.0)
+		omega = lerpf(omega, HOLD_OMEGA, settled)
 	if _spent(k, beat) and bool(beat.get("watch", false)) and body != null and is_instance_valid(body) and body.is_visible_in_tree():
 		# watch (false): after the squeeze the hand stays ON the man and rides the
 		# kick back down, which is what a player does -- he takes the shot and
@@ -160,7 +173,7 @@ func _physics_process(delta: float) -> void:
 		# recoil kick on top, and a frozen aim has the impact outside the scope.
 		# Ryan: "pov a would have been perfect, if the shot they hit wasnt out of
 		# frame when it hits the runner."
-		aim = body.global_position + Vector3.UP * AIM_HEIGHT
+		aim = body.global_position + Vector3.UP * lerpf(AIM_HEIGHT, HOLD_HEIGHT, settled)
 		_last_aim[k] = aim
 	elif _spent(k, beat) or body == null or not is_instance_valid(body):
 		aim = _last_aim[k] if _last_aim[k] != Vector3.ZERO else beat.get("at", park)
@@ -193,6 +206,9 @@ func _physics_process(delta: float) -> void:
 		var settling: float = 1.0 if fire_at < 0.0 else clampf((fire_at - into) / SETTLE_SECONDS, 0.0, 1.0)
 		var sway: float = deg_to_rad(SWAY_DEGREES) * settling
 		wanted += Vector2(sin(t * TAU * SWAY_HZ) * sway, sin(t * TAU * SWAY_HZ * 1.7 + 1.0) * sway * 0.6)
+	elif settled > 0.0:
+		var breath: float = deg_to_rad(SWAY_DEGREES) * settled
+		wanted += Vector2(sin(t * TAU * SWAY_HZ) * breath, sin(t * TAU * SWAY_HZ * 1.7 + 1.0) * breath * 0.6)
 	var error := Vector2(angle_difference(_yaw, wanted.x), wanted.y - _pitch)
 	var accel: Vector2 = error * (omega * omega) - _rate * (2.0 * HAND_ZETA * omega)
 	_rate += accel * delta
@@ -213,6 +229,7 @@ func _physics_process(delta: float) -> void:
 			_apply_head()
 			return
 		_shots[k] = _shots_on(k) + 1
+		_fired_into[k] = into
 		if not _fired.has(k):
 			_fired.append(k)
 		# The last of the error goes in the squeeze: the crosshair is on him,
