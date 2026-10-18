@@ -32,3 +32,6 @@ for when i say if my art didnt make it clear, it should be an older build of the
 
 ## v23 | ragdoll_short_v23.mp4 | 2026-10-18 00:45
 seriously is the fucking random ass fucking orange box in the death animation a joke? when i say ragdolls, he just drops, he doesnt get shot. when the gaurd is hoved, they freak out, and the shove off into the pit changed to a shove just generically, and it looks bad. should be a shove into the pit. for the shove one, the gameplay of the shove minigame is super weird because of the way the bots behave, and its unclear thats whats happening. change the minigame so instead of everyone facing away, everyone starts closer to the edge facing in. that can be an actual gameplay change. then record that instead
+
+## v25 | ragdoll_short_v25.mp4 | 2026-10-18 08:55
+holy fuck. seriously on the ragdoll? the death animation on the grey background is using a weird fucking model of the character. the onld in game one with a bunch of filters on it. it looks like the version of the character your supposed to see from 100 ft away when it gets low rezed. everything else is good. short 12 is good, 11 is still doesnt read right. short 9 is good, with the one acception that at the end, the very very end, the sniper sits looing at nothing for like a second
