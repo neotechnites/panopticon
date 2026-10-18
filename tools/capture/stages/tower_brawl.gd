@@ -118,8 +118,12 @@ func _eyes_out() -> void:
 	away = away.normalized() if away.length() > 0.2 else -_ride.body.global_transform.basis.z
 	var below: Vector3 = at + away * 7.0 + Vector3.DOWN * 5.0
 	_won_at = elapsed()
-	_after = drive(_ride.brain as RunnerBrain, [{"do": "steer", "on": true, "rate": 240.0, "gain": 6.0}, {"do": "human", "on": true},
-		{"do": "hold", "seconds": 30.0, "look_at": below}], int(_ride.index), "BrawlWinnerEyes")
+	var steps: Array = [{"do": "steer", "on": true, "rate": 240.0, "gain": 6.0}, {"do": "human", "on": true},
+		{"do": "hold", "seconds": 0.7, "look_at": below}, {"do": "steer", "on": true, "rate": 40.0, "gain": 3.0}]
+	# Then a slow pan round the emptied room until the seat takes him: a held stare froze 0.77 s on the PC take.
+	for i: int in range(1, 40):
+		steps.append({"do": "hold", "seconds": 0.3, "look_at": at + away.rotated(Vector3.UP, deg_to_rad(12.0 * i)) * 7.0 + Vector3.DOWN * 2.0})
+	_after = drive(_ride.brain as RunnerBrain, steps, int(_ride.index), "BrawlWinnerEyes")
 
 
 ## Seated: the brain stands down and a hand scopes the runners below (the run_clip scope paints for a guard POV).
