@@ -86,9 +86,9 @@ func test_one_finale_shove_throws_the_guard_out_and_the_round_turns_over() -> vo
 	var forward: Vector3 = -finisher.body.global_transform.basis.z
 	forward = Vector3(forward.x, 0.0, forward.z).normalized()
 	assert_vec3_almost_eq(_beat_throw, forward * _rules.shove_impulse * 2.0, 0.01, "thrown at twice an ordinary push, no lift")
-	assert_true(_controller.is_tower_open(), "the tower's collision is off on the shove")
-	for wall: Node in walls:
-		assert_eq_int((wall as StaticBody3D).collision_layer, MatchController.OPEN_TOWER_LAYER, "%s is off" % wall.name)
+	assert_false(_controller.is_tower_open(), "the tower stays solid on the shove")
+	for i: int in walls.size():
+		assert_eq_int((walls[i] as StaticBody3D).collision_layer, layers[i], "%s still collides" % walls[i].name)
 	assert_true(finisher.body.movement_locked, "the finisher is held; they cannot fall out")
 	assert_null(_controller.apply_shove(finisher), "a second shove does nothing")
 
@@ -102,8 +102,6 @@ func test_one_finale_shove_throws_the_guard_out_and_the_round_turns_over() -> vo
 	assert_eq_int(_controller.get_round_number(), rounds_before + 1, "the next round starts")
 	assert_same(_controller.get_seat_participant(), finisher, "the finisher takes the tower")
 	assert_false(_controller.is_tower_open(), "the tower is closed again")
-	for i: int in walls.size():
-		assert_eq_int((walls[i] as StaticBody3D).collision_layer, layers[i], "%s is back as it was" % walls[i].name)
 
 
 func test_the_tracking_shot_holds_the_view_for_the_beat() -> void:

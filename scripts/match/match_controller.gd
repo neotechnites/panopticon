@@ -1851,7 +1851,7 @@ func get_finisher() -> MatchParticipant:
 	return _finisher
 
 
-## True from the finale shove until the next round: the tower's collision is off.
+## True from a brawl's opening until the next round: the tower's collision is off.
 func is_tower_open() -> bool:
 	return not _opened_tower.is_empty()
 
@@ -2038,8 +2038,8 @@ func apply_hit(participant: MatchParticipant) -> bool:
 	return convert_participant(participant)
 
 
-## The finale shove along [param forward]: one kills the guard, his ragdoll is thrown out of the
-## open tower and the round resolves after the beat. His capsule is held, so no fall rules on him.
+## The finale shove along [param forward]: one kills the guard, his ragdoll is thrown against the
+## solid tower and the round resolves after the beat. His capsule is held, so no fall rules on him.
 func throw_guard(guard: MatchParticipant, forward: Vector3) -> bool:
 	if guard == null or is_resolved() or _phase != Phase.ROUND:
 		return false
@@ -2086,14 +2086,14 @@ func _in_kill_beat() -> bool:
 	return _kill_beat_remaining > 0.0
 
 
-## Hold both bodies, open the tower and throw the guard's ragdoll out of it while
+## Hold both bodies and throw the guard's ragdoll while
 ## every view follows. The authority owns this clock -- a mirror runs no beat.
 func _begin_kill_beat(guard: MatchParticipant, scorer: MatchParticipant, seconds: float, throw: Vector3) -> void:
 	_kill_beat_remaining = seconds
 	_kill_beat_scorer = scorer
 	_kill_beat_guard = guard
 	_freeze_for_kill_beat(guard)
-	# Held, collision and physics off, so the finisher cannot fall out of the open tower.
+	# Held, collision and physics off, so the finisher stays where he shoved from.
 	_freeze_for_kill_beat(scorer)
 	if shove_camera_kick != null and scorer == get_human_participant():
 		shove_camera_kick.strike(Vector3(throw.x, 0.0, throw.z).normalized(), SHOVE_KICK_SCALE)
@@ -2103,10 +2103,9 @@ func _begin_kill_beat(guard: MatchParticipant, scorer: MatchParticipant, seconds
 	kill_beat_started.emit(guard, seconds, throw)
 
 
-## Every machine's half of the finale: the tower's collision off, the guard dead
-## and limp, thrown at [param throw] (world m/s).
+## Every machine's half of the finale: the guard dead and limp, thrown at [param throw] (world m/s).
+## The tower stays solid, so the swept ragdoll meets its walls instead of passing through them.
 func _throw_guard_out(guard: MatchParticipant, throw: Vector3) -> void:
-	_open_tower()
 	if guard.body == null:
 		return
 	AudioDirector.post_event_at(AudioEvents.PLAYER_CATCH_MADE, guard.body.global_position)
@@ -2567,7 +2566,7 @@ func _make_ghost(participant: MatchParticipant) -> void:
 	body.remove_from_group(RUNNER_GROUP)
 	body.visible = true
 	body.speed_scale = maxf(profile.speed_multiplier, 0.0)
-	_tint_body(participant, _ghost_material_for(participant))
+	# The falling body stays solid; it wears the ghost colour from the start line (see [method _finish_respawn]).
 	# Inert NOW; moved to the start line after
 	# [member GhostProfile.respawn_delay_seconds]; collision and motion back
 	# two physics frames after that. See [method _place_ghost_at_start].
@@ -2695,6 +2694,8 @@ func _finish_respawn(participant: MatchParticipant) -> void:
 	# and a ghost's first second is the one in which the field is still nearby.
 	body.rotation = Vector3(0.0, _heading_of(_track_tangent(_angle_of(place))), 0.0)
 	participant.ghost_settle_frames = SETTLE_PHYSICS_FRAMES
+	if participant.is_ghost:
+		_tint_body(participant, _ghost_material_for(participant))
 	ghost_respawned.emit(participant)
 
 
@@ -3359,8 +3360,8 @@ func _place_in_tower(participant: MatchParticipant) -> void:
 	# A ghost can take the tower: they were a prisoner when the seat changed
 	# hands, and the round restarts around them like anybody else.
 	_unmake_ghost(participant)
-	# The guard keeps the shirt colour they wore as a runner.
-	_tint_body(participant, _runner_material_for(participant))
+	# The seat holder wears the guard's purple; his own colour comes back on the ring.
+	_tint_body(participant, _tinted_material(participant, get_runner_palette().guard_color))
 	_hold_body(participant)
 	body.global_position = _tower_point
 	body.velocity = Vector3.ZERO
