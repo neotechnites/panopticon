@@ -56,6 +56,13 @@ def norm(w):
     return re.sub(r"[^\w']", "", w).lower()
 
 
+def said(shot, words):
+    """The row's text: his recorded words (words.json `text`) where they differ from the script, so captions match."""
+    text = (shot.get("text") or "").strip()
+    heard = ((words.get(shot["id"]) or {}).get("text") or "").strip() if text else ""
+    return heard if heard and [norm(w) for w in heard.split()] != [norm(w) for w in text.split() if norm(w)] else text
+
+
 def approved_entry(stages, shot):
     st = stages.get(shot["stage"])
     if not st:
@@ -107,7 +114,7 @@ def build(shots, stages, words, name, tag, base_n):
             entries[k] = entries[k].replace("\nsaid: ", "\nsaid: ", 1).replace("\ncapture: ", " / %s\ncapture: " % s["note"], 1)
             cut = cut_of[same["id"]]
             cut_of[s["id"]] = cut
-            text = (s.get("text") or "").strip()
+            text = said(s, words)
             at = ends[same["id"]] if same["id"] in ends else float(e["in"])
             cell_in = at - float(e["in"])
             length = float(e["seconds"]) - cell_in
@@ -137,7 +144,7 @@ def build(shots, stages, words, name, tag, base_n):
         cut = "cuts/%02d_%s.mp4" % (n, tag)
         cut_of[s["id"]] = cut
         entry_of_cut[cut] = len(entries) - 1
-        text = (s.get("text") or "").strip()
+        text = said(s, words)
         at = clip_in(s, e, words) if text else float(e["in"])
         prev = shots[i - 1] if i else None
         if prev is not None and s.get("same_take_as") and root[s["id"]] == root.get(prev["id"]) and prev["id"] in ends:

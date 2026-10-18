@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Shorts v3 on the stage path (pod DESIGN §10): Ryan's script in, a reviewed 9:16 draft out, every step timed.
 #
-#   tools/content/short3.sh <script.md> --name <project> --tag vN [--mac-only]
+#   tools/content/short3.sh <script.md> --name <project> --tag vN [--mac-only] [--voice <aup4>]
 #
+# --voice: Ryan's recording (vo.py) is the voice in place of the TTS; captions take his words.
 # Steps: seams, script, translate, voice, words, plan, short (short.sh), pull, frames, review (advisory: its
 # exit is recorded, never fatal), deliver. --mac-only stops after short.sh's Mac smokes, never taking the PC lock.
 # Any other non-zero exit stops the run. Times go to tools/content/projects/<project>/sv3/<tag>/timing.json.
@@ -10,12 +11,13 @@
 set -uo pipefail
 source "$(dirname "$0")/lib.sh"
 
-USAGE="usage: tools/content/short3.sh <script.md> --name <project> --tag vN [--mac-only]"
+USAGE="usage: tools/content/short3.sh <script.md> --name <project> --tag vN [--mac-only] [--voice <aup4>]"
 SCRIPT="${1:?${USAGE}}"; shift
 SCRIPT="$(cd "$(dirname "${SCRIPT}")" && pwd)/$(basename "${SCRIPT}")"   # sv3 steps run from tools/content
-NAME=""; TAG=""; MAC_ONLY=0
+NAME=""; TAG=""; MAC_ONLY=0; VOICE=()
 while [ $# -gt 0 ]; do
-  case "$1" in --name) NAME="$2"; shift ;; --tag) TAG="$2"; shift ;; --mac-only) MAC_ONLY=1 ;; *) die "unknown option $1 (${USAGE})" ;; esac
+  case "$1" in --name) NAME="$2"; shift ;; --tag) TAG="$2"; shift ;; --mac-only) MAC_ONLY=1 ;;
+    --voice) [ -f "$2" ] || die "no recording at $2"; VOICE=(--ryan "$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"); shift ;; *) die "unknown option $1 (${USAGE})" ;; esac
   shift
 done
 [ -f "${SCRIPT}" ] || die "no script at ${SCRIPT}"
@@ -131,7 +133,7 @@ need seams seams;         step seams     sv3 seams
 need script script;       step script    sv3 script "${SCRIPT}" --out "${WORK}/spec.json"
 need translate translate; step translate sv3 translate "${WORK}/spec.json" --stages "${STAGES}" --out "${WORK}/shots.json"
 step voice_table provisional_table
-step voice "${CONTENT_DIR}/voice.sh" "${NAME}" --tag "${TAG}"
+step voice "${CONTENT_DIR}/voice.sh" "${NAME}" --tag "${TAG}" ${VOICE[@]+"${VOICE[@]}"}
 step words pull_words
 step unprovision unprovision
 need plan plan;           step plan      sv3 plan "${WORK}/shots.json" --stages "${STAGES}" --words "${WORK}/voice/words.json" --brief "${BRIEF}" --tag "${TAG}"
