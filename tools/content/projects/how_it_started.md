@@ -51,3 +51,40 @@ pad: 0.2
 | M3 | cuts/03_v1.mp4 | 0 | | beat 4 | | | |
 | M4 | cuts/04_v1.mp4 | 0 | | beat 3.7 | | | |
 | end | title | | 1 | | | beta signup in bio | |
+
+## 5
+said: v2 of ## 3 (Ryan: "reshoot the second half with the fixes", "cut every shot by hald"): the forest sniper, the hand drops the lead (2.07 s), puts a round across the back man's eyes (2.85 s) and drops the man right ahead of him (3.40 s); 2.0 s from 1.7.
+capture: --shot=s3_open_lane --stage=forest_going --map=forest --pov=guard --bots=3 --shimmer=0 --look=social --seed=20261017 --set=pace=0.62;pov_start=26;pov_pace=0.8;reload=0.45;drop_lead=2.0;miss_pov=2.85;miss_by=1.3;drop_mid=3.4
+tape: how_it_started_v2
+hud: crosshair
+expect: hit Runner_1 1.95-2.2; in_frame Runner_1 +0.0-0.05; hit ForestCollision +0.7-0.9; hit Runner_2 +1.25-1.45; in_frame Runner_2 +1.25-1.45; alive Runner_3; lens_clear; lens_cover <= 0.5
+seconds: 2
+in: 1.7
+motion: 0.012
+refilm: v2
+
+## 6
+said: v2 of ## 4 (Ryan: "more energy in the forest runner clip"): the SAME tape from the back man running hard (pace 0.8): the lead falling ahead, a flinch, a round across his eyes (2.85 s) and a look right toward the tower, the man 1.6 m ahead drops (3.40 s) and he runs past him; 1.85 s from 2.2, ending before the 59 deg trunk.
+capture: --shot=s3_open_lane --stage=forest_going --map=forest --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017 --set=pace=0.62;pov_start=26;pov_pace=0.8;reload=0.45;drop_lead=2.0;miss_pov=2.85;miss_by=1.3;drop_mid=3.4
+tape: how_it_started_v2
+expect: hit Runner_1 1.95-2.2; in_frame Runner_1 +0.0-0.05; hit ForestCollision +0.7-0.9; hit Runner_2 +1.25-1.45; in_frame Runner_2 +1.25-1.45; alive Runner_3; lens_clear; lens_cover <= 0.5
+seconds: 1.85
+in: 2.2
+refilm: v2
+
+## script v2
+from: v1
+notes: v11 is great, only issue is the same transparent ragdolls thing, its way too long, signup in bio should always be the same length, and theres no subtitles for the whole point of the short. lastly, the engery in the second clip isnt impressive. so reshoot the second half with the fixes, add the subtitles, lengthen the title card, cut every shot by hald and then give it back. also, make a second variant, with the second half in hell instead of the forest
+more energy in the forest runner clip. leave the pill runner clip exactly as it is
+captions: stack
+captions_size: 96
+captions_plain: M1 M3
+captions_reset: M3 end
+game: 1.0
+pad: 0.2
+| line | clip | in | len | fit | speed | text | card |
+| M1 | cuts/01_v1.mp4 | 0 | 2.45 | beat 2.45 | | how it started | |
+| M2 | cuts/02_v1.mp4 | 0 | 2.25 | beat 2.25 | | | |
+| M3 | cuts/05_v2.mp4 | 0 | 2 | beat 2 | | how it's going | |
+| M4 | cuts/06_v2.mp4 | 0 | 1.85 | beat 1.85 | | | |
+| end | title | | 1.75 | | | beta signup in bio | |
