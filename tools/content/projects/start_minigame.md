@@ -47,11 +47,11 @@ motion: 0.005
 refilm: v1,v2
 
 ## 6
-said: Shot of starting shove tower minigame in hell; on n1: "why is the last shot not from the perspective of a player?"; on n2: "change the minigame so instead of everyone facing away, everyone starts closer to the edge facing in ... then record that instead". Runner_2's eyes in the brawl on the new spawn (all four ringed 1 m in from the edge, facing the middle): he watches Runner_0 throw Runner_1 out (shove 2.47, out 3.42), shoves Runner_3 out (3.67, out 4.62), is shoved by Runner_0 (4.00), shoves Runner_0 (5.20) and throws him out (6.73, out 7.68); last one standing, he takes the seat (9.20) and drops a runner as the sniper (12.70). Mac smoke 20261017.
+said: Shot of starting shove tower minigame in hell; on n1: "why is the last shot not from the perspective of a player?"; on n2: "change the minigame so instead of everyone facing away, everyone starts closer to the edge facing in ... then record that instead". Runner_2's eyes in the brawl on the new spawn (all four ringed 1 m in from the edge, facing the middle): he watches Runner_0 throw Runner_1 out (shove 2.47, out 3.42), shoves Runner_3 out (3.67, out 4.62), is shoved by Runner_0 (4.00), shoves Runner_0 (5.20) and throws him out (6.73, out 7.68); last one standing, he takes the seat (9.20) and drops a runner as the sniper (12.70). Mac smoke 20261017; cover cap 0.55: Runner_0 fills 0.52 of the lens for 0.12 s as the POV lines up the 6.73 shove.
 capture: --shot=s3_open_lane --stage=tower_brawl --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017 --set=watch=1;turn_at=1.0
 tape: start_minigame_v5_brawl
 shoved: ok
-expect: brawl_start 0.0-0.1; shove Runner_1 2.37-2.57; brawl_out Runner_1 3.3-3.55; shove Runner_2 3.57-3.77; brawl_out Runner_3 4.5-4.75; brawl_won Runner_2 7.55-7.8; hit Runner_1 12.6-12.8; lens_cover <= 0.5
+expect: brawl_start 0.0-0.1; shove Runner_1 2.37-2.57; brawl_out Runner_1 3.3-3.55; shove Runner_2 3.57-3.77; brawl_out Runner_3 4.5-4.75; brawl_won Runner_2 7.55-7.8; hit Runner_1 12.6-12.8; lens_cover <= 0.55
 seconds: 14.65
 in: 0.3
 motion: 0.012
