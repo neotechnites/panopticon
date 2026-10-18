@@ -151,9 +151,14 @@ def frames_db(x, r):
 
 
 def cut_ends(x, r):
-    """357 (1): the fixed key-press window off both ends, then back to room tone on each side."""
-    k = int(KEY * r)
-    return to_room(x[k:len(x) - k] if len(x) > 2 * k else x, r)[0]
+    """357 (1): cut the key-press window from an end only when room tone separates it from speech."""
+    k, db, w = int(KEY * r), *frames_db(x, r)
+    loud = np.nonzero(db > ROOM_DB)[0]
+    if not len(loud) or len(x) <= 2 * k:
+        return to_room(x, r)[0]
+    a = k if loud[0] * w >= k else 0
+    b = len(x) - k if (loud[-1] + 1) * w <= len(x) - k else len(x)
+    return to_room(x[a:b], r)[0]
 
 
 def to_room(x, r):
