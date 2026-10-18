@@ -602,6 +602,7 @@ func throw_out(throw: Vector3) -> void:
 	_death_position = body.global_position
 	animation.pause()
 	_restore_hidden_bones()
+	_pose_rifle(false)
 	_ragdoll.throw_out(throw)
 
 
@@ -782,6 +783,7 @@ func _process(delta: float) -> void:
 			_ragdoll_pending = false
 			if _ragdoll != null and _ragdoll.is_active():
 				_ragdoll.stop()
+				_pose_rifle(_held != null)
 				_go_idle()
 		else:
 			if _ragdoll_pending:
@@ -1000,6 +1002,7 @@ func _try_ragdoll() -> void:
 		_ragdoll_pending = false
 		animation.pause()
 		_restore_hidden_bones()
+		_pose_rifle(false)
 		_ragdoll.start(_death_velocity, Rifle.recent_hit_point(slot), Rifle.recent_hit_direction(slot))
 	elif Time.get_ticks_msec() - _death_msec > RAGDOLL_WAIT_MSEC:
 		_ragdoll_pending = false
@@ -1278,14 +1281,19 @@ func _hold(rifle: Rifle) -> void:
 	_hold_lean.anchors[1] = rifle.fore_hand if holding else null
 	_hold_lean.pitch_source = body.head
 	_hold_lean.rifle = rifle
-	for stage: SkeletonModifier3D in [_hold_lean, _hold_ik, _hold_hands]:
-		if stage != null:
-			stage.active = holding
+	_pose_rifle(holding)
 	if _fp_arms != null:
 		_fp_shoving = false
 		_put_fp_arms_on(false)
 		_fp_arms.active = false
 		_fp_arms_mesh.visible = false
+
+
+## The held rifle's pose stages on or off: a limp body is the ragdoll's alone, never posed onto a rifle in the tower.
+func _pose_rifle(on: bool) -> void:
+	for stage: SkeletonModifier3D in [_hold_lean, _hold_ik, _hold_hands]:
+		if stage != null:
+			stage.active = on
 
 
 ## Freeze the run cycle on its first frame. The fallback for a body with no

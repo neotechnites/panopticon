@@ -70,11 +70,15 @@ const STIFF_LINEAR_DAMP: float = 2.0
 const DEATH_BLEND_RATE: float = 8.0
 ## A capsule that moves further than this in one tick was placed, not thrown: the flop ends.
 const PLACED_METRES: float = 4.0
-## Most a limb moves against the torso, m/s, and any part spins, rad/s: a body never flings itself apart.
+## Most a limb moves against the torso, m/s, the whole body spins, rad/s, and a part spins against the body's
+## own spin, rad/s: a hard hit tumbles the body as one, never sets each limb whirling on its own.
 const LIMB_MOST_SPEED: float = 5.0
 const PART_MOST_SPIN: float = 15.0
+const LIMB_MOST_TURN: float = 6.0
 ## Most a rifle hit speeds the struck part alone, m/s; the rest of the knock moves the whole body.
 const STRIKE_MOST_DV: float = 4.0
+## Most a joint may pull apart, m, before the part is put back on it (joint projection): a hard hit never tears the body.
+const JOINT_MOST_GAP: float = 0.03
 
 enum Flop { NONE, THROWN, RISING }
 
@@ -97,6 +101,11 @@ var _rise: float = 0.0
 var _last_anchor: Vector3 = Vector3.ZERO
 ## Parts that went limp inside the map: they collide again once clear, so nothing is shot out of a wall.
 var _embedded: Array[PhysicalBone3D] = []
+## Each part's parent part (-1 for the pelvis), and its joint point in the parent's and its own space.
+var _parent_part: PackedInt32Array = PackedInt32Array()
+var _joint_in_parent: PackedVector3Array = PackedVector3Array()
+var _joint_in_part: PackedVector3Array = PackedVector3Array()
+var _part_xf: Array[Transform3D] = []
 
 
 func _ready() -> void:
@@ -128,6 +137,12 @@ func build(skeleton: Skeleton3D) -> bool:
 		total += float(part[5])
 	for part: Array in PARTS:
 		_bones.append(_make_part(part, float(part[5]) / total))
+	_parent_part.resize(PARTS.size())
+	_joint_in_parent.resize(PARTS.size())
+	_joint_in_part.resize(PARTS.size())
+	_part_xf.resize(PARTS.size())
+	for i: int in PARTS.size():
+		_parent_part[i] = _parent_of(i)
 	# Joints are made against the rest pose, so every limit is measured from standing.
 	var saved: Array[Transform3D] = []
 	for i: int in skeleton.get_bone_count():
@@ -271,6 +286,7 @@ func _physics_process(delta: float) -> void:
 		# A kill mid-get-up: the blend returns to the corpse instead of popping to it.
 		_simulator.influence = move_toward(_simulator.influence, 1.0, delta * DEATH_BLEND_RATE)
 		_hold_together(_mean_velocity(), 0)
+		_project_joints()
 		return
 	if _flop == Flop.NONE or _anchor == null:
 		return
@@ -279,6 +295,7 @@ func _physics_process(delta: float) -> void:
 		stop()
 		return
 	_hold_together((frame.origin - _last_anchor) / maxf(delta, 0.001), 2)
+	_project_joints()
 	_last_anchor = frame.origin
 	var angle: float = _tumble
 	if _flop == Flop.THROWN:
@@ -324,6 +341,10 @@ func _go_limp() -> void:
 		for walker: Node in walkers:
 			bone.add_collision_exception_with(walker)
 	_simulator.physical_bones_start_simulation()
+	for i: int in range(1, _bones.size()):
+		var joint: Vector3 = _bones[i].global_transform * _bones[i].joint_offset.origin
+		_joint_in_part[i] = _bones[i].joint_offset.origin
+		_joint_in_parent[i] = _bones[_parent_part[i]].global_transform.affine_inverse() * joint
 	# A part starting inside a wall would be shoved out of it at once: it waits, colliding with nothing.
 	_embedded.clear()
 	for bone: PhysicalBone3D in _bones:
@@ -378,15 +399,58 @@ func _die_from_flop(velocity: Vector3, at: Vector3, direction: Vector3) -> void:
 	set_physics_process(true)
 
 
-## Clamp every simulated part from [param first] on to [param torso]'s motion: limbs trail, never fly off.
+## Clamp every simulated part from [param first] on to [param torso]'s motion and the body's spin: limbs trail, never fly off.
 func _hold_together(torso: Vector3, first: int) -> void:
+	var turn: Vector3 = Vector3.ZERO
+	var mass: float = 0.0
+	for bone: PhysicalBone3D in _bones:
+		turn += bone.angular_velocity * bone.mass
+		mass += bone.mass
+	turn = (turn / maxf(mass, 0.001)).limit_length(PART_MOST_SPIN)
 	for i: int in range(first, _bones.size()):
 		var bone: PhysicalBone3D = _bones[i]
 		var off: Vector3 = bone.linear_velocity - torso
 		if off.length_squared() > LIMB_MOST_SPEED * LIMB_MOST_SPEED:
 			bone.linear_velocity = torso + off.limit_length(LIMB_MOST_SPEED)
-		if bone.angular_velocity.length_squared() > PART_MOST_SPIN * PART_MOST_SPIN:
-			bone.angular_velocity = bone.angular_velocity.limit_length(PART_MOST_SPIN)
+		var spin: Vector3 = bone.angular_velocity - turn
+		if spin.length_squared() > LIMB_MOST_TURN * LIMB_MOST_TURN:
+			bone.angular_velocity = turn + spin.limit_length(LIMB_MOST_TURN)
+
+
+## Put every part torn off its joint back on it and stop it moving further off (joint projection):
+## the solver alone lets a hard hit, a body tripped by a window sill, pull limbs metres apart.
+func _project_joints() -> void:
+	for i: int in _bones.size():
+		_part_xf[i] = PhysicsServer3D.body_get_state(_bones[i].get_rid(), PhysicsServer3D.BODY_STATE_TRANSFORM)
+	for i: int in range(1, _bones.size()):
+		var parent: int = _parent_part[i]
+		var gap: Vector3 = _part_xf[parent] * _joint_in_parent[i] - _part_xf[i] * _joint_in_part[i]
+		var size: float = gap.length()
+		if size <= JOINT_MOST_GAP:
+			continue
+		var rid: RID = _bones[i].get_rid()
+		if PhysicsServer3D.body_get_mode(rid) == PhysicsServer3D.BODY_MODE_KINEMATIC:
+			continue
+		var along: Vector3 = gap / size
+		var placed: Transform3D = _part_xf[i]
+		placed.origin += along * (size - JOINT_MOST_GAP)
+		_part_xf[i] = placed
+		PhysicsServer3D.body_set_state(rid, PhysicsServer3D.BODY_STATE_TRANSFORM, placed)
+		var off: Vector3 = _bones[i].linear_velocity - _bones[parent].linear_velocity
+		var away: float = off.dot(-along)
+		if away > 0.0:
+			_bones[i].linear_velocity += along * away
+
+
+## The nearest ancestor bone that is a part, as its index; -1 for the pelvis.
+func _parent_of(part: int) -> int:
+	var bone: int = _skeleton.get_bone_parent(_skeleton.find_bone(String(PARTS[part][0])))
+	while bone >= 0:
+		for i: int in PARTS.size():
+			if StringName(_skeleton.get_bone_name(bone)) == PARTS[i][0]:
+				return i
+		bone = _skeleton.get_bone_parent(bone)
+	return -1
 
 
 ## The part of a hit's knock the struck part cannot take, as whole-body velocity.
