@@ -15,6 +15,7 @@ hud: crosshair
 expect: hit Runner_1 5.75-5.95; in_frame Runner_1 +0.0-0.05; out Runner_1 +0.0-0.3; lens_clear; lens_cover <= 0.5
 seconds: 2
 in: 4.4
+motion: 0.012
 refilm: v1
 
 ## 4
