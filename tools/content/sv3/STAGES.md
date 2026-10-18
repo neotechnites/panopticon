@@ -8,7 +8,7 @@ Written by `python -m sv3.catalogue` from the stage headers and approved entries
 | conga | hell | rim_side | - | deg=182.0, first=8.0, every=1.4, impulse=3.4 | uncatalogued | - | yes |
 | cover_both | hell | cover_side | - | victim=198.5,49.4, runner=201.8,48.2, runner_to=186.0,48.2, shover=206.0,50.5, watch=192.5,50.5, runner_speed=0.6, runner_wait=2.0, shover_speed=0.65, shover_wait=5.0, impulse=12.0, up=5.0 | uncatalogued | - | yes |
 | faceshove | hell | s3_face_side | runner | deg=170.3, r=50.5, gap=2.4, rounds=6 | uncatalogued | - | yes |
-| finale | hell | s3_open_lane | runner | lead=5.0, stand=3.0, pace=0.6 | stages#3 | shove 6.95 | yes |
+| finale | hell | s3_open_lane | runner | lead=5.0, stand=3.0, pace=0.6 | stages#3, stages#4 | shove 6.95; shove 3.0 | yes |
 | forest_pov_kills | forest | s3_open_lane | runner | pace=0.5 | ragdoll_short#15 | - | yes |
 | forest_window | forest | s3_open_lane | guard | pace=0.6, scope_fov=10 | ragdoll_short#13, ragdoll_short#14 | -; - | yes |
 | guard_alone | hell | s3_open_lane | guard | degs=162,151,140, r=54.0, pace=0.5, arc=40.0, beat=1.7, fire_at=1.25, start=1.8, lead_in=-13.0, lift=1, speed=0.0 | uncatalogued | - | yes |
@@ -17,7 +17,7 @@ Written by `python -m sv3.catalogue` from the stage headers and approved entries
 | haters_forest_edge | forest | s3_open_lane | runner | pace=0.75 | haters#11, haters#12 | -; - | yes |
 | haters_forest_shove | forest | s3_open_lane | runner | go=0.6, go_victim=0.55, go_extra=0.45, pov_at=None, victim_at=None, extra_at=None, lane_mid=, lane_r=None, lane_to=80.0, victim_to=92.0, extra_to=96.0, victim_speed=0.88, range=1.2, watch=1.0, impulse=24.0, up=None, tail=0.7, run_on=3.0, run_to=110.0, run_r=52.0 | haters_final#3, haters#13 | shove 3.4; shove 2.3 | yes |
 | haters_hell | hell | s3_open_lane | guard/runner | window=115.0, start=90.0, fire_at=3.6, hand_at=1.3, zoom_at=1.9, park=10.0, up_right=86.0, up_pitch=12.0, radii=48.9,48.6,48.6, track_seconds=2.0 | haters_final#1, haters_final#2, haters#3, haters#4 | hit 7.775; hit 7.775, out 7.925; -; - | yes |
-| hell_explainer | hell | s3_open_lane | guard/runner | start=34,30,25, r=49.5, stop=68.5, pov_stop=65.0, walk_at=6.0, walk=0.35, reach=1.8, watch=1.1, run_to=100.0, window=62.0, hand_at=0.8, zoom_at=1.2, miss_lead=2.0, miss_mid=3.4, miss_by=1.4, drop_at=5.5, drop_delay=0.3, impulse=0.0, up=0.0 | stages#1, stages#2 | hit 5.85, out 6.0; hit 5.85, shove 6.4, out 6.0 | yes |
+| hell_explainer | hell | s3_open_lane | guard/runner | start=34,30,25, r=49.5, stop=68.5, pov_stop=65.0, walk_at=9.6, walk=0.35, reach=1.8, watch=1.1, run_to=100.0, window=62.0, hand_at=0.8, zoom_at=1.2, miss_lead=2.0, miss_mid=3.4, miss_by=1.4, drop_at=5.5, air_delay=0.05, impulse=0.0, up=0.0 | stages#1, stages#2 | hit 5.85, out 6.0; hit 5.85, shove 10.0, out 6.0 | yes |
 | human_run | hell | - | - | - | uncatalogued | - | yes |
 | lavaparkour | hell | lava_parkour | runner | line=4, stagger=0.2, solo=1, shimmer=0.0 | trailer_reveal#11 | - | yes |
 | melee | hell | s3_melee | - | deg=195.0, r=52.0, ring=1.9, cooldown=0.8, seconds=12.0 | uncatalogued | - | yes |
