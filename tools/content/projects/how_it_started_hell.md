@@ -113,6 +113,6 @@ pad: 0.2
 | line | clip | in | len | fit | speed | text | card |
 | M1 | ../how_it_started/cuts/01_v1.mp4 | 0 | 2.45 | beat 2.45 | | how it started | |
 | M2 | ../how_it_started/cuts/02_v1.mp4 | 0 | 2.25 | beat 2.25 | | | |
-| M3 | cuts/07_v3b.mp4 | 0 | 2.45 | beat 2.45 | | how it's going | |
-| M4 | cuts/08_v3b.mp4 | 0 | 2.25 | beat 2.25 | | | |
+| M3 | cuts/07_v3c.mp4 | 0 | 2.45 | beat 2.45 | | how it's going | |
+| M4 | cuts/08_v3c.mp4 | 0 | 2.25 | beat 2.25 | | | |
 | end | title | | 1.75 | | | beta signup in bio | |
