@@ -163,18 +163,18 @@ func test_the_guard_wears_the_guard_colour() -> void:
 		"the seat holder wears the guard colour",
 	)
 
-	var own_color: Color = MatchController.tint_color(palette.color_for_index(seat.index))
 	var scorer: MatchParticipant = _controller.get_live_participants()[0]
+	var scorer_own: Color = _controller.get_body_color(scorer)
 	scorer.tracker.lap_finished.emit(12.0, 96.0)
 	await step_ticks(SETTLE_TICKS)
 
 	assert_true(
-		_controller.get_body_color(seat).is_equal_approx(own_color),
-		"the former guard wears their own runner colour back on the ring",
+		_controller.get_body_color(seat).is_equal_approx(_guard_tint()),
+		"the former guard stays purple on the ring",
 	)
 	assert_true(
-		_controller.get_body_color(scorer).is_equal_approx(_guard_tint()),
-		"the new seat holder wears the guard colour",
+		_controller.get_body_color(scorer).is_equal_approx(scorer_own),
+		"the new seat holder keeps his own colour",
 	)
 
 

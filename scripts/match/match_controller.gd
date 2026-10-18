@@ -2903,6 +2903,9 @@ func _tinted_material(participant: MatchParticipant, colour: Color) -> Material:
 ## happens to author.
 func _assign_runner_color(participant: MatchParticipant) -> void:
 	var material: Material = _runner_material_for(participant)
+	# The player who starts in the tower is the purple one, for the whole match.
+	if participant.index == _opening_seat():
+		material = _tinted_material(participant, get_runner_palette().guard_color)
 	participant.home_body_material = material
 	participant.home_material_read = true
 	_tint_body(participant, material)
@@ -3360,8 +3363,6 @@ func _place_in_tower(participant: MatchParticipant) -> void:
 	# A ghost can take the tower: they were a prisoner when the seat changed
 	# hands, and the round restarts around them like anybody else.
 	_unmake_ghost(participant)
-	# The seat holder wears the guard's purple; his own colour comes back on the ring.
-	_tint_body(participant, _tinted_material(participant, get_runner_palette().guard_color))
 	_hold_body(participant)
 	body.global_position = _tower_point
 	body.velocity = Vector3.ZERO
