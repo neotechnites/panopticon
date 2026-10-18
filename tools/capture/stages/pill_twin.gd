@@ -20,6 +20,7 @@ var _hand: Node = null
 var _kick: int = 0
 var _start: float = 35.5
 var _radii: PackedFloat64Array = PackedFloat64Array()
+var _vignette: Node = null
 
 
 func bots() -> int:
@@ -88,6 +89,12 @@ func tick(_delta: float) -> void:
 		say("at" + line)
 	if _hand == null:
 		_raise_the_hand()
+	else:
+		# The scope's vignette re-reads the opened profile every frame (as forest_rush), or it keeps the shipped small disc.
+		if _vignette == null:
+			_vignette = LIB.find_kind(clip.root, "ScopeVignette")
+		if _vignette != null:
+			_vignette.set(&"_applied", -1.0)
 
 
 func _raise_the_hand() -> void:
