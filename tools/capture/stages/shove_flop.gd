@@ -1,11 +1,11 @@
 extends "res://tools/capture/stages/stage.gd"
 
 ## shove_flop: one runner runs another down on the open S3-S4 deck and shoves him forward up the lane; he goes
-## limp in the air and tumbles (the shipped flop), lands, gets up and runs on. Third person: a side dolly from
-## over the pit rim that rides the pair, then the thrown man. --pov=runner: down the shover's eyes, on the man.
+## limp in the air and tumbles (the shipped flop), lands, gets up and runs on. Third person: a side dolly on the
+## deck, outboard, that rides the pair, then the thrown man. --pov=runner: down the shover's eyes, on the man.
 # Ground: probe_ring --clear, flat clear deck r 47.6-56.5 from 181 to 210 deg (melee.gd); pads and traps off.
 # Dials: from (183), back (3.2 deg behind), victim_r (52), shover_r (52.4), pace (0.8), shove_gap (1.3 m),
-# follow (1.6 s eyes on him), on_to (230), lens_in (8 m inboard, up over the 2.4 m rim wall: lens_cover 0), lens_up (4.8), lens_fov (42), lens_lead (0.18 s: the ease).
+# follow (1.6 s eyes on him), on_to (230), lens_in (-3.5: on the deck 3.5 m outboard, the pit and tower behind), lens_up (1.5), lens_fov (62), lens_lead (0.18 s: the ease).
 
 var _victim: PlayerController = null
 var _shover: PlayerController = null
@@ -152,7 +152,7 @@ func _aim_at_victim() -> Vector2:
 
 ## The side dolly: inboard of the focus (the pair, then the thrown man, led by his velocity), up, looking at it.
 func lens(delta: float) -> bool:
-	if _pov or _victim == null or camera() == null or not is_instance_valid(_victim):
+	if _pov or _victim == null or camera() == null or not is_instance_valid(_victim) or elapsed() < 0.65:
 		return false
 	var want: Vector3 = _victim.global_position.lerp(_shover.global_position, 0.35) + _victim.velocity * float(option("lens_lead", 0.18))
 	if _shoved_at >= 0.0:
@@ -164,10 +164,12 @@ func lens(delta: float) -> bool:
 	_focus = _focus.lerp(want, 1.0 - exp(-delta / 0.18))
 	var look: Vector3 = _focus + Vector3.UP * 0.9
 	var deg: float = LIB.bearing_of(_focus)
-	var pos: Vector3 = LIB.ring_point(deg, LIB.radius_of(_focus) - float(option("lens_in", 8.0)), float(option("lens_up", 4.8)))
-	pos.y = maxf(pos.y, _focus.y + float(option("lens_up", 4.8)))
+	var pos: Vector3 = LIB.ring_point(deg, LIB.radius_of(_focus) - float(option("lens_in", -3.5)), float(option("lens_up", 1.5)))
+	pos.y = maxf(pos.y, _focus.y + float(option("lens_up", 1.5)))
 	camera().global_position = pos
+	if OS.has_environment("LENS_DEBUG"):
+		say("lens %.1f/%.2f y%.2f | victim %.1f/%.2f v%.1f | shover %.1f/%.2f" % [LIB.bearing_of(pos), LIB.radius_of(pos), pos.y, LIB.bearing_of(_victim.global_position), LIB.radius_of(_victim.global_position), _victim.velocity.length(), LIB.bearing_of(_shover.global_position), LIB.radius_of(_shover.global_position)])
 	camera().look_at(look, Vector3.UP)
-	camera().fov = float(option("lens_fov", 42.0))
+	camera().fov = float(option("lens_fov", 62.0))
 	camera().current = true
 	return true
