@@ -62,7 +62,7 @@ def _why_not(s, stages, by_id):
     st = choosable(stages).get(s["stage"] or "")
     if st is None:
         return "stage %r is not a choosable stage of the catalogue" % s["stage"]
-    if s["pov"] not in st["povs"]:
+    if s["pov"] not in st["povs"] and not (s["pov"] is None and not st["povs"]):   # a lens stage has no eyes
         return "pov %r is not one of %s's povs %s" % (s["pov"], s["stage"], st["povs"])
     e = entry_of(st, s["approved"])
     if e is None:
