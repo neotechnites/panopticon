@@ -533,3 +533,113 @@ captions_y: 0.72
 | L5 | cuts/27_v19.mp4@11.85:2.65,cuts/37_v19.mp4@0.6833:1.4167,cuts/29_v19.mp4@3.25:2.25 |  |  | line |  | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining |  |
 | L6 | cuts/22_v19.mp4@1.21:4.25 |  |  | nohold |  | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. |  |
 | L7 | cuts/19_v19.mp4 | 33.2 |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
+
+## 43
+said: pov of the sniper shooting at some runners and missing, hell map, right at the end, they hit one, and we cut a little after the animation plays out
+capture: --shot=s3_open_lane --stage=rs_snipe --pov=guard --bots=3 --seed=20261017 --shimmer=0 --set=old=1;plan=0m,1m,2h;start=1.0
+hud: crosshair
+expect: hit Runner_3 5.55-5.75; lens_clear; lens_cover <= 0.5
+seconds: 5
+in: 2.6
+motion: 0.005
+freeze: 1
+refilm: v20
+
+## 44
+said: shot of the animation in a grey space jsut playing, with a slow fade in of an image i will provide https://media.tenor.com/17aPeH713cYAAAAM/scared.gif
+capture: --shot=s3_open_lane --stage=death_void --bots=1 --seed=20261017 --shimmer=0
+expect: death Runner_1 1.5-1.7; lens_clear
+seconds: 3.6
+in: 1.2
+motion: 0.002
+freeze: waive
+refilm: v20
+
+## 45
+said: slow zoom out shot of the old hell map
+capture: --shot=pit_orbit --stage=hell_pullback --bots=3 --seed=20261017 --shimmer=0
+expect: pullback start 0.9-1.1; pullback end 8.9-9.1; lens_clear; lens_cover <= 0.5
+seconds: 8.2
+in: 1
+refilm: v20
+
+## 46
+said: a sniper pov, missing shots, then cut to the runner pov near the end, and he watches the person in front of him get shot
+capture: --shot=s3_open_lane --stage=hell_explainer --pov=guard --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=start=31,22,4.8;drop_at=5.9
+hud: crosshair
+expect: hit Runner_1 6.17-6.37; in_frame Runner_1 +0.0-0.05; lens_clear; lens_cover <= 0.5
+seconds: 4.6
+in: 1
+motion: 0.012
+refilm: v20
+
+## 47
+said: clip montage of the sniper hitting people dead in hell, and if we can, get one that freaks out and break the players model and go flying -- Ryan 10-12: "lets replace the gameplay of the hitting shots montage to be in the forest"; Ryan 10-17: "didnt i say it has to be in the forest?"
+capture: --shot=s3_open_lane --stage=forest_going --map=forest --pov=guard --bots=3 --shimmer=0 --look=social --seed=20261017 --set=fling=1400
+hud: crosshair
+expect: hit Runner_1 2.2-2.4; in_frame Runner_1 +0.0-0.05; hit Runner_2 +1.3-1.5; in_frame Runner_2 +1.3-1.5; alive Runner_3; lens_clear; lens_cover <= 0.5
+seconds: 6.5
+in: 1.2
+motion: 0.012
+refilm: v20
+
+## 48
+said: a bunch of runners shoving each other with the ragdoll, other pov shots of a "real game" where the runners are getting shoved
+capture: --shot=s3_melee --stage=melee --bots=3 --seed=20261017 --shimmer=0 --set=count=3
+expect: shove Runner_2 1.4-1.55; shove Runner_3 +0.5-0.65; lens_clear; lens_cover <= 0.5
+seconds: 5.9
+in: 2.2
+refilm: v20
+
+## 49
+said: pov runner makes it through the portal, shoves, and the usual cinematic shot
+capture: --shot=s3_open_lane --stage=finale --pov=runner --bots=3 --shimmer=0 --seed=20261012 --set=lead=6.0;stand=3.0;pace=0.32;beat=2.0
+expect: shove Runner_0 3.48-3.78; arrive Runner_1 2.0-2.25; tower_out Runner_0 +1.9-2.1; alive Runner_1; lens_clear; lens_cover <= 0.5
+seconds: 6.5
+in: 0.9
+refilm: v20
+
+
+## 50
+said: a sniper pov, missing shots, then cut to the runner pov near the end, and he watches the person in front of him get shot -- the runner half (stages#13): ## 46's staged match (same seed and dials, untaped: the PC stays free for shorts 10 and 11) from the back runner's eyes; the second round lands by the pack (3.80) and the lead, in front of him, drops in his frame (6.27) on "Ragdolls"
+capture: --shot=s3_open_lane --stage=hell_explainer --pov=runner --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=start=31,22,4.8;drop_at=5.9
+expect: hit Runner_1 6.17-6.37; in_frame Runner_1 +0.0-0.05; lens_clear; lens_cover <= 0.5
+seconds: 4.5
+in: 2.6
+refilm: v20
+
+## 51
+said: clip montage of the sniper hitting people dead in hell, and if we can, get one that freaks out and break the players model and go flying -- Ryan 10-12: "lets replace the gameplay of the hitting shots montage to be in the forest"; Ryan 10-17: "didnt i say it has to be in the forest?" -- the montage's other kills (stages#15): forest_window at the tight scope (fov 10), Runner_1 dropped at 2.60, Runner_3 at 7.80
+capture: --map=forest --shot=s3_open_lane --stage=forest_window --pov=guard --bots=3 --seed=20261012 --shimmer=0 --set=scope_fov=10
+hud: crosshair
+expect: hit Runner_1 2.5-2.7; hit Runner_3 +5.1-5.3; lens_clear; lens_cover <= 0.5
+seconds: 9.0
+in: 1.0
+motion: 0.005
+refilm: v20
+
+## 52
+said: a bunch of runners shoving each other with the ragdoll, other pov shots of a "real game" where the runners are getting shoved -- the "real game" POV (stages#17): rs_pitshove, the POV runner shoves the man on the inside over the rim (4.20) on "shove", he lands in the pit (6.28)
+capture: --shot=s3_open_lane --stage=rs_pitshove --pov=runner --bots=3 --seed=7 --shimmer=0 --set=pack=3;shove_gap=1.3;turn_gap=2.6;shover_r=50.2;from=13;back=8.5;after_to=57
+expect: shove Runner_2 4.1-4.3; out Runner_1 +2.0-2.2; lens_clear; lens_cover <= 0.5
+seconds: 6.8
+in: 0.6
+refilm: v20
+
+## script v20
+# short3 plan's table, rows composed by hand where a line needs more than one shot (task #630, short 4 from scratch):
+# L1 the second miss and the hit with the old Death clip just after "bad", held 1.75 s past the hit; M2 the grey void
+# death, scared.gif fading in from 1.2 s over 2.0 s (the beat ends with the fade); L3 the crane-out; L4 the scope's two
+# misses (46), then the back runner (50) as the lead ahead drops on "Ragdolls", the placeholder comment card at "this guy";
+# L5 forest: the flung lead and the middle man (47), then two tight-scope drops (51); L6 the 3-runner scrap (48), then the
+# POV's pit shove on "shove" (52); L7 the portal, the shove and the 2.0 s kill-beat cinematic (49). "htis" spoken "this".
+pad: 0.2
+| line | clip | in | len | fit | speed | text | card | grade | gif_fade |
+| L1 | cuts/43_v20.mp4 | 0.3 | 4.5 | wait | | The death animation in my game was really bad. | | | |
+| M2 | cuts/44_v20.mp4 | 0 | 3.6 | beat 3.6 | | | | | external/scared.gif 1.2 2.0 end |
+| L3 | cuts/45_v20.mp4 | 1.5 | 6.7 | line | | Yeaeeeeeeeh I needed something better, but if my art didnt make it clear, I'm a programmer, not an animator | | | |
+| L4 | cuts/46_v20.mp4@0:4.6,cuts/50_v20.mp4@0 | | | line | | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem? Ragdolls | cards/L4_card0.png w=940 y=0.2 in=0.05 out=0.2 from=this to=Ragdolls+0.6 | | |
+| L5 | cuts/47_v20.mp4@0.5:2.9,cuts/51_v20.mp4@0.9:1.7,cuts/51_v20.mp4@6.2 | | | line | | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining | | | |
+| L6 | cuts/48_v20.mp4@1.1:1.6,cuts/52_v20.mp4@2.45 | | | line | | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. | | | |
+| L7 | cuts/49_v20.mp4 | 0.4 | | line | | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. | | | |
+| end | title | | 1.75 | | | beta signup in bio | | | |
