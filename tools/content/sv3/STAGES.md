@@ -29,7 +29,7 @@ Written by `python -m sv3.catalogue` from the stage headers and approved entries
 | lavaparkour | hell | lava_parkour | runner | line=4, stagger=0.2, solo=1, shimmer=0.0 | trailer_reveal#11 | - | yes |
 | melee | hell | s3_melee | - | deg=195.0, r=52.0, ring=1.9, cooldown=0.8, seconds=12.0, count=5 | stages#16, ragdoll_short#48 | shove 1.475; shove 1.475 | yes |
 | pack_sniped | hell | pack_lead | runner | start=144.0, end=214.0, fire_at=3.0, pov_index=3, victim_index=1, pov_back=0.0, pack=5 | ragdoll_short#39 | - | yes |
-| parkour_sniped | hell | s3_open_lane | guard/runner | window=305.0, look_to=3.4, miss_a=1.9, miss_b=3.0, miss_by=1.5, hand_at=0.8, zoom_at=1.2, drop_at=0.0, hold_to=0.0 | stages#21, stages#22 | -; hit 8.0 | yes |
+| parkour_sniped | hell | s3_open_lane | guard/runner | window=305.0, look_to=3.4, misses=1.9,3.0, miss_by=1.5, hand_at=0.8, zoom_at=1.2, drop_at=0.0, hold_to=0.0 | stages#21, stages#22 | -; hit 9.0 | yes |
 | pill_era | hell | guard_scope | guard/runner | - | stages#5, stages#6 | hit 2.075, go 1.0; hit 2.075, go 1.0 | yes |
 | polish_aerial | hell | pit_orbit | - | - | uncatalogued | - | yes |
 | polish_crack | hell | s4_edge | - | first=6.18, gap=0.75, jitter=0.12 | uncatalogued | - | yes |

@@ -6,13 +6,13 @@ extends "res://tools/capture/stages/lavaparkour.gd"
 ## section}; L3 {pov of the sniper sniping at the runner from the previous shot}.
 ##
 ## The beat (--bots=3, two parked at 103/106 deg out of frame): the runner stands on the S5 near bank (290.4 deg r 52.6) looking over at the tower window while the hand puts
-## rounds by him (miss_a, miss_b, miss_by m off), turns forward at look_to and hops the seven platforms as lavaparkour's POV
+## rounds by him (misses, miss_by m off), turns forward at look_to and hops the seven platforms as lavaparkour's POV
 ## (POV_PLAN, his own eyes); the hand rides him hop to hop and drops him on an outer top (drop_at).
 ## The numbers (probe_ring --los, eye at the 305 deg window 5.6 m out, 5.9 m up): the bank 290.4/292 and the outer tops
 ## (r 54.8: 298, 309.5, 321, 332.6) open; every inner top (r 50.2) hidden by the S5 rim. From 315 or 325 the tower's own
 ## wall blocks the lake; 305 is the window.
 ##
-## Dials (--set=): window (305.0), look_to (3.4, he turns off the tower), miss_a (1.9), miss_b (3.0), miss_by (1.5),
+## Dials (--set=): window (305.0), look_to (3.4, he turns off the tower), misses ("1.9,3.0": the squeezes that miss), miss_by (1.5),
 ## hand_at (0.8), zoom_at (1.2), drop_at (0.0 = no drop), hold_to (0.0).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
@@ -105,7 +105,8 @@ func _raise_the_hand() -> void:
 	_hand.start_at = float(option("hand_at", 0.8))
 	var at: float = _hand.start_at
 	var miss_by: float = float(option("miss_by", 1.5))
-	for fire: float in [float(option("miss_a", 1.9)), float(option("miss_b", 3.0))]:
+	for raw: String in String(option("misses", "1.9,3.0")).split(",", false):
+		var fire: float = float(raw)
 		var beat: Dictionary = {"body": _runner, "seconds": fire + WATCH_SECONDS - at, "fire_at": fire - at, "watch": true, "miss_by": miss_by}
 		_hand.beats.append(beat)
 		at += float(beat["seconds"])

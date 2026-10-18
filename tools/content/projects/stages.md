@@ -162,21 +162,21 @@ in: 1.2
 motion: 0.005
 
 ## 21
-said: Ryan (short 9, L2): "In my game, youre either the sniper in the gaurd tower, or youre running an obsticle course to become the sniper." {runner pov, looking over at the tower while hes shooting, then look forward and start doing the lava parkour section}. ONE take with ## 22: the runner on the S5 near bank (290.4 deg) looks over at the tower's 305 deg window (0.1 deg off it from 1.4 s) while the hand puts two rounds by him (1.92, 3.02; they land on the 286 lip beside him), turns forward at 3.4 and hops the S5 lava platforms (lands 3.60, 4.38, 5.27, 5.97, 6.93); the cut ends 7.9, before the round that drops him lands (8.00). Two more players stand out of frame up the S1 lane. Mac smoke: as listed.
-capture: --shot=s3_open_lane --stage=parkour_sniped --pov=runner --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=drop_at=7.6
+said: Ryan (short 9, L2): "In my game, youre either the sniper in the gaurd tower, or youre running an obsticle course to become the sniper." {runner pov, looking over at the tower while hes shooting, then look forward and start doing the lava parkour section}. ONE take with ## 22: the runner on the S5 near bank (290.4 deg) looks over at the tower's 305 deg window (0.1 deg off it from 1.4 s) while the hand puts two rounds by him (1.92, 3.02; they land on the 286 lip beside him), turns forward at 4.4 and hops the S5 lava platforms (lands 4.60, 5.38, 6.27, 6.97); the cut ends 7.4, before the next squeeze. Two more players stand out of frame up the S1 lane. Mac smoke: as listed.
+capture: --shot=s3_open_lane --stage=parkour_sniped --pov=runner --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=look_to=4.4;misses=1.9,3.0,7.4;drop_at=8.6;hold_to=11.6
 tape: stages_parkour_sniped
-expect: hop1 Runner_1 3.5-3.7; hop2 Runner_1 +0.7-0.9; alive Runner_1; lens_clear; lens_cover <= 0.5
-seconds: 6.9
+expect: hop1 Runner_1 4.5-4.7; hop2 Runner_1 +0.7-0.9; alive Runner_1; lens_clear; lens_cover <= 0.5
+seconds: 6.4
 in: 1.0
 
 ## 22
-said: Ryan (short 9, L3): "but this has a problem, whos the sniper first? i wanted it to be earned" {pov of the sniper sniping at the runner from the previous shot}. The SAME tape from the guard at the 305 deg window, scoped (fov 20): the hand rides the parkour runner hop to hop across the lava platforms and squeezes at 7.62; the round drops him as he leaves the 322 deg top (hit 8.00, in frame) and the hand holds on him. Mac smoke: hit 8.00 in frame.
-capture: --shot=s3_open_lane --stage=parkour_sniped --pov=guard --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=drop_at=7.6
+said: Ryan (short 9, L3): "but this has a problem, whos the sniper first? i wanted it to be earned" {pov of the sniper sniping at the runner from the previous shot}. The SAME tape from the guard at the 305 deg window, scoped (fov 20), continuing where ## 21 leaves off: the hand rides the parkour runner hop to hop across the lava platforms, a round by him (squeeze 7.42, lands 7.77), then the drop as he leaves the 322 deg top (squeeze 8.60, hit 8.98, in frame), the hand holding on him to 11.6. Mac smoke: hit 8.98 in frame.
+capture: --shot=s3_open_lane --stage=parkour_sniped --pov=guard --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=look_to=4.4;misses=1.9,3.0,7.4;drop_at=8.6;hold_to=11.6
 tape: stages_parkour_sniped
 hud: crosshair
-expect: hit Runner_1 7.9-8.1; in_frame Runner_1 +0.0-0.05; lens_clear; lens_cover <= 0.5
-seconds: 5.6
-in: 3.6
+expect: hit Runner_1 8.9-9.1; in_frame Runner_1 +0.0-0.05; lens_clear; lens_cover <= 0.5
+seconds: 4.6
+in: 7.0
 motion: 0.012
 
 ## 23
