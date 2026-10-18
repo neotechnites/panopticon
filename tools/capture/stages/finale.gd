@@ -8,7 +8,8 @@ extends "res://tools/capture/stages/stage.gd"
 ## game's own kill-beat throw and cinematic follow. Filmed with --pov=runner.
 ## Dials (--set=): lead (metres short of the portal, 5.0), stand (guard's metres
 ## out from the tower axis toward his window, 3.0), pace (the walk up, 0.6),
-## beat (the kill beat's seconds, the rules' kill_beat_seconds; shipped 2.0).
+## beat (the kill beat's seconds, the rules' kill_beat_seconds; shipped 2.0), throw (the
+## shove impulse the finale throw doubles; shipped 16), trace (1: print the thrown ragdoll).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const WINDOW_PHASE: float = 25.0
@@ -21,6 +22,9 @@ var _arrived: bool = false
 var _hand: Node = null
 var _window_deg: float = 0.0
 var _thrown: String = ""
+var _thrown_body: PlayerController = null
+var _thrown_at: float = -1.0
+var _traced: float = -1.0
 
 
 func bots() -> int:
@@ -29,6 +33,7 @@ func bots() -> int:
 
 func tune_rules(rules: MatchRules) -> void:
 	rules.kill_beat_seconds = float(option("beat", rules.kill_beat_seconds))
+	rules.shove_impulse = float(option("throw", rules.shove_impulse))
 
 
 func needs_pov() -> String:
@@ -44,6 +49,8 @@ func before_start() -> void:
 				_hand.queue_free()
 			_hand = null
 			_thrown = guard.body.name
+			_thrown_body = guard.body
+			_thrown_at = elapsed()
 			print("[event] %6.2f  shove  %s -> %s kill beat" % [elapsed(), _runner.controller.name, guard.body.name])
 			say("finale shove: %s thrown at %v for %.1f s, tower open %s" % [guard.body.name, throw, seconds, controller().is_tower_open()])
 	)
@@ -97,6 +104,8 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 func tick(_delta: float) -> void:
 	if _runner == null:
 		return
+	if int(option("trace", 0)) == 1:
+		_trace()
 	if _hand == null and not _arrived:
 		_post_the_guard()
 	# The run is the arrival: once it reaches the portal, the portal takes the runner.
@@ -143,3 +152,33 @@ func _portal() -> Vector3:
 
 func on_shove(shover: MatchParticipant, victim: MatchParticipant) -> void:
 	say("shove %s -> %s" % [shover.body.name, victim.body.name])
+
+
+## --set=trace=1: the thrown ragdoll every 0.05 s, its parts' centres within 4 cm of the map counted as "in".
+func _trace() -> void:
+	if _thrown_body == null or not is_instance_valid(_thrown_body) or elapsed() - _thrown_at > 4.0:
+		return
+	if elapsed() - _traced < 0.05:
+		return
+	_traced = elapsed()
+	var avatar: PrisonerAvatar = PrisonerAvatar.of(_thrown_body)
+	var doll: Variant = avatar.get("_ragdoll") if avatar != null else null
+	if doll == null:
+		return
+	var parts: PackedVector3Array = doll.part_positions()
+	var space: PhysicsDirectSpaceState3D = _thrown_body.get_world_3d().direct_space_state
+	var ball := SphereShape3D.new()
+	ball.radius = 0.04
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = ball
+	query.collision_mask = 1
+	var inside: Array[String] = []
+	for i: int in parts.size():
+		query.transform = Transform3D(Basis(), parts[i])
+		var hits: Array[Dictionary] = space.intersect_shape(query, 4)
+		for hit: Dictionary in hits:
+			if not (hit.collider is PhysicalBone3D):
+				inside.append("%d:%s" % [i, (hit.collider as Node).name])
+				break
+	var c: Vector3 = parts[0]
+	print("[trace] %5.2f  r %5.2f  y %6.2f  deg %6.1f  in %s" % [elapsed() - _thrown_at, Vector2(c.x, c.z).length(), c.y, LIB.bearing_of(c), ",".join(inside)])
