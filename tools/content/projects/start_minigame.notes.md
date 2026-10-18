@@ -21,3 +21,6 @@ Head frame check of v7 (task #601, not Ryan's notes; v7 was not shown to him): L
 
 ## v8 | start_minigame_v8.mp4 | 2026-10-18 13:24
 Head frame check of v8 (task #601, not Ryan's notes; v8 was not shown to him): L3 the scope zoomed to 0.09 from the 295 window, the circle a wall of lava texture with a tiny runner at the bottom; not a sniper shot. v9: L3 at the shipped zoom from the 340 window, the runner off the last platform and at the finish, no column in the circle.
+
+## v9 | start_minigame_v9.mp4 | 2026-10-18 15:24
+Ryan on short 9 (v9, task #601): "for short 9. why the hell did anything change prior to the forest run. and for the fucking too boring forest section, you just added a fucking cut with the exact same footage with the fucking guys moved around? is that  fucking joke? this isnt a fucking pipeline issue what the fuck is wrong with you? and holy fuck, youre example of the bad death animation is now useing the fucking physics. literally just use, for only this one clip, the one i liked from the previous versions. other than that ists good. short 11 is good"
