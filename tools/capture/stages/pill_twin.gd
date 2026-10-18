@@ -44,10 +44,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	for index: int in 3:
 		if runners[index].controller == null:
 			return false
-	_start = float(option("start", 35.5))
-	_radii = PackedFloat64Array()
-	for part: String in String(option("lanes", "48.5,51.5,54.5")).split(","):
-		_radii.append(float(part))
+	_layout()
 	var pace: float = float(option("pace", 0.73))
 	for index: int in 3:
 		var r: float = _radii[index]
@@ -80,9 +77,26 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	return true
 
 
+func _layout() -> void:
+	_start = float(option("start", 35.5))
+	_radii = PackedFloat64Array()
+	for part: String in String(option("lanes", "48.5,51.5,54.5")).split(","):
+		_radii.append(float(part))
+
+
 func tick(_delta: float) -> void:
+	# The scope is up and parked before the first frame the cut plays (0.6), as the pill's tower player is.
+	if _hand == null:
+		_raise_the_hand()
+	elif _vignette == null:
+		_vignette = LIB.find_kind(clip.root, "ScopeVignette")
+	if _vignette != null:
+		# The vignette re-reads the opened profile every frame (as forest_rush), or it keeps the shipped small disc.
+		_vignette.set(&"_applied", -1.0)
 	if _bodies.is_empty():
 		return
+	if _hand != null and _hand.beats.is_empty():
+		_plan_beats()
 	if _kick < 4:
 		# The pill's leaders are already walking at the cast: their first frames carry the walk, not a standing start.
 		_kick += 1
@@ -100,14 +114,6 @@ func tick(_delta: float) -> void:
 		say("at" + line)
 	if OS.has_environment("PILL_PROBE") and Engine.get_physics_frames() % 6 == 0 and eye != null:
 		_probe_view(eye)
-	if _hand == null:
-		_raise_the_hand()
-	else:
-		# The scope's vignette re-reads the opened profile every frame (as forest_rush), or it keeps the shipped small disc.
-		if _vignette == null:
-			_vignette = LIB.find_kind(clip.root, "ScopeVignette")
-		if _vignette != null:
-			_vignette.set(&"_applied", -1.0)
 
 
 func _raise_the_hand() -> void:
@@ -126,12 +132,7 @@ func _raise_the_hand() -> void:
 	clip.root.add_child(_hand)
 	_hand.install(guard, controller(), elapsed())
 	_hand.start_at = 0.9
-	var drop_mid: float = float(option("drop_mid", 2.05))
-	var drop_in: float = float(option("drop_in", 4.45))
-	# The pill's beats: on the mid man from 0.9, held on him to 2.6; the inner man to 4.9; then the spare, never fired on.
-	_hand.beats.append({"body": _bodies[MID], "seconds": 2.6 - 0.9, "fire_at": drop_mid - 0.9, "watch": true})
-	_hand.beats.append({"body": _bodies[INNER], "seconds": 4.9 - 2.6, "fire_at": drop_in - 2.6, "watch": true})
-	_hand.beats.append({"body": _bodies[SPARE], "seconds": 100.0})
+	_layout()
 	# Parked like the pill hand: the pack's middle, 4 deg left and 1.5 deg low.
 	var eye: Vector3 = guard.global_position + Vector3.UP * 1.6
 	var pack: Vector3 = LIB.ring_point(_start + 1.5, _radii[MID], 1.05)
@@ -139,6 +140,15 @@ func _raise_the_hand() -> void:
 	at.y -= tan(deg_to_rad(1.5)) * Vector2(at.x - eye.x, at.z - eye.z).length()
 	_hand.park = at
 	say("pill_twin: hand on %s at the %.0f deg window from 0.90 s" % [guard.name, float(option("window", 32.0))])
+
+
+func _plan_beats() -> void:
+	var drop_mid: float = float(option("drop_mid", 2.05))
+	var drop_in: float = float(option("drop_in", 4.45))
+	# The pill's beats: on the mid man from 0.9, held on him to 2.6; the inner man to 4.9; then the spare, never fired on.
+	_hand.beats.append({"body": _bodies[MID], "seconds": 2.6 - 0.9, "fire_at": drop_mid - 0.9, "watch": true})
+	_hand.beats.append({"body": _bodies[INNER], "seconds": 4.9 - 2.6, "fire_at": drop_in - 2.6, "watch": true})
+	_hand.beats.append({"body": _bodies[SPARE], "seconds": 100.0})
 
 
 func on_hit(collider: Node3D) -> void:
