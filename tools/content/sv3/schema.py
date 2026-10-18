@@ -74,6 +74,8 @@ def _why_not(s, stages, by_id):
     if bad:
         return "dials %s are not dials of %s (%s)" % (bad, s["stage"], sorted(st["dials"]))
     ticks = {k: v for k, v in (e.get("ticks") or {}).items() if v is not None}
+    if not s["text"].strip():   # a voiceless line: no word for the event to land on, the cut plays the entry
+        s["beat"] = None
     b = s["beat"]
     if not b and ticks and s["text"].strip():   # a voiceless line has no word for the event to land on
         return "beat missing: %s %d has ticks %s; the line needs the word the event lands on" % (e["project"], e["entry"], sorted(ticks))

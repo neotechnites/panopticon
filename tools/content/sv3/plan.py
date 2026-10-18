@@ -102,7 +102,7 @@ def build(shots, stages, words, name, tag, base_n):
         e = approved_entry(stages, s)
         n += 1
         ent = ["## %d" % n, "said: %s" % s["note"], "capture: %s" % with_dials(e["capture"], s.get("pov"), s.get("dials"))]
-        if root[s["id"]] in shared:
+        if root[s["id"]] in shared and e.get("tape"):   # an era (ref:) stage has no tape: its match is the ref's own
             ent.append("tape: %s_%s" % (name, tag) if len(shared) == 1 else "tape: %s_%s_%s" % (name, tag, root[s["id"]].lower()))
         if s.get("pov") == "guard":
             ent.append("hud: crosshair")

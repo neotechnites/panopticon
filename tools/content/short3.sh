@@ -113,7 +113,12 @@ for r in b.parse(brief)["scripts"][tag]["rows"]:
 json.dump(edl, open(out, "w"), indent=1)
 PY
 }
-pull_words() { pc_pull "$(ff "${DIR}")/voice/words.json" "${WORK}/voice/words.json"; }
+pull_words() {  # a voiceless script (every line a beat) has no words: {} so plan reads one shape
+  if python3 -c "import json,sys; s=json.load(open(sys.argv[1])); s=s['lines'] if isinstance(s,dict) else s; sys.exit(any(l.get('text') and not l.get('beat') for l in s))" "${WORK}/spec.json"; then
+    echo '{}' > "${WORK}/voice/words.json"; return 0
+  fi
+  pc_pull "$(ff "${DIR}")/voice/words.json" "${WORK}/voice/words.json"
+}
 pull_final() { pc_pull "$(ff "${DIR}")/final/${TAG}.mp4" "${WORK}/final.mp4"; }
 frames() { ffmpeg -loglevel error -y -i "${WORK}/final.mp4" -vf fps=1 "${WORK}/frames/%03d.png"; }
 deliver() {

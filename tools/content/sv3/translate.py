@@ -22,7 +22,7 @@ RULES = """Rules (Ryan's, binding). You CHOOSE; you never invent how a take is m
   same dials); "same shot" means the same take. Else null.
 - `beat`: REQUIRED {tick, word} whenever the chosen entry has a non-null tick (hit, shove, out, go); never null then: `word` is one word
   copied from the line's text, the one the note ties the event to, else the word it reads best on (default the last word).
-  null when the entry has no tick for the note's event.
+  null when the entry has no tick for the note's event, and null on a line with no text (a voiceless beat).
 - `why`: null on a pick; one line on needs_stage."""
 
 AUDIT = """You audit stage picks for a short. For EACH picked shot answer one question: is the chosen stage's approved entry
