@@ -980,6 +980,6 @@ game: 2
 | L3 | cuts/03_v23.mp4 | 1.5 | 6.7 | line | | Yeaeeeeeeeh I needed something better, but if my art didnt make it clear, I'm a programmer, not an animator | | | |
 | L4 | cuts/04_v24.mp4 | 0 | 9.5 | wait | | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem? Ragdolls | cards/L4_card0.png w=940 y=0.2 in=0.05 out=0.2 from=this to=Ragdolls+0.6 | | |
 | L5 | cuts/05_v23.mp4@1.0:6.45 | | | line | | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining | | | |
-| L6 | cuts/06b_v24.mp4 | 0.25 | 4.85 | line | | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. | | | |
+| L6 | cuts/06b_v24.mp4 | 1.25 | 4.85 | line | | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. | | | |
 | L7 | cuts/07_v24.mp4 | 0 | | line | | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. | | | |
 | end | title | | 1.75 | | | beta signup in bio | | | |
