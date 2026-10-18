@@ -29,7 +29,8 @@ extends "res://tools/capture/stages/stage.gd"
 ## crouch), mid_pace (0.41), pov_pace (0.45, to pov_mid 42.0 at ~7.1 s), pov_run (0.70, from there to
 ## close 4.0 m behind him), close_pace (0.4, into reach 1.5, look 14 deg down; the shove >= 4.0 s after the lead hit),
 ## watch (1.1 s the POV stands after the shove), run_to (100.0), window (62.0), hand_at (0.8), zoom_at (1.2), lower ("a,b": the scope
-## down from a to b s, the hand tracking unscoped; none), miss_lead (2.0), miss_mid (3.4),
+## down from a to b s, the hand tracking unscoped; none), track_to (0: the hand rides the middle man to this clip second
+## before the drop), miss_lead (2.0), miss_mid (3.4),
 ## miss_by (1.4 m), drop_at (5.5, the lead's squeeze), hold_to (9.0, the hand holds on the fallen lead), air_delay (0.05 s after the shove, the
 ## shoved man's squeeze: the round reaches him in the air),
 ## impulse / up (0 = the shipped shove).
@@ -194,8 +195,13 @@ func _raise_the_hand() -> void:
 		[_bodies[LEAD], float(option("drop_at", 5.5)), 0.0],
 	]
 	var at: float = _hand.start_at
+	var track_to: float = float(option("track_to", 0.0))
 	for row: Array in plan:
 		var fire: float = float(row[1])
+		if float(row[2]) <= 0.0 and track_to > at:
+			# The hand rides the middle man, no shot, before swinging onto the lead.
+			_hand.beats.append({"body": _bodies[MID], "seconds": track_to - at})
+			at = track_to
 		var beat: Dictionary = {"body": row[0], "seconds": fire + WATCH_SECONDS - at, "fire_at": fire - at, "watch": true}
 		if float(row[2]) > 0.0:
 			beat["miss_by"] = float(row[2])
