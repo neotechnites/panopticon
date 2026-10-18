@@ -1,0 +1,88 @@
+{
+ "video": "/Users/ryanwhitehead/Documents/olympus/pano-sv3-n/tools/content/projects/start_minigame/sv3/v8/final.mp4",
+ "duration_s": 43.066667,
+ "shots": [
+  {
+   "id": "L1",
+   "line": "L1",
+   "cut_start": 0.0,
+   "cut_end": 2.5,
+   "seat": null,
+   "NOTE": "pov of a runner in the tower shoving the sniper and the cinematic shot that plays after, in hell",
+   "seen": "0.00–0.50: a static camera in a red arched hell hall faces a lone figure standing at the centre, with no hands or body of the viewer in frame. 0.75: first-person fists appear at the bottom and the figure is already far away. 1.00–2.25: a top-down cinematic follows a ragdoll body tumbling over a lava/rock floor, which ends upright at 2.25. Captions read HERES HOW I / FIXED THE WORST / PART ABOUT / MY GAME.",
+   "matches_note": "partly",
+   "defects": [
+    "event_not_visible",
+    "standing_still"
+   ],
+   "why": "The hell setting and the post-shove cinematic are there, but the shove never shows: for the first half-second the camera sits still facing the sniper with no POV hands, and the fists only appear once the sniper is already knocked away.",
+   "sheets": [
+    "L1/sheet01.jpg"
+   ],
+   "frames": 10
+  },
+  {
+   "id": "L2",
+   "line": "L2",
+   "cut_start": 2.5,
+   "cut_end": 8.9,
+   "seat": null,
+   "NOTE": "runner pov, looking over at the tower while hes shooting, then look forward and start doing the lava parkour section",
+   "seen": "2.50-5.25: an almost unchanged first-person view of the tall red tower wall with the dark sniper port, about 3 s with only tiny shifts and no visible shot or muzzle flash; 5.50-5.75: the camera turns to a lava corridor; 5.75-8.50: the runner moves through the lava parkour corridor with arms visible and small yellow/white specks; 8.75: cuts to a circular sniper-scope view looking down at the runner, with the caption 'BUT THIS HAS'",
+   "matches_note": "partly",
+   "defects": [
+    "standing_still",
+    "frozen_frame",
+    "event_not_visible",
+    "wrong_pov"
+   ],
+   "why": "The tower look is about 3 s of a near-frozen, motionless view with no visible shooting, and the last frame switches to the sniper's scope instead of the runner's eyes; the turn forward and the lava parkour section are shown correctly.",
+   "sheets": [
+    "L2/sheet01.jpg",
+    "L2/sheet02.jpg"
+   ],
+   "frames": 26
+  },
+  {
+   "id": "L6",
+   "line": "L6",
+   "cut_start": 8.9,
+   "cut_end": 23.55,
+   "seat": null,
+   "NOTE": "Shot of starting shove tower minigame in hell",
+   "seen": "8.90–13.40: a round, fisheye-style frame (black outside the circle) looking at a red lava surface with one figure standing near the bottom center and dark debris drifting; at 13.15–13.40 yellow/orange bars appear. 13.65–23.40: hard cut to a dark green forest with low-poly runners (cyan, purple, green, later blue) seen from behind, chased between trees and rocks; captions throughout.",
+   "matches_note": "no",
+   "defects": [
+    "event_not_visible",
+    "wrong_map",
+    "standing_still",
+    "camera_not_a_player"
+   ],
+   "why": "No shove tower or minigame start is ever shown: the red 'hell' part is just a lone figure standing still in an odd circular non-player view, and about 10 of the 14.65 s is a forest race, which is the wrong map.",
+   "sheets": [
+    "L6/sheet01.jpg",
+    "L6/sheet02.jpg",
+    "L6/sheet03.jpg"
+   ],
+   "frames": 59
+  },
+  {
+   "id": "end",
+   "line": "end",
+   "cut_start": 23.55,
+   "cut_end": 25.3,
+   "seat": null,
+   "NOTE": "",
+   "seen": "",
+   "matches_note": "no",
+   "defects": [],
+   "why": "edl entry end has no shot in shots.json",
+   "sheets": [],
+   "frames": 0
+  }
+ ],
+ "overall_defects": [
+  "shots without an edl entry (not in the cut, not reviewed): ['L3', 'L4', 'L5']"
+ ],
+ "pass": false
+}
