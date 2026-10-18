@@ -934,7 +934,7 @@ from: v23
 notes: seriously is the fucking random ass fucking orange box in the death animation a joke? when i say ragdolls, he just drops, he doesnt get shot. when the gaurd is hoved, they freak out, and the shove off into the pit changed to a shove just generically, and it looks bad. should be a shove into the pit. for the shove one, the gameplay of the shove minigame is super weird because of the way the bots behave, and its unclear thats whats happening. change the minigame so instead of everyone facing away, everyone starts closer to the edge facing in. that can be an actual gameplay change. then record that instead
 notes: for when i say if my art didnt make it clear, it should be an older build of the game to show the even worse art. when you show the death animation in a grey void, why the fuck is the character rendered how it is in game??? and why the fucking hell, woudl you choose, for the moment when i say ragdolls and youre supposed to watch someone get shot, for that to be on the bounce pad section of the map? like holy shit use s2. then, in the forest shots, you do not see a single successful ragdoll, and a fucking player shoaves another one for no reason. then theres a sub one second clip of a bunch of player shoving each other, doesnt show ragdolling, looks like shit. the gaurd clips into the fucking pit wall lke we specifcally specified not to. and then cuts to a sniper pov for no fucking reason. is all of this clear? do you know how to fix it all? frankly i will say it is much much better for a first draft than we had been getting, but not good enough still
 # v24 = v23 with Ryan's notes: M2 = 02_v24 (3a8cefd3: the modelled prisoner and its Death clip, no box); L4 = 04_v24 (the lead visibly shot and
-# thrown on S2, the report and impact in the take's sound, game: 1); L6 = 06_v24 (the flop, then the POV shove into the pit); L7 = 07_v24 (fixed ragdoll, one tumble).
+# thrown on S2, the report and impact in the take's sound, game: 2 = the take's own level under the voice); L6 = 06_v24 (the flop, then the POV shove into the pit); L7 = 07_v24 (fixed ragdoll, one tumble).
 # was: v23 = v22 with Ryan's notes: L1 = 57 (## 43 retaped on the current build); M2 = 02_v23, L3 = 03_v23 (the 0fe0c9ec old build:
 # old runner, old Death clip, old hell ring); L4 = 04_v23 (scope misses, then the back runner as the lead is shot on S2);
 # L5 = 05_v23 (forest, three visible ragdolls, no shoves); L6 = 06_v23 (two shove-and-flop halves); L7 = 07_v23 (clean throw, ends on the beat).
@@ -945,7 +945,7 @@ notes: for when i say if my art didnt make it clear, it should be an older build
 # L5 forest: the flung lead and the middle man (54), the haters scope's drop, ravine throw and drop (55); frame check: L3 = 53 (45 read as a push in), L4 runner = 56 (50's lead left the frame); L6 the 3-runner scrap (48), then the
 # POV's pit shove on "shove" (52); L7 the portal, the shove and the 2.0 s kill-beat cinematic (49). "htis" spoken "this".
 pad: 0.2
-game: 1
+game: 2
 | line | clip | in | len | fit | speed | text | card | grade | gif_fade |
 | L1 | cuts/57_v23.mp4 | 0.3 | 4.5 | wait | | The death animation in my game was really bad. | | | |
 | M2 | cuts/02_v24.mp4 | 0 | 3.6 | beat 3.6 | | | | | external/scared.gif 1.2 2.0 end |
