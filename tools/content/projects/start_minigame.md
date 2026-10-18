@@ -53,6 +53,7 @@ tape: start_minigame_v2_brawl
 expect: brawl_start 0.0-0.1; brawl_out Runner_1 2.6-2.9; brawl_out Runner_0 6.2-6.5; brawl_out Runner_3 7.1-7.4; brawl_won Runner_2 7.1-7.4; lens_clear; lens_cover <= 0.5
 seconds: 15.5
 in: 0.4
+motion: 0.009
 refilm: v1,v2
 
 ## script v1

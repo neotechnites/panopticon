@@ -1172,7 +1172,7 @@
      "expect": "pullback start 0.9-1.1; pullback end 8.9-9.1; lens_clear; lens_cover <= 0.5",
      "seconds": 8.2,
      "in": 1.0,
-     "motion": null,
+     "motion": "0.01",
      "ref": null,
      "ticks": {
       "hit": null,
@@ -2352,7 +2352,7 @@
      "expect": "brawl_start 0.0-0.1; brawl_out Runner_1 2.6-2.9; brawl_out Runner_0 6.2-6.5; brawl_out Runner_3 7.1-7.4; brawl_won Runner_2 7.1-7.4; lens_clear; lens_cover <= 0.5",
      "seconds": 20.0,
      "in": 0.4,
-     "motion": null,
+     "motion": "0.009",
      "ref": null,
      "ticks": {
       "hit": null,
