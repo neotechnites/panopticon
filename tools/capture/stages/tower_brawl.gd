@@ -7,7 +7,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## [code]--shot=s3_open_lane --stage=tower_brawl --bots=3 --shimmer=0 --look=social --seed=20261017[/code]: four players, all in
 ## the tower room, only the shove; the game's own brawl bots shove each other out of the windows; the last one standing takes the
 ## seat and the round starts with him as the sniper. Run_clip arms a round straight after start_match (a stage is driven), so the
-## first tick calls start_brawl() again: the same call the match's opening makes, nothing staged in it.
+## first tick calls start_brawl() again: the same call the match's opening makes; the fight is the game's own.
 ##
 ## The numbers (headless probe, hell): room floor y 26.98, brawl floor r 6.57, ceiling 32.6 (5.3 m up), piers at 0/90/180/270
 ## deg 6.9 m out, open windows between. The lens hangs inside the room under the ceiling against the cam_deg pier, looking down

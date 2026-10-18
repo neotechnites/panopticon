@@ -94,7 +94,7 @@ capture: --shot=s3_open_lane --stage=hell_explainer --pov=guard --bots=3 --shimm
 tape: stages_hell_explainer_scoped
 hud: crosshair
 expect: hit Runner_1 6.17-6.37; in_frame Runner_1 +0.0-0.05; lens_clear; lens_cover <= 0.5
-seconds: 5.6
+seconds: 9.0
 in: 1.0
 motion: 0.012
 
@@ -111,7 +111,7 @@ said: short 4 L5, Ryan: "clip montage of the sniper hitting people dead ... and 
 capture: --shot=s3_open_lane --stage=forest_going --map=forest --pov=guard --bots=3 --shimmer=0 --look=social --seed=20261017 --set=fling=1400
 hud: crosshair
 expect: hit Runner_1 2.2-2.4; in_frame Runner_1 +0.0-0.05; hit Runner_2 +1.3-1.5; in_frame Runner_2 +1.3-1.5; alive Runner_3; lens_clear; lens_cover <= 0.5
-seconds: 4.0
+seconds: 6.5
 in: 1.2
 motion: 0.012
 
@@ -146,7 +146,7 @@ seconds: 6.5
 in: 0.9
 
 ## 19
-said: Ryan (short 9, L4): "so, i implemented a race, every player does the course with no sniper, and the first one to complete it gets to be the sniper. this, was the worst part of my game. it wasnt fun, everyone was the same speed, and it took to long" {pov of race in forest}. The game's own opening race (start_race) in the forest, four racers and nobody in the tower, bot brains running it: the POV runs 2nd of 4, the man ahead ~5 deg up the lane in frame, all at the same pace; nobody finishes inside the cut (a lap is ~28.6 s). Mac smoke: race_start 0.02, no seat the whole race.
+said: Ryan (short 9, L4): "so, i implemented a race, every player does the course with no sniper, and the first one to complete it gets to be the sniper. this, was the worst part of my game. it wasnt fun, everyone was the same speed, and it took to long" {pov of race in forest}. The game's own opening race (start_race) in the forest, four racers and nobody in the tower, the other three on their race brains: the POV (stage_driver steps on the line its own brain ran, human eyes) runs 2nd-3rd to ~9 s then 2-4 m behind two racers, the leader 10-14 deg up the course, all at the same pace; nobody finishes inside the cut (a lap is ~28.6 s). Mac smoke: race_start 0.02, no seat the whole race.
 capture: --shot=s3_open_lane --stage=forest_race --map=forest --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017
 tape: stages_forest_race
 expect: race_start 0-0.5; lens_clear; lens_cover <= 0.5

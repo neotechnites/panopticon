@@ -76,6 +76,24 @@
       "out": null,
       "go": null
      }
+    },
+    {
+     "project": "ragdoll_short",
+     "entry": 44,
+     "said": "shot of the animation in a grey space jsut playing, with a slow fade in of an image i will provide https://media.tenor.com/17aPeH713cYAAAAM/scared.gif",
+     "capture": "--shot=s3_open_lane --stage=death_void --bots=1 --seed=20261017 --shimmer=0",
+     "tape": null,
+     "expect": "death Runner_1 1.5-1.7; lens_clear",
+     "seconds": 3.6,
+     "in": 1.2,
+     "motion": "0.002",
+     "ref": null,
+     "ticks": {
+      "hit": null,
+      "shove": null,
+      "out": null,
+      "go": null
+     }
     }
    ]
   },
@@ -130,6 +148,24 @@
      "project": "stages",
      "entry": 18,
      "said": "short 4 L7, Ryan: \"pov runner makes it through the portal, shoves, and the usual cinematic shot\": finale (stages#4) from before the portal: the runner POV runs the last 6 m into the portal (lead=6.0) and arrives in the tower (2.13), walks up behind the scoped guard (pace 0.32) and shoves him (3.63), and the shipped 2.0 s kill beat (beat=2.0) throws him out on the original camera (tower_out 5.63). Mac smoke: arrive 2.13, shove 3.63, tower_out 5.63.",
+     "capture": "--shot=s3_open_lane --stage=finale --pov=runner --bots=3 --shimmer=0 --seed=20261012 --set=lead=6.0;stand=3.0;pace=0.32;beat=2.0",
+     "tape": null,
+     "expect": "shove Runner_0 3.48-3.78; arrive Runner_1 2.0-2.25; tower_out Runner_0 +1.9-2.1; alive Runner_1; lens_clear; lens_cover <= 0.5",
+     "seconds": 6.5,
+     "in": 0.9,
+     "motion": null,
+     "ref": null,
+     "ticks": {
+      "hit": null,
+      "shove": 3.63,
+      "out": null,
+      "go": null
+     }
+    },
+    {
+     "project": "ragdoll_short",
+     "entry": 49,
+     "said": "pov runner makes it through the portal, shoves, and the usual cinematic shot",
      "capture": "--shot=s3_open_lane --stage=finale --pov=runner --bots=3 --shimmer=0 --seed=20261012 --set=lead=6.0;stand=3.0;pace=0.32;beat=2.0",
      "tape": null,
      "expect": "shove Runner_0 3.48-3.78; arrive Runner_1 2.0-2.25; tower_out Runner_0 +1.9-2.1; alive Runner_1; lens_clear; lens_cover <= 0.5",
@@ -213,7 +249,25 @@
      "capture": "--shot=s3_open_lane --stage=forest_going --map=forest --pov=guard --bots=3 --shimmer=0 --look=social --seed=20261017 --set=fling=1400",
      "tape": null,
      "expect": "hit Runner_1 2.2-2.4; in_frame Runner_1 +0.0-0.05; hit Runner_2 +1.3-1.5; in_frame Runner_2 +1.3-1.5; alive Runner_3; lens_clear; lens_cover <= 0.5",
-     "seconds": 4.0,
+     "seconds": 6.5,
+     "in": 1.2,
+     "motion": "0.012",
+     "ref": null,
+     "ticks": {
+      "hit": 2.3,
+      "shove": null,
+      "out": null,
+      "go": null
+     }
+    },
+    {
+     "project": "ragdoll_short",
+     "entry": 47,
+     "said": "clip montage of the sniper hitting people dead in hell, and if we can, get one that freaks out and break the players model and go flying -- Ryan 10-12: \"lets replace the gameplay of the hitting shots montage to be in the forest\"; Ryan 10-17: \"didnt i say it has to be in the forest?\"",
+     "capture": "--shot=s3_open_lane --stage=forest_going --map=forest --pov=guard --bots=3 --shimmer=0 --look=social --seed=20261017 --set=fling=1400",
+     "tape": null,
+     "expect": "hit Runner_1 2.2-2.4; in_frame Runner_1 +0.0-0.05; hit Runner_2 +1.3-1.5; in_frame Runner_2 +1.3-1.5; alive Runner_3; lens_clear; lens_cover <= 0.5",
+     "seconds": 6.5,
      "in": 1.2,
      "motion": "0.012",
      "ref": null,
@@ -264,7 +318,15 @@
     "runner"
    ],
    "dials": {
-    "ride": 4,
+    "ride": 3,
+    "pace": 1.0,
+    "gap": 4.0,
+    "gain": 0.08,
+    "slow": 0.75,
+    "aside": 0.0,
+    "reach": 3.0,
+    "r_min": 50.3,
+    "r_max": 53.0,
     "log_every": 1.0
    },
    "for_shorts": true,
@@ -272,7 +334,7 @@
     {
      "project": "stages",
      "entry": 19,
-     "said": "Ryan (short 9, L4): \"so, i implemented a race, every player does the course with no sniper, and the first one to complete it gets to be the sniper. this, was the worst part of my game. it wasnt fun, everyone was the same speed, and it took to long\" {pov of race in forest}. The game's own opening race (start_race) in the forest, four racers and nobody in the tower, bot brains running it: the POV runs 2nd of 4, the man ahead ~5 deg up the lane in frame, all at the same pace; nobody finishes inside the cut (a lap is ~28.6 s). Mac smoke: race_start 0.02, no seat the whole race.",
+     "said": "Ryan (short 9, L4): \"so, i implemented a race, every player does the course with no sniper, and the first one to complete it gets to be the sniper. this, was the worst part of my game. it wasnt fun, everyone was the same speed, and it took to long\" {pov of race in forest}. The game's own opening race (start_race) in the forest, four racers and nobody in the tower, the other three on their race brains: the POV (stage_driver steps on the line its own brain ran, human eyes) runs 2nd-3rd to ~9 s then 2-4 m behind two racers, the leader 10-14 deg up the course, all at the same pace; nobody finishes inside the cut (a lap is ~28.6 s). Mac smoke: race_start 0.02, no seat the whole race.",
      "capture": "--shot=s3_open_lane --stage=forest_race --map=forest --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017",
      "tape": "stages_forest_race",
      "expect": "race_start 0-0.5; lens_clear; lens_cover <= 0.5",
@@ -383,6 +445,24 @@
      "ref": null,
      "ticks": {
       "hit": null,
+      "shove": null,
+      "out": null,
+      "go": null
+     }
+    },
+    {
+     "project": "ragdoll_short",
+     "entry": 51,
+     "said": "clip montage of the sniper hitting people dead in hell, and if we can, get one that freaks out and break the players model and go flying -- Ryan 10-12: \"lets replace the gameplay of the hitting shots montage to be in the forest\"; Ryan 10-17: \"didnt i say it has to be in the forest?\" -- the montage's other kills (stages#15): forest_window at the tight scope (fov 10), Runner_1 dropped at 2.60, Runner_3 at 7.80",
+     "capture": "--map=forest --shot=s3_open_lane --stage=forest_window --pov=guard --bots=3 --seed=20261012 --shimmer=0 --set=scope_fov=10",
+     "tape": null,
+     "expect": "hit Runner_1 2.5-2.7; hit Runner_3 +5.1-5.3; lens_clear; lens_cover <= 0.5",
+     "seconds": 9.0,
+     "in": 1.0,
+     "motion": "0.005",
+     "ref": null,
+     "ticks": {
+      "hit": 2.6,
       "shove": null,
       "out": null,
       "go": null
@@ -879,7 +959,7 @@
      "capture": "--shot=s3_open_lane --stage=hell_explainer --pov=guard --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=start=31,22,4.8;drop_at=5.9",
      "tape": "stages_hell_explainer_scoped",
      "expect": "hit Runner_1 6.17-6.37; in_frame Runner_1 +0.0-0.05; lens_clear; lens_cover <= 0.5",
-     "seconds": 5.6,
+     "seconds": 9.0,
      "in": 1.0,
      "motion": "0.012",
      "ref": null,
@@ -899,6 +979,42 @@
      "expect": "hit Runner_1 6.17-6.37; in_frame Runner_1 +0.0-0.05; lens_clear; lens_cover <= 0.5",
      "seconds": 6.5,
      "in": 1.0,
+     "motion": null,
+     "ref": null,
+     "ticks": {
+      "hit": 6.27,
+      "shove": null,
+      "out": null,
+      "go": null
+     }
+    },
+    {
+     "project": "ragdoll_short",
+     "entry": 46,
+     "said": "a sniper pov, missing shots, then cut to the runner pov near the end, and he watches the person in front of him get shot",
+     "capture": "--shot=s3_open_lane --stage=hell_explainer --pov=guard --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=start=31,22,4.8;drop_at=5.9",
+     "tape": null,
+     "expect": "hit Runner_1 6.17-6.37; in_frame Runner_1 +0.0-0.05; lens_clear; lens_cover <= 0.5",
+     "seconds": 4.6,
+     "in": 1.0,
+     "motion": "0.012",
+     "ref": null,
+     "ticks": {
+      "hit": 6.27,
+      "shove": null,
+      "out": null,
+      "go": null
+     }
+    },
+    {
+     "project": "ragdoll_short",
+     "entry": 50,
+     "said": "a sniper pov, missing shots, then cut to the runner pov near the end, and he watches the person in front of him get shot -- the runner half (stages#13): ## 46's staged match (same seed and dials, untaped: the PC stays free for shorts 10 and 11) from the back runner's eyes; the second round lands by the pack (3.80) and the lead, in front of him, drops in his frame (6.27) on \"Ragdolls\"",
+     "capture": "--shot=s3_open_lane --stage=hell_explainer --pov=runner --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=start=31,22,4.8;drop_at=5.9",
+     "tape": null,
+     "expect": "hit Runner_1 6.17-6.37; in_frame Runner_1 +0.0-0.05; lens_clear; lens_cover <= 0.5",
+     "seconds": 4.5,
+     "in": 2.6,
      "motion": null,
      "ref": null,
      "ticks": {
@@ -992,6 +1108,24 @@
       "out": null,
       "go": null
      }
+    },
+    {
+     "project": "ragdoll_short",
+     "entry": 45,
+     "said": "slow zoom out shot of the old hell map",
+     "capture": "--shot=pit_orbit --stage=hell_pullback --bots=3 --seed=20261017 --shimmer=0",
+     "tape": null,
+     "expect": "pullback start 0.9-1.1; pullback end 8.9-9.1; lens_clear; lens_cover <= 0.5",
+     "seconds": 8.2,
+     "in": 1.0,
+     "motion": null,
+     "ref": null,
+     "ticks": {
+      "hit": null,
+      "shove": null,
+      "out": null,
+      "go": null
+     }
     }
    ]
   },
@@ -1055,6 +1189,24 @@
      "project": "stages",
      "entry": 16,
      "said": "short 4 L6, Ryan: \"a bunch of runners shoving each other with the ragdoll\": the melee scrap at a short's cap, three runners (count=3; 4 players with the guard) on the clear deck at 195 deg r 52 all shoving each other (each shove flops the victim), the chase lens in the scrap; cut from 2.2 s, after a body passes through the lens at 1.9 s; the line then cuts to ## 17, a runner POV in a real round shoving a man into the pit. Mac smoke: 10 shoves 1.47-8.02 s, 6 of them 3.72-5.90.",
+     "capture": "--shot=s3_melee --stage=melee --bots=3 --seed=20261017 --shimmer=0 --set=count=3",
+     "tape": null,
+     "expect": "shove Runner_2 1.4-1.55; shove Runner_3 +0.5-0.65; lens_clear; lens_cover <= 0.5",
+     "seconds": 5.9,
+     "in": 2.2,
+     "motion": null,
+     "ref": null,
+     "ticks": {
+      "hit": null,
+      "shove": 1.475,
+      "out": null,
+      "go": null
+     }
+    },
+    {
+     "project": "ragdoll_short",
+     "entry": 48,
+     "said": "a bunch of runners shoving each other with the ragdoll, other pov shots of a \"real game\" where the runners are getting shoved",
      "capture": "--shot=s3_melee --stage=melee --bots=3 --seed=20261017 --shimmer=0 --set=count=3",
      "tape": null,
      "expect": "shove Runner_2 1.4-1.55; shove Runner_3 +0.5-0.65; lens_clear; lens_cover <= 0.5",
@@ -1895,6 +2047,24 @@
       "out": null,
       "go": null
      }
+    },
+    {
+     "project": "ragdoll_short",
+     "entry": 52,
+     "said": "a bunch of runners shoving each other with the ragdoll, other pov shots of a \"real game\" where the runners are getting shoved -- the \"real game\" POV (stages#17): rs_pitshove, the POV runner shoves the man on the inside over the rim (4.20) on \"shove\", he lands in the pit (6.28)",
+     "capture": "--shot=s3_open_lane --stage=rs_pitshove --pov=runner --bots=3 --seed=7 --shimmer=0 --set=pack=3;shove_gap=1.3;turn_gap=2.6;shover_r=50.2;from=13;back=8.5;after_to=57",
+     "tape": null,
+     "expect": "shove Runner_2 4.1-4.3; out Runner_1 +2.0-2.2; lens_clear; lens_cover <= 0.5",
+     "seconds": 6.8,
+     "in": 0.6,
+     "motion": null,
+     "ref": null,
+     "ticks": {
+      "hit": null,
+      "shove": 4.2,
+      "out": 6.3,
+      "go": null
+     }
     }
    ]
   },
@@ -1960,6 +2130,24 @@
      "ref": null,
      "ticks": {
       "hit": null,
+      "shove": null,
+      "out": null,
+      "go": null
+     }
+    },
+    {
+     "project": "ragdoll_short",
+     "entry": 43,
+     "said": "pov of the sniper shooting at some runners and missing, hell map, right at the end, they hit one, and we cut a little after the animation plays out",
+     "capture": "--shot=s3_open_lane --stage=rs_snipe --pov=guard --bots=3 --seed=20261017 --shimmer=0 --set=old=1;plan=0m,1m,2h;start=1.0",
+     "tape": null,
+     "expect": "hit Runner_3 5.55-5.75; lens_clear; lens_cover <= 0.5",
+     "seconds": 5.0,
+     "in": 2.6,
+     "motion": "0.005",
+     "ref": null,
+     "ticks": {
+      "hit": 5.65,
       "shove": null,
       "out": null,
       "go": null
