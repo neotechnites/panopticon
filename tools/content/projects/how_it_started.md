@@ -128,8 +128,8 @@ pad: 0.2
 | end | title | | 1.75 | | | beta signup in bio | |
 
 ## 9
-said: v4 of ## 7 (Ryan on v3: "they dont really read as the same, i think to omuch is going on now in the second half"; ruling: a shot-for-shot twin of ## 1): pill_twin, the pill_era take restaged in the forest by its numbers: the guard at the 12 deg window scoped to fov 28 (pill 28), three abreast on lanes r 51.5/53.5/55.3 at 8 m/s (pill 38.5/44.5/51 at walk 8; r 51-55 is the forest's one trunk-free band, 345.5-31.5 deg), the inner man 2.5 m up (the pill's inner lane gains that by the drop), the outer man held to 1.0 s; the hand parked 4 deg left of the pack, on the middle man from 0.9, drops him at 2.05 (pill 2.07) at 16.9 deg, 49.4 m off, dead centre (pill 44.5 m), holds on him to 2.6. 2.45 s from 0.6, as ## 1 plays.
-capture: --shot=s3_open_lane --stage=pill_twin --map=forest --pov=guard --bots=3 --shimmer=0 --look=social --seed=20261017 --set=window=12;eye_r=4.4;start=2;lanes=51.5,53.5,55.3;look=8;inner_ahead=2.5
+said: v4 of ## 7 (Ryan on v3: "they dont really read as the same, i think to omuch is going on now in the second half"; ruling: a shot-for-shot twin of ## 1): pill_twin, the pill_era take restaged in the forest by its numbers: the guard at the 0 deg window scoped to fov 28 (pill 28), three abreast on lanes r 51.5/53.5/55.3 at 8 m/s (pill 38.5/44.5/51 at walk 8; r 51-55 is the forest's one trunk-free band, 345.5-31.5 deg), the inner man 2.5 m up (the pill's inner lane gains that by the drop), the outer man held to 1.0 s; the hand parked 4 deg left of the pack, on the middle man from 0.9, drops him at 2.05 (pill 2.07) at 16.9 deg, 49.4 m off, dead centre (pill 44.5 m), holds on him to 2.6. 2.45 s from 0.6, as ## 1 plays.
+capture: --shot=s3_open_lane --stage=pill_twin --map=forest --pov=guard --bots=3 --shimmer=0 --look=social --seed=20261017 --set=window=0;eye_r=4.4;start=2;lanes=51.5,53.5,55.3;look=8;inner_ahead=2.5
 tape: how_it_started_v4
 hud: crosshair
 expect: hit Runner_2 1.95-2.15; in_frame Runner_2 +0.0-0.05; alive Runner_3; lens_clear; lens_cover <= 0.5
@@ -140,7 +140,7 @@ refilm: v4
 
 ## 10
 said: v4 of ## 8 (as ## 9): the SAME tape down the held outer man's eyes at fov 70 (pill 70): he goes at 1.0, head eased right onto the mate, who drops at 2.05 6.5 m off, 9.4 deg right, in frame (pill: 2.07, 9 deg right); no trunk within 8 m fills over 0.35 of his frame, the mate never hidden. 2.25 s from 1.0, as ## 2 plays.
-capture: --shot=s3_open_lane --stage=pill_twin --map=forest --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017 --set=window=12;eye_r=4.4;start=2;lanes=51.5,53.5,55.3;look=8;inner_ahead=2.5
+capture: --shot=s3_open_lane --stage=pill_twin --map=forest --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017 --set=window=0;eye_r=4.4;start=2;lanes=51.5,53.5,55.3;look=8;inner_ahead=2.5
 tape: how_it_started_v4
 expect: hit Runner_2 1.95-2.15; in_frame Runner_2 +0.0-0.05; alive Runner_3; lens_clear; lens_cover <= 0.5
 seconds: 2.4
