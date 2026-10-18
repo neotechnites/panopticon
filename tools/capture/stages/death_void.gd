@@ -129,7 +129,7 @@ func _plain(mat: Material) -> Material:
 	copy.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
 	if base.resource_name.begins_with("Shirt"):
 		copy.albedo_texture = null
-		copy.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		copy.albedo_color = Color(0.82, 0.82, 0.8)
 	copy.set_meta(&"void_plain", true)
 	return copy
 
