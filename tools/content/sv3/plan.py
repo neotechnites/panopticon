@@ -84,6 +84,9 @@ def clip_in(shot, e, words):
         raise Refused("%s: %s ## %s has no %s tick" % (shot["id"], e["project"], e["entry"], beat["tick"]))
     ws = words[shot["id"]]["words"]
     hit = next((w for w in ws if norm(w["word"]) == norm(beat["word"])), None)
+    if hit is None:   # Ryan's spoken line may inflect the script's word ("throws" -> "throw"): match the stem
+        stem = lambda x: re.sub(r"(ing|ed|es|s)$", "", norm(x))
+        hit = next((w for w in ws if stem(w["word"]) == stem(beat["word"]) and len(stem(beat["word"])) >= 3), None)
     if hit is None:
         raise Refused("%s: beat word %r is not in the spoken line" % (shot["id"], beat["word"]))
     line_start = 0.0            # the wav (lead trimmed) starts with the row's slot
