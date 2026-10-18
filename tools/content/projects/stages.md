@@ -19,7 +19,7 @@ tape: stages_hell_explainer
 expect: hit Runner_1 5.75-5.95; out Runner_1 +0.0-0.3; shove Runner_2 +0.4-0.7; in_frame Runner_2 +1.8-2.0; out Runner_2 +1.8-2.0; alive Runner_3; lens_clear; lens_cover <= 0.5
 
 seconds: 8.3
-motion: 0.012
+motion: 0.011
 in: 1.2
 
 ## 3
