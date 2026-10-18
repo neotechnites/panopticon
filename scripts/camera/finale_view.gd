@@ -33,6 +33,12 @@ const ROOM_BELOW: float = 2.0
 const ROOM_ABOVE: float = 9.0
 ## Points each sight line is sampled at against the tower's room.
 const SIGHT_SAMPLES: int = 24
+## Share of the guard's drift from the anchor the camera eases after, and how fast.
+const DRIFT_SHARE: float = 0.25
+const DRIFT_RATE: float = 3.0
+## Metres along the flight past the anchor, and off it, the look-back spots stand.
+const AHEAD_METRES: float = 10.0
+const AHEAD_OFF: float = 5.0
 
 var _avatar: PrisonerAvatar = null
 var _guard: PlayerController = null
@@ -47,8 +53,9 @@ var _clear_index: int = 1
 var _room_centre: Vector3 = Vector3.ZERO
 var _room_radius: float = 0.0
 var _room_of: int = 0
-## Where the shot would stand; the lens is sprung in from it to the first surface toward the guard.
+## Where the shot stands, picked once at the throw, and the arc point it was picked against.
 var _home: Vector3 = Vector3.ZERO
+var _anchor: Vector3 = Vector3.ZERO
 var _arm: SphereShape3D = SphereShape3D.new()
 
 
@@ -93,7 +100,6 @@ func _on_guard_thrown(guard: MatchParticipant, seconds: float, throw: Vector3) -
 	_arc = _predict_arc(focus, throw, seconds)
 	_home = _place(throw)
 	camera.global_position = _home
-	_spring(focus)
 	_aim(focus, 1.0, 1.0)
 	# Ended by the next round; the clock is only a backstop for a lost round start.
 	_remaining = seconds + 1.0
@@ -114,32 +120,36 @@ func tick(delta: float) -> void:
 		stand_down()
 		return
 	var focus: Vector3 = get_focus_point()
-	_spring(focus)
+	_drift(focus, delta)
 	_aim(focus, 1.0 - exp(-follow_rate * delta), delta)
 
 
-## Spring arm: a sphere swept from [param focus] to [member _home] stops at the first surface, as a SpringArm3D does.
-func _spring(focus: Vector3) -> void:
-	var reach: Vector3 = _home - focus
-	if reach.length_squared() < 1e-4:
+## Ease the stand a little after the guard's drift, swept as a sphere so it stops short of any surface.
+func _drift(focus: Vector3, delta: float) -> void:
+	var goal: Vector3 = _home + (focus - _anchor) * DRIFT_SHARE
+	var step: Vector3 = (goal - camera.global_position) * (1.0 - exp(-DRIFT_RATE * delta))
+	if step.length_squared() < 1e-8 or _in_room(camera.global_position + step):
 		return
+	var query: PhysicsShapeQueryParameters3D = _sphere_at(camera.global_position)
+	query.motion = step
+	camera.global_position += step * get_world_3d().direct_space_state.cast_motion(query)[0]
+
+
+## A clearance sphere at [param point] against the map and the parked tower, the guard left out.
+func _sphere_at(point: Vector3) -> PhysicsShapeQueryParameters3D:
 	_arm.radius = CLEARANCE_METRES
 	var query: PhysicsShapeQueryParameters3D = PhysicsShapeQueryParameters3D.new()
 	query.shape = _arm
-	query.transform = Transform3D(Basis.IDENTITY, focus)
-	query.motion = reach
+	query.transform = Transform3D(Basis.IDENTITY, point)
 	query.collision_mask = 1 | MatchController.OPEN_TOWER_LAYER
 	if _guard != null and is_instance_valid(_guard):
 		query.exclude = [_guard.get_rid()]
-	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
-	var safe: float = space.cast_motion(query)[0]
-	if safe > 0.0:
-		camera.global_position = focus + reach * safe
-		return
-	# He is inside a surface (sunk in lava, against rock): stop on its outside, swept in from the stand.
-	query.transform = Transform3D(Basis.IDENTITY, _home)
-	query.motion = -reach
-	camera.global_position = _home - reach * space.cast_motion(query)[0]
+	return query
+
+
+## True when nothing solid is within [constant CLEARANCE_METRES] of [param point].
+func _is_open(point: Vector3) -> bool:
+	return get_world_3d().direct_space_state.intersect_shape(_sphere_at(point), 1).is_empty()
 
 
 ## Give the view back to the camera that had it. Idempotent.
@@ -204,22 +214,28 @@ func _place(throw: Vector3) -> Vector3:
 	var side: Vector3 = Vector3.UP.cross(away).normalized()
 	var at: int = maxi(roundi(anchor_share * float(_arc.size() - 1)), _clear_index)
 	var anchor: Vector3 = _arc[clampi(at, 0, _arc.size() - 1)]
+	_anchor = anchor
 	var candidates: PackedVector3Array = PackedVector3Array()
 	for distance: float in side_distances:
 		for hand: float in [1.0, -1.0]:
 			candidates.append(anchor + side * distance * hand + Vector3.UP * side_height - away * side_back)
+	# Out past the window along his flight, off his path and over the pit, looking back at him.
+	for hand: float in [1.0, -1.0]:
+		candidates.append(anchor + away * AHEAD_METRES + side * AHEAD_OFF * hand + Vector3.UP * side_height)
 	for hand: float in [1.0, -1.0]:
 		candidates.append(anchor + Vector3.UP * wide_height + side * side_distances[0] * 0.6 * hand - away * side_back)
 	candidates.append(anchor + Vector3.UP * wide_height * 1.5 - away * side_back * 2.0)
-	for candidate: Vector3 in candidates:
-		if _sees_the_arc(candidate, anchor):
-			return candidate
+	# The whole beat from the throw (through the window) first, else from where he clears the tower.
+	for from_index: int in [0, _clear_index]:
+		for candidate: Vector3 in candidates:
+			if _sees_the_arc(candidate, anchor, from_index):
+				return candidate
 	return candidates[candidates.size() - 1]
 
 
-## True when [param point] is reached from open air at [param anchor] and sees the arc out of the tower.
-func _sees_the_arc(point: Vector3, anchor: Vector3) -> bool:
-	if _in_room(point):
+## True when [param point] is reached from open air at [param anchor] and sees the arc from [param from_index] on.
+func _sees_the_arc(point: Vector3, anchor: Vector3, from_index: int) -> bool:
+	if _in_room(point) or not _is_open(point):
 		return false
 	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
 	var solid: int = 1 | MatchController.OPEN_TOWER_LAYER
@@ -227,13 +243,16 @@ func _sees_the_arc(point: Vector3, anchor: Vector3) -> bool:
 	var reach: Vector3 = point - anchor
 	if not space.intersect_ray(PhysicsRayQueryParameters3D.create(anchor, point + reach.normalized() * CLEARANCE_METRES, solid)).is_empty():
 		return false
-	if _clear_index >= _arc.size():
-		return true
-	for i: int in range(_clear_index, _arc.size()):
+	for i: int in range(from_index, _arc.size()):
 		var target: Vector3 = _arc[i]
 		var line: Vector3 = target - point
 		if line.length() < CLEARANCE_METRES * 2.0:
 			return false
+		if i < _clear_index:
+			# Inside the room the walls stop rays only from inside: look out from him, through the window or not at all.
+			if not space.intersect_ray(PhysicsRayQueryParameters3D.create(target, point, solid)).is_empty():
+				return false
+			continue
 		var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(point, target - line.normalized() * CLEARANCE_METRES, solid)
 		query.hit_from_inside = true
 		if not space.intersect_ray(query).is_empty() or _crosses_room(point, target):
