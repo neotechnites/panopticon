@@ -46,6 +46,8 @@ func tune_rules(rules: MatchRules) -> void:
 	rules.open_with_race = true
 	rules.open_with_tower_brawl = false
 	rules.runner_ability = MatchRules.RunnerAbility.NONE
+	# The PC take fails a POV that is shoved (4 bot shoves on Runner_3 in the first take): the bots race, they do not shove.
+	rules.bots_shove_rivals = false
 
 
 func tick(_delta: float) -> void:
