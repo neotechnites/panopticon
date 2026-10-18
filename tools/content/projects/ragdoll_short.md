@@ -546,7 +546,7 @@ freeze: 1
 refilm: v20
 
 ## 44
-said: shot of the animation in a grey space jsut playing, with a slow fade in of an image i will provide https://media.tenor.com/17aPeH713cYAAAAM/scared.gif
+said: shot of the animation in a grey space jsut playing, with a slow fade in of an image i will provide https://media.tenor.com/17aPeH713cYAAAAM/scared.gif -- death_void (stages#10): the old Death clip (ragdoll off) on one prisoner alone in a grey void; scared.gif fades in over it in the cut (gif_fade)
 capture: --shot=s3_open_lane --stage=death_void --bots=1 --seed=20261017 --shimmer=0
 expect: death Runner_1 1.5-1.7; lens_clear
 seconds: 3.6
@@ -556,7 +556,7 @@ freeze: waive
 refilm: v20
 
 ## 45
-said: slow zoom out shot of the old hell map
+said: slow zoom out shot of the old hell map -- the hell ring, map 1 (the old map: the forest is the new one), as it ships; hell_pullback (stages#11) cranes up and back over it during a live 3-runner match
 capture: --shot=pit_orbit --stage=hell_pullback --bots=3 --seed=20261017 --shimmer=0
 expect: pullback start 0.9-1.1; pullback end 8.9-9.1; lens_clear; lens_cover <= 0.5
 seconds: 8.2
