@@ -9,10 +9,10 @@ extends "res://tools/capture/stages/stage.gd"
 # rows, so the lens was swept: at 37.2 deg r 51 it sat in a spire (near 0.33,
 # cover 1.00), 43.2 r 51 near 1.21 cover 0.60, 39.25 r 52 near 1.50 cover 0.00;
 # --eye=39.25:52:1.5 --los to 42:52 at 1.0-1.5 m is open. 2.5 m keeps the lens
-# clear of him (lens_clear wants 0.8 m, lens_cover counts within 2 m), so a 24 deg
-# fov makes the bust: ~1.05 m tall, head to mid chest. He holds still, so the
+# clear of him (lens_clear wants 0.8 m, lens_cover counts within 2 m), so a 30 deg
+# fov makes the bust: ~1.34 m tall, the whole head to mid chest (24 deg cut his head). He holds still, so the
 # rig's shipped Idle (3 deg of spine breath over 3.2 s) is all that moves him.
-# Dials (--set=): deg (42), r (52), dist (2.5), fov (24), above (0.05), aim (-0.15), drift (0.03).
+# Dials (--set=): deg (42), r (52), dist (2.5), fov (30), above (0.05), aim (0.1), drift (0.03).
 
 ## Where he stands: bare deck in the S1 pocket, spires behind him.
 const BODY_DEG: float = 42.0
@@ -20,10 +20,10 @@ const BODY_R: float = 52.0
 ## Lens metres from him, back down the ring.
 const CAM_DIST: float = 2.5
 ## Vertical fov: head to mid chest at 2.5 m.
-const CAM_FOV: float = 24.0
+const CAM_FOV: float = 30.0
 ## Lens height over the Head bone (eye height), and the aim point under it.
 const CAM_ABOVE: float = 0.05
-const AIM_BELOW: float = -0.15
+const AIM_BELOW: float = 0.1
 ## A handheld drift in metres, slow enough to read as a person holding it.
 const DRIFT: float = 0.03
 

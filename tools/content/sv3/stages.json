@@ -1052,9 +1052,9 @@
     "deg": 42,
     "r": 52,
     "dist": 2.5,
-    "fov": 24,
+    "fov": 30,
     "above": 0.05,
-    "aim": -0.15,
+    "aim": 0.1,
     "drift": 0.03
    },
    "for_shorts": true,
@@ -1062,7 +1062,7 @@
     {
      "project": "stages",
      "entry": 20,
-     "said": "Ryan (short 9, L5): \"so how did i fix it?\" {bust shot of runner in hell idle animating}. One prisoner stood on bare S1 deck (42 deg r 52), head to mid chest at eye height from 2.5 m (fov 24), the S1 spires behind him, the rig's shipped Idle breathing, a handheld drift on the lens; nobody shoots. Mac smoke: idle 0.65, Idle playing at 0.00 m/s.",
+     "said": "Ryan (short 9, L5): \"so how did i fix it?\" {bust shot of runner in hell idle animating}. One prisoner stood on bare S1 deck (42 deg r 52), the whole head to mid chest at eye height from 2.5 m (fov 30, aim 0.1 m over the head bone), the S1 spires behind him, the rig's shipped Idle breathing, a handheld drift on the lens; nobody shoots. Mac smoke: idle 0.65, Idle playing at 0.00 m/s.",
      "capture": "--shot=s1_cave --stage=hell_idle_bust --bots=1 --look=social --shimmer=0 --seed=20261017",
      "tape": null,
      "expect": "idle Runner_1 0.6-0.9; alive Runner_1; lens_clear; lens_cover <= 0.5",
@@ -2264,15 +2264,15 @@
     "follow": 0.55,
     "rate": 3.0,
     "drift": 0.03,
-    "shoulder": 1.8,
-    "crane": 1.0
+    "zoom_fov": 40.0,
+    "zoom_s": 2.5
    },
    "for_shorts": true,
    "approved": [
     {
      "project": "stages",
      "entry": 23,
-     "said": "Ryan (short 9, L6): \"everyone starts in the tower, and the way you get to be the sniper, is to be the last one standing in it. so now, instead of a long drawn out boring race, its a fast, chaotic, brawl to see who goes first\" {Shot of starting shove tower minigame in hell}. The game's own opening tower brawl (start_brawl): four players in the tower room, only the shove, the game's brawl bots shove each other out of the windows (outs 2.75, 6.37, 7.28); the last one standing (Runner_2) takes the seat (8.80) and the lens, hung under the ceiling against the 0 deg pier, cranes in over his shoulder as he takes the window as the sniper and shoots at the runners starting the round. Mac smoke: as listed.",
+     "said": "Ryan (short 9, L6): \"everyone starts in the tower, and the way you get to be the sniper, is to be the last one standing in it. so now, instead of a long drawn out boring race, its a fast, chaotic, brawl to see who goes first\" {Shot of starting shove tower minigame in hell}. The game's own opening tower brawl (start_brawl): four players in the tower room, only the shove, the game's brawl bots shove each other out of the windows (outs 2.75, 6.37, 7.28); the last one standing (Runner_2) takes the seat (8.80) and the lens, hung under the ceiling against the 0 deg pier, stays on him and closes in (fov 72 to 40 over 2.5 s) as he takes the window as the sniper. Mac smoke: as listed.",
      "capture": "--shot=s3_open_lane --stage=tower_brawl --bots=3 --shimmer=0 --look=social --seed=20261017",
      "tape": "stages_tower_brawl",
      "expect": "brawl_start 0.0-0.1; brawl_out Runner_1 2.6-2.9; brawl_out Runner_0 6.2-6.5; brawl_out Runner_3 7.1-7.4; brawl_won Runner_2 7.1-7.4; lens_clear; lens_cover <= 0.5",

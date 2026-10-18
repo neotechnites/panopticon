@@ -12,18 +12,18 @@ extends "res://tools/capture/stages/stage.gd"
 ## The numbers (headless probe, hell): room floor y 26.98, brawl floor r 6.57, ceiling 32.6 (5.3 m up), piers at 0/90/180/270
 ## deg 6.9 m out, open windows between. The lens hangs inside the room under the ceiling against the cam_deg pier, looking down
 ## across the floor at the standing bodies (portrait: the frame's height is the room's depth); after the win it rides the seat
-## holder: it cranes in over his shoulder (shoulder 1.8 m, crane 1.0/s) and looks where he looks, the sniper now. Smoke 20261017: outs 2.75, 6.37, 7.28; Runner_2 seated 8.80.
+## holder from the same pier and closes in on him (fov 72 to zoom_fov over zoom_s) as he takes the window, the sniper now. Smoke 20261017: outs 2.75, 6.37, 7.28; Runner_2 seated 8.80.
 ##
 ## Dials (--set=): cam_deg (0.0, the pier the lens hangs on), cam_r (5.2), cam_h (4.3, over the floor), fov (72.0),
 ## follow (0.55, share of the look on the bodies, the rest on the room's middle), rate (3.0, look easing per s),
-## drift (0.03 m, handheld), shoulder (1.8), crane (1.0).
+## drift (0.03 m, handheld), zoom_fov (40.0), zoom_s (2.5).
 
 var _started: bool = false
 var _pos: Vector3 = Vector3.ZERO
 var _look: Vector3 = Vector3.ZERO
 var _placed: bool = false
 var _won: bool = false
-var _seat_pos: Vector3 = Vector3.ZERO
+var _seated_at: float = -1.0
 
 
 func bots() -> int:
@@ -100,13 +100,10 @@ func lens(delta: float) -> bool:
 	else:
 		var guard: PlayerController = _seated()
 		if guard != null:
-			# Seated: the lens cranes in over his shoulder and looks where he looks.
-			var head: Vector3 = guard.head.global_position
-			var ahead: Vector3 = -guard.head.global_transform.basis.z
-			var flat: Vector3 = Vector3(ahead.x, 0.0, ahead.z).normalized()
-			_seat_pos = _seat_pos.lerp(head - flat * float(option("shoulder", 1.8)) + Vector3.UP * 0.45 + guard.global_transform.basis.x * 0.35, 1.0 - exp(-float(option("crane", 1.0)) * delta)) if _seat_pos != Vector3.ZERO else want_pos
-			want_pos = _seat_pos + sway
-			bodies.append(head + ahead * 12.0)
+			# Seated: the lens stays on its pier and closes in on him (fov to zoom_fov over zoom_s) as he takes the window.
+			if _seated_at < 0.0:
+				_seated_at = t
+			bodies.append(guard.head.global_position)
 	if not bodies.is_empty():
 		var mean: Vector3 = Vector3.ZERO
 		for b: Vector3 in bodies:
@@ -122,7 +119,9 @@ func lens(delta: float) -> bool:
 	_look = _look.lerp(want_look, 1.0 - exp(-float(option("rate", 3.0)) * delta))
 	cam.global_position = _pos
 	cam.look_at(_look, Vector3.UP)
-	cam.fov = float(option("fov", 72.0))
+	var wide: float = float(option("fov", 72.0))
+	var zoom: float = clampf((t - _seated_at) / float(option("zoom_s", 2.5)), 0.0, 1.0) if _seated_at >= 0.0 else 0.0
+	cam.fov = lerpf(wide, float(option("zoom_fov", 40.0)), smoothstep(0.0, 1.0, zoom))
 	cam.current = true
 	if OS.has_environment("STAGE_DEBUG") and Engine.get_physics_frames() % 30 == 0:
 		var line: String = "phase %d look %s" % [match_controller.get_phase(), str(_look.snapped(Vector3.ONE * 0.1))]

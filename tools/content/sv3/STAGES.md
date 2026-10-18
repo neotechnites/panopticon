@@ -23,7 +23,7 @@ Written by `python -m sv3.catalogue` from the stage headers and approved entries
 | haters_hell | hell | s3_open_lane | guard/runner | window=115.0, start=90.0, fire_at=3.6, hand_at=1.3, zoom_at=1.9, park=10.0, up_right=86.0, up_pitch=12.0, radii=48.9,48.6,48.6, track_seconds=2.0 | haters_final#1, haters_final#2, haters#3, haters#4 | hit 7.775; hit 7.775, out 7.925; -; - | yes |
 | hell_explainer | hell | s3_open_lane | guard/runner | start=34,22,4.8, r=49.5, stop=68.5, mid_pace=0.41, pov_pace=0.45, pov_run=0.7, close_pace=0.4, watch=1.1, run_to=100.0, window=62.0, hand_at=0.8, zoom_at=1.2, lower=, track_to=0.0, miss_lead=2.0, miss_mid=3.4, miss_by=1.4, drop_at=5.5, hold_to=9.0, air_delay=0.05, impulse=0.0, up=0.0 | stages#1, stages#2, stages#12, stages#13, ragdoll_short#46, ragdoll_short#50 | hit 6.27, out 6.42; hit 6.27, shove 10.25, out 6.42; hit 6.27; hit 6.27; hit 6.27; hit 6.27 | yes |
 | hell_going | hell | lava_parkour | guard | window=306.0, scope_fov=14.0, hand_at=1.0, drop_lead=3.6, drop_mid=4.05, reload=0.4, track=3.0 | uncatalogued | - | yes |
-| hell_idle_bust | hell | s1_cave | - | deg=42, r=52, dist=2.5, fov=24, above=0.05, aim=-0.15, drift=0.03 | stages#20 | - | yes |
+| hell_idle_bust | hell | s1_cave | - | deg=42, r=52, dist=2.5, fov=30, above=0.05, aim=0.1, drift=0.03 | stages#20 | - | yes |
 | hell_pullback | hell | pit_orbit | - | from_t=1.0, move=8.0, fov_from=50.0, fov_to=70.0 | stages#11, ragdoll_short#45 | -; - | yes |
 | human_run | hell | - | - | - | uncatalogued | - | yes |
 | lavaparkour | hell | lava_parkour | runner | line=4, stagger=0.2, solo=1, shimmer=0.0 | trailer_reveal#11 | - | yes |
@@ -46,7 +46,7 @@ Written by `python -m sv3.catalogue` from the stage headers and approved entries
 | rs_snipe | hell | s3_open_lane | guard | old=1, plan=0m,1m,2h, start=1.0 | stages#9, ragdoll_short#40, ragdoll_short#42, ragdoll_short#43 | hit 5.65; -; -; hit 5.65 | yes |
 | rs_tower | hell | s3_open_lane | guard | wait=1.4, fire_at=1.0, cross=1, look=7.5, start=6.9, scope=0 | ragdoll_short#4, ragdoll_short#12 | -; - | yes |
 | scope_hunt | hell | s3_open_lane | guard | degs=34,42,49,57,64,72,80, rs=49.4,47.8,50.1,48.3,49.7,47.6,48.9, scan=0, shots=3, start=1.5, beat=2.5, fire_at=1.2, lead_in=-13.0, lift=1, clear=0.74 | uncatalogued | - | yes |
-| tower_brawl | hell | s3_open_lane | - | cam_deg=0.0, cam_r=5.2, cam_h=4.3, fov=72.0, follow=0.55, rate=3.0, drift=0.03, shoulder=1.8, crane=1.0 | stages#23 | - | yes |
+| tower_brawl | hell | s3_open_lane | - | cam_deg=0.0, cam_r=5.2, cam_h=4.3, fov=72.0, follow=0.55, rate=3.0, drift=0.03, zoom_fov=40.0, zoom_s=2.5 | stages#23 | - | yes |
 | trailer_crack | hell | s4_edge | guard/runner | hide=141.2,49.3, go=1.45, to=153,52.3, mate=146.0,52.4, window=150.0, lead=1.0, park=148.6,51.0,2.6, react=0.1, run_seconds=0.8, squeeze=0.5, behind=-1.0, shimmer=0.06, skip=1, skip_go=1.3, skip_from=142.6,52.4, skip_pace=1.1 | trailer_reveal#13, trailer_reveal#14 | -; - | no |
 | trailer_duel | hell | - | guard | at=212.6,52.0, peek=209.6,52.0, break_to=198,52.6, cam=205.6,55.2,1.3, look=212.2,51.6,0.9, fov=56.0 | uncatalogued | - | no |
 | trailer_duel2 | hell | cover_side | guard/runner | at=None, peek_at=2.15, peek_seconds=0.5, peek_strafe=0.4, back_seconds=0.23, back_strafe=1.0, react=0.08, covered_seconds=1.55, break_to=None, window=70.0, kick=1.0, shimmer=0.06 | trailer_reveal#6, trailer_reveal#7, trailer_reveal#8, trailer_reveal#7v | -; -; -; - | no |
