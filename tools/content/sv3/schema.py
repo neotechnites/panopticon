@@ -4,7 +4,7 @@ import re
 
 POVS = ("guard", "runner")
 TICKS = ("hit", "shove", "out", "go")
-CARD = {"text": "beta signup in bio", "seconds": 1.0}
+CARD = {"text": "beta signup in bio", "seconds": 1.75}
 
 _N = {"type": ["string", "null"]}
 _BEAT = {"type": ["object", "null"], "properties": {"tick": {"enum": list(TICKS)}, "word": {"type": "string"}},
