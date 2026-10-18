@@ -2339,7 +2339,8 @@
     "rate": 3.0,
     "drift": 0.03,
     "zoom_fov": 40.0,
-    "zoom_s": 2.5
+    "zoom_s": 2.5,
+    "orbit": 6.0
    },
    "for_shorts": true,
    "approved": [

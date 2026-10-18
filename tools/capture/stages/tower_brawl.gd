@@ -16,7 +16,7 @@ extends "res://tools/capture/stages/stage.gd"
 ##
 ## Dials (--set=): cam_deg (0.0, the pier the lens hangs on), cam_r (5.2), cam_h (4.3, over the floor), fov (72.0),
 ## follow (0.55, share of the look on the bodies, the rest on the room's middle), rate (3.0, look easing per s),
-## drift (0.03 m, handheld), zoom_fov (40.0), zoom_s (2.5).
+## drift (0.03 m, handheld), zoom_fov (40.0), zoom_s (2.5), orbit (6.0 deg/s round the room once he is seated; a held lens froze 1.1 s).
 
 var _started: bool = false
 var _pos: Vector3 = Vector3.ZERO
@@ -86,6 +86,9 @@ func lens(delta: float) -> bool:
 	var centre: Vector3 = match_controller._tower_point
 	var floor_y: float = match_controller._brawl_floor_y
 	var deg: float = float(option("cam_deg", 0.0))
+	if _seated_at >= 0.0:
+		# Seated: the lens walks round the room on its radius (orbit deg/s), so a still sniper is never a frozen frame.
+		deg += float(option("orbit", 6.0)) * (elapsed() - _seated_at)
 	var t: float = elapsed()
 	var drift: float = float(option("drift", 0.03))
 	var sway: Vector3 = Vector3(sin(t * 0.83) + 0.4 * sin(t * 2.1), 0.6 * sin(t * 1.31), cos(t * 0.71)) * drift
