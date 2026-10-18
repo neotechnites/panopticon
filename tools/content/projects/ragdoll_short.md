@@ -860,3 +860,98 @@ pad: 0.2
 | L6 | cuts/06_v23.mp4 | 0 | 4.85 | line | | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. | | | |
 | L7 | cuts/07_v23.mp4 | 0 | | line | | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. | | | |
 | end | title | | 1.75 | | | beta signup in bio | | | |
+
+## 66
+# v24 L2 (fix_L2.md), filmed as cuts/02_v24.mp4
+said: shot of the animation in a grey space jsut playing, with a slow fade in of an image i will provide https://media.tenor.com/17aPeH713cYAAAAM/scared.gif -- Ryan on v23: "seriously is the fucking random ass fucking orange box in the death animation a joke?"
+build: ragdoll-old-era-3a8cefd3 (f49c03c3 on 3a8cefd3, 2026-10-05, "Forest green: shade 30% darker": the parent of 06bdee8f "Death ragdoll", so the last commit with the authored Death clip and no ragdoll; the runner is prisoner2.glb, the modelled prisoner). v23's 0fe0c9ec drew the 544-tri runner as an orange box. The branch adds only tools/capture/run_clip.gd (death_void only) + lens_probe.gd.
+stage: death_void: the prisoner alone in a grey void (no map, a shadow-only floor, the sun); lens 5.5 m off, 1.0 m up, fov 40, looking at 1.38 m so he lies in the bottom quarter, below the full-width scared.gif band (y 655-1265 of 1920); he faces 35 deg off it; at 1.62 s that build's Death clip plays once and he lies there
+capture: --shot=s3_open_lane --stage=death_void --bots=1 --seed=20261017 --shimmer=0 --dist=5.5 --look_h=1.38
+ref: ragdoll-old-era-3a8cefd3
+tape: none (one prisoner, no brain: the same take every run)
+expect: death Runner_1 1.5-1.7; lens_clear
+seconds: 3.6
+in: 1.2
+motion: 0.002
+freeze: waive
+brief: tools/content/projects/ragdoll_short/sv3/ragdoll_short_old.md ## 2 (shot.sh --name 02_v24 under its own name; PC checkout C:\dev\worktrees\content_ragdoll_short_old)
+cut: content\ragdoll_short\cuts\02_v24.mp4 (3.60 s, 1080x1920; Mac copy at sv3/cuts/02_v24.mp4); Mac smoke death 1.62; PC take: death 1.62, motion 0.0081, gate waived by the brief
+table row (v23's M2 repointed, scared.gif fade kept): | M2 | cuts/02_v24.mp4 | 0 | 3.6 | beat 3.6 | | | | | external/scared.gif 1.2 2.0 end |
+frames: 0.0-0.4 the prisoner stands, white shirt, jeans, bare skin, head tipped up; 0.4-1.0 the Death clip: he buckles at the waist and pitches forward onto his hands and knees, face down; 1.0-3.6 he lies still in that heap at y 1440-1830, the gif fades in above him from 1.2 s
+
+## 67
+# v24 L4 sniper half (fix_L4 ## 66), cuts/04a_v24m
+said: a sniper pov, missing shots, then cut to the runner pov near the end, and he watches the person in front of him get shot -- v24 L4, the sniper half (Ryan on v23: "when i say ragdolls, he just drops, he doesnt get shot"): hell_explainer follow on S2, one tape with ## 67; the scope puts a round by the lead (lands 2.78) and one by the middle man (4.20); the cut ends 5.0, before the lead runs behind the 066 lip rock
+capture: --shot=s3_open_lane --stage=hell_explainer --pov=guard --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=start=31,22,0;follow=4.5;pace=0.5;follow_pace=0.535;pov_r=48.9;fling=550;carry=0.3;watch_limp=1;miss_lead=2.4;miss_mid=3.8;drop_at=8.67;hold_to=11;pull_up=-0.1;watch=2.0;watch_h=1.0
+tape: ragdoll_short_L4_v24
+hud: crosshair
+expect: hit MapBaseS1Collision 2.68-2.88; alive Runner_1; alive Runner_3; lens_clear; lens_cover <= 0.5
+seconds: 3.4
+in: 1.6
+motion: 0.012
+
+## 68
+# v24 L4 runner half (fix_L4 ## 67), cuts/04b_v24m; joined cuts/04_v24.mp4
+said: a sniper pov, missing shots, then cut to the runner pov near the end, and he watches the person in front of him get shot -- v24 L4, the runner half (Ryan on v23: "when i say ragdolls, he just drops, he doesnt get shot"): the SAME tape from the man 4.5 m behind the lead on r 48.9, gaining to 1.85 m (lens to chest) by the hit, the lead 11 deg right of centre, chest 15 deg under the eye line; the rifle report (8.68) and the round's impact (9.03, 85.2 deg r 48.7) are in the take's sound; his death ragdoll takes the round at 550 (shipped 70) and keeps 0.3 of his run, so it throws him 1.3 m sideways, feet off the deck, across the frame into the r 50.0 S2 ridge in 0.15 s; the POV pulls up and his watch rides the limp body (watch_limp) as it slides down the rock 2.0-3.2 m off the lens. Mac smoke: as listed.
+capture: --shot=s3_open_lane --stage=hell_explainer --pov=runner --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=start=31,22,0;follow=4.5;pace=0.5;follow_pace=0.535;pov_r=48.9;fling=550;carry=0.3;watch_limp=1;miss_lead=2.4;miss_mid=3.8;drop_at=8.67;hold_to=11;pull_up=-0.1;watch=2.0;watch_h=1.0
+tape: ragdoll_short_L4_v24
+expect: hit Runner_1 8.93-9.13; in_frame Runner_1 +0.0-0.05; alive Runner_3; lens_clear; lens_cover <= 0.5
+seconds: 6.2
+in: 4.4
+motion: 0.004
+
+cut: cuts/04_v24.mp4 (PC content\ragdoll_short\cuts and sv3/cuts/04_v24.mp4, 9.50 s, 1080x1920 lossless libx264rgb + AAC game sound) = 04a_v24m (## 66, Movie Maker) from 0.10 s (scope up at 0.07) to 3.40, then 04b_v24m (## 67, Movie Maker) from 0 to 6.20. Filmed with --movie because rough (ddagrab) takes carry no sound and the note needs the shot heard. The report lands at 7.58 s in the cut, the impact and throw at 7.93 ("Ragdolls" starts 8.04 in the L4 voice), he lies against the ridge in frame to 9.50.
+table row (v24): | L4 | cuts/04_v24.mp4 | 0 | 9.5 | wait | | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem? Ragdolls | cards/L4_card0.png w=940 y=0.2 in=0.05 out=0.2 from=this to=Ragdolls+0.6 | | |
+game: the table needs a game: header (assemble.py game_vol) above 0 for the take's sound to be heard under the voice.
+stage: tools/capture/stages/hell_explainer.gd (new dials fling, carry, follow_right, watch_limp; defaults keep every approved entry). tape: tools/content/projects/ragdoll_short/tapes/ragdoll_short_L4_v24.json. Capture brief: sv3/fix_L4_brief/ragdoll_short.md.
+
+## 69
+# v24 L6 POV half (fix_L6 ## 166), cuts/06b_v24.mp4; joined cuts/06_v24.mp4
+said: L6 (v24, Ryan on v23: "the shove off into the pit changed to a shove just generically, and it looks bad. should be a shove into the pit."): a bunch of runners shoving each other with the ragdoll, other pov shots of a "real game" where the runners are getting shoved -- the runner-POV half: rs_pitshove (## 52's numbers) on the fixed ragdoll (f0b18e2c), the POV runner (Runner_2) runs down the man on the inside and shoves him over the rim into the pit (4.20 s, 49.2 deg r 48.8), stops at 57 deg and watches him fall (in the pit 6.28)
+capture: --shot=s3_open_lane --stage=rs_pitshove --pov=runner --bots=3 --seed=7 --shimmer=0 --set=pack=3;shove_gap=1.3;turn_gap=2.6;shover_r=50.2;from=13;back=8.5;after_to=57
+tape: rs_pitshove_v24
+expect: shove Runner_2 4.1-4.3; out Runner_1 +2.0-2.2; lens_clear; lens_cover <= 0.5
+seconds: 6.4
+in: 1.0
+frames: 0.0-2.9 running down the rim lane behind him, the pit on the right; 2.95 the POV's arms shove him; 3.0-3.4 he flies limp off the rim over the pit; 3.4-3.8 falls past the tower base into the lava; 3.8-6.4 the POV holds on the pit, tower and eye.
+cut: content\ragdoll_short\cuts\06b_v24.mp4 (6.4 s, PC take 166_t1, motion 0.0473, freeze 0)
+
+joined: content\ragdoll_short\cuts\06_v24.mp4 (4.85 s, 291 frames, lossless libx264rgb; Mac copy sv3/cuts/06_v24.mp4) = 06a_v23 (## 63, the third-person shove-and-flop) [0.0167-1.8167] + 06b_v24 [2.75-5.80]: 0-1.8 the side shove and flop (shove 0.55, limp in the air, lands), 1.8 cut to the POV on the lane, 3.0 the shove on "shove", 3.0-4.0 he flies off the rim and falls into the pit through "someone, they also", 4.0-4.85 the pit, tower and eye on "ragdoll".
+
+## 70
+# v24 L7 (fix_L7 ## 167), cuts/07_v24.mp4
+said: L7 (v24, Ryan on v23: "when the gaurd is hoved, they freak out"): pov runner makes it through the portal, shoves, and the usual cinematic shot -- finale with fix_L7 v23's numbers on the fixed ragdoll: the run into the portal, the arrival (2.13), the walk up and the shove (3.67), the kill-beat cinematic held 3.2 s so the cut ends on it; the guard flips over the window sill and tumbles out as one limp body, spread out, down into the pit short of the pit wall
+capture: --shot=s3_open_lane --stage=finale --pov=runner --bots=3 --shimmer=0 --seed=20261012 --set=lead=6.0;stand=4.5;pace=0.45;beat=3.2;throw=11.5
+tape: finale_l7_v24
+expect: shove Runner_0 3.52-3.82; arrive Runner_1 2.0-2.25; tower_out Runner_0 +3.1-3.3; alive Runner_1; lens_clear; lens_cover <= 0.5
+seconds: 5.4
+in: 1.3
+frames: cut 0.0-0.8 the run into the portal; 0.9-2.3 the tower room, the guard at the far window, the POV walks up; ~2.45 the shove (the POV's arms out); 2.6-5.4 the game's kill-beat cinematic: he goes over the sill legs-up, turns flat and tumbles slowly spread-eagle down past the far lava falls onto the lava sea; the cut ends on him still falling, no POV/sniper frame after the shove.
+cut: content\ragdoll_short\cuts\07_v24.mp4 (5.4 s, PC take 167_t1, motion 0.2019, freeze 0; Mac copy sv3/cuts/07_v24.mp4)
+
+## script v24
+from: v23
+notes: seriously is the fucking random ass fucking orange box in the death animation a joke? when i say ragdolls, he just drops, he doesnt get shot. when the gaurd is hoved, they freak out, and the shove off into the pit changed to a shove just generically, and it looks bad. should be a shove into the pit. for the shove one, the gameplay of the shove minigame is super weird because of the way the bots behave, and its unclear thats whats happening. change the minigame so instead of everyone facing away, everyone starts closer to the edge facing in. that can be an actual gameplay change. then record that instead
+notes: for when i say if my art didnt make it clear, it should be an older build of the game to show the even worse art. when you show the death animation in a grey void, why the fuck is the character rendered how it is in game??? and why the fucking hell, woudl you choose, for the moment when i say ragdolls and youre supposed to watch someone get shot, for that to be on the bounce pad section of the map? like holy shit use s2. then, in the forest shots, you do not see a single successful ragdoll, and a fucking player shoaves another one for no reason. then theres a sub one second clip of a bunch of player shoving each other, doesnt show ragdolling, looks like shit. the gaurd clips into the fucking pit wall lke we specifcally specified not to. and then cuts to a sniper pov for no fucking reason. is all of this clear? do you know how to fix it all? frankly i will say it is much much better for a first draft than we had been getting, but not good enough still
+# v24 = v23 with Ryan's notes: M2 = 02_v24 (3a8cefd3: the modelled prisoner and its Death clip, no box); L4 = 04_v24 (the lead visibly shot and
+# thrown on S2, the report and impact in the take's sound, game: 1); L6 = 06_v24 (the flop, then the POV shove into the pit); L7 = 07_v24 (fixed ragdoll, one tumble).
+# was: v23 = v22 with Ryan's notes: L1 = 57 (## 43 retaped on the current build); M2 = 02_v23, L3 = 03_v23 (the 0fe0c9ec old build:
+# old runner, old Death clip, old hell ring); L4 = 04_v23 (scope misses, then the back runner as the lead is shot on S2);
+# L5 = 05_v23 (forest, three visible ragdolls, no shoves); L6 = 06_v23 (two shove-and-flop halves); L7 = 07_v23 (clean throw, ends on the beat).
+# was: v22 = v21 with L5's haters part ending before the guard's re-seat (the HUD's tower banner showed for 0.15 s at v21's 28.85 s); v21 = v20 after its frame check (never shown to Ryan): L3, L4's runner half and L5 refilmed; v20's table, rows composed by hand where a line needs more than one shot (task #630, short 4 from scratch):
+# L1 the second miss and the hit with the old Death clip just after "bad", held 1.75 s past the hit; M2 the grey void
+# death, scared.gif fading in from 1.2 s over 2.0 s (the beat ends with the fade); L3 the crane-out; L4 the scope's two
+# misses (46), then the back runner (50) as the lead ahead drops on "Ragdolls", the placeholder comment card at "this guy";
+# L5 forest: the flung lead and the middle man (54), the haters scope's drop, ravine throw and drop (55); frame check: L3 = 53 (45 read as a push in), L4 runner = 56 (50's lead left the frame); L6 the 3-runner scrap (48), then the
+# POV's pit shove on "shove" (52); L7 the portal, the shove and the 2.0 s kill-beat cinematic (49). "htis" spoken "this".
+pad: 0.2
+game: 1
+| line | clip | in | len | fit | speed | text | card | grade | gif_fade |
+| L1 | cuts/57_v23.mp4 | 0.3 | 4.5 | wait | | The death animation in my game was really bad. | | | |
+| M2 | cuts/02_v24.mp4 | 0 | 3.6 | beat 3.6 | | | | | external/scared.gif 1.2 2.0 end |
+| L3 | cuts/03_v23.mp4 | 1.5 | 6.7 | line | | Yeaeeeeeeeh I needed something better, but if my art didnt make it clear, I'm a programmer, not an animator | | | |
+| L4 | cuts/04_v24.mp4 | 0 | 9.5 | wait | | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem? Ragdolls | cards/L4_card0.png w=940 y=0.2 in=0.05 out=0.2 from=this to=Ragdolls+0.6 | | |
+| L5 | cuts/05_v23.mp4@1.0:6.45 | | | line | | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining | | | |
+| L6 | cuts/06_v24.mp4 | 0 | 4.85 | line | | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. | | | |
+| L7 | cuts/07_v24.mp4 | 0 | | line | | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. | | | |
+| end | title | | 1.75 | | | beta signup in bio | | | |
