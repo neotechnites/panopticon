@@ -54,7 +54,7 @@ expect: brawl_start 0.0-0.1; brawl_out Runner_1 2.6-2.9; brawl_out Runner_0 6.2-
 seconds: 15.5
 in: 0.4
 motion: 0.009
-refilm: v1,v2
+refilm: v1,v2,v3
 
 ## script v1
 pad: 0.2
@@ -78,4 +78,18 @@ pad: 0.2
 | L4 | cuts/04_v1.mp4 | 0 | 19.5 | line | | so, i implemented a race, every player does the course with no sniper, and the first one to complete it gets to be the sniper. this, was the worst part of my game. it wasnt fun, everyone was the same speed, and it took to long | |
 | L5 | cuts/05_v2.mp4 | 0 | 3 | line | | so how did i fix it? | |
 | L6 | cuts/06_v2.mp4 | 0 | 15.5 | line | | instead of everyone running to the tower, everyone starts in the tower, and the way you get to be the sniper, is to be the last one standing in it. so now, instead of a long drawn out boring race, its a fast, chaotic, brawl to see who goes first | |
+| end | title | | 1.75 | | | beta signup in bio | |
+
+## script v3
+from: v2
+notes: Agent frame check of v2 (task #601, not Ryan's notes; v2 was not shown to him): L6 the last one standing runs out of frame for 1.4 s before he is seated (the room reads empty).
+notes: Agent frame check of v1 (task #601, not Ryan's notes; v1 was not shown to him): L1 the kill-beat camera loses the guard for the last 0.8 s; L3 the scope holds 2 s on empty lava after the drop; L5 the bust cuts off the top of his head; L6 the PC brawl ran untaped and diverged from the smoke (an empty room before the seat).
+pad: 0.2
+| line | clip | in | len | fit | speed | text | card |
+| L1 | cuts/01_v1.mp4 | 1.3 | 2.7 | wait | | Heres how i fixed the worst part about my game | |
+| L2 | cuts/02_v1.mp4 | 0 | 6.4 | line | | In my game, youre either the sniper in the gaurd tower, or youre running an obsticle course to become the sniper. | |
+| L3 | cuts/03_v2.mp4 | 0.2 | 4.4 | line | | but this has a problem, whos the sniper first? i wanted it to be earned | |
+| L4 | cuts/04_v1.mp4 | 0 | 19.5 | line | | so, i implemented a race, every player does the course with no sniper, and the first one to complete it gets to be the sniper. this, was the worst part of my game. it wasnt fun, everyone was the same speed, and it took to long | |
+| L5 | cuts/05_v2.mp4 | 0 | 3 | line | | so how did i fix it? | |
+| L6 | cuts/06_v3.mp4 | 0 | 15.5 | line | | instead of everyone running to the tower, everyone starts in the tower, and the way you get to be the sniper, is to be the last one standing in it. so now, instead of a long drawn out boring race, its a fast, chaotic, brawl to see who goes first | |
 | end | title | | 1.75 | | | beta signup in bio | |

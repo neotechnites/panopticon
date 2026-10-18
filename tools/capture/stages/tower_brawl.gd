@@ -112,7 +112,8 @@ func lens(delta: float) -> bool:
 		for b: Vector3 in bodies:
 			mean += b
 		mean /= float(bodies.size())
-		var share: float = float(option("follow", 0.55)) if match_controller.get_phase() == MatchController.Phase.BRAWL else 1.0
+		# The last one standing is the shot: the look goes all the way onto him (and onto the seat holder after).
+		var share: float = float(option("follow", 0.55)) if match_controller.get_phase() == MatchController.Phase.BRAWL and bodies.size() > 1 else 1.0
 		want_look = middle.lerp(mean, share)
 	if not _placed:
 		_placed = true
