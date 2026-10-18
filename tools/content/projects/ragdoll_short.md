@@ -634,6 +634,7 @@ capture: --shot=pit_orbit --stage=hell_pullback --bots=3 --seed=20261017 --shimm
 expect: pullback start 0.9-1.1; pullback end 8.9-9.1; lens_clear; lens_cover <= 0.5
 seconds: 8.2
 in: 1.0
+motion: 0.01
 refilm: v21
 
 ## 54
