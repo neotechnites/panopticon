@@ -96,6 +96,7 @@ tape: how_it_started_hell_v3
 expect: hit Runner_2 1.95-2.15; in_frame Runner_2 +0.0-0.05; alive Runner_3; lens_clear; lens_cover <= 0.5
 seconds: 2.4
 in: 1.0
+motion: 0.012
 refilm: v3
 
 ## script v3
@@ -112,6 +113,6 @@ pad: 0.2
 | line | clip | in | len | fit | speed | text | card |
 | M1 | ../how_it_started/cuts/01_v1.mp4 | 0 | 2.45 | beat 2.45 | | how it started | |
 | M2 | ../how_it_started/cuts/02_v1.mp4 | 0 | 2.25 | beat 2.25 | | | |
-| M3 | cuts/07_v3.mp4 | 0 | 2.45 | beat 2.45 | | how it's going | |
-| M4 | cuts/08_v3.mp4 | 0 | 2.25 | beat 2.25 | | | |
+| M3 | cuts/07_v3b.mp4 | 0 | 2.45 | beat 2.45 | | how it's going | |
+| M4 | cuts/08_v3b.mp4 | 0 | 2.25 | beat 2.25 | | | |
 | end | title | | 1.75 | | | beta signup in bio | |
