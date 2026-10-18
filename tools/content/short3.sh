@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Shorts v3 on the stage path (pod DESIGN §10): Ryan's script in, a reviewed 9:16 draft out, every step timed.
 #
-#   tools/content/short3.sh <script.md> --name <project> --tag vN [--mac-only] [--voice <aup4>]
+#   tools/content/short3.sh <script.md> --name <project> --tag vN [--mac-only] [--voice <aup4>] [--table]
 #
+# --table: the brief already holds ## script vN (version.sh from a base, his notes applied); voice and plan are not rerun
+# and only the entries with refilm: vN record tapes and film.
 # --voice: Ryan's recording (vo.py) is the voice in place of the TTS; captions take his words.
 # Steps: seams, script, translate, voice, words, plan, short (short.sh), pull, frames, review (advisory: its
 # exit is recorded, never fatal), deliver. --mac-only stops after short.sh's Mac smokes, never taking the PC lock.
@@ -11,12 +13,12 @@
 set -uo pipefail
 source "$(dirname "$0")/lib.sh"
 
-USAGE="usage: tools/content/short3.sh <script.md> --name <project> --tag vN [--mac-only] [--voice <aup4>]"
+USAGE="usage: tools/content/short3.sh <script.md> --name <project> --tag vN [--mac-only] [--voice <aup4>] [--table]"
 SCRIPT="${1:?${USAGE}}"; shift
 SCRIPT="$(cd "$(dirname "${SCRIPT}")" && pwd)/$(basename "${SCRIPT}")"   # sv3 steps run from tools/content
-NAME=""; TAG=""; MAC_ONLY=0; VOICE=()
+NAME=""; TAG=""; MAC_ONLY=0; VOICE=(); TABLE=0
 while [ $# -gt 0 ]; do
-  case "$1" in --name) NAME="$2"; shift ;; --tag) TAG="$2"; shift ;; --mac-only) MAC_ONLY=1 ;;
+  case "$1" in --name) NAME="$2"; shift ;; --tag) TAG="$2"; shift ;; --mac-only) MAC_ONLY=1 ;; --table) TABLE=1 ;;
     --voice) [ -f "$2" ] || die "no recording at $2"; VOICE=(--ryan "$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"); shift ;; *) die "unknown option $1 (${USAGE})" ;; esac
   shift
 done
@@ -34,6 +36,7 @@ DIR=$(project_dir "${NAME}")
 SOCIAL="${HOME}/Desktop/panopticon-renders/social/shorts"
 mkdir -p "${WORK}/voice" "${WORK}/frames" || die "cannot make ${WORK}"
 [ -f "${BRIEF}" ] || printf '# %s\nkind: short\n' "${NAME}" > "${BRIEF}"
+[ "${TABLE}" = 0 ] || grep -q "^## script ${TAG}\$" "${BRIEF}" || die "short3 --table: ${BRIEF} has no ## script ${TAG}"
 
 # The Mac copy's folder: the existing <NN>_<name>, else the next number.
 NN_DIR=$(ls -d "${SOCIAL}"/[0-9][0-9]_"${NAME}" 2>/dev/null | head -1)
@@ -132,16 +135,19 @@ deliver() {
 need seams seams;         step seams     sv3 seams
 need script script;       step script    sv3 script "${SCRIPT}" --out "${WORK}/spec.json"
 need translate translate; step translate sv3 translate "${WORK}/spec.json" --stages "${STAGES}" --out "${WORK}/shots.json"
-step voice_table provisional_table
-step voice "${CONTENT_DIR}/voice.sh" "${NAME}" --tag "${TAG}" ${VOICE[@]+"${VOICE[@]}"}
-step words pull_words
-step unprovision unprovision
-need plan plan;           step plan      sv3 plan "${WORK}/shots.json" --stages "${STAGES}" --words "${WORK}/voice/words.json" --brief "${BRIEF}" --tag "${TAG}"
+if [ "${TABLE}" = 0 ]; then
+  step voice_table provisional_table
+  step voice "${CONTENT_DIR}/voice.sh" "${NAME}" --tag "${TAG}" ${VOICE[@]+"${VOICE[@]}"}
+  step words pull_words
+  step unprovision unprovision
+  need plan plan;         step plan      sv3 plan "${WORK}/shots.json" --stages "${STAGES}" --words "${WORK}/voice/words.json" --brief "${BRIEF}" --tag "${TAG}"
+fi
 tapes() {  # one tape per name, recorded headless on the PC (tape.sh) before any smoke or take plays it
   local seen="" sync=""
   for id in $(grep '^## [0-9]' "${BRIEF}" | awk '{print $2}'); do
     local t; t=$(brief_field "${BRIEF}" "${id}" tape)
     [ -n "${t}" ] || continue
+    [ "${TABLE}" = 0 ] || [[ " $(brief_field "${BRIEF}" "${id}" refilm | tr ',' ' ') " == *" ${TAG} "* ]] || continue
     [[ " ${seen} " == *" ${t} "* ]] && continue
     seen="${seen} ${t}"
     "${CONTENT_DIR}/tape.sh" "${NAME}" "${id}" ${sync} || return $?

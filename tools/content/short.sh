@@ -124,7 +124,7 @@ BASE_MP4=""
 for c in "${MAC_DIR}/${NAME}_${BASE}.mp4" "${MAC_DIR}/${NAME}_rough_${BASE}.mp4"; do [ -n "${BASE}" ] && [ -f "${c}" ] && BASE_MP4="${c}" && break; done
 if [ -n "${BASE_MP4}" ]; then
   SHEET="${MAC_DIR}/${NAME}_${TAG}_vs_${BASE}.png"
-  DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "${MAC_COPY}" "${BASE_MP4}" | sort -n | tail -1)
+  DUR=$(for f in "${MAC_COPY}" "${BASE_MP4}"; do ffprobe -v error -show_entries format=duration -of csv=p=0 "${f}"; done | sort -n | tail -1)
   ROWS=$(python3 -c "import math; print(max(1, math.ceil(math.ceil(${DUR}) / 10)))")
   ffmpeg -hide_banner -loglevel error -y -i "${BASE_MP4}" -i "${MAC_COPY}" -filter_complex \
     "[0:v]fps=1,scale=160:-2[a];[1:v]fps=1,scale=160:-2[b];[a][b]hstack,pad=iw+8:ih+8:4:4[p];[p]tile=10x${ROWS}" \

@@ -5,7 +5,8 @@ extends "res://tools/capture/stages/stage.gd"
 ## tracking the back man) and --pov=runner (the back man runs the lane behind them, both drop ahead of him, he runs on).
 ## [code]--stage=forest_going --shot=s3_open_lane --map=forest --pov=guard|runner --bots=3 --seed=20261017[/code]
 ## Numbers from forest_window's probe (eye 32:4.4:5.9 sees the open stretch 41-60 at r 50-52); every lane ends at 75.
-## Dials (--set=): pace (0.62), scope_fov (24.0), hand_at (0.8), drop_lead (2.3), drop_mid (3.7), track (5.0).
+## Dials (--set=): pace (0.62), scope_fov (24.0), hand_at (0.8), drop_lead (2.3), drop_mid (3.7), track (5.0), reload (1.0),
+## pov_start (29.0 deg), pov_r (51.5), pov_pace (pace), miss_pov (0: off; a squeeze at the POV that crosses miss_by m ahead of him), miss_by (1.3).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
@@ -25,7 +26,7 @@ func bots() -> int:
 
 
 func tune_rules(rules: MatchRules) -> void:
-	rules.base_reload_seconds = 1.0
+	rules.base_reload_seconds = float(option("reload", 1.0))
 	rules.guard_projectile_speed = 0.0
 	rules.bots_shove_rivals = false
 	# A shot man plays his death and lies where he fell.
@@ -46,7 +47,11 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	var pace: float = float(option("pace", 0.62))
 	for index: int in 3:
 		var at: Vector2 = STARTS[index]
-		var lane: Dictionary = {"do": "lane", "to": 75.0, "r": at.y, "speed": pace * (1.03 if index == LEAD else 1.0),
+		var speed: float = pace * (1.03 if index == LEAD else 1.0)
+		if index == POV:
+			at = Vector2(float(option("pov_start", at.x)), float(option("pov_r", at.y)))
+			speed = float(option("pov_pace", pace))
+		var lane: Dictionary = {"do": "lane", "to": 75.0, "r": at.y, "speed": speed,
 			"weave": 0.04, "period": 1.3 + 0.2 * index, "timeout": 30.0}
 		if index == POV:
 			# Eyes up the lane on the two ahead; on a hit a jerk and back, never a look behind.
@@ -102,10 +107,21 @@ func tick(_delta: float) -> void:
 	_hand.start_at = float(option("hand_at", 0.8))
 	# Each beat starts where the last one's watch ends; the last tracks the back man and never fires.
 	var at: float = _hand.start_at
-	for row: Array in [[_bodies[LEAD], float(option("drop_lead", 2.3))], [_bodies[MID], float(option("drop_mid", 3.7))]]:
+	var plan: Array = [[_bodies[LEAD], float(option("drop_lead", 2.3)), 0.0], [_bodies[MID], float(option("drop_mid", 3.7)), 0.0]]
+	if float(option("miss_pov", 0.0)) > 0.0:
+		plan.insert(1, [_bodies[POV], float(option("miss_pov", 0.0)), float(option("miss_by", 1.3))])
+	for index: int in plan.size():
+		var row: Array = plan[index]
 		var fire: float = float(row[1])
-		_hand.beats.append({"body": row[0], "seconds": fire + WATCH_SECONDS - at, "fire_at": fire - at, "watch": true, "clear": true})
-		at = fire + WATCH_SECONDS
+		var next: float = float(plan[index + 1][1]) if index + 1 < plan.size() else fire + WATCH_SECONDS * 2.5
+		var watch: float = minf(WATCH_SECONDS, (next - fire) * 0.4)
+		var beat: Dictionary = {"body": row[0], "seconds": fire + watch - at, "fire_at": fire - at, "watch": true, "clear": true}
+		if float(row[2]) > 0.0:
+			# Negative miss_by: the round goes ahead of him along his run, across his eyes.
+			beat["miss_by"] = -float(row[2])
+			beat["clear"] = false
+		_hand.beats.append(beat)
+		at = fire + watch
 	_hand.beats.append({"body": _bodies[POV], "seconds": float(option("track", 5.0))})
 	_hand.park = LIB.ring_point(44.0, 51.0, 1.0)
 	say("forest_going: hand on %s at the 32 deg window from %.2f s" % [guard.name, _hand.start_at])
