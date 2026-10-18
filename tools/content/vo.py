@@ -180,8 +180,8 @@ def norm(w):
     return re.sub(r"[^\w']", "", w).lower()
 
 
-def assign(script_lines, heard):
-    """Each heard word -> its script line index (difflib alignment; unmatched words follow their neighbour)."""
+def assign(script_lines, heard, fill=True):
+    """Each heard word -> its script line index (difflib alignment; unmatched words follow their neighbour, else None)."""
     sw = [(i, norm(w)) for i, (_, t) in enumerate(script_lines) for w in t.split() if norm(w)]
     hw = [norm(w["word"]) for w in heard]
     sm = difflib.SequenceMatcher(None, [w for _, w in sw], hw, autojunk=False)
@@ -189,6 +189,8 @@ def assign(script_lines, heard):
     for a, b, n in sm.get_matching_blocks():
         for j in range(n):
             line[b + j] = sw[a + j][0]
+    if not fill:
+        return line
     last = next((v for v in line if v is not None), 0)
     for j, v in enumerate(line):
         line[j] = last = v if v is not None else last
@@ -241,10 +243,10 @@ def split(lines, takes, heard, base=False, share=0.0):
         for i, (k, _) in enumerate(lines):
             pieces[k].append((i, 0, len(takes[i][1])))
         return pieces
-    owner = assign(lines, heard)
+    owner = assign(lines, heard, fill=share <= 0.0)   # a retake: only the words that match a line count
     for li, (k, _) in enumerate(lines):
         idx = [j for j, o in enumerate(owner) if o == li]
-        if len(idx) < share * len([w for w in lines[li][1].split() if norm(w)]):
+        if not idx or len(idx) < share * len([w for w in lines[li][1].split() if norm(w)]):
             continue
         for t in sorted({heard[j]["take"] for j in idx}):
             x, r = takes[t][1], takes[t][2]
