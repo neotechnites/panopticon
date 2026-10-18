@@ -8,13 +8,13 @@ said: how it started, pills: sniper perspective. how_it_started's ## 1 take as v
 said: how it started, pills: runners perspective. how_it_started's ## 2 take as v2 plays it: not filmed here, the table plays ../how_it_started/cuts/02_v1.mp4.
 
 ## 3
-said: vs how its going, cut to hell: sniper perspective (Ryan: "make a second variant, with the second half in hell instead of the forest"). stages ## 1, the hell_explainer guard POV: 2.0 s from 4.85, the hand settles on the lead and drops him (5.86 s), holding where he falls.
+said: vs how its going, cut to hell: sniper perspective (Ryan: "make a second variant, with the second half in hell instead of the forest"). stages ## 1, the hell_explainer guard POV: 2.0 s from 4.4, the hand swings onto the lead and drops him (5.86 s), holding where he falls.
 capture: --shot=s3_open_lane --stage=hell_explainer --pov=guard --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017
 tape: how_it_started_hell_v1
 hud: crosshair
 expect: hit Runner_1 5.75-5.95; in_frame Runner_1 +0.0-0.05; out Runner_1 +0.0-0.3; lens_clear; lens_cover <= 0.5
 seconds: 2
-in: 4.85
+in: 4.4
 refilm: v1
 
 ## 4
