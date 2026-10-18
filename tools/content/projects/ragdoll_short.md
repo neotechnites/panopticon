@@ -940,7 +940,7 @@ motion: 0.002
 freeze: waive
 
 ## 72
-# v27 M2 (fix_L2 v26 -> v27), cuts/02_v27g.mp4
+# v27 M2 (fix_L2 v26 -> v27), cuts/02_v27h.mp4
 said: Ryan on v26: "the death animation, in the gray space, is still fucking shit, becuase the model is blood red like they are in hell" -- death_void with the map's character fit undone on him (authored materials, no red fill, white sun, grey ambient): his own skin, shirt and jeans; framing as 02_v26
 capture: --shot=s3_open_lane --stage=death_void --bots=1 --seed=20261017 --shimmer=0 --set=dist=5.5;look_h=1.38
 expect: death Runner_1 1.5-1.7; lens_clear
@@ -1058,7 +1058,7 @@ pad: 0.2
 game: 2
 | line | clip | in | len | fit | speed | text | card | grade | gif_fade |
 | L1 | cuts/57_v23.mp4 | 0.3 | 4.5 | wait | | The death animation in my game was really bad. | | | |
-| M2 | cuts/02_v27g.mp4 | 0 | 3.6 | beat 3.6 | | | | | external/scared.gif 1.2 2.0 end |
+| M2 | cuts/02_v27h.mp4 | 0 | 3.6 | beat 3.6 | | | | | external/scared.gif 1.2 2.0 end |
 | L3 | cuts/03_v23.mp4 | 1.5 | 6.7 | line | | Yeaeeeeeeeh I needed something better, but if my art didnt make it clear, I'm a programmer, not an animator | | | |
 | L4 | cuts/04_v24.mp4 | 0 | 9.5 | wait | | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem? Ragdolls | cards/L4_card0.png w=940 y=0.2 in=0.05 out=0.2 from=this to=Ragdolls+0.6 | | |
 | L5 | cuts/05_v23.mp4@1.0:6.45 | | | line | | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining | | | |

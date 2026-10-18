@@ -117,20 +117,6 @@ func _plain(mat: Material) -> Material:
 	copy.emission_enabled = false
 	copy.vertex_color_use_as_albedo = false
 	copy.next_pass = null
-	copy.clearcoat_enabled = false
-	copy.rim_enabled = false
-	copy.backlight_enabled = false
-	copy.subsurf_scatter_enabled = false
-	copy.refraction_enabled = false
-	copy.heightmap_enabled = false
-	copy.proximity_fade_enabled = false
-	copy.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_DISABLED
-	copy.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
-	copy.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
-	if base.resource_name.begins_with("Shirt"):
-		copy.albedo_texture = null
-		copy.albedo_color = Color(0.82, 0.82, 0.8)
-		copy.cull_mode = BaseMaterial3D.CULL_BACK
 	copy.set_meta(&"void_plain", true)
 	return copy
 
@@ -142,6 +128,9 @@ func _grey_the_world() -> void:
 	for node: Node in clip.root.find_children("*", "GeometryInstance3D", true, false):
 		if not players.any(func(p: Node) -> bool: return p.is_ancestor_of(node)):
 			(node as GeometryInstance3D).visible = false
+	# The map's baked light (the lava's red) reaches a dynamic body through its lightmap probes: gone.
+	for node: Node in clip.root.find_children("*", "LightmapGI", true, false):
+		node.queue_free()
 	for node: Node in clip.root.find_children("*", "Light3D", true, false):
 		if not node is DirectionalLight3D:
 			(node as Light3D).visible = false
