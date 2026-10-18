@@ -399,9 +399,10 @@ const DEFAULT_SHOOTER_PROFILE_PATH: String = "res://characters/bots/default_shoo
 
 ## The finale shove's force against an ordinary shove's: Ryan's "turned up 3x".
 const FINALE_SHOVE_SCALE: float = 2.0
-## The tower fight: the ring the brawlers start on, how far below the floor is out,
-## the beat before the winner's round, and the open floor's edge inside the walls.
-const BRAWL_RING_METRES: float = 1.3
+## The tower fight: how far in from the floor's edge the brawlers start, how far below the floor
+## is out, the beat before the winner's round, and the open floor's edge inside the walls.
+const BRAWL_SPAWN_INSET_METRES: float = 1.0
+const BRAWL_FLOOR_MIN_METRES: float = 2.3
 const BRAWL_FALL_METRES: float = 3.0
 const BRAWL_END_SECONDS: float = 1.5
 const BRAWL_EDGE_INSET_METRES: float = 0.3
@@ -1081,13 +1082,12 @@ func _place_in_brawl(participant: MatchParticipant, index: int, count: int) -> v
 		participant.brain.input.shove_enabled = false
 	participant.tracker.stop()
 	var angle: float = TAU * float(index) / float(maxi(count, 1))
-	# A body and a half apart round the ring, kept a body clear of the edge.
-	var ring: float = clampf(float(count) * 1.2 / TAU, BRAWL_RING_METRES, maxf(_brawl_floor_radius - 0.8, BRAWL_RING_METRES))
+	# Ringed near the edge (Ryan: "everyone starts closer to the edge facing in").
+	var ring: float = maxf(_brawl_floor_radius - BRAWL_SPAWN_INSET_METRES, 0.5)
 	var offset: Vector3 = Vector3(cos(angle), 0.0, sin(angle)) * ring
 	body.global_position = _tower_point + offset
 	body.velocity = Vector3.ZERO
-	# Facing out, so nobody starts with a shove lined up.
-	body.rotation = Vector3(0.0, _heading_of(offset), 0.0)
+	body.rotation = Vector3(0.0, _heading_of(-offset), 0.0)
 	body.add_to_group(RUNNER_GROUP)
 
 
@@ -1254,7 +1254,7 @@ func _open_for_brawl() -> void:
 	var down: Dictionary = space.intersect_ray(PhysicsRayQueryParameters3D.create(
 		_tower_point + Vector3.UP * 0.5, _tower_point + Vector3.DOWN * 3.0, 1))
 	_brawl_floor_y = (down["position"] as Vector3).y if not down.is_empty() else _tower_point.y
-	var radius: float = maxf(_tower_room_radius() - BRAWL_EDGE_INSET_METRES, BRAWL_RING_METRES + 1.0)
+	var radius: float = maxf(_tower_room_radius() - BRAWL_EDGE_INSET_METRES, BRAWL_FLOOR_MIN_METRES)
 	_open_tower()
 	var floor_body: StaticBody3D = StaticBody3D.new()
 	floor_body.name = "BrawlFloor"
