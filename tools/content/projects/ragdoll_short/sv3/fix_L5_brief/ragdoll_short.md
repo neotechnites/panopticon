@@ -11,3 +11,4 @@ tape: forest_ragdolls_v23b
 expect: hit Runner_1 2.7-2.9; in_frame Runner_1 +0.0-0.05; hit Runner_2 +1.9-2.1; in_frame Runner_2 +1.9-2.1; hit Runner_3 +3.9-4.1; in_frame Runner_3 +3.9-4.1; lens_clear; lens_cover <= 0.5
 seconds: 7.8
 in: 1.2
+motion: 0.005
