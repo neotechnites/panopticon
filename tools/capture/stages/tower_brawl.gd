@@ -131,12 +131,15 @@ func _scope_the_runners() -> void:
 	var shooter: TowerShooter = LIB.stand_down(seat())
 	if shooter == null or shooter.controller != _ride.body:
 		return
+	# The scope keeps to the runners (scope_on, roster indices) the opening shows: past its jamb the lens would be on a wall.
 	var pool: Array = []
-	for p: MatchParticipant in controller().get_participants():
-		if p != _ride and p.body != null:
-			pool.append(p.body)
+	var roster: Array[MatchParticipant] = controller().get_participants()
+	var on: PackedStringArray = String(option("scope_on", "0,1")).split(",", false)
+	for i: int in roster.size():
+		if roster[i] != _ride and roster[i].body != null and String.num_int64(i) in on:
+			pool.append(roster[i].body)
 	# He takes the opening a guard aims from (seat_deg, seat_r out): a clear line over the lake, no pier in the scope.
-	LIB.guard_to_window(_ride.body, float(option("seat_deg", 25.0)), float(option("seat_r", 6.2)))
+	LIB.guard_to_window(_ride.body, float(option("seat_deg", 15.0)), float(option("seat_r", 6.2)))
 	_hand = GUARD_HAND.new()
 	_hand.name = "BrawlWinnerHand"
 	clip.root.add_child(_hand)
@@ -145,7 +148,7 @@ func _scope_the_runners() -> void:
 	_hand.park = LIB.ring_point(float(option("park_deg", 25.0)), 52.0, 1.0)
 	_hand.beats.append({"from": pool, "seconds": 120.0, "fire_at": float(option("fire_at", 3.5)), "clear": true, "watch": true, "hold": true})
 	clip._pov = "guard"
-	say("tower_brawl: %s seated, hand on %d runners" % [_ride.body.name, pool.size()])
+	say("tower_brawl: %s seated, hand on %s" % [_ride.body.name, ", ".join(pool.map(func(b: Node3D) -> String: return b.name))])
 
 
 func _standing() -> Array:

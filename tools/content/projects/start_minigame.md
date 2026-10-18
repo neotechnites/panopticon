@@ -20,12 +20,12 @@ refilm: v1,v4
 
 ## 3
 said: pov of the sniper sniping at the runner from the previous shot
-capture: --shot=s3_open_lane --stage=parkour_sniped --pov=guard --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=look_to=4.4;misses=1.9,3.0,7.4;drop_at=8.6;hold_to=11.6
-tape: start_minigame_v4
+capture: --shot=s3_open_lane --stage=parkour_sniped --pov=guard --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=look_to=4.4;misses=1.9,3.0,7.0;drop_at=8.6;hold_to=11.6
+tape: start_minigame_v7_guard
 hud: crosshair
 expect: hit Runner_1 8.9-9.1; in_frame Runner_1 +0.0-0.05; lens_clear; lens_cover <= 0.5
-seconds: 4.6
-in: 5.4
+seconds: 5.9
+in: 3.8
 motion: 0.012
 refilm: v1,v2,v4,v7
 
@@ -49,7 +49,7 @@ refilm: v1,v2
 ## 6
 said: Shot of starting shove tower minigame in hell; on n1: "why is the last shot not from the perspective of a player?"; on n2: "change the minigame so instead of everyone facing away, everyone starts closer to the edge facing in ... then record that instead". Runner_2's eyes in the brawl on the new spawn (all four ringed 1 m in from the edge, facing the middle): he watches Runner_0 throw Runner_1 out (shove 2.47, out 3.42), shoves Runner_3 out (3.67, out 4.62), is shoved by Runner_0 (4.00), shoves Runner_0 (5.20) and throws him out (6.73, out 7.68); last one standing, he takes the seat (9.20) and drops a runner as the sniper (14.57, fire_at 5.3 so the shot is the last action). Mac smoke 20261017; cover cap 0.55: Runner_0 fills 0.52 of the lens for 0.12 s as the POV lines up the 6.73 shove.
 capture: --shot=s3_open_lane --stage=tower_brawl --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017 --set=watch=1;turn_at=1.0;fire_at=5.3
-tape: start_minigame_v6_brawl
+tape: start_minigame_v7_brawl
 shoved: ok
 expect: brawl_start 0.0-0.1; shove Runner_1 2.37-2.57; brawl_out Runner_1 3.3-3.55; shove Runner_2 3.57-3.77; brawl_out Runner_3 4.5-4.75; brawl_won Runner_2 7.55-7.8; hit Runner_3 14.45-14.65; lens_cover <= 0.55
 seconds: 14.65
@@ -163,7 +163,7 @@ pad: 0.2
 | line | clip | in | len | fit | speed | text | card |
 | L1 | cuts/01_v4.mp4 | 0 | 2.5 | wait | | Heres how i fixed the worst part about my game | |
 | L2 | cuts/02_v4.mp4 | 0 | 6.4 | line | | In my game, youre either the sniper in the gaurd tower, or youre running an obsticle course to become the sniper. | |
-| L3 | cuts/03_v7.mp4 | 0.2 | 4.4 | line | | but this has a problem, whos the sniper first? i wanted it to be earned | |
+| L3 | cuts/03_v7.mp4@0:1.9,cuts/03_v7.mp4@2.6:1.0,cuts/03_v7.mp4@4.25:1.6 | 0 | | line | | but this has a problem, whos the sniper first? i wanted it to be earned | |
 | L4 | cuts/04_v4.mp4@0:6.4,cuts/07_v7.mp4 | 0 | | line | | so, i implemented a race, every player does the course with no sniper, and the first one to complete it gets to be the sniper. this, was the worst part of my game. it wasnt fun, everyone was the same speed, and it took to long | |
 | L5 | cuts/04_v4.mp4@0:6.4,cuts/07_v7.mp4 | cont | | line | | so how did i fix it? | |
 | L6 | cuts/06_v7.mp4 | 0 | 14.65 | line | | instead of everyone running to the tower, everyone starts in the tower, and the way you get to be the sniper, is to be the last one standing in it. so now, instead of a long drawn out boring race, its a fast, chaotic, brawl to see who goes first | |
