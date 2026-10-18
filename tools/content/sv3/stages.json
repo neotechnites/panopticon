@@ -1987,8 +1987,8 @@
      "capture": "--shot=s3_open_lane --stage=rs_pitshove --pov=runner --bots=3 --seed=7 --shimmer=0 --set=pack=3;shove_gap=1.3;turn_gap=2.6;shover_r=50.2;from=13;back=8.5;after_to=57",
      "tape": null,
      "expect": "shove Runner_2 4.1-4.3; out Runner_1 +2.0-2.2; lens_clear; lens_cover <= 0.5",
-     "seconds": 6.8,
-     "in": 0.6,
+     "seconds": 6.4,
+     "in": 1.0,
      "motion": null,
      "ref": null,
      "ticks": {
@@ -2077,8 +2077,8 @@
      "capture": "--shot=s3_open_lane --stage=rs_pitshove --pov=runner --bots=3 --seed=7 --shimmer=0 --set=pack=3;shove_gap=1.3;turn_gap=2.6;shover_r=50.2;from=13;back=8.5;after_to=57",
      "tape": null,
      "expect": "shove Runner_2 4.1-4.3; out Runner_1 +2.0-2.2; lens_clear; lens_cover <= 0.5",
-     "seconds": 6.8,
-     "in": 0.6,
+     "seconds": 6.4,
+     "in": 1.0,
      "motion": null,
      "ref": null,
      "ticks": {

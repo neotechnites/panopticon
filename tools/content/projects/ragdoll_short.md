@@ -623,8 +623,8 @@ refilm: v20
 said: a bunch of runners shoving each other with the ragdoll, other pov shots of a "real game" where the runners are getting shoved -- the "real game" POV (stages#17): rs_pitshove, the POV runner shoves the man on the inside over the rim (4.20) on "shove", he lands in the pit (6.28)
 capture: --shot=s3_open_lane --stage=rs_pitshove --pov=runner --bots=3 --seed=7 --shimmer=0 --set=pack=3;shove_gap=1.3;turn_gap=2.6;shover_r=50.2;from=13;back=8.5;after_to=57
 expect: shove Runner_2 4.1-4.3; out Runner_1 +2.0-2.2; lens_clear; lens_cover <= 0.5
-seconds: 6.8
-in: 0.6
+seconds: 6.4
+in: 1.0
 refilm: v20
 
 ## script v20
@@ -641,6 +641,6 @@ pad: 0.2
 | L3 | cuts/45_v20.mp4 | 1.5 | 6.7 | line | | Yeaeeeeeeeh I needed something better, but if my art didnt make it clear, I'm a programmer, not an animator | | | |
 | L4 | cuts/46_v20.mp4@0:4.6,cuts/50_v20.mp4@0 | | | line | | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem? Ragdolls | cards/L4_card0.png w=940 y=0.2 in=0.05 out=0.2 from=this to=Ragdolls+0.6 | | |
 | L5 | cuts/47_v20.mp4@0.5:2.9,cuts/51_v20.mp4@0.9:1.7,cuts/51_v20.mp4@6.2 | | | line | | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining | | | |
-| L6 | cuts/48_v20.mp4@1.1:1.6,cuts/52_v20.mp4@2.45 | | | line | | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. | | | |
+| L6 | cuts/48_v20.mp4@1.1:1.6,cuts/52_v20.mp4@2.05 | | | line | | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. | | | |
 | L7 | cuts/49_v20.mp4 | 0.4 | | line | | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. | | | |
 | end | title | | 1.75 | | | beta signup in bio | | | |

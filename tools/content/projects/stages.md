@@ -136,8 +136,8 @@ in: 2.2
 said: short 4 L6, Ryan: "other pov shots of a "real game" where the runners are getting shoved": rs_pitshove (ragdoll_short#22) untaped, the POV runner (Runner_2) runs down the man on the inside and shoves him over the rim into the pit (4.20 s, 49.2 deg r 48.8), stops at 57 deg and watches him fall (in the pit 6.28), the eye on the POV. Mac smoke: shove 4.20, out 6.28 (the taped numbers).
 capture: --shot=s3_open_lane --stage=rs_pitshove --pov=runner --bots=3 --seed=7 --shimmer=0 --set=pack=3;shove_gap=1.3;turn_gap=2.6;shover_r=50.2;from=13;back=8.5;after_to=57
 expect: shove Runner_2 4.1-4.3; out Runner_1 +2.0-2.2; lens_clear; lens_cover <= 0.5
-seconds: 6.8
-in: 0.6
+seconds: 6.4
+in: 1.0
 
 ## 18
 said: short 4 L7, Ryan: "pov runner makes it through the portal, shoves, and the usual cinematic shot": finale (stages#4) from before the portal: the runner POV runs the last 6 m into the portal (lead=6.0) and arrives in the tower (2.13), walks up behind the scoped guard (pace 0.32) and shoves him (3.63), and the shipped 2.0 s kill beat (beat=2.0) throws him out on the original camera (tower_out 5.63). Mac smoke: arrive 2.13, shove 3.63, tower_out 5.63.
