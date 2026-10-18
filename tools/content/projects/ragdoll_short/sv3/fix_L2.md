@@ -29,3 +29,10 @@ freeze: waive
 brief: tools/content/projects/ragdoll_short.md ## 71 (shot.sh ragdoll_short 71 --name 02_v26)
 cut: content\ragdoll_short\cuts\02_v26.mp4 (3.60 s; PC take: death 1.62, motion 0.0098, gate waived)
 table row: | M2 | cuts/02_v26.mp4 | 0 | 3.6 | beat 3.6 | | | | | external/scared.gif 1.2 2.0 end |
+
+## L2 (v26 -> v27)
+said: Ryan on v26: "the death animation, in the gray space, is still fucking shit, becuase the model is blood red like they are in he.l. you already did this one successfully i have no idea what youre problem is."
+cause: the map's baked LightmapGI (lava red) still lit the dynamic body in the void, plus the character fit's red fill light and emission-ambient material dressing; v20's void was no better (orange). Removed in death_void.gd: LightmapGI freed, CharacterFill freed, authored materials at white albedo, no emission, sun white, linear no mipmaps, reapplied after the death handler.
+capture: --shot=s3_open_lane --stage=death_void --bots=1 --seed=20261017 --shimmer=0 --set=dist=5.5;look_h=1.38 (brief ## 72)
+cut: content\ragdoll_short\cuts\02_v27h.mp4 (3.6 s); table row: | M2 | cuts/02_v27h.mp4 | 0 | 3.6 | beat 3.6 | | | | | external/scared.gif 1.2 2.0 end |
+frames: pale skin, white shirt, navy jeans in neutral grey light; proof ~/Desktop/panopticon-renders/_work/proofs/short4_void/void_v20_vs_v27.png
