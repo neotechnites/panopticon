@@ -68,7 +68,9 @@ func test_every_participant_gets_a_distinct_stable_colour() -> void:
 	await step_ticks(SETTLE_TICKS)
 	for index: int in _participants.size():
 		var participant: MatchParticipant = _participants[index]
-		# The seat holder too: the guard keeps their runner colour.
+		# The seat holder wears the guard's colour, not his own.
+		if participant.is_shooter or before[index].is_equal_approx(_guard_tint()):
+			continue
 		assert_true(
 			_controller.get_body_color(participant).is_equal_approx(before[index]),
 			"%s's colour held steady across the round" % participant.display_name,
@@ -148,19 +150,17 @@ func test_a_ghost_wears_its_own_colour_translucent() -> void:
 
 # --- The guard is distinct --------------------------------------------------------
 
-## The tower seat keeps the shirt colour its holder wore as a runner, and
-## keeps it again when the seat changes hands.
-func test_the_guard_keeps_their_runner_colour() -> void:
+## The seat holder wears the guard's purple; his own colour comes back when he
+## returns to the ring, and the new holder takes the purple.
+func test_the_guard_wears_the_guard_colour() -> void:
 	var seat: MatchParticipant = _controller.get_seat_participant()
 	assert_not_null(seat, "a round is armed with a seat holder")
 
 	var palette: RunnerPalette = _controller.get_runner_palette()
 	# The albedo, not the material: see MatchController.tint_color.
 	assert_true(
-		_controller.get_body_color(seat).is_equal_approx(
-			MatchController.tint_color(palette.color_for_index(seat.index))
-		),
-		"the seat holder wears their own runner colour",
+		_controller.get_body_color(seat).is_equal_approx(_guard_tint()),
+		"the seat holder wears the guard colour",
 	)
 
 	var own_color: Color = MatchController.tint_color(palette.color_for_index(seat.index))
@@ -170,14 +170,16 @@ func test_the_guard_keeps_their_runner_colour() -> void:
 
 	assert_true(
 		_controller.get_body_color(seat).is_equal_approx(own_color),
-		"the former guard still wears their own runner colour back on the ring",
+		"the former guard wears their own runner colour back on the ring",
 	)
 	assert_true(
-		_controller.get_body_color(scorer).is_equal_approx(
-			MatchController.tint_color(palette.color_for_index(scorer.index))
-		),
-		"the new seat holder keeps their own runner colour",
+		_controller.get_body_color(scorer).is_equal_approx(_guard_tint()),
+		"the new seat holder wears the guard colour",
 	)
+
+
+func _guard_tint() -> Color:
+	return MatchController.tint_color(_controller.get_runner_palette().guard_color)
 
 
 # --- The palette resource itself --------------------------------------------------

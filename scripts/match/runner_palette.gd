@@ -22,8 +22,8 @@ extends Resource
 ## at a glance -- the thing this whole Resource exists for. [member ghost_alpha]
 ## is not a colour at all: a ghost wears the SAME entry its body already has,
 ## with this as the alpha, so a ghost reads as both "which participant" and
-## "a ghost" in the same glance instead of one flat colour meaning both. The guard
-## keeps their runner entry; [member guard_color] is only the empty-list fallback.
+## "a ghost" in the same glance instead of one flat colour meaning both. Whoever
+## holds the tower wears [member guard_color], so he is never taken for a runner.
 
 ## One entry per seat, in match order, worn on the shirt. Chosen to stay
 ## readable at 35-60 m against dark red rock and lava: no reds, oranges or
@@ -47,9 +47,8 @@ extends Resource
 ## "slightly" translucent, meaning still clearly visible, not a wisp.
 @export_range(0.0, 1.0, 0.01) var ghost_alpha: float = 0.62
 
-## The shirt colour worn when [member runner_colors] is empty. The guard
-## otherwise keeps their own runner colour.
-@export var guard_color: Color = Color(1.0, 1.0, 1.0, 1.0)
+## The tower holder's shirt: purple, never a runner's. Also worn if [member runner_colors] is empty.
+@export var guard_color: Color = Color(0.45, 0.14, 0.64, 1.0)
 
 
 ## [param index]'s runner colour, wrapping if the roster outgrows the list.

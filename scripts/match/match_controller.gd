@@ -3361,8 +3361,8 @@ func _place_in_tower(participant: MatchParticipant) -> void:
 	# A ghost can take the tower: they were a prisoner when the seat changed
 	# hands, and the round restarts around them like anybody else.
 	_unmake_ghost(participant)
-	# The guard keeps the shirt colour they wore as a runner.
-	_tint_body(participant, _runner_material_for(participant))
+	# The seat holder wears the guard's purple; his own colour comes back on the ring.
+	_tint_body(participant, _tinted_material(participant, get_runner_palette().guard_color))
 	_hold_body(participant)
 	body.global_position = _tower_point
 	body.velocity = Vector3.ZERO
