@@ -130,6 +130,7 @@ func _plain(mat: Material) -> Material:
 	if base.resource_name.begins_with("Shirt"):
 		copy.albedo_texture = null
 		copy.albedo_color = Color(0.82, 0.82, 0.8)
+		copy.cull_mode = BaseMaterial3D.CULL_BACK
 	copy.set_meta(&"void_plain", true)
 	return copy
 
