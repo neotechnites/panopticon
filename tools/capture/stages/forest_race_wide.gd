@@ -5,8 +5,9 @@ extends "res://tools/capture/stages/forest_race.gd"
 ## guys moved around". The same race (seed 20261017) off a reverse dolly: the lens runs the lane `lead` deg ahead of the
 ## leader on the bots' own line, `lens_h` m up, looking back down the lane at the whole field running at it through the trunks.
 ## [code]--stage=forest_race_wide --shot=s3_open_lane --map=forest --bots=3 --shimmer=0 --look=social --seed=20261017[/code]
-## Dials (--set=): lead (8.0 deg ahead of the leader), lens_h (2.6 m over the deck), lens_out (0.8 m outside the line),
-## fov (66, vertical), smooth (8.0), aim_up (0.9 m over the pack's feet).
+## Dials (--set=): lead (8.0 deg ahead of the leader), lens_h (2.6 m over the deck), lens_out (0.0 m outside the line: at 0.8
+## the OUT trunks at r 53.8 passed 0.4 m off the lens and its fill turned them orange), fov (66, vertical), smooth (8.0),
+## aim_up (0.9 m over the pack's feet), fill (0.3: the clip's warm fill rides this lens, so it is turned down off 0.55).
 
 var _focus: Vector3 = Vector3.ZERO
 var _cam_deg: float = 0.0
@@ -41,11 +42,14 @@ func lens(delta: float) -> bool:
 		_cam_deg = want_deg
 	_focus = _focus.lerp(centre, k)
 	_cam_deg += (fposmod(want_deg - _cam_deg + 180.0, 360.0) - 180.0) * k
-	var r: float = _line_radius(_cam_deg) + float(option("lens_out", 0.8))
+	var r: float = _line_radius(_cam_deg) + float(option("lens_out", 0.0))
 	camera().global_position = LIB.ring_point(_cam_deg, r, float(option("lens_h", 2.6)))
 	camera().look_at(_focus + Vector3.UP * float(option("aim_up", 0.9)), Vector3.UP)
 	camera().fov = float(option("fov", 66.0))
 	camera().current = true
+	var fill: OmniLight3D = camera().get_node_or_null(^"ClipFill") as OmniLight3D
+	if fill != null:
+		fill.light_energy = float(option("fill", 0.3))
 	return true
 
 
