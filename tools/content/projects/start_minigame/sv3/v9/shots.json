@@ -1,0 +1,119 @@
+[
+ {
+  "id": "L1",
+  "line": 1,
+  "text": "Heres how i fixed the worst part about my game",
+  "note": "pov of a runner in the tower shoving the sniper and the cinematic shot that plays after, in hell",
+  "stage": "finale",
+  "pov": "runner",
+  "dials": {},
+  "approved": {
+   "project": "stages",
+   "entry": 18
+  },
+  "same_take_as": null,
+  "beat": {
+   "tick": "shove",
+   "word": "fixed"
+  },
+  "card": null,
+  "needs_stage": false,
+  "why": null
+ },
+ {
+  "id": "L2",
+  "line": 2,
+  "text": "In my game, youre either the sniper in the gaurd tower, or youre running an obsticle course to become the sniper.",
+  "note": "runner pov, looking over at the tower while hes shooting, then look forward and start doing the lava parkour section",
+  "stage": "parkour_sniped",
+  "pov": "runner",
+  "dials": {},
+  "approved": {
+   "project": "stages",
+   "entry": 21
+  },
+  "same_take_as": null,
+  "beat": null,
+  "card": null,
+  "needs_stage": false,
+  "why": null
+ },
+ {
+  "id": "L3",
+  "line": 3,
+  "text": "but this has a problem, whos the sniper first? i wanted it to be earned",
+  "note": "pov of the sniper sniping at the runner from the previous shot",
+  "stage": "parkour_sniped",
+  "pov": "guard",
+  "dials": {},
+  "approved": {
+   "project": "stages",
+   "entry": 22
+  },
+  "same_take_as": "L2",
+  "beat": {
+   "tick": "hit",
+   "word": "earned"
+  },
+  "card": null,
+  "needs_stage": false,
+  "why": null
+ },
+ {
+  "id": "L4",
+  "line": 4,
+  "text": "so, i implemented a race, every player does the course with no sniper, and the first one to complete it gets to be the sniper. this, was the worst part of my game. it wasnt fun, everyone was the same speed, and it took to long",
+  "note": "pov of race in forest",
+  "stage": "forest_race",
+  "pov": "runner",
+  "dials": {},
+  "approved": {
+   "project": "stages",
+   "entry": 19
+  },
+  "same_take_as": null,
+  "beat": null,
+  "card": null,
+  "needs_stage": false,
+  "why": null
+ },
+ {
+  "id": "L5",
+  "line": 5,
+  "text": "so how did i fix it?",
+  "note": "bust shot of runner in hell idle animating",
+  "stage": "hell_idle_bust",
+  "pov": null,
+  "dials": {},
+  "approved": {
+   "project": "stages",
+   "entry": 20
+  },
+  "same_take_as": null,
+  "beat": null,
+  "card": null,
+  "needs_stage": false,
+  "why": null
+ },
+ {
+  "id": "L6",
+  "line": 6,
+  "text": "instead of everyone running to the tower, everyone starts in the tower, and the way you get to be the sniper, is to be the last one standing in it. so now, instead of a long drawn out boring race, its a fast, chaotic, brawl to see who goes first",
+  "note": "Shot of starting shove tower minigame in hell",
+  "stage": "tower_brawl",
+  "pov": null,
+  "dials": {},
+  "approved": {
+   "project": "stages",
+   "entry": 23
+  },
+  "same_take_as": null,
+  "beat": null,
+  "card": {
+   "text": "beta signup in bio",
+   "seconds": 1.75
+  },
+  "needs_stage": false,
+  "why": null
+ }
+]
