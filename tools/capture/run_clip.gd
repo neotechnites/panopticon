@@ -230,6 +230,7 @@ var _intents: Array[Node] = []
 var _free_pose_set: bool = false
 var _reasserted: int = 0
 var _finale_view: FinaleView = null
+var _finale_logged: float = -1.0
 var _spectator: Node = null
 
 
@@ -1007,12 +1008,38 @@ func _log_the_rifle() -> void:
 ## One line per frame for shot.sh's jump gate: time, frame delta, the ridden body's top speed, the lens position.
 func _log_the_lens(delta: float) -> void:
 	var lens: Camera3D = root.get_viewport().get_camera_3d()
+	_log_the_finale_lens(lens)
 	var body: PlayerController = _pov_body as PlayerController
 	if lens == null or body == null or not is_instance_valid(body):
 		return
 	var top: float = body.profile.ground_speed * body.speed_scale * body.run_speed_scale
 	var at: Vector3 = lens.global_position
 	print("[cam] %.4f %.4f %.3f %.4f %.4f %.4f" % [_elapsed, delta, top, at.x, at.y, at.z])
+
+
+## Every 0.1 s of the kill beat: metres from the finale lens to the guard, a clear ray between them, the lens inside a surface.
+func _log_the_finale_lens(lens: Camera3D) -> void:
+	var finale: FinaleView = _finale_view if _finale_view != null else _controller.get_node_or_null(^"../FinaleView") as FinaleView
+	if finale == null or lens != finale.camera or not finale.is_active() or _elapsed < _finale_logged + 0.1:
+		return
+	_finale_logged = _elapsed
+	var at: Vector3 = lens.global_position
+	var focus: Vector3 = finale.get_focus_point()
+	var space: PhysicsDirectSpaceState3D = lens.get_world_3d().direct_space_state
+	var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(at, focus, 1 | MatchController.OPEN_TOWER_LAYER)
+	ray.hit_from_inside = true
+	var guard: Node = finale.get(&"_guard") as Node
+	if guard is CollisionObject3D:
+		ray.exclude = [(guard as CollisionObject3D).get_rid()]
+	var hit: Dictionary = space.intersect_ray(ray)
+	var out: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(focus, at, ray.collision_mask)
+	out.exclude = ray.exclude
+	var clear: bool = (hit.is_empty() or (hit["position"] as Vector3).distance_to(focus) < 0.6) and space.intersect_ray(out).is_empty()
+	var probe: PhysicsShapeQueryParameters3D = finale.call(&"_sphere_at", at)
+	probe.shape = SphereShape3D.new()
+	(probe.shape as SphereShape3D).radius = 0.1
+	var inside: bool = not space.intersect_shape(probe, 1).is_empty() or finale.call(&"_in_room", at)
+	print("[cam] finale t=%.2f dist=%.2f clear=%s inside=%s at=(%.1f,%.1f,%.1f) guard=(%.1f,%.1f,%.1f) in_tower=%s" % [_elapsed, at.distance_to(focus), clear, inside, at.x, at.y, at.z, focus.x, focus.y, focus.z, finale.call(&"_in_room", focus)])
 
 
 ## One [lens] line per frame for expect.py's lens_clear and lens_cover: metres to the nearest thing, frame share within 2 m.
