@@ -1,0 +1,107 @@
+{
+ "video": "tools/content/projects/start_minigame/sv3/v11/final.mp4",
+ "duration_s": 43.066667,
+ "shots": [
+  {
+   "id": "L1",
+   "line": "L1",
+   "cut_start": 0.0,
+   "cut_end": 2.5,
+   "seat": null,
+   "NOTE": "pov of a runner in the tower shoving the sniper and the cinematic shot that plays after, in hell",
+   "seen": "0.00-0.50: a red arched hell hall seen from one fixed spot; a figure (the sniper) stands facing the camera and by 0.50 is lifting off the floor. 0.75: first-person hands appear at the bottom while the figure is already small in the distance. 1.00-1.75: a camera follows the ragdoll tumbling down past red rock walls. 2.00-2.25: the body hangs upright against the red rock. Captions read HERES HOW I / FIXED THE WORST / PART ABOUT / MY GAME.",
+   "matches_note": "partly",
+   "defects": [
+    "standing_still",
+    "event_not_visible"
+   ],
+   "why": "Hell map, first-person hands and the fall cinematic are all there, but the runner's camera doesn't move from 0.00 to 0.50 and the hands only appear after the sniper has already flown off, so the shove contact itself is never on screen.",
+   "sheets": [
+    "L1/sheet01.jpg"
+   ],
+   "frames": 10
+  },
+  {
+   "id": "L2",
+   "line": "L2",
+   "cut_start": 2.5,
+   "cut_end": 8.9,
+   "seat": null,
+   "NOTE": "runner pov, looking over at the tower while hes shooting, then look forward and start doing the lava parkour section",
+   "seen": "2.50-5.50: first-person view from a fixed spot looking up at the guard tower window. The camera barely moves, and cells 2.50-3.00 look identical. Only a faint speck near the window might be a shot. 5.75: the camera turns forward into the lava corridor. 6.00-8.50: the runner moves through the lava parkour on platforms. 8.75: cuts to a round scope view with crosshair (sniper seat) under the caption 'BUT THIS HAS'.",
+   "matches_note": "partly",
+   "defects": [
+    "standing_still",
+    "frozen_frame",
+    "event_not_visible",
+    "wrong_pov"
+   ],
+   "why": "The runner stands still and the frames look frozen for about 3 s while watching the tower, the tower shooting is barely visible, and the last frame switches to the sniper's scope view inside this runner shot.",
+   "sheets": [
+    "L2/sheet01.jpg",
+    "L2/sheet02.jpg"
+   ],
+   "frames": 26
+  },
+  {
+   "id": "L3",
+   "line": "L3",
+   "cut_start": 8.9,
+   "cut_end": 13.3,
+   "seat": null,
+   "NOTE": "pov of the sniper sniping at the runner from the previous shot",
+   "seen": "8.90-12.40: circular red-tinted sniper scope view of a lava-textured wall/corridor, scope sway, a small runner figure moving across the reticle, small debris/impacts and white diamond markers at 10.65 and 11.65; captions 'BUT THIS HAS / A PROBLEM WHOS / THE SNIPER FIRST / I WANTED IT / TO BE EARNED'. 12.65-13.15: hard cut to a third-person behind-the-back view of a cyan runner with purple and green runners in a dark forest, caption 'SO I IMPLEMENTED'.",
+   "matches_note": "partly",
+   "defects": [
+    "wrong_pov",
+    "event_not_visible"
+   ],
+   "why": "The scope POV with a tiny runner fits the note, but no shot or hit on the runner is clearly visible, and the last 0.75 s cuts to a third-person forest view that is not the sniper's eyes.",
+   "sheets": [
+    "L3/sheet01.jpg"
+   ],
+   "frames": 18
+  },
+  {
+   "id": "L6",
+   "line": "L6",
+   "cut_start": 13.3,
+   "cut_end": 27.95,
+   "seat": null,
+   "NOTE": "Shot of starting shove tower minigame in hell",
+   "seen": "13.30–18.55: third-person chase of a teal runner and others through a green forest race course. 18.80–23.80: a static view from beside a green swirl portal while small runners come up the forest path. 23.80–26.55: back to the forest chase. 26.80–27.80: a static wide shot of an empty red hell arena with arches; no players or tower are visible and nothing starts.",
+   "matches_note": "no",
+   "defects": [
+    "wrong_map",
+    "event_not_visible",
+    "standing_still",
+    "camera_not_a_player"
+   ],
+   "why": "About 90% of the shot is the forest race; hell appears only in the last ~1.2 s as an empty arena, and no shove-tower minigame is shown starting.",
+   "sheets": [
+    "L6/sheet01.jpg",
+    "L6/sheet02.jpg",
+    "L6/sheet03.jpg"
+   ],
+   "frames": 59
+  },
+  {
+   "id": "end",
+   "line": "end",
+   "cut_start": 27.95,
+   "cut_end": 29.7,
+   "seat": null,
+   "NOTE": "",
+   "seen": "",
+   "matches_note": "no",
+   "defects": [],
+   "why": "edl entry end has no shot in shots.json",
+   "sheets": [],
+   "frames": 0
+  }
+ ],
+ "overall_defects": [
+  "shots without an edl entry (not in the cut, not reviewed): ['L4', 'L5']"
+ ],
+ "pass": false
+}
