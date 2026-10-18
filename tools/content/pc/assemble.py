@@ -277,13 +277,15 @@ def parse_gif_fade(cell):
 
 
 def render_title(project, work, cache, key, text, seconds, head):
-    """The end card: black, every line of the text centred in Impact, no voice and no caption."""
+    """The end card: black, the text centred in the game's display font (IM Fell English) in the logo's cream; no voice, no caption."""
     import textwrap
-    size = int(head.get("title_size", 84))
+    size = int(head.get("title_size", 108))
+    font = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "ui", "fonts", "IMFellEnglish-Regular.ttf")
+    font = os.path.abspath(font).replace("\\", "/").replace(":", "\\:")
     lines = textwrap.wrap(text, max(8, int((W - 160) / (size * 0.5))))
     if not lines:
         raise SystemExit("assemble: %s: a title row with no text" % key)
-    seg = os.path.join(cache, sha("title2", "\n".join(lines), size, "%.4f" % seconds, W, H, FPS) + ".mp4")   # title2: per-line centring
+    seg = os.path.join(cache, sha("title3", "\n".join(lines), size, "%.4f" % seconds, W, H, FPS) + ".mp4")   # title3: display font, cream
     if not os.path.exists(seg):
         step = int(size * 1.25)
         top = (H - step * len(lines)) // 2
@@ -293,8 +295,8 @@ def render_title(project, work, cache, key, text, seconds, head):
             with open(txt, "w", encoding="utf-8") as f:
                 f.write(line)
             rel = os.path.relpath(txt, project).replace("\\", "/")
-            draws.append("drawtext=fontfile='C\\:/Windows/Fonts/impact.ttf':textfile='%s':fontcolor=white:fontsize=%d"
-                         ":x=(w-text_w)/2:y=%d" % (rel, size, top + i * step))
+            draws.append("drawtext=fontfile='%s':textfile='%s':fontcolor=0xF1E8D6:fontsize=%d"
+                         ":x=(w-text_w)/2:y=%d" % (font, rel, size, top + i * step))
         run(FF + ["-f", "lavfi", "-i", "color=c=black:s=%dx%d:r=%d:d=%.4f" % (W, H, FPS, seconds), "-vf", ",".join(draws) + TAIL,
                   "-t", "%.4f" % seconds, "-an"] + LOSSLESS + [seg], cwd=project)
     return seg
