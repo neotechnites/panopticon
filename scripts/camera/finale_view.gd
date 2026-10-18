@@ -47,6 +47,9 @@ var _clear_index: int = 1
 var _room_centre: Vector3 = Vector3.ZERO
 var _room_radius: float = 0.0
 var _room_of: int = 0
+## Where the shot would stand; the lens is sprung in from it to the first surface toward the guard.
+var _home: Vector3 = Vector3.ZERO
+var _arm: SphereShape3D = SphereShape3D.new()
 
 
 func _ready() -> void:
@@ -88,7 +91,9 @@ func _on_guard_thrown(guard: MatchParticipant, seconds: float, throw: Vector3) -
 	var focus: Vector3 = get_focus_point()
 	_measure_room()
 	_arc = _predict_arc(focus, throw, seconds)
-	camera.global_position = _place(throw)
+	_home = _place(throw)
+	camera.global_position = _home
+	_spring(focus)
 	_aim(focus, 1.0, 1.0)
 	# Ended by the next round; the clock is only a backstop for a lost round start.
 	_remaining = seconds + 1.0
@@ -108,7 +113,33 @@ func tick(delta: float) -> void:
 	if _remaining <= 0.0:
 		stand_down()
 		return
-	_aim(get_focus_point(), 1.0 - exp(-follow_rate * delta), delta)
+	var focus: Vector3 = get_focus_point()
+	_spring(focus)
+	_aim(focus, 1.0 - exp(-follow_rate * delta), delta)
+
+
+## Spring arm: a sphere swept from [param focus] to [member _home] stops at the first surface, as a SpringArm3D does.
+func _spring(focus: Vector3) -> void:
+	var reach: Vector3 = _home - focus
+	if reach.length_squared() < 1e-4:
+		return
+	_arm.radius = CLEARANCE_METRES
+	var query: PhysicsShapeQueryParameters3D = PhysicsShapeQueryParameters3D.new()
+	query.shape = _arm
+	query.transform = Transform3D(Basis.IDENTITY, focus)
+	query.motion = reach
+	query.collision_mask = 1 | MatchController.OPEN_TOWER_LAYER
+	if _guard != null and is_instance_valid(_guard):
+		query.exclude = [_guard.get_rid()]
+	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	var safe: float = space.cast_motion(query)[0]
+	if safe > 0.0:
+		camera.global_position = focus + reach * safe
+		return
+	# He is inside a surface (sunk in lava, against rock): stop on its outside, swept in from the stand.
+	query.transform = Transform3D(Basis.IDENTITY, _home)
+	query.motion = -reach
+	camera.global_position = _home - reach * space.cast_motion(query)[0]
 
 
 ## Give the view back to the camera that had it. Idempotent.
