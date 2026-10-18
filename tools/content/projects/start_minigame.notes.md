@@ -6,3 +6,6 @@ Agent frame check of v2 (task #601, not Ryan's notes; v2 was not shown to him): 
 
 ## v3 | start_minigame_v3.mp4 | 2026-10-17 23:02
 Ryan on n1 (v3, task #601): "for 9, shot one, should only be the shove and the cinematic, not the going into the portal at all. the next two shots are fine, the shot of the player can just be removed. then, why is the last shot not from the perspective of a player? and also, why do the player charactes look like that in game? we made such a detailed model, what the fuck is going on? is the branch youre on not useing the most up to date game?"
+
+## v4 | start_minigame_v4.mp4 | 2026-10-18 00:15
+Ryan on n2 (v4, task #601): "for the shove one, the gameplay of the shove minigame is super weird because of the way the bots behave, and its unclear thats whats happening. change the minigame so instead of everyone facing away, everyone starts closer to the edge facing in. that can be an actual gameplay change. then record that instead"
