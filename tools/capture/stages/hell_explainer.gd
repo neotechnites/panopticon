@@ -29,7 +29,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## crouch), mid_pace (0.41), pov_pace (0.45, to pov_mid 42.0 at ~7.1 s), pov_run (0.70, from there to
 ## close 4.0 m behind him), close_pace (0.4, into reach 1.5, look 14 deg down; the shove >= 4.0 s after the lead hit),
 ## watch (1.1 s the POV stands after the shove), run_to (100.0), window (62.0), hand_at (0.8), zoom_at (1.2), miss_lead (2.0), miss_mid (3.4),
-## miss_by (1.4 m), drop_at (5.5, the lead's squeeze), air_delay (0.05 s after the shove, the
+## miss_by (1.4 m), drop_at (5.5, the lead's squeeze), hold_to (9.0, the hand holds on the fallen lead), air_delay (0.05 s after the shove, the
 ## shoved man's squeeze: the round reaches him in the air),
 ## impulse / up (0 = the shipped shove).
 
@@ -52,6 +52,8 @@ var _shoved_at: float = -1.0
 var _landed: bool = false
 ## Clip seconds the last beat (the shoved man) starts, so its squeeze can be set off the shove.
 var _last_beat_at: float = 0.0
+## Whether the POV's own eye arms are on the shove, for the [pov] arms log.
+var _arms_out: bool = false
 
 
 func bots() -> int:
@@ -148,6 +150,10 @@ func tick(_delta: float) -> void:
 		say("at" + line)
 	if _bodies.is_empty():
 		return
+	var avatar: PrisonerAvatar = PrisonerAvatar.of(_bodies[POV])
+	if avatar != null and bool(avatar.get("_fp_shoving")) != _arms_out:
+		_arms_out = not _arms_out
+		print("[pov] %5.2f arms %s" % [elapsed(), "shove" if _arms_out else "down"])
 	if _hand == null:
 		_raise_the_hand()
 		return
@@ -190,9 +196,12 @@ func _raise_the_hand() -> void:
 		if float(row[2]) > 0.0:
 			beat["miss_by"] = float(row[2])
 		else:
+			# The drop: the hand stays on him where he falls, never back on the pack.
 			beat["clear"] = true
+			beat["hold"] = true
+			beat["seconds"] = maxf(float(option("hold_to", 9.0)), fire + WATCH_SECONDS) - at
 		_hand.beats.append(beat)
-		at = fire + WATCH_SECONDS
+		at += float(beat["seconds"])
 	_last_beat_at = at
 	# fly: he is led along his arc, flung the instant before the squeeze.
 	_hand.beats.append({"body": _bodies[MID], "seconds": 100.0, "fire_at": 100.0, "watch": true, "fly": true})
