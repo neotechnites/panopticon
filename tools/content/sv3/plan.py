@@ -163,7 +163,7 @@ def main(argv=None):
         print("PLAN REFUSED: %s" % why)
         return 2
     voiceless = not any((s.get("text") or "").strip() for s in shots)
-    table = ["## script %s" % a.tag] + (["captions: none"] if voiceless else []) + ["pad: %s" % fmt(PAD), "| line | clip | in | len | fit | speed | text | card |"] + rows
+    table = ["## script %s" % a.tag] + (["captions: none", "game: 1.0"] if voiceless else [])   # no voice: no words to caption, the takes' own sound + ["pad: %s" % fmt(PAD), "| line | clip | in | len | fit | speed | text | card |"] + rows
     out = text.rstrip("\n") + "\n\n" + "\n\n".join(entries + ["\n".join(table)]) + "\n"
     with open(a.brief, "w", encoding="utf-8") as f:
         f.write(out)
