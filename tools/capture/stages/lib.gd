@@ -215,12 +215,14 @@ static func show_only_the_crosshair(root: Node) -> bool:
 
 ## The guard's scope opened past a tall frame's width: the shipped clear centre
 ## is a circle sized for a 16:9 window and leaves a small disc on black at 9:16.
-static func open_the_scope(guard: PlayerController, clear_fraction: float = 0.74) -> void:
+static func open_the_scope(guard: PlayerController, clear_fraction: float = 0.74, zoom_factor: float = 0.0) -> void:
 	var optic: WeaponOptic = guard.get_node_or_null(^"Optic") as WeaponOptic
 	if optic == null or optic.profile == null:
 		return
 	var copy: ZoomProfile = optic.profile.duplicate() as ZoomProfile
 	copy.vignette_clear_fraction = clear_fraction
+	if zoom_factor > 0.0:
+		copy.zoom_factor = zoom_factor
 	optic.profile = copy
 
 

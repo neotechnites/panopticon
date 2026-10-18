@@ -14,7 +14,7 @@ extends "res://tools/capture/stages/lavaparkour.gd"
 ##
 ## He aims from the 295 opening's centre, 6.2 m out at the sill (guard_deg, guard_r): the 305 spot put the 315 pier in the scope as it swung.
 ## Dials (--set=): window (305.0, where the runner looks), look_to (3.4, he turns off the tower), misses ("1.9,3.0": the squeezes that miss), miss_by (1.5),
-## hand_at (0.8), zoom_at (1.2), drop_at (0.0 = no drop), hold_to (0.0),
+## hand_at (0.8), zoom_at (1.2), drop_at (0.0 = no drop), hold_to (0.0), hold_out (0.0: s he stands on each outer top, in the openings), scope_zoom (0.0: the optic's zoom factor),
 ## look_drift (1.4 m: the eyes wander on the window so the look is never a frozen frame; 0 drift froze the take).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
@@ -59,8 +59,11 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		LIB.hide_from_the_rifle(runners[index].controller)
 	# He waits on the bank for look_to; lavaparkour's own POV hops after it.
 	var lead: Dictionary = {"wait": maxf(float(option("look_to", 3.4)) - 0.6, 0.1)}
-	_pov_driver = drive(runners[0], steps_for(0, true, 0.0, POV_PLAN, _pov_meta, lead), 0, "ClipParkourPOV")
-	_pov_lands = landings(POV_PLAN)
+	var plan: Array = POV_PLAN.duplicate(true)
+	for top: int in [0, 2, 4]:
+		plan[top]["hold"] = maxf(float(plan[top].get("hold", 0.0)), float(option("hold_out", 0.0)))
+	_pov_driver = drive(runners[0], steps_for(0, true, 0.0, plan, _pov_meta, lead), 0, "ClipParkourPOV")
+	_pov_lands = landings(plan)
 	_runner = runners[0].controller
 	_line.append(_runner)
 	stage_body(_runner)
@@ -101,7 +104,7 @@ func _raise_the_hand() -> void:
 		return
 	_guard = shooter.controller
 	LIB.guard_to_window(_guard, float(option("guard_deg", 295.0)), float(option("guard_r", 6.2)))
-	LIB.open_the_scope(_guard, float(option("clear", 0.74)))
+	LIB.open_the_scope(_guard, float(option("clear", 0.74)), float(option("scope_zoom", 0.0)))
 	_hand = GUARD_HAND.new()
 	_hand.name = "ClipGuardHand"
 	clip.root.add_child(_hand)
