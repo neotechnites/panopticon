@@ -89,8 +89,8 @@ lines = spec["lines"] if isinstance(spec, dict) else spec
 print("\n## script %s\n# provisional (short3.sh): voice only; sv3.plan writes the cut's table\nvoice: en-US-AndrewNeural +5%%\n"
       "| line | clip | in | len | fit | speed | text |" % tag)
 for l in lines:
-    if l.get("text") and not l.get("beat"):
-        print("| %s |  |  |  | line |  | %s |" % (l["id"], l["text"].replace("|", "/")))
+    if l.get("text") and not l.get("beat"):   # an outro line is a voiced title row (vo.py maps the outro clip to it)
+        print("| %s | %s |  |  | line |  | %s |" % (l["id"], "title" if l.get("card") else "", l["text"].replace("|", "/")))
 PY
 }
 unprovision() {  # the provisional table leaves the brief before plan.py appends the cut's ## script <tag>

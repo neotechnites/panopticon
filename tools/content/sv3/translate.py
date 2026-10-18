@@ -55,7 +55,7 @@ def pick(spec, stages, only=None):
               + "\n\nCHOOSABLE:\n" + json.dumps(catalogue(stages), indent=1, ensure_ascii=False)
               + "\n\nNOT CHOOSABLE (never pick): " + (", ".join(rest) or "-")
               + "\n\nTHE SCRIPT (spec.json). Return the JSON array of picks:\n"
-              + json.dumps([l for l in lines_of(spec) if not only or l["id"] in only], indent=1, ensure_ascii=False)
+              + json.dumps([l for l in lines_of(spec) if not l.get("card") and (not only or l["id"] in only)], indent=1, ensure_ascii=False)
               + ("\n\nEVERY pick above MUST carry beat {tick, word}: the entry has ticks." if only else ""))
     return llm.ask_json(prompt, S.PICK, model="opus")
 
@@ -65,6 +65,11 @@ def assemble(spec, picks, stages):
     by_id = {p["id"]: p for p in picks}
     shots = []
     for i, e in enumerate(lines_of(spec), 1):
+        if e.get("card"):   # the outro: spoken over the end card, no stage
+            shots.append({"id": e["id"], "line": i, "text": e["text"], "note": e["note"], "stage": None, "pov": None, "dials": {},
+                          "approved": None, "same_take_as": None, "beat": None, "needs_stage": False, "why": None,
+                          "card": dict(S.CARD, text=e["card"], voiced=True)})
+            continue
         p = by_id.get(e["id"]) or {"needs_stage": True, "why": "the model gave no pick for this line"}
         st = S.choosable(stages).get(p.get("stage") or "") or {"approved": []}
         ent = next((a for a in st["approved"] if a["entry"] == p.get("entry")), None)
@@ -74,14 +79,14 @@ def assemble(spec, picks, stages):
                           {"project": "?", "entry": p["entry"]} if p.get("entry") is not None else None),
                       "same_take_as": e.get("same_take_as") or p.get("same_take_as"), "beat": p.get("beat"),
                       "card": None, "needs_stage": bool(p.get("needs_stage")), "why": p.get("why")})
-    if shots:
+    if shots and not any(S.card_line(s) for s in shots):   # no outro line: the silent card follows the last line
         shots[-1]["card"] = dict(S.CARD)
     return shots
 
 
 def audit(shots, stages):
     """Second pass: is each picked stage what its note says (what, not how). A no becomes needs_stage."""
-    picked = [s for s in shots if not s["needs_stage"]]
+    picked = [s for s in shots if not s["needs_stage"] and not S.card_line(s)]
     if not picked:
         return []
     cat = catalogue(stages)
@@ -126,6 +131,9 @@ def main(argv=None):
     json.dump(shots, open(a.out, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     json.dump(verdict, open(os.path.splitext(a.out)[0] + ".audit.json", "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     for s in shots:
+        if S.card_line(s):
+            print("%-4s end card %r under this line's voice" % (s["id"], s["card"]["text"]))
+            continue
         print("%-4s %s" % (s["id"], "NEEDS STAGE: " + s["why"] if s["needs_stage"] else "%s --pov=%s entry %s:%d%s beat %s%s" % (
             s["stage"], s["pov"], s["approved"]["project"], s["approved"]["entry"],
             (" dials " + json.dumps(s["dials"])) if s["dials"] else "", json.dumps(s["beat"]),

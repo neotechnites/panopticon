@@ -105,6 +105,13 @@ def build(shots, stages, words, name, tag, base_n):
     shared = [r for r, g in groups.items() if len(g) > 1]
     entries, rows, cards, n, ends, cut_of, entry_of_cut = [], [], [], base_n, {}, {}, {}
     for i, s in enumerate(shots):
+        if (s.get("card") or {}).get("voiced"):   # the outro: the title card for exactly its voice + pad, his words under it
+            if s["id"] not in words:
+                raise Refused("%s: no voice in words.json" % s["id"])
+            need = float(words[s["id"]]["dur"]) + PAD
+            rows.append("| %s | title | | %s | line | | %s | %s |" % (s["id"], fmt(need), said(s, words).replace("|", "/"),
+                                                                     (s["card"].get("text") or CARD).replace("|", "/")))
+            continue
         if s.get("card"):
             cards.append(s["card"])
         if not s.get("stage"):

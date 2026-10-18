@@ -21,7 +21,7 @@ SHOT = {"type": "object", "additionalProperties": False,
                          "properties": {"project": {"type": "string"}, "entry": {"type": "integer"}}},
             "same_take_as": _N, "beat": _BEAT,
             "card": {"type": ["object", "null"], "required": ["text", "seconds"], "additionalProperties": False,
-                     "properties": {"text": {"type": "string"}, "seconds": {"type": "number"}}},
+                     "properties": {"text": {"type": "string"}, "seconds": {"type": "number"}, "voiced": {"type": "boolean"}}},
             "needs_stage": {"type": "boolean"}, "why": _N}}
 SHOTS = {"type": "array", "items": SHOT}
 
@@ -103,6 +103,11 @@ def _why_not(s, stages, by_id):
     return None
 
 
+def card_line(s):
+    """A line spoken over the end card: no stage, never needs_stage; plan times the card to its voice."""
+    return bool((s.get("card") or {}).get("voiced"))
+
+
 def needs(s, why):
     """Mark a shot needs_stage: nothing filmable stays on it, the attempted pick goes into why."""
     tried = " (picked %s --pov=%s)" % (s["stage"], s["pov"]) if s.get("stage") else ""
@@ -114,7 +119,9 @@ def validate(shots, stages):
     """Every shot in order against the catalogue; a shot that breaks the contract becomes needs_stage with why."""
     by_id = {}
     for s in shots:
-        if not s["needs_stage"]:
+        if card_line(s):
+            s.update(stage=None, pov=None, dials={}, approved=None, beat=None, same_take_as=None, needs_stage=False, why=None)
+        elif not s["needs_stage"]:
             why = _why_not(s, stages, by_id)
             if why:
                 needs(s, why)

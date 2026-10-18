@@ -1035,9 +1035,12 @@ func _log_the_finale_lens(lens: Camera3D) -> void:
 	var out: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(focus, at, ray.collision_mask)
 	out.exclude = ray.exclude
 	var clear: bool = (hit.is_empty() or (hit["position"] as Vector3).distance_to(focus) < 0.6) and space.intersect_ray(out).is_empty()
-	var probe: PhysicsShapeQueryParameters3D = finale.call(&"_sphere_at", at)
+	var probe: PhysicsShapeQueryParameters3D = PhysicsShapeQueryParameters3D.new()
 	probe.shape = SphereShape3D.new()
 	(probe.shape as SphereShape3D).radius = 0.1
+	probe.transform = Transform3D(Basis.IDENTITY, at)
+	probe.collision_mask = ray.collision_mask
+	probe.exclude = ray.exclude
 	var inside: bool = not space.intersect_shape(probe, 1).is_empty() or finale.call(&"_in_room", at)
 	print("[cam] finale t=%.2f dist=%.2f clear=%s inside=%s at=(%.1f,%.1f,%.1f) guard=(%.1f,%.1f,%.1f) in_tower=%s" % [_elapsed, at.distance_to(focus), clear, inside, at.x, at.y, at.z, focus.x, focus.y, focus.z, finale.call(&"_in_room", focus)])
 

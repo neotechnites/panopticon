@@ -77,9 +77,14 @@ def parse(path):
 
 
 def voice_rows(script):
-    """Rows that carry a voice line (text, not a beat, not a `title` end card)."""
+    """Rows that carry a voice line (text, not a beat, not a silent `title` end card; a fit `line` title is voiced)."""
     return [r for r in script["rows"] if r.get("text") and not r.get("fit", "").startswith("beat")
-            and (r.get("clip") or "").strip().lower() != "title"]
+            and ((r.get("clip") or "").strip().lower() != "title" or is_voiced_title(r))]
+
+
+def is_voiced_title(r):
+    """A `title` row with fit `line`: the end card held under that line's voice (+ pad); its card cell is the card text."""
+    return (r.get("clip") or "").strip().lower() == "title" and (r.get("fit") or "").strip().lower() == "line"
 
 
 if __name__ == "__main__":

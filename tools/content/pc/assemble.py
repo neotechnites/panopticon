@@ -50,7 +50,8 @@ clip fits the line (the v6 retime of the shove short, generalised):
          slot's picture from `at` (slot seconds, or word:<w>[#n][+s]) with a linear
          alpha fade-in over <seconds>; `end` (a beat only) ends the slot as the fade finishes.
   clip = `title`: a black end card, the row's text centred (Impact, title_size: 84), `len`
-         seconds (1 by default); no voice, no caption (a card, not a line).
+         seconds (1 by default); no voice, no caption. With fit `line` it is voiced: the row's
+         line plays under it, the card cell is the card text, the slot is the voice + pad.
 
 Captions: pop = word by word under the voice; stack = each row's text as a quote
 ("..."), shown from the row's start to the end of the cut, each in its own slot of
@@ -277,7 +278,8 @@ def parse_gif_fade(cell):
 
 
 def render_title(project, work, cache, key, text, seconds, head):
-    """The end card: black, the text centred in the game's display font (IM Fell English) in the logo's cream; no voice, no caption."""
+    """The end card: black, the text centred in the game's display font (IM Fell English) in the logo's cream; never captioned
+    (a voiced title row plays its line's voice under it)."""
     import textwrap
     size = int(head.get("title_size", 108))
     font = os.path.join(os.path.dirname(os.path.abspath(__file__)), "IMFellEnglish-Regular.ttf")   # pushed by assemble.sh
@@ -388,13 +390,19 @@ def main():
     band = caption_band(head, style) if captions_wanted and style != "none" else None
     short = []            # lines whose picture is shorter than their slot
     used = []             # every clip the cut plays, for cuts\<tag>_used.txt
+    titles = set()        # voiced title rows: their voice plays under the card, never captioned
     for row in script["rows"]:
         key = row["line"]
         if (row.get("clip") or "").strip().lower() == "title":
-            seg_len = snap(float(row.get("len") or 1.0))
+            voiced = brief_mod.is_voiced_title(row) and key in voice   # the card held for its line's voice + pad
+            seg_len = snap(carry + voice[key]["dur"] + pad) if voiced else snap(float(row.get("len") or 1.0))
             starts[key] = cursor + carry
-            segments.append(render_title(project, work, cache, key, (row.get("text") or "").strip(), seg_len, head))
-            table.append("{0:<4} {1:>6.2f}s {2:>6.2f}s {3:<52} {4}".format(key, cursor, seg_len, "title (black end card)", "beat"))
+            text = (row.get("card") if voiced else row.get("text")) or ""
+            segments.append(render_title(project, work, cache, key, text.strip(), seg_len, head))
+            if voiced:
+                titles.add(key)
+            table.append("{0:<4} {1:>6.2f}s {2:>6.2f}s {3:<52} {4}".format(
+                key, cursor, seg_len, "title (black end card)", "line (voice under the card)" if voiced else "beat"))
             cursor += seg_len
             carry = 0.0
             prev_clip, prev_rest = None, None
@@ -664,7 +672,7 @@ def main():
     elif band:
         if not words_all:
             raise SystemExit("assemble: captions want voice\\words.json (run voice.sh) or captions: none")
-        ass_text, cap_info = build_ass(starts, words_all, head)
+        ass_text, cap_info = build_ass({k: v for k, v in starts.items() if k not in titles}, words_all, head)
     if band:
         ass_path = os.path.join(work, "captions.ass")
         with open(ass_path, "w", encoding="utf-8") as f:

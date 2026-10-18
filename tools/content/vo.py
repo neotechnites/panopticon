@@ -25,6 +25,7 @@ ROOM_DB = -45.0     # at or below this a 10 ms frame is room tone
 LEVEL = "acompressor=threshold=-20dB:ratio=3:attack=5:release=80:makeup=2"
 LOUD = "loudnorm=I=-16:TP=-1.5:LRA=7"
 BREATH = 0.15       # decision 357 (3): an inter-word gap is ducked to this gain
+OUTRO_MATCH = 0.6   # a clip whose words match the outro line this well is the outro
 SPLIT = 0.3         # a take splits at the deepest dip within this many seconds of the words' gap
 MODEL = "small.en"
 OUT_RATE = 48000
@@ -271,7 +272,9 @@ def main(argv=None):
     script = parsed["scripts"].get(a.tag) or parsed["script"]
     if not script:
         raise SystemExit("vo: %s has no ## script %s" % (a.brief, a.tag))
-    lines = [(r["line"], r["text"]) for r in brief_mod.voice_rows(script)]
+    rows = brief_mod.voice_rows(script)
+    lines = [(r["line"], r["text"]) for r in rows]
+    outro = next((r["line"] for r in rows if brief_mod.is_voiced_title(r)), None)
     found = clips(a.aup4)
     takes = [(n, cut_ends(x, r), r) for _, n, x, r in found]
     track = [t for t, _, _, _ in found]
@@ -288,14 +291,29 @@ def main(argv=None):
         heard += [dict(w, take=i) for w in transcribe(model, p)[1]]
     if not heard:
         raise SystemExit("vo: nothing heard in %s" % a.aup4)
-    # The first track is the take; a later track is a retake of the lines it says, the newest track winning.
+    # The outro (the end card's line) is its own clip: the newest clip that says it is that line whole.
     pieces = {k: [] for k, _ in lines}        # line id -> [(take index, start sample, end sample)]
+    body, body_heard, outro_take = lines, heard, None
+    if outro is not None:
+        said = [norm(w) for w in dict(lines)[outro].split() if norm(w)]
+        for t in range(len(takes)):
+            got = [norm(w["word"]) for w in heard if w["take"] == t]
+            if got and difflib.SequenceMatcher(None, said, got, autojunk=False).ratio() >= OUTRO_MATCH:
+                outro_take = t
+        if outro_take is not None:
+            pieces[outro] = [(outro_take, 0, len(takes[outro_take][1]))]
+            body = [(k, v) for k, v in lines if k != outro]
+            body_heard = [w for w in heard if w["take"] != outro_take]
+            print("vo: clip %d (%s) is the outro, line %s" % (outro_take, takes[outro_take][0], outro))
+    # The first track is the take; a later track is a retake of the lines it says, the newest track winning.
+    n_body = len(takes) - (outro_take is not None)
     for tr in sorted(set(track)):
-        mine = [w for w in heard if track[w["take"]] == tr]
+        mine = [w for w in body_heard if track[w["take"]] == tr]
         if not mine:
             continue
         first = tr == min(track)
-        got = split(lines, takes, mine, base=len(set(track)) == 1 and len(takes) == len(lines), share=0.0 if first else 0.5)
+        got = split(body, takes, mine, base=len(set(track)) == 1 and n_body == len(body) and outro_take in (None, len(takes) - 1),
+                    share=0.0 if first else 0.5)
         if not first:
             print("vo: track %d retakes %s" % (tr, ", ".join(k for k in got if got[k])))
         for k, v in got.items():

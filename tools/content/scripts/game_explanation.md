@@ -12,3 +12,6 @@ Shove the guy next to you into his sights, and run.
 
 the first one to make it throws him out, and now, they're the sniper.
 {different shot, get up to the portal, go through, shove him, they go flying}
+
+If you want to be first to play it and help me make it better, there's a beta signup in my bio.
+{end card "beta signup in bio"}

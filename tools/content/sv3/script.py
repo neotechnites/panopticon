@@ -7,6 +7,7 @@ line's voice. `{note}` with no text, or text that is only a `(pause ...)` direct
 A note saying "same shot" continues the previous capture (same_take_as). `--block last` takes the
 last chunk of a file whose drafts are separated by 3+ blank lines; `--section` picks a `# header`.
 A section with no `{note}` at all is a direction: each paragraph becomes a beat whose note is the text.
+A note naming the end card ({end card "beta signup in bio"}) makes the line a card line: `card` = the quoted text.
 """
 import argparse
 import json
@@ -15,6 +16,8 @@ import sys
 
 PAUSE_RE = re.compile(r"^\(\s*(short\s+)?pause\b[^)]*\)\s*$", re.I)
 SAME_RE = re.compile(r"\bsame\s+(shot|take|clip|match)\b", re.I)
+CARD_RE = re.compile(r"\bend\s*card\b", re.I)          # a note naming the end card: the line is spoken over the card
+CARD_TEXT = re.compile(r"[\"\u201c]([^\"\u201d]+)[\"\u201d]")
 
 
 def select(raw, block=None, section=None):
@@ -49,6 +52,10 @@ def parse(raw):
                  "same_take_as": prev if (note and SAME_RE.search(note) and prev) else None}
         if direction:
             entry["direction"] = direction
+        if not beat and CARD_RE.search(note or ""):
+            q = CARD_TEXT.search(note)
+            entry["card"] = q.group(1).strip() if q else "beta signup in bio"
+            entry["same_take_as"] = None
         lines.append(entry)
 
     if not has_notes:
@@ -104,7 +111,7 @@ def main(argv=None):
     if a.out:
         open(a.out, "w", encoding="utf-8").write(out + "\n")
     for e in spec:
-        print("%-3s %s%s  {%s}" % (e["id"], "[beat] " if e["beat"] else "", e["text"][:70], e["note"][:80]
+        print("%-3s %s%s  {%s}" % (e["id"], "[beat] " if e["beat"] else "[card] " if e.get("card") else "", e["text"][:70], e["note"][:80]
                                     + (" <same_take_as %s>" % e["same_take_as"] if e["same_take_as"] else "")))
     return 0
 
