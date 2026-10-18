@@ -280,8 +280,10 @@ def render_title(project, work, cache, key, text, seconds, head):
     """The end card: black, the text centred in the game's display font (IM Fell English) in the logo's cream; no voice, no caption."""
     import textwrap
     size = int(head.get("title_size", 108))
-    font = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "ui", "fonts", "IMFellEnglish-Regular.ttf")
-    font = os.path.abspath(font).replace("\\", "/").replace(":", "\\:")
+    font = os.path.join(os.path.dirname(os.path.abspath(__file__)), "IMFellEnglish-Regular.ttf")   # pushed by assemble.sh
+    if not os.path.exists(font):
+        raise SystemExit("assemble: the end card's font is missing at %s" % font)
+    font = font.replace("\\", "/").replace(":", "\\:")
     lines = textwrap.wrap(text, max(8, int((W - 160) / (size * 0.5))))
     if not lines:
         raise SystemExit("assemble: %s: a title row with no text" % key)
