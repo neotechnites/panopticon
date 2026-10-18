@@ -26,3 +26,6 @@ ragdoll is ok i think, the last shot shows the gaurd clipping into the map after
 
 ## v14 | ragdoll_short_v14.mp4 | 2026-10-17 11:29
 ok, go fix ragdoll and get me a version that neess only my voiceover, and the comment. yes totally fine to use the old footage
+
+## v22 | ragdoll_short_v22.mp4 | 2026-10-17 23:37
+for when i say if my art didnt make it clear, it should be an older build of the game to show the even worse art. when you show the death animation in a grey void, why the fuck is the character rendered how it is in game??? and why the fucking hell, woudl you choose, for the moment when i say ragdolls and youre supposed to watch someone get shot, for that to be on the bounce pad section of the map? like holy shit use s2. then, in the forest shots, you do not see a single successful ragdoll, and a fucking player shoaves another one for no reason. then theres a sub one second clip of a bunch of player shoving each other, doesnt show ragdolling, looks like shit. the gaurd clips into the fucking pit wall lke we specifcally specified not to. and then cuts to a sniper pov for no fucking reason. is all of this clear? do you know how to fix it all? frankly i will say it is much much better for a first draft than we had been getting, but not good enough still
