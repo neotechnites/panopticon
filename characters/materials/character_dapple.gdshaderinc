@@ -1,10 +1,8 @@
-// The forest's leaf dapple (forest_dapple_lit.gdshader's maths) on a player: off unless the map's fit sets it.
+// The forest's leaf dapple (forest_dapple_lit.gdshader's maths) on a player, worn by character_dapple.gdshader.
 // Values come from CharacterLight, read off the forest's own shader so the two stay one.
-uniform bool dapple_on = false;
 uniform sampler2D dapple : hint_default_white, filter_linear_mipmap, repeat_enable;
 uniform float dapple_metres = 27.0;
 uniform float dapple_strength = 1.0;
-uniform float dapple_light = 0.7;
 uniform float fleck_strength = 0.4;
 uniform float fleck_bias = 0.22;
 uniform float sway = 0.6;
@@ -12,7 +10,7 @@ uniform float sway_speed = 1.0;
 uniform float dapple_top = 10000.0;
 uniform float dapple_top_fade = 3.0;
 uniform float dapple_mean = 0.14;
-// The body's own level in full leaf shade (1 = untouched): its ambient stays, so it never goes black.
+// The body's own level in full leaf shade (1 = untouched).
 uniform float dapple_shade = 1.0;
 // The suns' directions (toward them, world), for the body's level away from any one sun's pass.
 uniform vec3 dapple_sun_a = vec3(0.0, 1.0, 0.0);

@@ -3,10 +3,11 @@ PANOPTICON -- hub_base: the lobby floor. A flat ring of ten 36-degree wedges
 round a plain circular plinth the tower is dropped onto as a scene node.
 Wedge 1 (bearings 0..36) is a taste of the hell map: the arena's rock atlas,
 a shallow lava pool with sloped banks and a stepping stone, four stalagmites.
-Wedge 2 is the marble rotunda (hub_marble_build) and wedge 3 the forest
-(hub_forest_build): each dresses its floor, its dais and its slice of the outer
-wall through the _Theme interface below. Wedges 4..10 are undecided maps: bare
-grey stone, a low round dais at the centre for a "?" marker. Wedge seams are
+Wedge 2 is the marble rotunda (hub_marble_build), wedge 3 the forest
+(hub_forest_build) and wedge 4 the beach (hub_beach_build): each dresses its
+floor, its dais and its slice of the outer wall through the _Theme interface
+below. Wedges 5..10 are undecided maps: bare grey stone, a low round dais at
+the centre for a "?" marker. Wedge seams are
 0.3 m inlaid bands, 3 cm recessed.
 
 World coordinates, instance at identity: floor at y 0, plinth top at 0.35,
@@ -16,7 +17,8 @@ Blender +Z -> Godot +Y, Blender +Y -> Godot -Z.
 One manifold rock; collision rides in the .glb as a `-colonly` node: flat
 deck cut where the pool is, plinth, wall, dais pucks, pool banks and floor,
 stalagmite stacks. Five materials: HellRock (the arena's rock), Lava (the
-arena's lava tile), HubStone (grey), Marble and the forest's keeper tiles.
+arena's lava tile), HubStone (grey), Marble, the forest's keeper tiles and
+the beach's.
 
     tools/modelling/model build hub_base
     python3 tools/modelling/hub/hub_base_build.py --check     # geometry only, no Blender
@@ -359,11 +361,13 @@ class _Grid(object):
             row = []
             for (a, kind, w) in self.cols[i]:
                 z = 0.0
+                if 0 < i < self.nr and kind == "int":
+                    z = theme_of(w).floor_z(r, a)      # the collider's deck takes it too
                 if jitter and 0 < i < self.nr:
                     if kind == "in":
                         z = -SEAM_D
                     elif kind == "int":
-                        z = theme_of(w).jitter * rng.sf()
+                        z += theme_of(w).jitter * rng.sf()
                 row.append(m.v((r * math.cos(a), r * math.sin(a), z)))
             self.V.append(row)
         self.removed = set()
@@ -700,6 +704,11 @@ class _Theme(object):
         """A floor cell's zone by its centre (radius, angle)."""
         return ZONE_STONE
 
+    def floor_z(self, r, a):
+        """The floor's height at an interior vertex, before the jitter: a theme
+        that shelves (the beach) dips here. The two edge rings stay at 0."""
+        return 0.0
+
     def features(self, m, w, coll=False):
         """Holes to cut into the floor grid, as _Grid.cut takes them:
         (cx, cy, D, base_loop, zone). For the collider, closed pieces may be
@@ -778,7 +787,7 @@ _STONE = _Theme()
 
 
 def theme_of(w):
-    """The theme dressing wedge ``w``. Looked up late: the two map themes are
+    """The theme dressing wedge ``w``. Looked up late: the three map themes are
     imported at the bottom of this file, after everything they import back."""
     if w == HELL_WEDGE:
         return _HELL
@@ -786,6 +795,8 @@ def theme_of(w):
         return hub_marble_build.THEME
     if w == 2:
         return hub_forest_build.THEME
+    if w == 3:
+        return hub_beach_build.THEME
     return _STONE
 
 
@@ -995,10 +1006,11 @@ def _hub_render(spec, objects):
     shot("high", pol(215.0, 118.0, 68.0), (0.0, 0.0, 12.0), 28.0, (1500, 1000))
     shot("top", (0.0, -0.5, 160.0), (0.0, 0.0, 0.0), 32.0, (1200, 1200))
     shot("hell", pol(26.0, 48.0, 3.5), (32.1, 12.8, -0.2), 22.0, (1400, 900))
-    # The two map wedges from a prisoner's eye on the hub floor: the dais in the
-    # foreground, the wedge's own wall behind it.
+    # The three map wedges from a prisoner's eye on the hub floor: the dais in
+    # the foreground, the wedge's own wall behind it.
     shot("wedge_marble", pol(50.0, 27.5, EYE_H), pol(56.0, 50.0, 3.2), 20.0, (1400, 900))
     shot("wedge_forest", pol(86.0, 27.5, EYE_H), pol(92.0, 50.0, 3.2), 20.0, (1400, 900))
+    shot("wedge_beach", pol(124.0, 27.0, EYE_H), pol(131.0, 50.0, 3.2), 20.0, (1400, 900))
 
     for ob in (cam, target, sun, aim) + tuple(company):
         bpy.data.objects.remove(ob, do_unlink=True)
@@ -1154,11 +1166,12 @@ def _check():
     return ok
 
 
-# The two map wedges, imported last so their own `import hub_base_build` finds
+# The three map wedges, imported last so their own `import hub_base_build` finds
 # this module complete. Column-0 `import x_build as y`: tools/modelling/model
 # ships the siblings it sees written exactly like that.
 import hub_marble_build  # noqa: E402
 import hub_forest_build  # noqa: E402
+import hub_beach_build  # noqa: E402
 
 
 if __name__ == "__main__":

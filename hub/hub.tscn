@@ -27,12 +27,12 @@
 [ext_resource type="PackedScene" path="res://maps/beach/beach.tscn" id="25_beach"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
-sky_top_color = Color(0.54, 0.110700026, 0.054000016, 1)
-sky_horizon_color = Color(0.5, 0.09, 0.05, 1)
-sky_curve = 0.25
-sky_energy_multiplier = 1.4
-ground_bottom_color = Color(0.25, 0.05, 0.03, 1)
-ground_horizon_color = Color(0.42, 0.07, 0.04, 1)
+sky_top_color = Color(0.17, 0.22, 0.34, 1)
+sky_horizon_color = Color(0.56, 0.48, 0.42, 1)
+sky_curve = 0.2
+sky_energy_multiplier = 1.0
+ground_bottom_color = Color(0.15, 0.15, 0.17, 1)
+ground_horizon_color = Color(0.34, 0.3, 0.29, 1)
 sun_angle_max = 0.0
 
 [sub_resource type="Sky" id="Sky"]
@@ -41,9 +41,9 @@ sky_material = SubResource("SkyMat")
 [sub_resource type="Environment" id="Env"]
 background_mode = 2
 sky = SubResource("Sky")
-ambient_light_source = 3
-ambient_light_color = Color(0.7, 0.16, 0.08, 1)
-ambient_light_energy = 0.64
+ambient_light_source = 2
+ambient_light_color = Color(0.52, 0.55, 0.62, 1)
+ambient_light_energy = 0.85
 tonemap_mode = 1
 
 [sub_resource type="CylinderShape3D" id="DaisTrigger"]
@@ -62,7 +62,84 @@ movement_profile = ExtResource("14_movement_profile")
 editor_description = "The hub itself: hub_base.glb at identity (100 m across, floor y 0, plinth r 25 at y 0.35), the tower on the plinth as in bentham_ring, and ten 36 degree wedges around it. MatchController's arena."
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="HubWorld"]
+editor_description = "The lobby's own dusk rather than the hell map's: a cool sky over a warm horizon, a neutral colour ambient and Reinhard, judged in SDR."
 environment = SubResource("Env")
+
+[node name="Light" type="Node3D" parent="HubWorld"]
+editor_description = "The lobby's light: one key with shadows, a cool counter-fill, a warm uplight and a guard-room lamp on the tower, and one omni per dressed wedge in that map's own colour."
+
+[node name="Key" type="DirectionalLight3D" parent="HubWorld/Light"]
+editor_description = "Dusk sun from bearing 300, 48 deg up: it crosses the five dressed wedges and throws the tower's shadow over the undecided half."
+transform = Transform3D(0.866, 0, -0.5, -0.37155, 0.66907, -0.64353, 0.3346, 0.7431, 0.5794, 0, 60, 0)
+light_color = Color(1, 0.96, 0.9, 1)
+light_energy = 0.95
+shadow_enabled = true
+shadow_bias = 0.06
+shadow_blur = 1.2
+directional_shadow_mode = 0
+directional_shadow_max_distance = 180.0
+
+[node name="Fill" type="DirectionalLight3D" parent="HubWorld/Light"]
+editor_description = "The sky's cool counter-light, low from bearing 120 and unshadowed, so nothing facing away from the key goes flat black."
+transform = Transform3D(-0.866, 0, 0.5, 0.2113, 0.90627, 0.36597, -0.45315, 0.4226, -0.78486, 0, 50, 0)
+light_color = Color(0.74, 0.82, 1, 1)
+light_energy = 0.3
+shadow_enabled = false
+
+[node name="TowerUp" type="OmniLight3D" parent="HubWorld/Light"]
+editor_description = "A warm uplight off the plinth: the tower rock reads as a mass against the sky instead of a flat cut-out."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)
+light_color = Color(1, 0.6, 0.34, 1)
+light_energy = 0.9
+light_specular = 0.2
+shadow_enabled = false
+omni_range = 26.0
+omni_attenuation = 0.0
+
+[node name="GuardLamp" type="OmniLight3D" parent="HubWorld/Light"]
+editor_description = "The lamp in the guard room, 38.9 m up: the arches at the top are lit from inside, so the eye at the top of the tower is the brightest thing in the lobby."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 38.9, 0)
+light_color = Color(1, 0.86, 0.62, 1)
+light_energy = 1.6
+shadow_enabled = false
+omni_range = 22.0
+omni_attenuation = 0.0
+
+[node name="W01_Hell" type="OmniLight3D" parent="HubWorld/Light"]
+editor_description = "Bearing 18, r 40, 10 m up: the hell wedge's own firelight."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.0423, 10, -12.3607)
+light_color = Color(1, 0.46, 0.2, 1)
+light_energy = 1.0
+shadow_enabled = false
+omni_range = 28.0
+omni_attenuation = 0.0
+
+[node name="W02_Marble" type="OmniLight3D" parent="HubWorld/Light"]
+editor_description = "Bearing 54, r 40: the rotunda's cool clean skylight."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23.5114, 10, -32.3607)
+light_color = Color(0.8, 0.87, 1, 1)
+light_energy = 1.2
+shadow_enabled = false
+omni_range = 28.0
+omni_attenuation = 0.0
+
+[node name="W03_Forest" type="OmniLight3D" parent="HubWorld/Light"]
+editor_description = "Bearing 90, r 40: light through leaves, green-shaded."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10, -40)
+light_color = Color(0.6, 0.88, 0.52, 1)
+light_energy = 0.8
+shadow_enabled = false
+omni_range = 28.0
+omni_attenuation = 0.0
+
+[node name="W04_Beach" type="OmniLight3D" parent="HubWorld/Light"]
+editor_description = "Bearing 126, r 40: the beach's bright daylight, the one wedge that is plainly day."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -23.5114, 10, -32.3607)
+light_color = Color(1, 0.95, 0.82, 1)
+light_energy = 1.0
+shadow_enabled = false
+omni_range = 28.0
+omni_attenuation = 0.0
 
 [node name="HubBase" parent="HubWorld" instance=ExtResource("1_hub_base")]
 
@@ -80,21 +157,6 @@ visible = false
 
 [node name="TowerSpawn" type="Marker3D" parent="HubWorld/Tower"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
-
-[node name="KeyLight" type="DirectionalLight3D" parent="HubWorld/Tower"]
-transform = Transform3D(1, 0, 0, 0, 0.34202, 0.939693, 0, -0.939693, 0.34202, 0, 20, 0)
-light_color = Color(1, 0.45, 0.15, 1)
-light_energy = 0.0
-shadow_bias = 0.08
-directional_shadow_mode = 0
-directional_shadow_max_distance = 180.0
-
-[node name="HellFlood" type="OmniLight3D" parent="HubWorld/Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 300, 0)
-light_color = Color(1, 0.28, 0.06, 1)
-light_energy = 3.4
-omni_range = 700.0
-omni_attenuation = 0.6
 
 [node name="Wedges" type="Node3D" parent="HubWorld"]
 editor_description = "Ten wedges of 36 degrees, W01 at bearings 0-36. Five hold maps (hell, marble, forest, beach, ice); the other five hold a question mark until Ryan decides what stands there."

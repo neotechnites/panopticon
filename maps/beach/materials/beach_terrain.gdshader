@@ -1,6 +1,5 @@
-// The island's ground: grass, the crag's rock and the beaches' sand in ONE material, blended by per-vertex weights
-// (rock in UV2.y, sand in 1 - COLOR.a, baked by beach_build.py) with noise-driven soft edges; triplanar, the grass
-// at two scales so its repeat hides.
+// The island's ground: grass, rock and sand in ONE triplanar material, blended by per-vertex weights (rock in
+// UV2.y, sand in 1 - COLOR.a) with noise-soft edges; grass at two scales, sand once -- its tile wraps.
 shader_type spatial;
 
 #include "res://maps/beach/materials/beach_sea.gdshaderinc"
