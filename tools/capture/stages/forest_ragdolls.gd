@@ -4,7 +4,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## [code]--map=forest --shot=s3_open_lane --stage=forest_ragdolls --bots=3 --rifle=projectile --seed=20261017[/code]
 ## Probe (probe_ring --map=forest): deck flat at 23 on 44-60 deg r 50-54; a trunk at 46-48 deg r 48.5-50.5, a rock at
 ## 54 deg r 52-53.5; --eye=59.5:51:1.5 and the 32 deg window (32:4.4:5.9) both see 44-52 deg at r 51.2-51.8.
-## Dials (--set=): pace (0.45), hits (2.4,4.4,6.4: squeeze seconds, one per man), fire_deg (47.5), lens (59.0,51.0,1.5), look (53.2,52.1,0.4), fov (50).
+## Dials (--set=): pace (0.45), hits (2.4,4.4,6.4: squeeze seconds, one per man), fire_deg (45.5), lens (59.0,50.2,1.5), look (52.3,51.9,0.4), fov (40).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
@@ -55,7 +55,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	var pace: float = float(option("pace", 0.45))
 	var hits: PackedFloat64Array = _hits()
 	for index: int in 3:
-		var start: float = float(option("fire_deg", 47.5)) - DEG_PER_S_AT_PACE * pace * (hits[index] - MOVE_AT)
+		var start: float = float(option("fire_deg", 45.5)) - DEG_PER_S_AT_PACE * pace * (hits[index] - MOVE_AT)
 		var at := Vector2(start, float(LANES[index]))
 		drive(runners[index], [
 			{"do": "place", "at": LIB.ring_point(at.x, at.y, 0.1), "face": LIB.tangent_at(at.x)},
@@ -114,9 +114,9 @@ func lens(_delta: float) -> bool:
 	if _bodies.is_empty() or camera() == null:
 		return false
 	# Fixed and framed on the whole kill zone: tracking the pelvis bone dived the lens off the lying body.
-	camera().global_position = LIB.polar(String(option("lens", "59.0,51.0,1.5")), LIB.ring_point(59.0, 51.0, 1.5))
-	camera().look_at(LIB.polar(String(option("look", "53.2,52.1,0.4")), LIB.ring_point(53.2, 52.1, 0.4)), Vector3.UP)
-	camera().fov = float(option("fov", 50.0))
+	camera().global_position = LIB.polar(String(option("lens", "59.0,50.2,1.5")), LIB.ring_point(59.0, 50.2, 1.5))
+	camera().look_at(LIB.polar(String(option("look", "52.3,51.9,0.4")), LIB.ring_point(52.3, 51.9, 0.4)), Vector3.UP)
+	camera().fov = float(option("fov", 40.0))
 	camera().current = true
 	return true
 
