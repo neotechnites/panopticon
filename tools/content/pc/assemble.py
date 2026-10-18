@@ -104,6 +104,7 @@ MUSIC_DUCK = 0.3      # music ramp-down before a window's audio
 MUSIC_BACK = 0.5      # music ramp-up after it
 STACK_TOP_MAX = 0.1   # a stack band starts within the top tenth of the frame
 WINDOW_FADE = 0.3     # the window audio's own fade-out, ending at `end`
+GAME_UNDER_SPEECH = 0.5012  # task #602: the game bed under a spoken line, -6 dB from game_vol
 
 
 def run(args, **kw):
@@ -636,7 +637,8 @@ def main():
                 fit += "  [rendered]" if i == 0 else ""
             segments.append(seg)
             if game_vol > 0 and mode != "window" and has_audio(w["src"]):
-                games.append((part_start, w["src"], w["in"], w["avail"], w["speed"], w["out"]))
+                games.append((part_start, w["src"], w["in"], w["avail"], w["speed"], w["out"],
+                              game_vol * (GAME_UNDER_SPEECH if key in voice else 1.0)))
             part_start += out_len
 
         clip_name = " , ".join("{}[{:.2f}-{:.2f}]".format(w["path"].replace("/", "\\"), w["in"], w["in"] + w["avail"])
@@ -733,13 +735,13 @@ def main():
             idx, max(a_len - WINDOW_FADE, 0.0), WINDOW_FADE, ms))
         mix += f"[w{idx}]"
         idx += 1
-    for g_start, g_src, g_in, g_avail, g_speed, g_out in games:
+    for g_start, g_src, g_in, g_avail, g_speed, g_out, g_vol in games:
         inputs += ["-ss", "%.4f" % g_in, "-t", "%.4f" % g_avail, "-i", g_src]
         tempo = atempo_chain(g_speed)
         ms = int(round(g_start * 1000))
         filters.append("[{0}:a]{1}atrim=0:{2:.3f},volume={3:.4f},afade=t=in:st=0:d=0.03,"
                        "afade=t=out:st={4:.3f}:d=0.05,adelay={5}|{5}[g{0}]".format(
-                           idx, tempo + "," if tempo else "", g_out, game_vol, max(g_out - 0.05, 0.0), ms))
+                           idx, tempo + "," if tempo else "", g_out, g_vol, max(g_out - 0.05, 0.0), ms))
         mix += "[g{}]".format(idx)
         idx += 1
     if games:
