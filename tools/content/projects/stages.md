@@ -89,7 +89,7 @@ seconds: 8.2
 in: 1.0
 
 ## 12
-said: short 4 L4, Ryan: "a sniper pov, missing shots, then cut to the runner pov near the end, and he watches the person in front of him get shot": hell_explainer's take (stages#1) with the scope held throughout (no lower, no track_to): the hand puts scoped rounds behind the lead (fired 2.02, lands 2.43) and the middle man (3.42, lands 3.80), then drops the lead in the open (6.27, 83.2 deg, in frame). One tape with ## 13. Mac smoke: misses 2.43 and 3.80, hit 6.27 in frame.
+said: short 4 L4, Ryan: "a sniper pov, missing shots, then cut to the runner pov near the end, and he watches the person in front of him get shot": hell_explainer's take (stages#1) with the scope held throughout (no lower, no track_to): the hand puts scoped rounds behind the lead (fired 2.02, lands 2.43) and the middle man (3.42, lands 3.80), then drops the lead in the open (6.27, 83.2 deg, in frame). One tape with ## 13: the line plays this scope through the misses, then cuts to ## 13, the back runner's POV, near the end as the lead in front of him is shot. Mac smoke: misses 2.43 and 3.80, hit 6.27 in frame.
 capture: --shot=s3_open_lane --stage=hell_explainer --pov=guard --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=start=31,22,4.8;drop_at=5.9
 tape: stages_hell_explainer_scoped
 hud: crosshair
@@ -125,7 +125,7 @@ in: 1.0
 motion: 0.005
 
 ## 16
-said: short 4 L6, Ryan: "a bunch of runners shoving each other with the ragdoll": the melee scrap at a short's cap, three runners (count=3; 4 players with the guard) on the clear deck at 195 deg r 52 all shoving each other (each shove flops the victim), the chase lens in the scrap; cut from 2.2 s, after a body passes through the lens at 1.9 s. Mac smoke: 10 shoves 1.47-8.02 s, 6 of them 3.72-5.90.
+said: short 4 L6, Ryan: "a bunch of runners shoving each other with the ragdoll": the melee scrap at a short's cap, three runners (count=3; 4 players with the guard) on the clear deck at 195 deg r 52 all shoving each other (each shove flops the victim), the chase lens in the scrap; cut from 2.2 s, after a body passes through the lens at 1.9 s; the line then cuts to ## 17, a runner POV in a real round shoving a man into the pit. Mac smoke: 10 shoves 1.47-8.02 s, 6 of them 3.72-5.90.
 capture: --shot=s3_melee --stage=melee --bots=3 --seed=20261017 --shimmer=0 --set=count=3
 expect: shove Runner_2 1.4-1.55; shove Runner_3 +0.5-0.65; lens_clear; lens_cover <= 0.5
 seconds: 5.9
@@ -144,3 +144,45 @@ capture: --shot=s3_open_lane --stage=finale --pov=runner --bots=3 --shimmer=0 --
 expect: shove Runner_0 3.48-3.78; arrive Runner_1 2.0-2.25; tower_out Runner_0 +1.9-2.1; alive Runner_1; lens_clear; lens_cover <= 0.5
 seconds: 6.5
 in: 0.9
+
+## 9
+said: Ryan (short 9, L4): "so, i implemented a race, every player does the course with no sniper, and the first one to complete it gets to be the sniper. this, was the worst part of my game. it wasnt fun, everyone was the same speed, and it took to long" {pov of race in forest}. The game's own opening race (start_race) in the forest, four racers and nobody in the tower, bot brains running it: the POV runs 2nd of 4, the man ahead ~5 deg up the lane in frame, all at the same pace; nobody finishes inside the cut (a lap is ~28.6 s). Mac smoke: race_start 0.02, no seat the whole race.
+capture: --shot=s3_open_lane --stage=forest_race --map=forest --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017
+tape: stages_forest_race
+expect: race_start 0-0.5; lens_clear; lens_cover <= 0.5
+seconds: 19.5
+in: 1.0
+
+## 10
+said: Ryan (short 9, L5): "so how did i fix it?" {bust shot of runner in hell idle animating}. One prisoner stood on bare S1 deck (42 deg r 52), head to mid chest at eye height from 2.5 m (fov 24), the S1 spires behind him, the rig's shipped Idle breathing, a handheld drift on the lens; nobody shoots. Mac smoke: idle 0.65, Idle playing at 0.00 m/s.
+capture: --shot=s1_cave --stage=hell_idle_bust --bots=1 --look=social --shimmer=0 --seed=20261017
+expect: idle Runner_1 0.6-0.9; alive Runner_1; lens_clear; lens_cover <= 0.5
+seconds: 3.0
+in: 1.2
+motion: 0.005
+
+## 11
+said: Ryan (short 9, L2): "In my game, youre either the sniper in the gaurd tower, or youre running an obsticle course to become the sniper." {runner pov, looking over at the tower while hes shooting, then look forward and start doing the lava parkour section}. ONE take with ## 12: the runner on the S5 near bank (290.4 deg) looks over at the tower's 305 deg window (0.1 deg off it from 1.4 s) while the hand puts two rounds by him (1.92, 3.02; they land on the 286 lip beside him), turns forward at 3.4 and hops the S5 lava platforms (lands 3.60, 4.38, 5.27, 5.97, 6.93); the cut ends 7.9, before the round that drops him lands (8.00). Two more players stand out of frame up the S1 lane. Mac smoke: as listed.
+capture: --shot=s3_open_lane --stage=parkour_sniped --pov=runner --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=drop_at=7.6
+tape: stages_parkour_sniped
+expect: hop1 Runner_1 3.5-3.7; hop2 Runner_1 +0.7-0.9; alive Runner_1; lens_clear; lens_cover <= 0.5
+seconds: 6.9
+in: 1.0
+
+## 12
+said: Ryan (short 9, L3): "but this has a problem, whos the sniper first? i wanted it to be earned" {pov of the sniper sniping at the runner from the previous shot}. The SAME tape from the guard at the 305 deg window, scoped (fov 20): the hand rides the parkour runner hop to hop across the lava platforms and squeezes at 7.62; the round drops him as he leaves the 322 deg top (hit 8.00, in frame) and the hand holds on him. Mac smoke: hit 8.00 in frame.
+capture: --shot=s3_open_lane --stage=parkour_sniped --pov=guard --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=drop_at=7.6
+tape: stages_parkour_sniped
+hud: crosshair
+expect: hit Runner_1 7.9-8.1; in_frame Runner_1 +0.0-0.05; lens_clear; lens_cover <= 0.5
+seconds: 5.6
+in: 3.6
+motion: 0.012
+
+## 13
+said: Ryan (short 9, L6): "everyone starts in the tower, and the way you get to be the sniper, is to be the last one standing in it. so now, instead of a long drawn out boring race, its a fast, chaotic, brawl to see who goes first" {Shot of starting shove tower minigame in hell}. The game's own opening tower brawl (start_brawl): four players in the tower room, only the shove, the game's brawl bots shove each other out of the windows (outs 2.75, 6.37, 7.28); the last one standing (Runner_2) takes the seat (8.80) and the lens, hung under the ceiling against the 0 deg pier, cranes in over his shoulder as he takes the window as the sniper and shoots at the runners starting the round. Mac smoke: as listed.
+capture: --shot=s3_open_lane --stage=tower_brawl --bots=3 --shimmer=0 --look=social --seed=20261017
+tape: stages_tower_brawl
+expect: brawl_start 0.0-0.1; brawl_out Runner_1 2.6-2.9; brawl_out Runner_0 6.2-6.5; brawl_out Runner_3 7.1-7.4; brawl_won Runner_2 7.1-7.4; lens_clear; lens_cover <= 0.5
+seconds: 20.0
+in: 0.4
