@@ -11,8 +11,8 @@ extends Node
 ## The whole body's mass, in kg, shared across the parts by fixed weights.
 @export var body_mass: float = 70.0
 ## Damping every part carries; higher reads heavier and stops sooner, lower floppier.
-@export var linear_damp: float = 0.05
-@export var angular_damp: float = 0.6
+@export var linear_damp: float = 0.1
+@export var angular_damp: float = 2.0
 @export var friction: float = 0.9
 ## Joint limits, degrees: swing is how far a ball joint leans, twist how far it turns.
 @export var neck_swing: float = 35.0
@@ -95,6 +95,8 @@ var _tumble: float = 0.0
 var _spin: float = 0.0
 var _rise: float = 0.0
 var _last_anchor: Vector3 = Vector3.ZERO
+## Parts that went limp inside the map: they collide again once clear, so nothing is shot out of a wall.
+var _embedded: Array[PhysicalBone3D] = []
 
 
 func _ready() -> void:
@@ -224,6 +226,27 @@ func start(velocity: Vector3, at: Vector3, direction: Vector3) -> void:
 	set_physics_process(true)
 
 
+## Go limp thrown at [param throw] (world m/s): every part carries it, one shove lands on the chest.
+func throw_out(velocity: Vector3) -> void:
+	if _simulator == null or _active:
+		return
+	if _flop != Flop.NONE:
+		_die_from_flop(velocity, Vector3.ZERO, Vector3.ZERO)
+		return
+	_active = true
+	_skeleton.move_child(_simulator, _skeleton.get_child_count() - 1)
+	_simulator.active = true
+	_simulator.influence = 1.0
+	_follow_simulator()
+	_go_limp()
+	for bone: PhysicalBone3D in _bones:
+		bone.linear_velocity = velocity * carry_velocity
+		bone.angular_velocity = Vector3.ZERO
+	if not velocity.is_zero_approx():
+		_bones[CHEST_PART].apply_central_impulse(velocity.normalized() * impulse)
+	set_physics_process(true)
+
+
 ## Hand the skeleton back to the animation; the parts stay where they fell, inert.
 func stop() -> void:
 	if not _active and _flop == Flop.NONE:
@@ -235,6 +258,7 @@ func stop() -> void:
 	_simulator.active = false
 	_simulator.influence = 1.0
 	_lengths.active = false
+	_embedded.clear()
 	for bone: PhysicalBone3D in _bones:
 		bone.collision_mask = 0
 		bone.angular_damp = angular_damp
@@ -242,10 +266,11 @@ func stop() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_free_embedded()
 	if _active:
 		# A kill mid-get-up: the blend returns to the corpse instead of popping to it.
 		_simulator.influence = move_toward(_simulator.influence, 1.0, delta * DEATH_BLEND_RATE)
-		_hold_together(_bones[0].linear_velocity, 0)
+		_hold_together(_mean_velocity(), 0)
 		return
 	if _flop == Flop.NONE or _anchor == null:
 		return
@@ -299,6 +324,40 @@ func _go_limp() -> void:
 		for walker: Node in walkers:
 			bone.add_collision_exception_with(walker)
 	_simulator.physical_bones_start_simulation()
+	# A part starting inside a wall would be shoved out of it at once: it waits, colliding with nothing.
+	_embedded.clear()
+	for bone: PhysicalBone3D in _bones:
+		if _in_map(bone):
+			bone.collision_mask = 0
+			_embedded.append(bone)
+
+
+## Give each waiting part its collision back once it has left the map's geometry.
+func _free_embedded() -> void:
+	for i: int in range(_embedded.size() - 1, -1, -1):
+		if not _in_map(_embedded[i]):
+			_embedded[i].collision_mask = collision_mask
+			_embedded.remove_at(i)
+
+
+func _in_map(bone: PhysicalBone3D) -> bool:
+	var shape: CollisionShape3D = bone.get_child(0) as CollisionShape3D
+	var query: PhysicsShapeQueryParameters3D = PhysicsShapeQueryParameters3D.new()
+	query.shape = shape.shape
+	query.transform = bone.global_transform * shape.transform
+	query.collision_mask = collision_mask
+	query.exclude = [bone.get_rid()]
+	return not bone.get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
+
+
+## The whole body's velocity, mass-weighted: the clamp follows the body, not one jostled part.
+func _mean_velocity() -> Vector3:
+	var momentum: Vector3 = Vector3.ZERO
+	var mass: float = 0.0
+	for bone: PhysicalBone3D in _bones:
+		momentum += bone.linear_velocity * bone.mass
+		mass += bone.mass
+	return momentum / maxf(mass, 0.001)
 
 
 ## Killed while flopping: the torso is let go and the parts keep the motion they have.
