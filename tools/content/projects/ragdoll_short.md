@@ -535,7 +535,7 @@ captions_y: 0.72
 | L7 | cuts/19_v19.mp4 | 33.2 |  | line |  | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. |  |
 
 ## 43
-said: pov of the sniper shooting at some runners and missing, hell map, right at the end, they hit one, and we cut a little after the animation plays out
+said: pov of the sniper shooting at some runners and missing, hell map, right at the end, they hit one, and we cut a little after the animation plays out -- rs_snipe (stages#9): two misses (2.25, 3.95), then the hit (5.65) plays the old Death clip, held 1.75 s
 capture: --shot=s3_open_lane --stage=rs_snipe --pov=guard --bots=3 --seed=20261017 --shimmer=0 --set=old=1;plan=0m,1m,2h;start=1.0
 hud: crosshair
 expect: hit Runner_3 5.55-5.75; lens_clear; lens_cover <= 0.5
@@ -564,7 +564,7 @@ in: 1
 refilm: v20
 
 ## 46
-said: a sniper pov, missing shots, then cut to the runner pov near the end, and he watches the person in front of him get shot
+said: a sniper pov, missing shots, then cut to the runner pov near the end, and he watches the person in front of him get shot -- the sniper half (stages#12): hell_explainer's scope through its two misses (2.43, 3.80); the line then cuts to ## 50, the back runner's POV of the same staged match, near the end as the lead in front of him is shot (6.27)
 capture: --shot=s3_open_lane --stage=hell_explainer --pov=guard --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=start=31,22,4.8;drop_at=5.9
 hud: crosshair
 expect: hit Runner_1 6.17-6.37; in_frame Runner_1 +0.0-0.05; lens_clear; lens_cover <= 0.5
@@ -574,7 +574,7 @@ motion: 0.012
 refilm: v20
 
 ## 47
-said: clip montage of the sniper hitting people dead in hell, and if we can, get one that freaks out and break the players model and go flying -- Ryan 10-12: "lets replace the gameplay of the hitting shots montage to be in the forest"; Ryan 10-17: "didnt i say it has to be in the forest?"
+said: clip montage of the sniper hitting people dead in hell, and if we can, get one that freaks out and break the players model and go flying -- Ryan 10-12: "lets replace the gameplay of the hitting shots montage to be in the forest"; Ryan 10-17: "didnt i say it has to be in the forest?" -- forest_going's scope (stages#14), the lead's ragdoll flung (fling=1400) on the first kill (2.30), the middle man after (3.70); the montage goes on to ## 51's two tight-scope forest kills
 capture: --shot=s3_open_lane --stage=forest_going --map=forest --pov=guard --bots=3 --shimmer=0 --look=social --seed=20261017 --set=fling=1400
 hud: crosshair
 expect: hit Runner_1 2.2-2.4; in_frame Runner_1 +0.0-0.05; hit Runner_2 +1.3-1.5; in_frame Runner_2 +1.3-1.5; alive Runner_3; lens_clear; lens_cover <= 0.5
@@ -584,7 +584,7 @@ motion: 0.012
 refilm: v20
 
 ## 48
-said: a bunch of runners shoving each other with the ragdoll, other pov shots of a "real game" where the runners are getting shoved
+said: a bunch of runners shoving each other with the ragdoll, other pov shots of a "real game" where the runners are getting shoved -- the melee scrap (stages#16), three runners shoving each other; the line then cuts to ## 52, a runner POV in a real round shoving a man into the pit
 capture: --shot=s3_melee --stage=melee --bots=3 --seed=20261017 --shimmer=0 --set=count=3
 expect: shove Runner_2 1.4-1.55; shove Runner_3 +0.5-0.65; lens_clear; lens_cover <= 0.5
 seconds: 5.9
@@ -592,7 +592,7 @@ in: 2.2
 refilm: v20
 
 ## 49
-said: pov runner makes it through the portal, shoves, and the usual cinematic shot
+said: pov runner makes it through the portal, shoves, and the usual cinematic shot -- finale (stages#18): the run into the portal, the arrival (2.13), the shove (3.63), the shipped 2.0 s kill-beat cinematic
 capture: --shot=s3_open_lane --stage=finale --pov=runner --bots=3 --shimmer=0 --seed=20261012 --set=lead=6.0;stand=3.0;pace=0.32;beat=2.0
 expect: shove Runner_0 3.48-3.78; arrive Runner_1 2.0-2.25; tower_out Runner_0 +1.9-2.1; alive Runner_1; lens_clear; lens_cover <= 0.5
 seconds: 6.5
