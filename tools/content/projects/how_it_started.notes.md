@@ -4,3 +4,7 @@ more energy in the forest runner clip. leave the pill runner clip exactly as it 
 
 ## v2 | how_it_started_v2.mp4 | 2026-10-17 20:44
 honestly the how its going isnt super impressive, and youre attempt at making the forest energic just reads as it being at a higher speed
+
+## v3 | how_it_started_v3.mp4 | 2026-10-17 21:28
+ok, v11 would be fine, but they dont really read as the same, i think to omuch is going on now in the second half. i dont know how to get it to read as "this is the same thing but now it looks really good" because frankly it doesnt look super sexy or anything.
+alright, go ahead, try making that for both 11 and 12

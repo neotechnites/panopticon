@@ -126,3 +126,43 @@ pad: 0.2
 | M3 | cuts/07_v3.mp4 | 0.3 | 1.7 | beat 1.7 | | how it's going | |
 | M4 | cuts/08_v3.mp4 | 0.5 | 1.35 | beat 1.35 | | | |
 | end | title | | 1.75 | | | beta signup in bio | |
+
+## 9
+said: v4 of ## 7 (Ryan on v3: "they dont really read as the same, i think to omuch is going on now in the second half"; ruling: a shot-for-shot twin of ## 1): pill_twin, the pill_era take restaged in the forest by its numbers: the guard at the 32 deg window scoped to fov 28 (pill 28), three abreast on lanes r 48.5/52.5/55.5 at 8 m/s (pill 38.5/44.5/51 at walk 8), the outer man held to 1.0 s; the hand parked 4 deg left of the pack, on the middle man from 0.9, drops him at 2.05 (pill 2.07) 48.6 m off dead centre (pill 44.5 m), holds on him to 2.6. 2.45 s from 0.6, as ## 1 plays.
+capture: --shot=s3_open_lane --stage=pill_twin --map=forest --pov=guard --bots=3 --shimmer=0 --look=social --seed=20261017 --set=window=32;eye_r=4.4;lanes=48.5,52.5,55.5;look=19
+tape: how_it_started_v4
+hud: crosshair
+expect: hit Runner_2 1.95-2.15; in_frame Runner_2 +0.0-0.05; alive Runner_3; lens_clear; lens_cover <= 0.5
+seconds: 2.6
+in: 0.6
+motion: 0.012
+refilm: v4
+
+## 10
+said: v4 of ## 8 (as ## 9): the SAME tape down the held outer man's eyes at fov 70 (pill 70): he goes at 1.0, head eased right onto the mate, who drops at 2.05 7.1 m off, in frame (pill: 2.07, 9 deg right). 2.25 s from 1.0, as ## 2 plays.
+capture: --shot=s3_open_lane --stage=pill_twin --map=forest --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017 --set=window=32;eye_r=4.4;lanes=48.5,52.5,55.5;look=19
+tape: how_it_started_v4
+expect: hit Runner_2 1.95-2.15; in_frame Runner_2 +0.0-0.05; alive Runner_3; lens_clear; lens_cover <= 0.5
+seconds: 2.4
+in: 1.0
+refilm: v4
+
+## script v4
+from: v3
+notes: ok, v11 would be fine, but they dont really read as the same, i think to omuch is going on now in the second half. i dont know how to get it to read as "this is the same thing but now it looks really good" because frankly it doesnt look super sexy or anything.
+alright, go ahead, try making that for both 11 and 12
+notes: honestly the how its going isnt super impressive, and youre attempt at making the forest energic just reads as it being at a higher speed
+notes: v11 is great, only issue is the same transparent ragdolls thing, its way too long, signup in bio should always be the same length, and theres no subtitles for the whole point of the short. lastly, the engery in the second clip isnt impressive. so reshoot the second half with the fixes, add the subtitles, lengthen the title card, cut every shot by hald and then give it back. also, make a second variant, with the second half in hell instead of the forest
+more energy in the forest runner clip. leave the pill runner clip exactly as it is
+captions: stack
+captions_size: 96
+captions_plain: M1 M3
+captions_reset: M3 end
+game: 1.0
+pad: 0.2
+| line | clip | in | len | fit | speed | text | card |
+| M1 | cuts/01_v1.mp4 | 0 | 2.45 | beat 2.45 | | how it started | |
+| M2 | cuts/02_v1.mp4 | 0 | 2.25 | beat 2.25 | | | |
+| M3 | cuts/09_v4.mp4 | 0 | 2.45 | beat 2.45 | | how it's going | |
+| M4 | cuts/10_v4.mp4 | 0 | 2.25 | beat 2.25 | | | |
+| end | title | | 1.75 | | | beta signup in bio | |
