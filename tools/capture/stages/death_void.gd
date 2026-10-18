@@ -117,6 +117,16 @@ func _plain(mat: Material) -> Material:
 	copy.emission_enabled = false
 	copy.vertex_color_use_as_albedo = false
 	copy.next_pass = null
+	copy.clearcoat_enabled = false
+	copy.rim_enabled = false
+	copy.backlight_enabled = false
+	copy.subsurf_scatter_enabled = false
+	copy.refraction_enabled = false
+	copy.heightmap_enabled = false
+	copy.proximity_fade_enabled = false
+	copy.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_DISABLED
+	copy.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+	copy.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
 	copy.set_meta(&"void_plain", true)
 	return copy
 
