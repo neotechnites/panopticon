@@ -1,7 +1,7 @@
 extends "res://tools/capture/stages/guard_alone.gd"
 
 ## rs_snipe: guard_alone with a plan of beats, for the ragdoll short. --set=plan=0m,1m,0m,2h (runner index, m = miss, h = hit);
-## old=1 switches the death ragdoll off on every runner, so a kill plays the pre-ragdoll "Death" clip.
+## old=1 switches the death ragdoll off on every runner, so a kill plays the pre-ragdoll "Death" clip; guard_alone's guard_hand aims.
 
 var _plan: PackedStringArray = []
 
