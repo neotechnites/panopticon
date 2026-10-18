@@ -18,3 +18,6 @@ Ryan on short 9 (v6, task #601): "for the minigame short, two things, one the ho
 
 ## v7 | start_minigame_v7.mp4 | 2026-10-18 12:38
 Head frame check of v7 (task #601, not Ryan's notes; v7 was not shown to him): L3 a tower jamb/column edge stands in the right side of the scope for the first ~1.2 s; no tower column or jamb may be inside the scope circle at any frame of the row.
+
+## v8 | start_minigame_v8.mp4 | 2026-10-18 13:24
+Head frame check of v8 (task #601, not Ryan's notes; v8 was not shown to him): L3 the scope zoomed to 0.09 from the 295 window, the circle a wall of lava texture with a tiny runner at the bottom; not a sniper shot. v9: L3 at the shipped zoom from the 340 window, the runner off the last platform and at the finish, no column in the circle.

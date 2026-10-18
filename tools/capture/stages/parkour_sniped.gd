@@ -16,6 +16,10 @@ extends "res://tools/capture/stages/lavaparkour.gd"
 ## Dials (--set=): window (305.0, where the runner looks), look_to (3.4, he turns off the tower), misses ("1.9,3.0": the squeezes that miss), miss_by (1.5),
 ## hand_at (0.8), zoom_at (1.2), drop_at (0.0 = no drop), hold_to (0.0), hold_out (0.0: s he stands on each outer top, in the openings), scope_zoom (0.0: the optic's zoom factor),
 ## look_drift (1.4 m: the eyes wander on the window so the look is never a frozen frame; 0 drift froze the take).
+## finish (0 = off; v9 L3: deg he runs to off the far bank, short of the portal at 345, then turns to the guard's window and
+## waits) with finish_pace (0.6). The lake is seen from every window through the S5 fins (r 48.5, 4.3 m tall at 304.5/316.5/
+## 328.5 deg): no scope circle (11.3 deg wide at the shipped zoom) fits a gap, so the clean shot is past the last fin, from
+## the 340 window (open 328.5-344.5 at every height; the gate from 345): him landing off the last top and at the finish.
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const WATCH_SECONDS: float = 0.5
@@ -24,6 +28,7 @@ var _runner: PlayerController = null
 var _hand: Node = null
 var _guard: PlayerController = null
 var _hop_seen: int = -1
+var _finish_step: int = -1
 
 
 ## Two more players stand out of both frames up the S1 lane, so his death is not the round's end (a solo kill restarts it).
@@ -62,7 +67,16 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	var plan: Array = POV_PLAN.duplicate(true)
 	for top: int in [0, 2, 4]:
 		plan[top]["hold"] = maxf(float(plan[top].get("hold", 0.0)), float(option("hold_out", 0.0)))
-	_pov_driver = drive(runners[0], steps_for(0, true, 0.0, plan, _pov_meta, lead), 0, "ClipParkourPOV")
+	var steps: Array = steps_for(0, true, 0.0, plan, _pov_meta, lead)
+	var finish: float = float(option("finish", 0.0))
+	if finish > 0.0:
+		# In place of lavaparkour's run to 342 and hold: to the finish, then round onto the window he is shot from.
+		steps.resize(steps.size() - 2)
+		steps.append({"do": "run", "to": LIB.ring_point(finish, 52.5, 0.0), "within": 0.4, "timeout": 4.0,
+			"speed": float(option("finish_pace", 0.6)), "look_down": 4.0})
+		steps.append({"do": "hold", "seconds": 30.0, "look_at": LIB.ring_point(float(option("guard_deg", 295.0)), 5.6, 5.9)})
+		_finish_step = steps.size() - 1
+	_pov_driver = drive(runners[0], steps, 0, "ClipParkourPOV")
 	_pov_lands = landings(plan)
 	_runner = runners[0].controller
 	_line.append(_runner)
@@ -85,6 +99,9 @@ func tick(delta: float) -> void:
 	if hop != _hop_seen:
 		_hop_seen = hop
 		print("[event] %6.2f  hop%d  %s at %.1f deg r %.2f" % [elapsed(), hop, _runner.name, LIB.bearing_of(_runner.global_position), LIB.radius_of(_runner.global_position)])
+	if _finish_step >= 0 and step >= _finish_step:
+		_finish_step = -1
+		print("[event] %6.2f  finish  %s at %.1f deg r %.2f" % [elapsed(), _runner.name, LIB.bearing_of(_runner.global_position), LIB.radius_of(_runner.global_position)])
 	if _hand == null:
 		_raise_the_hand()
 		return
