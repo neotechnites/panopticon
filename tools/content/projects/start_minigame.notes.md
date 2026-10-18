@@ -3,3 +3,6 @@ Agent frame check of v1 (task #601, not Ryan's notes; v1 was not shown to him): 
 
 ## v2 | start_minigame_v2.mp4 | 2026-10-17 22:37
 Agent frame check of v2 (task #601, not Ryan's notes; v2 was not shown to him): L6 the last one standing runs out of frame for 1.4 s before he is seated (the room reads empty).
+
+## v3 | start_minigame_v3.mp4 | 2026-10-17 23:02
+Ryan on n1 (v3, task #601): "for 9, shot one, should only be the shove and the cinematic, not the going into the portal at all. the next two shots are fine, the shot of the player can just be removed. then, why is the last shot not from the perspective of a player? and also, why do the player charactes look like that in game? we made such a detailed model, what the fuck is going on? is the branch youre on not useing the most up to date game?"

@@ -17,6 +17,10 @@ extends "res://tools/capture/stages/stage.gd"
 ## Dials (--set=): cam_deg (0.0, the pier the lens hangs on), cam_r (5.2), cam_h (4.3, over the floor), fov (72.0),
 ## follow (0.55, share of the look on the bodies, the rest on the room's middle), rate (3.0, look easing per s),
 ## drift (0.03 m, handheld), zoom_fov (40.0), zoom_s (2.5), orbit (6.0 deg/s round the room once he is seated; a held lens froze 1.1 s).
+## --pov=runner (Ryan on n1: "why is the last shot not from the perspective of a player?"): ride (2, roster index) is a brawler on the
+## game's own brawl brain, shoving and shoved; won, his eyes go out the window after the last man thrown; seated, a hand scopes the runners (park_deg 25).
+
+const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
 var _started: bool = false
 var _pos: Vector3 = Vector3.ZERO
@@ -24,6 +28,12 @@ var _look: Vector3 = Vector3.ZERO
 var _placed: bool = false
 var _won: bool = false
 var _seated_at: float = -1.0
+var _ride: MatchParticipant = null
+var _last_out: Vector3 = Vector3.ZERO
+var _after: Node = null
+var _hand: Node = null
+var _sat: bool = false
+var _won_at: float = -1.0
 
 
 func bots() -> int:
@@ -42,6 +52,23 @@ func tune_shooter(_profile: ShooterProfile) -> void:
 
 
 func tick(_delta: float) -> void:
+	if _after != null and elapsed() >= _won_at + MatchController.BRAWL_END_SECONDS - 0.1:
+		# The game seats a bot body only on its own input: handed back, its last brawl command dropped.
+		_after.release()
+		_after.queue_free()
+		_after = null
+		_ride.brain.input.command.clear()
+	if _sat and _hand == null:
+		_scope_the_runners()
+	elif _hand != null:
+		LIB.stand_down(seat())   # the round's start wakes the tower brain again: the hand keeps the rifle
+		if OS.has_environment("STAGE_DEBUG") and Engine.get_physics_frames() % 30 == 0:
+			var eye: Camera3D = clip.root.get_viewport().get_camera_3d()
+			var seen: String = ""
+			for p: MatchParticipant in controller().get_participants():
+				if p != _ride and p.body != null and eye.is_position_in_frustum(p.body.global_position + Vector3.UP):
+					seen += " %s %.0f deg" % [p.body.name, LIB.bearing_of(p.body.global_position)]
+			say("scope fov %.0f on:%s" % [eye.fov, seen])
 	if _started:
 		return
 	_started = true
@@ -50,9 +77,15 @@ func tick(_delta: float) -> void:
 	match_controller.brawler_out.connect(
 		func(p: MatchParticipant, _throw: Vector3) -> void:
 			print("[event] %6.2f  brawl_out  %s" % [elapsed(), p.body.name])
+			_last_out = p.body.global_position
 			_report_win()
 	)
+	match_controller.seat_changed.connect(func(p: MatchParticipant, _turns: int) -> void: _sat = _ride != null and p == _ride)
 	match_controller.start_brawl()
+	if String(clip._options.get("pov", "")) == "runner":
+		var roster: Array[MatchParticipant] = match_controller.get_participants()
+		_ride = roster[clampi(int(option("ride", 2)), 0, roster.size() - 1)]
+		stage_body(_ride.body)
 	say("tower_brawl: %d in the room, floor y %.2f r %.2f" % [match_controller.get_participants().size(), match_controller._brawl_floor_y, match_controller._brawl_floor_radius])
 
 
@@ -61,6 +94,39 @@ func _report_win() -> void:
 	if standing.size() == 1 and not _won:
 		_won = true
 		print("[event] %6.2f  brawl_won  %s" % [elapsed(), (standing[0] as MatchParticipant).body.name])
+		if standing[0] == _ride:
+			_eyes_out()
+
+
+## Won: the POV's own hand turns him out the window and down after the last man thrown, until the seat takes him.
+func _eyes_out() -> void:
+	var at: Vector3 = _ride.body.global_position
+	var away: Vector3 = Vector3(_last_out.x - at.x, 0.0, _last_out.z - at.z)
+	away = away.normalized() if away.length() > 0.2 else -_ride.body.global_transform.basis.z
+	var below: Vector3 = at + away * 7.0 + Vector3.DOWN * 5.0
+	_won_at = elapsed()
+	_after = drive(_ride.brain as RunnerBrain, [{"do": "steer", "on": true, "rate": 240.0, "gain": 6.0}, {"do": "human", "on": true},
+		{"do": "hold", "seconds": 30.0, "look_at": below}], int(_ride.index), "BrawlWinnerEyes")
+
+
+## Seated: the brain stands down and a hand scopes the runners below (the run_clip scope paints for a guard POV).
+func _scope_the_runners() -> void:
+	var shooter: TowerShooter = LIB.stand_down(seat())
+	if shooter == null or shooter.controller != _ride.body:
+		return
+	var pool: Array = []
+	for p: MatchParticipant in controller().get_participants():
+		if p != _ride and p.body != null:
+			pool.append(p.body)
+	_hand = GUARD_HAND.new()
+	_hand.name = "BrawlWinnerHand"
+	clip.root.add_child(_hand)
+	_hand.install(_ride.body, controller(), elapsed())
+	_hand.start_at = elapsed()
+	_hand.park = LIB.ring_point(float(option("park_deg", 25.0)), 52.0, 1.0)
+	_hand.beats.append({"from": pool, "seconds": 120.0})
+	clip._pov = "guard"
+	say("tower_brawl: %s seated, hand on %d runners" % [_ride.body.name, pool.size()])
 
 
 func _standing() -> Array:

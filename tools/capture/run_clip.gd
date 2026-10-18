@@ -1238,7 +1238,7 @@ func _wanted_participants() -> Array[MatchParticipant]:
 	for participant: MatchParticipant in _controller.get_participants():
 		if not participant.is_running or participant.is_ghost or participant.body == null:
 			continue
-		if not _on_the_lane(participant.body):
+		if not _on_the_lane(participant.body) and participant.body != _staged:   # a staged brawler rides in the tower room
 			continue
 		running.append(participant)
 	# The one already going fastest: a body wedged in the pit wall reads as

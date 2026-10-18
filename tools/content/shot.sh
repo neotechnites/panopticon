@@ -21,7 +21,7 @@
 # line is the same as hud: crosshair -- a guard POV keeps the crosshair, nothing
 # else is drawn on any shot), and file (a name: the same cut is also written on
 # its own, in the brief's aspect, to final\<file>.mp4 -- a shot handed over as a
-# clip, not a timeline). expect: lines (tools/content/expect.py) run the capture headless on the
+# clip, not a timeline), and shoved (ok: the POV body may be shoved, a brawl POV). expect: lines (tools/content/expect.py) run the capture headless on the
 # Mac first, fixed fps, same seed; any miss stops here with the numbers and the PC is never touched.
 #
 # A short is filmed PORTRAIT through a temporary override.cfg in its own PC checkout
@@ -73,6 +73,7 @@ FREEZE_ALLOWED=$(brief_field "${BRIEF}" "${N}" freeze 0)   # stretches frozen >=
 HUD=$(brief_field "${BRIEF}" "${N}" hud)
 TAPE=$(brief_field "${BRIEF}" "${N}" tape)
 FLASH=$(brief_field "${BRIEF}" "${N}" flash)
+SHOVED=$(brief_field "${BRIEF}" "${N}" shoved)   # "ok": a brawl POV is shoved by design (the gate still fails him out)
 [ "${CROSSHAIR}" = 1 ] && HUD=crosshair
 SAID=$(brief_field "${BRIEF}" "${N}" said)
 FILE=$(brief_field "${BRIEF}" "${N}" file)      # also deliver this cut as final\<file>.mp4
@@ -206,7 +207,7 @@ foreach (\$l in (Get-Content '${log}' -EA SilentlyContinue)) {
   } elseif (\$pov -and \$l -match '^\[event\]\s+([0-9.]+)\s+(out|shove|catch|ghosted)\s+(.*)$') {
     \$t = [double]::Parse(\$Matches[1], \$inv); \$kind = \$Matches[2]; \$rest = \$Matches[3]
     \$who = switch (\$kind) { 'shove' { (\$rest -split '->')[1].Trim().Split(' ')[0] } 'catch' { (\$rest -split 'took')[1].Trim().Split(' ')[0] } default { \$rest.Trim().Split(' ')[0] } }
-    if (\$t -ge \$lo -and \$t -le \$hi -and \$who -eq \$pov) { \$bad += "the POV body \$pov is \$kind at \$t s" }
+    if (\$t -ge \$lo -and \$t -le \$hi -and \$who -eq \$pov -and -not ('${SHOVED}' -eq 'ok' -and \$kind -eq 'shove')) { \$bad += "the POV body \$pov is \$kind at \$t s" }
   }
 }
 # The game's own moves of the player (portal arrive, the kill beat's throw, a seat change) are not teleports or cuts.

@@ -2,32 +2,32 @@
 kind: short
 
 ## 1
-said: pov of a runner in the tower shoving the sniper and the cinematic shot that plays after, in hell
+said: pov of a runner in the tower shoving the sniper and the cinematic shot that plays after, in hell; on n1: "for 9, shot one, should only be the shove and the cinematic, not the going into the portal at all." The cut opens in the tower 0.53 s before the shove (no portal) and runs the kill beat to the seat change.
 capture: --shot=s3_open_lane --stage=finale --pov=runner --bots=3 --shimmer=0 --seed=20261012 --set=lead=6.0;stand=3.0;pace=0.32;beat=2.0
 expect: shove Runner_0 3.48-3.78; arrive Runner_1 2.0-2.25; tower_out Runner_0 +1.9-2.1; alive Runner_1; lens_clear; lens_cover <= 0.5
-seconds: 6.5
-in: 0.9
-refilm: v1
+seconds: 2.5
+in: 3.1
+refilm: v1,v4
 
 ## 2
 said: runner pov, looking over at the tower while hes shooting, then look forward and start doing the lava parkour section
 capture: --shot=s3_open_lane --stage=parkour_sniped --pov=runner --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=look_to=4.4;misses=1.9,3.0,7.4;drop_at=8.6;hold_to=11.6
-tape: start_minigame_v1
+tape: start_minigame_v4
 expect: hop1 Runner_1 4.5-4.7; hop2 Runner_1 +0.7-0.9; alive Runner_1; lens_clear; lens_cover <= 0.5
 seconds: 6.4
 in: 1
-refilm: v1
+refilm: v1,v4
 
 ## 3
 said: pov of the sniper sniping at the runner from the previous shot
 capture: --shot=s3_open_lane --stage=parkour_sniped --pov=guard --bots=3 --shimmer=0 --look=social --rifle=projectile --seed=20261017 --set=look_to=4.4;misses=1.9,3.0,7.4;drop_at=8.6;hold_to=11.6
-tape: start_minigame_v1
+tape: start_minigame_v4
 hud: crosshair
 expect: hit Runner_1 8.9-9.1; in_frame Runner_1 +0.0-0.05; lens_clear; lens_cover <= 0.5
 seconds: 4.6
 in: 5.4
 motion: 0.012
-refilm: v1,v2
+refilm: v1,v2,v4
 
 ## 4
 said: pov of race in forest
@@ -35,7 +35,7 @@ capture: --shot=s3_open_lane --stage=forest_race --map=forest --pov=runner --bot
 expect: race_start 0-0.5; lens_clear; lens_cover <= 0.5
 seconds: 19.5
 in: 1
-refilm: v1
+refilm: v1,v4
 
 ## 5
 said: bust shot of runner in hell idle animating
@@ -47,14 +47,15 @@ motion: 0.005
 refilm: v1,v2
 
 ## 6
-said: Shot of starting shove tower minigame in hell
-capture: --shot=s3_open_lane --stage=tower_brawl --bots=3 --shimmer=0 --look=social --seed=20261017
-tape: start_minigame_v2_brawl
-expect: brawl_start 0.0-0.1; brawl_out Runner_1 2.6-2.9; brawl_out Runner_0 6.2-6.5; brawl_out Runner_3 7.1-7.4; brawl_won Runner_2 7.1-7.4; lens_clear; lens_cover <= 0.5
+said: Shot of starting shove tower minigame in hell; on n1: "why is the last shot not from the perspective of a player?" Runner_2's eyes in the brawl: shoves Runner_0 (3.18), shoved by Runner_3 (3.63), throws Runner_3 out (6.33), the last one standing (7.28) looks out after him, seated (8.80) he scopes the runners below.
+capture: --shot=s3_open_lane --stage=tower_brawl --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017
+tape: start_minigame_v4_brawl
+shoved: ok
+expect: brawl_start 0.0-0.1; brawl_out Runner_1 2.6-2.9; shove Runner_2 3.08-3.28; shove Runner_3 3.53-3.73; brawl_out Runner_0 6.2-6.5; brawl_out Runner_3 7.1-7.4; brawl_won Runner_2 7.1-7.4; seat Runner_2 8.7-8.9; lens_cover <= 0.5
 seconds: 15.5
 in: 0.4
-motion: 0.009
-refilm: v1,v2,v3
+motion: 0.012
+refilm: v1,v2,v3,v4
 
 ## script v1
 pad: 0.2
@@ -92,4 +93,19 @@ pad: 0.2
 | L4 | cuts/04_v1.mp4 | 0 | 19.5 | line | | so, i implemented a race, every player does the course with no sniper, and the first one to complete it gets to be the sniper. this, was the worst part of my game. it wasnt fun, everyone was the same speed, and it took to long | |
 | L5 | cuts/05_v2.mp4 | 0 | 3 | line | | so how did i fix it? | |
 | L6 | cuts/06_v3.mp4 | 0 | 15.5 | line | | instead of everyone running to the tower, everyone starts in the tower, and the way you get to be the sniper, is to be the last one standing in it. so now, instead of a long drawn out boring race, its a fast, chaotic, brawl to see who goes first | |
+| end | title | | 1.75 | | | beta signup in bio | |
+
+## script v4
+from: v3
+notes: Ryan on n1 (v3, task #601): "for 9, shot one, should only be the shove and the cinematic, not the going into the portal at all. the next two shots are fine, the shot of the player can just be removed. then, why is the last shot not from the perspective of a player? and also, why do the player charactes look like that in game? we made such a detailed model, what the fuck is going on? is the branch youre on not useing the most up to date game?"
+notes: Agent frame check of v2 (task #601, not Ryan's notes; v2 was not shown to him): L6 the last one standing runs out of frame for 1.4 s before he is seated (the room reads empty).
+notes: Agent frame check of v1 (task #601, not Ryan's notes; v1 was not shown to him): L1 the kill-beat camera loses the guard for the last 0.8 s; L3 the scope holds 2 s on empty lava after the drop; L5 the bust cuts off the top of his head; L6 the PC brawl ran untaped and diverged from the smoke (an empty room before the seat).
+pad: 0.2
+| line | clip | in | len | fit | speed | text | card |
+| L1 | cuts/01_v4.mp4 | 0 | 2.5 | wait | | Heres how i fixed the worst part about my game | |
+| L2 | cuts/02_v4.mp4 | 0 | 6.4 | line | | In my game, youre either the sniper in the gaurd tower, or youre running an obsticle course to become the sniper. | |
+| L3 | cuts/03_v4.mp4 | 0.2 | 4.4 | line | | but this has a problem, whos the sniper first? i wanted it to be earned | |
+| L4 | cuts/04_v4.mp4 | 0 | 19.5 | line | | so, i implemented a race, every player does the course with no sniper, and the first one to complete it gets to be the sniper. this, was the worst part of my game. it wasnt fun, everyone was the same speed, and it took to long | |
+| L5 | cuts/04_v4.mp4 | cont | | line | | so how did i fix it? | |
+| L6 | cuts/06_v4.mp4 | 0 | 15.5 | line | | instead of everyone running to the tower, everyone starts in the tower, and the way you get to be the sniper, is to be the last one standing in it. so now, instead of a long drawn out boring race, its a fast, chaotic, brawl to see who goes first | |
 | end | title | | 1.75 | | | beta signup in bio | |
