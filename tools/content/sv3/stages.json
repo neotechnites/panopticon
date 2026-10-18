@@ -277,6 +277,24 @@
       "out": null,
       "go": null
      }
+    },
+    {
+     "project": "ragdoll_short",
+     "entry": 54,
+     "said": "clip montage of the sniper hitting people dead in hell, and if we can, get one that freaks out and break the players model and go flying -- Ryan 10-12: \"lets replace the gameplay of the hitting shots montage to be in the forest\"; Ryan 10-17: \"didnt i say it has to be in the forest?\" -- shot 47 at the tight scope (scope_fov=10; shot 47's 24 deg scope left the men too small to read): forest_going, the lead's ragdoll flung (fling=1400) on the first kill (2.30), the middle man after (3.70), both in frame",
+     "capture": "--shot=s3_open_lane --stage=forest_going --map=forest --pov=guard --bots=3 --shimmer=0 --look=social --seed=20261017 --set=fling=1400;scope_fov=10",
+     "tape": null,
+     "expect": "hit Runner_1 2.2-2.4; in_frame Runner_1 +0.0-0.05; hit Runner_2 +1.3-1.5; in_frame Runner_2 +1.3-1.5; alive Runner_3; lens_clear; lens_cover <= 0.5",
+     "seconds": 4.0,
+     "in": 1.2,
+     "motion": "0.012",
+     "ref": null,
+     "ticks": {
+      "hit": 2.3,
+      "shove": null,
+      "out": null,
+      "go": null
+     }
     }
    ]
   },
@@ -541,6 +559,24 @@
      "ticks": {
       "hit": null,
       "shove": null,
+      "out": null,
+      "go": null
+     }
+    },
+    {
+     "project": "ragdoll_short",
+     "entry": 55,
+     "said": "clip montage of the sniper hitting people dead in hell, and if we can, get one that freaks out and break the players model and go flying -- Ryan 10-12: \"lets replace the gameplay of the hitting shots montage to be in the forest\"; Ryan 10-17: \"didnt i say it has to be in the forest?\" -- the montage's other forest kills (ragdoll_short#10, haters down the guard's scope, in place of shot 51 whose kills were behind trunks): the leader dropped (2.40), the shover throws a man into the ravine (5.03, impulse 18 up 6: he goes flying, the scope follows), the shover dropped (6.50)",
+     "capture": "--map=forest --shot=s3_open_lane --stage=haters --pov=guard --bots=3 --seed=20261012 --shimmer=0",
+     "tape": null,
+     "expect": "hit Runner_3 2.3-2.5; shove Runner_1 +2.55-2.75; hit Runner_1 +4.0-4.2; lens_clear; lens_cover <= 0.5",
+     "seconds": 6.6,
+     "in": 1.0,
+     "motion": "0.012",
+     "ref": null,
+     "ticks": {
+      "hit": 2.4,
+      "shove": 5.05,
       "out": null,
       "go": null
      }
@@ -1086,7 +1122,7 @@
    "dials": {
     "from_t": 1.0,
     "move": 8.0,
-    "fov_from": 50.0,
+    "fov_from": 45.0,
     "fov_to": 70.0
    },
    "for_shorts": true,
@@ -1094,7 +1130,7 @@
     {
      "project": "stages",
      "entry": 11,
-     "said": "short 4 L3, Ryan: \"slow zoom out shot of the old hell map\": hell_pullback, a live 3-runner bot match on the hell ring (map 1); the lens opens low over the S1 deck on the runners (deg 20, r 40, 13 m up, fov 50) and cranes up and back over 8 s to polish_aerial's high spot over the pit (deg 0, r 34, 40 m up, fov 70), the deck, tower, pit and far gallery coming into frame. Mac smoke: the move 1.00-9.00, the lens clear; the end look ray meets the tower at 52 m (mid frame).",
+     "said": "short 4 L3, Ryan: \"slow zoom out shot of the old hell map\": hell_pullback, a live 3-runner bot match on the hell ring (map 1); the lens opens close on the tower (deg 0, r 14, 6 m up, fov 45) and pulls straight back and up the shaft over 8 s to polish_aerial's high spot (deg 0, r 36, 34 m up, fov 70), the tower shrinking as the pit, deck and far gallery come into frame. Mac smoke: the move 1.00-9.00, the lens clear.",
      "capture": "--shot=pit_orbit --stage=hell_pullback --bots=3 --seed=20261017 --shimmer=0",
      "tape": null,
      "expect": "pullback start 0.9-1.1; pullback end 8.9-9.1; lens_clear; lens_cover <= 0.5",
@@ -1113,6 +1149,24 @@
      "project": "ragdoll_short",
      "entry": 45,
      "said": "slow zoom out shot of the old hell map -- the hell ring, map 1 (the old map: the forest is the new one), as it ships; hell_pullback (stages#11) cranes up and back over it during a live 3-runner match",
+     "capture": "--shot=pit_orbit --stage=hell_pullback --bots=3 --seed=20261017 --shimmer=0",
+     "tape": null,
+     "expect": "pullback start 0.9-1.1; pullback end 8.9-9.1; lens_clear; lens_cover <= 0.5",
+     "seconds": 8.2,
+     "in": 1.0,
+     "motion": null,
+     "ref": null,
+     "ticks": {
+      "hit": null,
+      "shove": null,
+      "out": null,
+      "go": null
+     }
+    },
+    {
+     "project": "ragdoll_short",
+     "entry": 53,
+     "said": "slow zoom out shot of the old hell map -- the hell ring, map 1 (the old map: the forest is the new one), as it ships; hell_pullback (stages#11) refilmed after the frame check of v20's first cut (shot 45's crane read as a push toward the tower): the lens opens close on the tower and pulls straight back and up the shaft over 8 s, the tower shrinking as the pit, the deck and the far gallery come into frame, during a live 3-runner match",
      "capture": "--shot=pit_orbit --stage=hell_pullback --bots=3 --seed=20261017 --shimmer=0",
      "tape": null,
      "expect": "pullback start 0.9-1.1; pullback end 8.9-9.1; lens_clear; lens_cover <= 0.5",
@@ -1257,6 +1311,24 @@
       "out": null,
       "go": null
      }
+    },
+    {
+     "project": "ragdoll_short",
+     "entry": 56,
+     "said": "a sniper pov, missing shots, then cut to the runner pov near the end, and he watches the person in front of him get shot -- the runner half (ragdoll_short#39, pack_sniped, in place of shot 50 whose lead dropped outside the portrait frame): down the back runner's eyes in a pack of three (4 players), the one a step ahead and to his right dropped by the tower (3.02), and he runs on watching him ragdoll through \"Ragdolls\"",
+     "capture": "--shot=pack_lead --stage=pack_sniped --pov=runner --bots=3 --shimmer=0 --seed=20261017 --set=pack=3;pov_index=2;victim_index=1;pov_back=1.4",
+     "tape": null,
+     "expect": "hit Runner_2 2.92-3.12; lens_clear; lens_cover <= 0.5",
+     "seconds": 5.0,
+     "in": 1.0,
+     "motion": null,
+     "ref": null,
+     "ticks": {
+      "hit": 3.02,
+      "shove": null,
+      "out": null,
+      "go": null
+     }
     }
    ]
   },
@@ -1383,7 +1455,9 @@
     "look": 12.0,
     "drop_mid": 2.05,
     "drop_in": 4.45,
-    "hold": 1.0
+    "hold": 1.0,
+    "inner_ahead": 0.0,
+    "veer": ""
    },
    "for_shorts": true,
    "approved": []

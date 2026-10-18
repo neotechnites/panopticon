@@ -10,13 +10,13 @@ Written by `python -m sv3.catalogue` from the stage headers and approved entries
 | death_void | hell | s3_open_lane | - | deg=195, r=52, die_at=1.6, dist=4.6, cam_h=1.0, fov=40.0, turn=35.0, grey=0.5 | stages#10, ragdoll_short#44 | -; - | yes |
 | faceshove | hell | s3_face_side | runner | deg=170.3, r=50.5, gap=2.4, rounds=6 | uncatalogued | - | yes |
 | finale | hell | s3_open_lane | runner | lead=5.0, stand=3.0, pace=0.6, beat=2.0 | stages#4, stages#18, ragdoll_short#49 | shove 3.63; shove 3.63; shove 3.63 | yes |
-| forest_going | forest | s3_open_lane | guard/runner | pace=0.62, scope_fov=24.0, hand_at=0.8, drop_lead=2.3, drop_mid=3.7, track=5.0, reload=1.0, pov_start=29.0, pov_r=51.5, pov_pace=None, miss_pov=0.0, miss_by=1.3, fling=1400 | stages#7, stages#8, stages#14, ragdoll_short#47 | hit 2.3; hit 2.3; hit 2.3; hit 2.3 | yes |
+| forest_going | forest | s3_open_lane | guard/runner | pace=0.62, scope_fov=24.0, hand_at=0.8, drop_lead=2.3, drop_mid=3.7, track=5.0, reload=1.0, pov_start=29.0, pov_r=51.5, pov_pace=None, miss_pov=0.0, miss_by=1.3, fling=1400 | stages#7, stages#8, stages#14, ragdoll_short#47, ragdoll_short#54 | hit 2.3; hit 2.3; hit 2.3; hit 2.3; hit 2.3 | yes |
 | forest_pov_kills | forest | s3_open_lane | runner | pace=0.5 | ragdoll_short#15 | - | yes |
 | forest_race | forest | s3_open_lane | runner | ride=3, pace=1.0, gap=4.0, gain=0.08, slow=0.75, aside=0.0, reach=3.0, r_min=50.3, r_max=53.0, log_every=1.0 | stages#19 | - | yes |
 | forest_rush | hell | - | - | guard_deg=84.0, guard_r=4.4, scope_fov=14.0, hand_at=0.8, drop_lead=2.4, drop_pov=3.75, reload=0.45, go=0.6, go_victim=0.55, go_extra=0.45, pov_at=None, victim_at=None, extra_at=None, lane_mid=, lane_r=None, lane_to=80.0, victim_to=92.0, extra_to=96.0, victim_speed=0.88, range=1.2, watch=1.0, impulse=24.0, up=None, tail=0.7 | uncatalogued | - | yes |
 | forest_window | forest | s3_open_lane | guard | pace=0.6, scope_fov=10 | stages#15, ragdoll_short#13, ragdoll_short#14, ragdoll_short#51 | hit 2.6; -; -; hit 2.6 | yes |
 | guard_alone | hell | s3_open_lane | guard | degs=162,151,140, r=54.0, pace=0.5, arc=40.0, beat=1.7, fire_at=1.25, start=1.8, lead_in=-13.0, lift=1, speed=0.0 | uncatalogued | - | yes |
-| haters | forest | s3_open_lane | guard/runner | pace=1.0, chase_at=4.5, hand_start=0.8, impulse=18.0, up=6.0, guard_deg=315.0, guard_r=4.4 | haters#5, ragdoll_short#10 | -; - | yes |
+| haters | forest | s3_open_lane | guard/runner | pace=1.0, chase_at=4.5, hand_start=0.8, impulse=18.0, up=6.0, guard_deg=315.0, guard_r=4.4 | haters#5, ragdoll_short#10, ragdoll_short#55 | -; -; hit 2.4, shove 5.05 | yes |
 | haters_forest | forest | s3_open_lane | guard/runner | pace=1.0, impulse=18.0, up=6.0 | haters#6, haters#7, haters#8, haters#9, haters#10, ragdoll_short#11 | -; -; -; -; -; - | yes |
 | haters_forest_edge | forest | s3_open_lane | runner | pace=0.75 | haters#11, haters#12 | -; - | yes |
 | haters_forest_shove | forest | s3_open_lane | runner | go=0.6, go_victim=0.55, go_extra=0.45, pov_at=None, victim_at=None, extra_at=None, lane_mid=, lane_r=None, lane_to=80.0, victim_to=92.0, extra_to=96.0, victim_speed=0.88, range=1.2, watch=1.0, impulse=24.0, up=None, tail=0.7, run_on=3.0, run_to=110.0, run_r=52.0 | haters_final#3, haters#13 | shove 3.4; shove 2.3 | yes |
@@ -24,14 +24,14 @@ Written by `python -m sv3.catalogue` from the stage headers and approved entries
 | hell_explainer | hell | s3_open_lane | guard/runner | start=34,22,4.8, r=49.5, stop=68.5, mid_pace=0.41, pov_pace=0.45, pov_run=0.7, close_pace=0.4, watch=1.1, run_to=100.0, window=62.0, hand_at=0.8, zoom_at=1.2, lower=, track_to=0.0, miss_lead=2.0, miss_mid=3.4, miss_by=1.4, drop_at=5.5, hold_to=9.0, air_delay=0.05, impulse=0.0, up=0.0 | stages#1, stages#2, stages#12, stages#13, ragdoll_short#46, ragdoll_short#50 | hit 6.27, out 6.42; hit 6.27, shove 10.25, out 6.42; hit 6.27; hit 6.27; hit 6.27; hit 6.27 | yes |
 | hell_going | hell | lava_parkour | guard | window=306.0, scope_fov=14.0, hand_at=1.0, drop_lead=3.6, drop_mid=4.05, reload=0.4, track=3.0 | uncatalogued | - | yes |
 | hell_idle_bust | hell | s1_cave | - | deg=42, r=52, dist=2.5, fov=30, above=0.05, aim=0.1, drift=0.03 | stages#20 | - | yes |
-| hell_pullback | hell | pit_orbit | - | from_t=1.0, move=8.0, fov_from=50.0, fov_to=70.0 | stages#11, ragdoll_short#45 | -; - | yes |
+| hell_pullback | hell | pit_orbit | - | from_t=1.0, move=8.0, fov_from=45.0, fov_to=70.0 | stages#11, ragdoll_short#45, ragdoll_short#53 | -; -; - | yes |
 | human_run | hell | - | - | - | uncatalogued | - | yes |
 | lavaparkour | hell | lava_parkour | runner | line=4, stagger=0.2, solo=1, shimmer=0.0 | trailer_reveal#11 | - | yes |
 | melee | hell | s3_melee | - | deg=195.0, r=52.0, ring=1.9, cooldown=0.8, seconds=12.0, count=5 | stages#16, ragdoll_short#48 | shove 1.475; shove 1.475 | yes |
-| pack_sniped | hell | pack_lead | runner | start=144.0, end=214.0, fire_at=3.0, pov_index=3, victim_index=1, pov_back=0.0, pack=5 | ragdoll_short#39 | - | yes |
+| pack_sniped | hell | pack_lead | runner | start=144.0, end=214.0, fire_at=3.0, pov_index=3, victim_index=1, pov_back=0.0, pack=5 | ragdoll_short#39, ragdoll_short#56 | -; hit 3.02 | yes |
 | parkour_sniped | hell | s3_open_lane | guard/runner | window=305.0, look_to=3.4, misses=1.9,3.0, miss_by=1.5, hand_at=0.8, zoom_at=1.2, drop_at=0.0, hold_to=0.0, look_drift=1.4 | stages#21, stages#22 | -; hit 9.0 | yes |
 | pill_era | hell | guard_scope | guard/runner | - | stages#5, stages#6 | hit 2.075, go 1.0; hit 2.075, go 1.0 | yes |
-| pill_twin | forest | s3_open_lane | guard | window=32.0, eye_r=4.4, start=35.5, lanes=48.5,51.5,54.5, pace=0.73, scope_fov=28.0, pov_fov=70.0, look=12.0, drop_mid=2.05, drop_in=4.45, hold=1.0 | uncatalogued | - | yes |
+| pill_twin | forest | s3_open_lane | guard | window=32.0, eye_r=4.4, start=35.5, lanes=48.5,51.5,54.5, pace=0.73, scope_fov=28.0, pov_fov=70.0, look=12.0, drop_mid=2.05, drop_in=4.45, hold=1.0, inner_ahead=0.0, veer= | uncatalogued | - | yes |
 | polish_aerial | hell | pit_orbit | - | - | uncatalogued | - | yes |
 | polish_crack | hell | s4_edge | - | first=6.18, gap=0.75, jitter=0.12 | uncatalogued | - | yes |
 | polish_crack_run | hell | s4_edge | runner | wait=6.1, gap=0.7, jitter=0.12, pov=0 | uncatalogued | - | yes |

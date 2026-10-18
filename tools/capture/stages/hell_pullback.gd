@@ -3,15 +3,15 @@ extends "res://tools/capture/stages/stage.gd"
 ## hell_pullback: short 4 L3. Ryan: "slow zoom out shot of the old hell map" (the hell ring, map 1, a live bot match).
 ## [code]--stage=hell_pullback --shot=pit_orbit --bots=3 --seed=20261017[/code]; [event] pullback at the start and the end of the move.
 
-# The lens opens low over the S1 deck (deg 20, r 40, 13 m up, the open shaft inside the r ~47 wall) looking down on
-# the runners crossing 32 deg r 51, and cranes up and back to polish_aerial's high spot (deg 0, r 34, 40 m up) looking
-# 12 m past the pit's centre: the deck, the tower, the pit and the far gallery come into frame as it rises.
-# fov 50 -> 70 (vertical). The move is eased at both ends with a linear middle, so it never reads as a still.
-# Dials (--set=): from_t (1.0 s, the move starts), move (8.0 s), fov_from (50), fov_to (70).
+# The lens opens close on the tower (deg 0, r 14 off the axis, 6 m up, fov 45) and pulls straight back and up the open
+# shaft (inside the r ~47 wall) to polish_aerial's high spot (deg 0, r 36, 34 m up, fov 70) looking 12 m past the pit's
+# centre: the tower shrinks and the pit, the deck and the far gallery come into frame (v1's crane read as a push in).
+# The move is eased at both ends with a linear middle, so it never reads as a still.
+# Dials (--set=): from_t (1.0 s, the move starts), move (8.0 s), fov_from (45), fov_to (70).
 
-const START := [20.0, 40.0, 13.0]
-const START_LOOK := [32.0, 51.0, 0.5]
-const END := [0.0, 34.0, 40.0]
+const START := [0.0, 14.0, 6.0]
+const START_LOOK := [180.0, 0.0, 4.0]
+const END := [0.0, 36.0, 34.0]
 const END_LOOK := [180.0, 12.0, -4.0]
 const LINEAR_SHARE: float = 0.5
 
@@ -33,7 +33,7 @@ func lens(_delta: float) -> bool:
 	var far_look: Vector3 = LIB.ring_point(END_LOOK[0], END_LOOK[1], END_LOOK[2])
 	camera().global_position = pos
 	camera().look_at(near_look.lerp(far_look, u), Vector3.UP)
-	camera().fov = lerpf(float(option("fov_from", 50.0)), float(option("fov_to", 70.0)), u)
+	camera().fov = lerpf(float(option("fov_from", 45.0)), float(option("fov_to", 70.0)), u)
 	camera().current = true
 	for i: int in 2:
 		if not _said[i] and ((i == 0 and s > 0.0) or (i == 1 and s >= 1.0)):

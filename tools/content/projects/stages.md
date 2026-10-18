@@ -82,7 +82,7 @@ in: 1.2
 motion: 0.002
 
 ## 11
-said: short 4 L3, Ryan: "slow zoom out shot of the old hell map": hell_pullback, a live 3-runner bot match on the hell ring (map 1); the lens opens low over the S1 deck on the runners (deg 20, r 40, 13 m up, fov 50) and cranes up and back over 8 s to polish_aerial's high spot over the pit (deg 0, r 34, 40 m up, fov 70), the deck, tower, pit and far gallery coming into frame. Mac smoke: the move 1.00-9.00, the lens clear; the end look ray meets the tower at 52 m (mid frame).
+said: short 4 L3, Ryan: "slow zoom out shot of the old hell map": hell_pullback, a live 3-runner bot match on the hell ring (map 1); the lens opens close on the tower (deg 0, r 14, 6 m up, fov 45) and pulls straight back and up the shaft over 8 s to polish_aerial's high spot (deg 0, r 36, 34 m up, fov 70), the tower shrinking as the pit, deck and far gallery come into frame. Mac smoke: the move 1.00-9.00, the lens clear.
 capture: --shot=pit_orbit --stage=hell_pullback --bots=3 --seed=20261017 --shimmer=0
 expect: pullback start 0.9-1.1; pullback end 8.9-9.1; lens_clear; lens_cover <= 0.5
 seconds: 8.2
