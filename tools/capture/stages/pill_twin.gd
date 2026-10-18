@@ -93,6 +93,12 @@ func tick(_delta: float) -> void:
 	if _vignette != null:
 		# The vignette re-reads the opened profile every frame (as forest_rush), or it keeps the shipped small disc.
 		_vignette.set(&"_applied", -1.0)
+	var guard: PlayerController = _hand.get(&"_guard") if _hand != null else null
+	var optic: WeaponOptic = guard.get_node_or_null(^"Optic") as WeaponOptic if guard != null else null
+	if optic != null and not optic.is_fully_zoomed():
+		# The pill's lens is at fov 28 from the first frame: no zoom-in on screen (hell's 0.6 s transition ran into the cut).
+		optic.set_zoomed(true)
+		optic.tick(1.0)
 	if _bodies.is_empty():
 		return
 	if _hand != null and _hand.beats.is_empty():
