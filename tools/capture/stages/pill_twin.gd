@@ -4,7 +4,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## outer man held 1.0 s; the hand parks 4 deg left of the pack, beats from 0.9 (drop mid 2.05), 2.6 (drop inner 4.45), 4.9.
 ## [code]--stage=pill_twin --shot=s3_open_lane --map=forest|bentham_ring --pov=guard|runner --bots=3 --set=window=32[/code]
 ## Dials: window (32), eye_r (4.4), start (35.5 deg at 0.6 s), lanes (48.5,51.5,54.5), pace (0.73: 8 m/s, the pill walk),
-## scope_fov (28), pov_fov (70), look (pov glance right, deg; 12), drop_mid (2.05), drop_in (4.45), hold (1.0).
+## scope_fov (28), pov_fov (70), look (pov glance right, deg; 12), drop_mid (2.05), drop_in (4.45), hold (1.0), inner_ahead (0 m), veer.
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
@@ -52,6 +52,9 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	for index: int in 3:
 		var r: float = _radii[index]
 		var deg: float = _start if index == SPARE else _start + rad_to_deg(LEAD_METRES / r)
+		if index == INNER:
+			# inner_ahead (m): the pill's inner lane gains 2.2 m on the mid by the drop; tighter lanes start him that far up.
+			deg += rad_to_deg(float(option("inner_ahead", 0.0)) / r)
 		var lane: Dictionary = {"do": "lane", "to": _start + 120.0, "r": r, "speed": pace, "weave": 0.06, "period": 1.4, "timeout": 30.0}
 		var steps: Array = [{"do": "place", "at": LIB.ring_point(deg, r, 0.1), "face": LIB.tangent_at(deg)}]
 		if index == SPARE:
@@ -59,6 +62,14 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			# The pill's spare: held 1.0 s of take time, then his lane, his head eased onto the nearest mate.
 			steps.append({"do": "until", "t": float(option("hold", 1.0)) - 0.6})
 			lane["glances"] = [{"t": 0.0, "right": float(option("look", 12.0)), "pitch": -1.0}]
+		var veer: PackedStringArray = String(option("veer", "")).split(",")
+		if index == INNER and veer.size() == 2:
+			# veer ("deg,r"): the inner man steps out to r at deg, round a rock on his lane (hell's 066 lip).
+			var out: Dictionary = lane.duplicate()
+			lane["to"] = float(veer[0])
+			out["r"] = float(veer[1])
+			steps.append(lane)
+			lane = out
 		steps.append(lane)
 		steps.append({"do": "hold", "seconds": 60.0, "fidget": true})
 		drive(runners[index], steps, index, "ClipPillTwin%d" % index)
@@ -87,6 +98,8 @@ func tick(_delta: float) -> void:
 		for body: PlayerController in _bodies:
 			line += " %s %.1f/%.2f v%.1f" % [body.name, LIB.bearing_of(body.global_position), LIB.radius_of(body.global_position), Vector2(body.velocity.x, body.velocity.z).length()]
 		say("at" + line)
+	if OS.has_environment("PILL_PROBE") and Engine.get_physics_frames() % 6 == 0 and eye != null:
+		_probe_view(eye)
 	if _hand == null:
 		_raise_the_hand()
 	else:
@@ -139,3 +152,26 @@ func on_hit(collider: Node3D) -> void:
 			rad_to_deg(Vector2(fwd.x, fwd.z).angle_to(Vector2(to.x, to.z))), LIB.bearing_of(body.global_position), LIB.radius_of(body.global_position)])
 		if lens.is_position_in_frustum(body.global_position + Vector3.UP):
 			print("[event] %6.2f  in_frame  %s" % [elapsed(), body.name])
+
+
+## PILL_PROBE=1: the POV's 9:16 frame as a 9x16 ray grid: the share blocked by a wall/trunk within 8 m, and the mid man seen or not.
+func _probe_view(eye: Camera3D) -> void:
+	var space: PhysicsDirectSpaceState3D = eye.get_world_3d().direct_space_state
+	var half_y: float = tan(deg_to_rad(eye.fov) * 0.5)
+	var half_x: float = half_y * 9.0 / 16.0
+	var blocked: int = 0
+	for gx: int in 9:
+		for gy: int in 16:
+			var dir: Vector3 = eye.global_basis * Vector3(((gx + 0.5) / 9.0 * 2.0 - 1.0) * half_x, (1.0 - (gy + 0.5) / 16.0 * 2.0) * half_y, -1.0).normalized()
+			var q := PhysicsRayQueryParameters3D.create(eye.global_position, eye.global_position + dir * 8.0)
+			q.exclude = [_bodies[SPARE].get_rid()]
+			var hit: Dictionary = space.intersect_ray(q)
+			if not hit.is_empty() and (hit["normal"] as Vector3).y < 0.7 and not (hit["collider"] is PlayerController):
+				blocked += 1
+	var mid: PlayerController = _bodies[MID]
+	var seen: String = "-"
+	if is_instance_valid(mid):
+		var q2 := PhysicsRayQueryParameters3D.create(eye.global_position, mid.global_position + Vector3.UP * 1.2)
+		q2.exclude = [_bodies[SPARE].get_rid(), mid.get_rid()]
+		seen = "seen" if space.intersect_ray(q2).is_empty() else "HIDDEN"
+	say("view blocked %.2f, mid %s" % [blocked / 144.0, seen])

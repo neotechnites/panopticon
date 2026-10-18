@@ -79,8 +79,8 @@ pad: 0.2
 | end | title | | 1.75 | | | beta signup in bio | |
 
 ## 7
-said: v3 of ## 5 (Ryan on v2: "when theres shoving and platforming, it doesnt read as the same reall at all"; ruling: a shot-for-shot twin of ## 1): pill_twin in hell: the guard at the 62 deg window scoped to fov 28, three abreast on lanes r 48/50/54 at 8 m/s over the S1 deck (the clear rock-free lanes), the outer man held to 1.0 s; the hand on the middle man from 0.9 drops him at 2.05 44.4 m off dead centre (pill 2.07, 44.5 m), holds on him to 2.6. 2.45 s from 0.6, as ## 1 plays.
-capture: --shot=s3_open_lane --stage=pill_twin --pov=guard --bots=3 --shimmer=0 --look=social --seed=20261017 --set=window=62;eye_r=5.6;lanes=48,50,54;look=26
+said: v3 of ## 5 (Ryan on v2: "when theres shoving and platforming, it doesnt read as the same reall at all"; ruling: a shot-for-shot twin of ## 1): pill_twin in hell: the guard at the 62 deg window scoped to fov 28, three abreast on lanes r 47/48.8/50.6 at 8 m/s on the S1 deck's rock-free inner band by the pit (r 47-51, 43.5-61.5 deg), the inner man 2.5 m up and stepping out to r 49.8 from 56 deg round the 066 lip rock, the outer man held to 1.0 s; the hand parked 4 deg left of the pack, on the middle man from 0.9, drops him at 2.05 at 57.2 deg, 43.5 m off, dead centre (pill 2.07, 44.5 m), holds on him to 2.6. 2.45 s from 0.6, as ## 1 plays.
+capture: --shot=s3_open_lane --stage=pill_twin --pov=guard --bots=3 --shimmer=0 --look=social --seed=20261017 --set=window=62;eye_r=5.6;start=41;lanes=47,48.8,50.6;look=8;inner_ahead=2.5;veer=56,49.8
 tape: how_it_started_hell_v3
 hud: crosshair
 expect: hit Runner_2 1.95-2.15; in_frame Runner_2 +0.0-0.05; alive Runner_3; lens_clear; lens_cover <= 0.5
@@ -90,8 +90,8 @@ motion: 0.012
 refilm: v3
 
 ## 8
-said: v3 of ## 6 (as ## 7): the SAME tape down the held outer man's eyes at fov 70: he goes at 1.0, head eased right onto the mate, who drops at 2.05 7.8 m off, 9.9 deg right, in frame (pill 2.07, 9 deg right). 2.25 s from 1.0, as ## 2 plays.
-capture: --shot=s3_open_lane --stage=pill_twin --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017 --set=window=62;eye_r=5.6;lanes=48,50,54;look=26
+said: v3 of ## 6 (as ## 7): the SAME tape down the held outer man's eyes at fov 70: he goes at 1.0, head eased right onto the mate, who drops at 2.05 7.3 m off, 9.1 deg right, in frame (pill 2.07, 9 deg right); the pit side of his frame open (no rock within 8 m over 0.4 of it), the mate never hidden. 2.25 s from 1.0, as ## 2 plays.
+capture: --shot=s3_open_lane --stage=pill_twin --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017 --set=window=62;eye_r=5.6;start=41;lanes=47,48.8,50.6;look=8;inner_ahead=2.5;veer=56,49.8
 tape: how_it_started_hell_v3
 expect: hit Runner_2 1.95-2.15; in_frame Runner_2 +0.0-0.05; alive Runner_3; lens_clear; lens_cover <= 0.5
 seconds: 2.4
