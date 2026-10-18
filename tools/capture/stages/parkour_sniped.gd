@@ -121,7 +121,7 @@ func _raise_the_hand() -> void:
 	else:
 		_hand.beats.append({"body": _runner, "seconds": 100.0})
 	_hand.park = LIB.ring_point(292.0, 52.8, 0.6)
-	say("guard at the %.0f window; the hand from %.2f s" % [float(option("window", 305.0)), _hand.start_at])
+	say("guard at the %.0f window; the hand from %.2f s" % [float(option("guard_deg", 295.0)), _hand.start_at])
 
 
 func on_hit(collider: Node3D) -> void:

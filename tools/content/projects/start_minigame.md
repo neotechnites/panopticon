@@ -51,7 +51,7 @@ said: Shot of starting shove tower minigame in hell; on n1: "why is the last sho
 capture: --shot=s3_open_lane --stage=tower_brawl --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017 --set=watch=1;turn_at=1.0;fire_at=5.3
 tape: start_minigame_v7_brawl
 shoved: ok
-expect: brawl_start 0.0-0.1; shove Runner_1 2.37-2.57; brawl_out Runner_1 3.3-3.55; shove Runner_2 3.57-3.77; brawl_out Runner_3 4.5-4.75; brawl_won Runner_2 7.55-7.8; hit Runner_3 14.45-14.65; lens_cover <= 0.55
+expect: brawl_start 0.0-0.1; shove Runner_1 2.37-2.57; brawl_out Runner_1 3.3-3.55; shove Runner_2 3.57-3.77; brawl_out Runner_3 4.5-4.75; brawl_won Runner_2 7.55-7.8; hit Runner_1 14.4-14.6; lens_cover <= 0.55
 seconds: 14.65
 in: 0.3
 motion: 0.012
