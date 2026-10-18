@@ -700,3 +700,21 @@ pad: 0.2
 | L6 | cuts/48_v20.mp4@1.1:1.6,cuts/52_v20.mp4@2.05 | | | line | | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. | | | |
 | L7 | cuts/49_v20.mp4 | 0.4 | | line | | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. | | | |
 | end | title | | 1.75 | | | beta signup in bio | | | |
+
+## script v22
+# v22 = v21 with L5's haters part ending before the guard's re-seat (the HUD's tower banner showed for 0.15 s at v21's 28.85 s); v21 = v20 after its frame check (never shown to Ryan): L3, L4's runner half and L5 refilmed; v20's table, rows composed by hand where a line needs more than one shot (task #630, short 4 from scratch):
+# L1 the second miss and the hit with the old Death clip just after "bad", held 1.75 s past the hit; M2 the grey void
+# death, scared.gif fading in from 1.2 s over 2.0 s (the beat ends with the fade); L3 the crane-out; L4 the scope's two
+# misses (46), then the back runner (50) as the lead ahead drops on "Ragdolls", the placeholder comment card at "this guy";
+# L5 forest: the flung lead and the middle man (54), the haters scope's drop, ravine throw and drop (55); frame check: L3 = 53 (45 read as a push in), L4 runner = 56 (50's lead left the frame); L6 the 3-runner scrap (48), then the
+# POV's pit shove on "shove" (52); L7 the portal, the shove and the 2.0 s kill-beat cinematic (49). "htis" spoken "this".
+pad: 0.2
+| line | clip | in | len | fit | speed | text | card | grade | gif_fade |
+| L1 | cuts/43_v20.mp4 | 0.3 | 4.5 | wait | | The death animation in my game was really bad. | | | |
+| M2 | cuts/44_v20.mp4 | 0 | 3.6 | beat 3.6 | | | | | external/scared.gif 1.2 2.0 end |
+| L3 | cuts/53_v21.mp4 | 1.5 | 6.7 | line | | Yeaeeeeeeeh I needed something better, but if my art didnt make it clear, I'm a programmer, not an animator | | | |
+| L4 | cuts/46_v20.mp4@0:4.6,cuts/56_v21.mp4@0 | | | line | | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem? Ragdolls | cards/L4_card0.png w=940 y=0.2 in=0.05 out=0.2 from=this to=Ragdolls+0.6 | | |
+| L5 | cuts/54_v21.mp4@0.35:2.72,cuts/55_v21.mp4@0.8:1.2,cuts/55_v21.mp4@3.7:2.4 | | | line | | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining | | | |
+| L6 | cuts/48_v20.mp4@1.1:1.6,cuts/52_v20.mp4@2.05 | | | line | | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. | | | |
+| L7 | cuts/49_v20.mp4 | 0.4 | | line | | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. | | | |
+| end | title | | 1.75 | | | beta signup in bio | | | |
