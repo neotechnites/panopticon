@@ -18,6 +18,7 @@ var _avatar: PrisonerAvatar = null
 var _died: bool = false
 var _lens_at: Vector3 = Vector3.ZERO
 var _look_at: Vector3 = Vector3.ZERO
+var _floor: MeshInstance3D = null
 
 
 func bots() -> int:
@@ -27,6 +28,12 @@ func bots() -> int:
 func before_start() -> void:
 	LIB.disarm_pads(clip.root)
 	LIB.disarm_traps(clip.root)
+	# Grey from the first frame: a real-time take's clock reaches the cast late, so nothing waits for it.
+	var deg: float = float(option("deg", BODY_DEG))
+	var r: float = float(option("r", BODY_R))
+	_lens_at = LIB.ring_point(deg - rad_to_deg(float(option("dist", 4.6)) / r), r, float(option("cam_h", 1.0)))
+	_look_at = LIB.ring_point(deg, r, 0.75)
+	_grey_the_world()
 
 
 func cast(runners: Array[RunnerBrain]) -> bool:
@@ -36,8 +43,6 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	var r: float = float(option("r", BODY_R))
 	var at: Vector3 = LIB.ring_point(deg, r, 0.1)
 	var dist: float = float(option("dist", 4.6))
-	_lens_at = LIB.ring_point(deg - rad_to_deg(dist / r), r, float(option("cam_h", 1.0)))
-	_look_at = LIB.ring_point(deg, r, 0.75)
 	var face: Vector3 = LIB.toward(at, _lens_at).rotated(Vector3.UP, deg_to_rad(float(option("turn", 35.0))))
 	_body = runners[0].controller
 	_avatar = PrisonerAvatar.of(_body)
@@ -47,7 +52,9 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "place", "at": at, "face": face},
 		{"do": "hold", "seconds": 60.0, "sway": 0.0, "period": 3.1},
 	], 0)
-	_grey_the_world()
+	for node: Node in clip.root.find_children("*", "GeometryInstance3D", true, false):
+		if node != _floor and not _body.is_ancestor_of(node):
+			(node as GeometryInstance3D).visible = false
 	say("death_void: %s at %.1f deg r %.1f, lens %.1f m off, ragdoll %s" % [_body.name, deg, r, dist, "off" if _avatar != null else "?"])
 	return true
 
@@ -61,7 +68,7 @@ func tick(_delta: float) -> void:
 
 
 func lens(_delta: float) -> bool:
-	if _body == null or camera() == null:
+	if camera() == null or _lens_at == Vector3.ZERO:
 		return false
 	camera().global_position = _lens_at
 	camera().look_at(_look_at, Vector3.UP)
@@ -70,11 +77,12 @@ func lens(_delta: float) -> bool:
 	return true
 
 
-## Hide every mesh but his, every light but the sun; a grey floor and a grey background of one value.
+## Hide every mesh but the players', every light but the sun; a grey background and a shadow-catching floor.
 func _grey_the_world() -> void:
 	var shade: float = float(option("grey", 0.5))
+	var players: Array[Node] = clip.root.find_children("*", "PlayerController", true, false)
 	for node: Node in clip.root.find_children("*", "GeometryInstance3D", true, false):
-		if not _body.is_ancestor_of(node):
+		if not players.any(func(p: Node) -> bool: return p.is_ancestor_of(node)):
 			(node as GeometryInstance3D).visible = false
 	for node: Node in clip.root.find_children("*", "Light3D", true, false):
 		if not node is DirectionalLight3D:
@@ -100,4 +108,5 @@ func _grey_the_world() -> void:
 	catcher.shadow_to_opacity = true
 	floor_mesh.material_override = catcher
 	clip.root.add_child(floor_mesh)
+	_floor = floor_mesh
 	floor_mesh.global_position = LIB.ring_point(float(option("deg", BODY_DEG)), float(option("r", BODY_R)), 0.01)
