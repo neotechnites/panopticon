@@ -929,6 +929,16 @@ in: 1.3
 frames: cut 0.0-0.8 the run into the portal; 0.9-2.3 the tower room, the guard at the far window, the POV walks up; ~2.45 the shove (the POV's arms out); 2.6-5.4 the game's kill-beat cinematic: he goes over the sill legs-up, turns flat and tumbles slowly spread-eagle down past the far lava falls onto the lava sea; the cut ends on him still falling, no POV/sniper frame after the shove.
 cut: content\ragdoll_short\cuts\07_v24.mp4 (5.4 s, PC take 167_t1, motion 0.2019, freeze 0; Mac copy sv3/cuts/07_v24.mp4)
 
+## 71
+# v26 M2 (fix_L2 v25 -> v26), cuts/02_v26.mp4
+said: Ryan on v25: "the death animation on the grey background is using a weird fucking model of the character. the old in game one with a bunch of filters on it" -- death_void on today's build: today's prisoner2 playing the authored Death clip (ragdoll off), materials sampled linear with no mipmaps at full texture size, plainly lit in the grey void; framing as 02_v24 (lens 5.5 m, 1.0 m up, fov 40, look_h 1.38)
+capture: --shot=s3_open_lane --stage=death_void --bots=1 --seed=20261017 --shimmer=0 --set=dist=5.5;look_h=1.38
+expect: death Runner_1 1.5-1.7; lens_clear
+seconds: 3.6
+in: 1.2
+motion: 0.002
+freeze: waive
+
 ## script v24
 from: v23
 notes: seriously is the fucking random ass fucking orange box in the death animation a joke? when i say ragdolls, he just drops, he doesnt get shot. when the gaurd is hoved, they freak out, and the shove off into the pit changed to a shove just generically, and it looks bad. should be a shove into the pit. for the shove one, the gameplay of the shove minigame is super weird because of the way the bots behave, and its unclear thats whats happening. change the minigame so instead of everyone facing away, everyone starts closer to the edge facing in. that can be an actual gameplay change. then record that instead

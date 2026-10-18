@@ -8,7 +8,7 @@ extends "res://tools/capture/stages/stage.gd"
 # catches his shadow, so there is no horizon and only the shadow grounds him.
 # The lens 4.6 m off, 1.0 m up, fov 40: 3.3 m of frame height, 1.9 m across the portrait width; he faces 35 deg off
 # the lens so the backward fall runs away from it, not across the frame.
-# Dials (--set=): deg (195), r (52), die_at (1.6 s, the death clip starts), dist (4.6), cam_h (1.0), fov (40), turn (35), grey (0.5).
+# Dials (--set=): deg (195), r (52), die_at (1.6 s, the death clip starts), dist (4.6), cam_h (1.0), look_h (0.75), crisp (1), fov (40), turn (35), grey (0.5).
 
 const BODY_DEG: float = 195.0
 const BODY_R: float = 52.0
@@ -32,7 +32,7 @@ func before_start() -> void:
 	var deg: float = float(option("deg", BODY_DEG))
 	var r: float = float(option("r", BODY_R))
 	_lens_at = LIB.ring_point(deg - rad_to_deg(float(option("dist", 4.6)) / r), r, float(option("cam_h", 1.0)))
-	_look_at = LIB.ring_point(deg, r, 0.75)
+	_look_at = LIB.ring_point(deg, r, float(option("look_h", 0.75)))
 	_grey_the_world()
 
 
@@ -48,6 +48,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	_avatar = PrisonerAvatar.of(_body)
 	if _avatar != null:
 		_avatar.set(&"_ragdoll", null)
+		_crisp(_body)
 	drive(runners[0], [
 		{"do": "place", "at": at, "face": face},
 		{"do": "hold", "seconds": 60.0, "sway": 0.0, "period": 3.1},
@@ -63,6 +64,7 @@ func tick(_delta: float) -> void:
 	if _died or _avatar == null or elapsed() < float(option("die_at", 1.6)):
 		return
 	_died = true
+	_crisp(_body)
 	_avatar.call(&"_on_body_died")
 	print("[event] %6.2f  death  %s" % [elapsed(), _body.name])
 
@@ -75,6 +77,26 @@ func lens(_delta: float) -> bool:
 	camera().fov = float(option("fov", 40.0))
 	camera().current = true
 	return true
+
+
+## His materials sample the full texture, linear, no mipmaps (--set=crisp=0 keeps the game's).
+func _crisp(root: Node) -> void:
+	if int(option("crisp", 1)) == 0:
+		return
+	for node: Node in root.find_children("*", "MeshInstance3D", true, false):
+		var inst := node as MeshInstance3D
+		if inst.mesh == null:
+			continue
+		if inst.material_override is BaseMaterial3D:
+			var over: BaseMaterial3D = (inst.material_override as BaseMaterial3D).duplicate()
+			over.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
+			inst.material_override = over
+		for index: int in inst.mesh.get_surface_count():
+			var mat: Material = inst.get_active_material(index)
+			if mat is BaseMaterial3D:
+				var copy: BaseMaterial3D = (mat as BaseMaterial3D).duplicate()
+				copy.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
+				inst.set_surface_override_material(index, copy)
 
 
 ## Hide every mesh but the players', every light but the sun; a grey background and a shadow-catching floor.
