@@ -61,11 +61,16 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 
 
 func tick(_delta: float) -> void:
-	if _died or _avatar == null or elapsed() < float(option("die_at", 1.6)):
+	if _avatar == null:
+		return
+	if _died:
+		_crisp(_body)
+		return
+	if elapsed() < float(option("die_at", 1.6)):
 		return
 	_died = true
-	_crisp(_body)
 	_avatar.call(&"_on_body_died")
+	_crisp(_body)
 	print("[event] %6.2f  death  %s" % [elapsed(), _body.name])
 
 
@@ -79,24 +84,41 @@ func lens(_delta: float) -> bool:
 	return true
 
 
-## His materials sample the full texture, linear, no mipmaps (--set=crisp=0 keeps the game's).
+## His materials are the authored ones (the map's fit tint, red ambient emission and fill dropped), sampled linear, no mipmaps (--set=crisp=0 keeps the game's).
 func _crisp(root: Node) -> void:
+	var fill: Node = clip.root.find_child(String(CharacterLight.FILL_NAME), true, false)
+	if fill != null:
+		fill.visible = false
+		fill.queue_free()
 	if int(option("crisp", 1)) == 0:
 		return
 	for node: Node in root.find_children("*", "MeshInstance3D", true, false):
 		var inst := node as MeshInstance3D
 		if inst.mesh == null:
 			continue
-		if inst.material_override is BaseMaterial3D:
-			var over: BaseMaterial3D = (inst.material_override as BaseMaterial3D).duplicate()
-			over.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
-			inst.material_override = over
+		if inst.material_override != null:
+			inst.material_override = _plain(inst.material_override)
 		for index: int in inst.mesh.get_surface_count():
 			var mat: Material = inst.get_active_material(index)
-			if mat is BaseMaterial3D:
-				var copy: BaseMaterial3D = (mat as BaseMaterial3D).duplicate()
-				copy.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
-				inst.set_surface_override_material(index, copy)
+			if mat != null:
+				inst.set_surface_override_material(index, _plain(mat))
+
+
+## [param mat] as the paint authored it: the fit's dressing and any tint undone (his painted texture alone), linear filtering.
+func _plain(mat: Material) -> Material:
+	if mat.has_meta(&"void_plain"):
+		return mat
+	var base: BaseMaterial3D = CharacterLight.base_of(mat)
+	if base == null:
+		return mat
+	var copy: BaseMaterial3D = base.duplicate() as BaseMaterial3D
+	copy.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
+	copy.albedo_color = Color.WHITE
+	copy.emission_enabled = false
+	copy.vertex_color_use_as_albedo = false
+	copy.next_pass = null
+	copy.set_meta(&"void_plain", true)
+	return copy
 
 
 ## Hide every mesh but the players', every light but the sun; a grey background and a shadow-catching floor.
@@ -109,6 +131,8 @@ func _grey_the_world() -> void:
 	for node: Node in clip.root.find_children("*", "Light3D", true, false):
 		if not node is DirectionalLight3D:
 			(node as Light3D).visible = false
+		else:
+			(node as Light3D).light_color = Color.WHITE
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color(shade, shade, shade)

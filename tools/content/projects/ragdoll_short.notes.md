@@ -35,3 +35,6 @@ seriously is the fucking random ass fucking orange box in the death animation a 
 
 ## v25 | ragdoll_short_v25.mp4 | 2026-10-18 08:55
 holy fuck. seriously on the ragdoll? the death animation on the grey background is using a weird fucking model of the character. the onld in game one with a bunch of filters on it. it looks like the version of the character your supposed to see from 100 ft away when it gets low rezed. everything else is good. short 12 is good, 11 is still doesnt read right. short 9 is good, with the one acception that at the end, the very very end, the sniper sits looing at nothing for like a second
+
+## v26 | ragdoll_short_v26.mp4 | 2026-10-18 11:35
+for the minigame short, two things, one the host of the running in the forest is too long, and we need to break it up with a second shot. dealers choice. tow, the sniper keeps trcaking, but theyre not standing where a sniper would stand, and when they do shoot its through the column of the tower. the death animation, in the gray space, is still fucking shit, becuase the model is blood red like they are in he.l. you already did this one successfully i have no idea what youre problem is. other than that its good. what about short 11 and 12?

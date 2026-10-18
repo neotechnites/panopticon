@@ -939,6 +939,16 @@ in: 1.2
 motion: 0.002
 freeze: waive
 
+## 72
+# v27 M2 (fix_L2 v26 -> v27), cuts/02_v27c.mp4
+said: Ryan on v26: "the death animation, in the gray space, is still fucking shit, becuase the model is blood red like they are in hell" -- death_void with the map's character fit undone on him (authored materials, no red fill, white sun, grey ambient): his own skin, shirt and jeans; framing as 02_v26
+capture: --shot=s3_open_lane --stage=death_void --bots=1 --seed=20261017 --shimmer=0 --set=dist=5.5;look_h=1.38
+expect: death Runner_1 1.5-1.7; lens_clear
+seconds: 3.6
+in: 1.2
+motion: 0.002
+freeze: waive
+
 ## script v24
 from: v23
 notes: seriously is the fucking random ass fucking orange box in the death animation a joke? when i say ragdolls, he just drops, he doesnt get shot. when the gaurd is hoved, they freak out, and the shove off into the pit changed to a shove just generically, and it looks bad. should be a shove into the pit. for the shove one, the gameplay of the shove minigame is super weird because of the way the bots behave, and its unclear thats whats happening. change the minigame so instead of everyone facing away, everyone starts closer to the edge facing in. that can be an actual gameplay change. then record that instead
@@ -1017,6 +1027,38 @@ game: 2
 | line | clip | in | len | fit | speed | text | card | grade | gif_fade |
 | L1 | cuts/57_v23.mp4 | 0.3 | 4.5 | wait | | The death animation in my game was really bad. | | | |
 | M2 | cuts/02_v26.mp4 | 0 | 3.6 | beat 3.6 | | | | | external/scared.gif 1.2 2.0 end |
+| L3 | cuts/03_v23.mp4 | 1.5 | 6.7 | line | | Yeaeeeeeeeh I needed something better, but if my art didnt make it clear, I'm a programmer, not an animator | | | |
+| L4 | cuts/04_v24.mp4 | 0 | 9.5 | wait | | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem? Ragdolls | cards/L4_card0.png w=940 y=0.2 in=0.05 out=0.2 from=this to=Ragdolls+0.6 | | |
+| L5 | cuts/05_v23.mp4@1.0:6.45 | | | line | | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining | | | |
+| L6 | cuts/06b_v24.mp4 | 1.25 | 4.85 | line | | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. | | | |
+| L7 | cuts/07_v24.mp4 | 0 | | line | | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. | | | |
+| end | title | | 1.75 | | | beta signup in bio | | | |
+
+## script v27
+from: v26
+notes: for the minigame short, two things, one the host of the running in the forest is too long, and we need to break it up with a second shot. dealers choice. tow, the sniper keeps trcaking, but theyre not standing where a sniper would stand, and when they do shoot its through the column of the tower. the death animation, in the gray space, is still fucking shit, becuase the model is blood red like they are in he.l. you already did this one successfully i have no idea what youre problem is. other than that its good. what about short 11 and 12?
+notes: holy fuck. seriously on the ragdoll? the death animation on the grey background is using a weird fucking model of the character. the onld in game one with a bunch of filters on it. it looks like the version of the character your supposed to see from 100 ft away when it gets low rezed. everything else is good. short 12 is good, 11 is still doesnt read right. short 9 is good, with the one acception that at the end, the very very end, the sniper sits looing at nothing for like a second
+notes: seriously is the fucking random ass fucking orange box in the death animation a joke? when i say ragdolls, he just drops, he doesnt get shot. when the gaurd is hoved, they freak out, and the shove off into the pit changed to a shove just generically, and it looks bad. should be a shove into the pit. for the shove one, the gameplay of the shove minigame is super weird because of the way the bots behave, and its unclear thats whats happening. change the minigame so instead of everyone facing away, everyone starts closer to the edge facing in. that can be an actual gameplay change. then record that instead
+notes: for when i say if my art didnt make it clear, it should be an older build of the game to show the even worse art. when you show the death animation in a grey void, why the fuck is the character rendered how it is in game??? and why the fucking hell, woudl you choose, for the moment when i say ragdolls and youre supposed to watch someone get shot, for that to be on the bounce pad section of the map? like holy shit use s2. then, in the forest shots, you do not see a single successful ragdoll, and a fucking player shoaves another one for no reason. then theres a sub one second clip of a bunch of player shoving each other, doesnt show ragdolling, looks like shit. the gaurd clips into the fucking pit wall lke we specifcally specified not to. and then cuts to a sniper pov for no fucking reason. is all of this clear? do you know how to fix it all? frankly i will say it is much much better for a first draft than we had been getting, but not good enough still
+# v27 = v26 with M2 only: 02_v27, the void prisoner in his own colours, the map's fit undone (task #630).
+# was: v26 = v25 with M2 only: 02_v26, today's prisoner and its Death clip, crisp textures (task #630).
+# was: v25 = v24 with L6 only: the POV pit shove alone (06b_v24, shove on "shove", the fall and the empty pit under the rest); the generic deck shove cut (task #630).
+# was: v24 = v23 with Ryan's notes: M2 = 02_v24 (3a8cefd3: the modelled prisoner and its Death clip, no box); L4 = 04_v24 (the lead visibly shot and
+# thrown on S2, the report and impact in the take's sound, game: 2 = the take's own level under the voice); L6 = 06_v24 (the flop, then the POV shove into the pit); L7 = 07_v24 (fixed ragdoll, one tumble).
+# was: v23 = v22 with Ryan's notes: L1 = 57 (## 43 retaped on the current build); M2 = 02_v23, L3 = 03_v23 (the 0fe0c9ec old build:
+# old runner, old Death clip, old hell ring); L4 = 04_v23 (scope misses, then the back runner as the lead is shot on S2);
+# L5 = 05_v23 (forest, three visible ragdolls, no shoves); L6 = 06_v23 (two shove-and-flop halves); L7 = 07_v23 (clean throw, ends on the beat).
+# was: v22 = v21 with L5's haters part ending before the guard's re-seat (the HUD's tower banner showed for 0.15 s at v21's 28.85 s); v21 = v20 after its frame check (never shown to Ryan): L3, L4's runner half and L5 refilmed; v20's table, rows composed by hand where a line needs more than one shot (task #630, short 4 from scratch):
+# L1 the second miss and the hit with the old Death clip just after "bad", held 1.75 s past the hit; M2 the grey void
+# death, scared.gif fading in from 1.2 s over 2.0 s (the beat ends with the fade); L3 the crane-out; L4 the scope's two
+# misses (46), then the back runner (50) as the lead ahead drops on "Ragdolls", the placeholder comment card at "this guy";
+# L5 forest: the flung lead and the middle man (54), the haters scope's drop, ravine throw and drop (55); frame check: L3 = 53 (45 read as a push in), L4 runner = 56 (50's lead left the frame); L6 the 3-runner scrap (48), then the
+# POV's pit shove on "shove" (52); L7 the portal, the shove and the 2.0 s kill-beat cinematic (49). "htis" spoken "this".
+pad: 0.2
+game: 2
+| line | clip | in | len | fit | speed | text | card | grade | gif_fade |
+| L1 | cuts/57_v23.mp4 | 0.3 | 4.5 | wait | | The death animation in my game was really bad. | | | |
+| M2 | cuts/02_v27c.mp4 | 0 | 3.6 | beat 3.6 | | | | | external/scared.gif 1.2 2.0 end |
 | L3 | cuts/03_v23.mp4 | 1.5 | 6.7 | line | | Yeaeeeeeeeh I needed something better, but if my art didnt make it clear, I'm a programmer, not an animator | | | |
 | L4 | cuts/04_v24.mp4 | 0 | 9.5 | wait | | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem? Ragdolls | cards/L4_card0.png w=940 y=0.2 in=0.05 out=0.2 from=this to=Ragdolls+0.6 | | |
 | L5 | cuts/05_v23.mp4@1.0:6.45 | | | line | | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining | | | |
