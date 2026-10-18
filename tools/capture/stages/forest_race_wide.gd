@@ -7,7 +7,8 @@ extends "res://tools/capture/stages/forest_race.gd"
 ## [code]--stage=forest_race_wide --shot=s3_open_lane --map=forest --bots=3 --shimmer=0 --look=social --seed=20261017[/code]
 ## Dials (--set=): lead (8.0 deg ahead of the leader), lens_h (2.6 m over the deck), lens_out (0.0 m outside the line: at 0.8
 ## the OUT trunks at r 53.8 passed 0.4 m off the lens and its fill turned them orange), fov (66, vertical), smooth (8.0),
-## aim_up (0.9 m over the pack's feet), fill (0.3: the clip's warm fill rides this lens, so it is turned down off 0.55).
+## aim_up (0.9 m over the pack's feet), fill (0.0: the clip's warm fill rides a flown lens and turned every trunk within 2 m
+## orange; a POV clip has none (run_clip _wear_the_body), so this shot matches the race POV it cuts against).
 
 var _focus: Vector3 = Vector3.ZERO
 var _cam_deg: float = 0.0
@@ -49,7 +50,7 @@ func lens(delta: float) -> bool:
 	camera().current = true
 	var fill: OmniLight3D = camera().get_node_or_null(^"ClipFill") as OmniLight3D
 	if fill != null:
-		fill.light_energy = float(option("fill", 0.3))
+		fill.light_energy = float(option("fill", 0.0))
 	return true
 
 
