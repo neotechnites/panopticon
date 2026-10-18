@@ -67,12 +67,6 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 				{"t": 0.12, "right": 4.0, "pitch": -3.0},
 				{"t": 0.4, "right": 2.0, "pitch": -1.5},
 			]
-			var miss_at: float = float(option("miss_pov", 0.0))
-			if miss_at > 0.0:
-				# A look right, toward the tower, as the round crosses; eyes front before the man ahead drops.
-				var after: float = miss_at - float(option("drop_lead", 2.3))
-				lane["flinch_glances"].append({"t": after + 0.08, "right": 18.0, "pitch": 3.0})
-				lane["flinch_glances"].append({"t": after + 0.4, "right": 0.0, "pitch": -2.0})
 		drive(runners[index], [
 			{"do": "place", "at": LIB.ring_point(at.x, at.y, 0.1), "face": LIB.tangent_at(at.x)},
 			{"do": "human", "on": true},
