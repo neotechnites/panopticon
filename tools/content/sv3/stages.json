@@ -74,24 +74,6 @@
    "approved": [
     {
      "project": "stages",
-     "entry": 3,
-     "said": "Ryan (short 10, L4): \"the first one to make it throws him out, and now, they're the sniper.\" {different shot, get up to the portal, go through, shove him, they go flying}. Hell, 4 players, no powers, no hub: runner POV runs 5.0 m into the portal at 345 deg, arrives in the tower, walks up behind the guard scoped at his window and shoves; the game's kill beat throws him (2.0 s) and the POV takes the tower. Mac smoke: arrive 2.04, shove 6.93, tower_out 8.93.",
-     "capture": "--shot=s3_open_lane --stage=finale --pov=runner --bots=3 --shimmer=0 --seed=20261012",
-     "tape": null,
-     "expect": "shove Runner_0 6.8-7.1; arrive Runner_1 1.9-2.2; tower_out Runner_0 +1.9-2.1; alive Runner_1; lens_clear; lens_cover <= 0.5",
-     "seconds": 9.8,
-     "in": 1.2,
-     "motion": null,
-     "ref": null,
-     "ticks": {
-      "hit": null,
-      "shove": 6.95,
-      "out": null,
-      "go": null
-     }
-    },
-    {
-     "project": "stages",
      "entry": 4,
      "said": "Ryan (short 10, L4): \"the first one to make it throws him out, and now, they're the sniper.\" {different shot, get up to the portal, go through, shove him, they go flying}. The ## 3 finale cut for a 3.5 s voice line: the runner POV runs 6.0 m into the portal at 345 deg (picture opens 1.2 s before the arrival), walks up behind the guard scoped at his window at pace 1.0 and shoves 0.89 s after arriving; the kill beat throws him, cut short to 0.8 s (beat=0.8; Ryan: \"cut the cinematic early and give more time to the sniper pov at the end\"), and the picture runs 2.0 s past tower_out on the POV in the tower as the sniper. Mac smoke: arrive 2.13, shove 3.00, tower_out 3.78.",
      "capture": "--shot=s3_open_lane --stage=finale --pov=runner --bots=3 --shimmer=0 --seed=20261012 --set=lead=6.0;stand=3.0;pace=1.0;beat=0.8",

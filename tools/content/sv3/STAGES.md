@@ -8,7 +8,7 @@ Written by `python -m sv3.catalogue` from the stage headers and approved entries
 | conga | hell | rim_side | - | deg=182.0, first=8.0, every=1.4, impulse=3.4 | uncatalogued | - | yes |
 | cover_both | hell | cover_side | - | victim=198.5,49.4, runner=201.8,48.2, runner_to=186.0,48.2, shover=206.0,50.5, watch=192.5,50.5, runner_speed=0.6, runner_wait=2.0, shover_speed=0.65, shover_wait=5.0, impulse=12.0, up=5.0 | uncatalogued | - | yes |
 | faceshove | hell | s3_face_side | runner | deg=170.3, r=50.5, gap=2.4, rounds=6 | uncatalogued | - | yes |
-| finale | hell | s3_open_lane | runner | lead=5.0, stand=3.0, pace=0.6, beat=2.0 | stages#3, stages#4 | shove 6.95; shove 3.0 | yes |
+| finale | hell | s3_open_lane | runner | lead=5.0, stand=3.0, pace=0.6, beat=2.0 | stages#4 | shove 3.0 | yes |
 | forest_going | forest | s3_open_lane | guard/runner | pace=0.62, scope_fov=24.0, hand_at=0.8, drop_lead=2.3, drop_mid=3.7, track=5.0 | stages#7, stages#8 | hit 2.3; hit 2.3 | yes |
 | forest_pov_kills | forest | s3_open_lane | runner | pace=0.5 | ragdoll_short#15 | - | yes |
 | forest_window | forest | s3_open_lane | guard | pace=0.6, scope_fov=10 | ragdoll_short#13, ragdoll_short#14 | -; - | yes |
