@@ -9,3 +9,6 @@ Ryan on n1 (v3, task #601): "for 9, shot one, should only be the shove and the c
 
 ## v4 | start_minigame_v4.mp4 | 2026-10-18 00:15
 Ryan on n2 (v4, task #601): "for the shove one, the gameplay of the shove minigame is super weird because of the way the bots behave, and its unclear thats whats happening. change the minigame so instead of everyone facing away, everyone starts closer to the edge facing in. that can be an actual gameplay change. then record that instead"
+
+## v5 | start_minigame_v5.mp4 | 2026-10-18 08:45
+Ryan on short 9 (v5, task #601): "short 9 is good, with the one acception that at the end, the very very end, the sniper sits looing at nothing for like a second"
