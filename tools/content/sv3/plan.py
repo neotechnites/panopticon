@@ -93,8 +93,8 @@ def build(shots, stages, words, name, tag, base_n):
     for s in shots:
         groups.setdefault(root[s["id"]], []).append(s["id"])
     shared = [r for r, g in groups.items() if len(g) > 1]
-    entries, rows, cards, n = [], [], [], base_n
-    for s in shots:
+    entries, rows, cards, n, ends = [], [], [], base_n, {}
+    for i, s in enumerate(shots):
         if s.get("card"):
             cards.append(s["card"])
         if not s.get("stage"):
@@ -116,6 +116,9 @@ def build(shots, stages, words, name, tag, base_n):
         cut = "cuts/%02d_%s.mp4" % (n, tag)
         text = (s.get("text") or "").strip()
         at = clip_in(s, e, words) if text else float(e["in"])
+        prev = shots[i - 1] if i else None
+        if prev is not None and s.get("same_take_as") and root[s["id"]] == root.get(prev["id"]) and prev["id"] in ends:
+            at = ends[prev["id"]]                     # one take, one shot: the next line continues where this one ends
         cell_in = at - float(e["in"])                        # the cut starts at the entry's in:
         length = float(e["seconds"]) - cell_in               # picture left in the cut
         if not text:
@@ -127,6 +130,7 @@ def build(shots, stages, words, name, tag, base_n):
         if length + 1e-6 < need:
             raise Refused("%s needs %.2f s of picture (voice + pad) but %s has %.2f s from %.2f (decision 356)" % (
                 s["id"], need, cut, length, cell_in))
+        ends[s["id"]] = at + need                            # tape seconds this line's picture ends (fit line = voice + pad)
         rows.append("| %s | %s | %s | %s | line | | %s | |" % (s["id"], cut, fmt(cell_in), fmt(length), text.replace("|", "/")))
     if cards:
         c = cards[-1]
