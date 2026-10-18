@@ -277,6 +277,13 @@ func _mark_for(beat: Dictionary, body: PlayerController) -> Vector3:
 	# it, so it crosses behind him and the miss is one you can read. Only the
 	# squeeze is scaled; the tracking crosshair still sits on him.
 	var flight: float = mark.distance_to(_eye_position()) / shot_speed
+	# fly (false): a man flung through the air is led along his own arc, gravity and air friction.
+	if bool(beat.get("fly", false)):
+		for i: int in 3:
+			mark = _arc_of(body, flight) + Vector3.UP * AIM_HEIGHT
+			flight = mark.distance_to(_eye_position()) / shot_speed
+		mark.y += 0.5 * _gravity() * flight * flight
+		return mark
 	# now (false): lead off this frame's step, for a man flung the instant before the squeeze.
 	var along: Vector3 = _step_of(body) if bool(beat.get("now", false)) else _velocity_of(body)
 	flight = (mark + along * flight).distance_to(_eye_position()) / shot_speed
@@ -292,6 +299,25 @@ func _mark_for(beat: Dictionary, body: PlayerController) -> Vector3:
 	if behind != 0.0 and along.length_squared() > 0.0001:
 		mark -= along.normalized() * behind
 	return mark
+
+
+## Where a flung [param body] is [param seconds] on, off his last 3D step, as his controller flies him.
+func _arc_of(body: PlayerController, seconds: float) -> Vector3:
+	var at: Vector3 = body.global_position
+	var v: Vector3 = _seen[body.get_instance_id()].get("now", Vector3.ZERO) if _seen.has(body.get_instance_id()) else Vector3.ZERO
+	var dt: float = 1.0 / float(Engine.physics_ticks_per_second)
+	var left: float = seconds
+	while left > 0.0:
+		var step: float = minf(dt, left)
+		var flat := Vector2(v.x, v.z)
+		var speed: float = flat.length()
+		if speed > 0.0:
+			var control: float = maxf(speed, body.profile.friction_stop_speed)
+			flat *= maxf(speed - control * body.profile.air_friction * step, 0.0) / speed
+		v = Vector3(flat.x, maxf(v.y - body.profile.get_effective_gravity() * step, -body.profile.terminal_velocity), flat.y)
+		at += v * step
+		left -= step
+	return at
 
 
 func _shot_speed() -> float:

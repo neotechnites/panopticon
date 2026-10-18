@@ -13,7 +13,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## hand (guard_hand at the window, never a brain) puts a round behind the lead, one behind the
 ## middle man, then drops the lead in the open past the lip rock. The middle man stops crouched
 ## in the rock's shadow; the POV (the back man) comes in behind him, slows to a walk, shoves him
-## from 1.8 m with the shipped shove; he lands standing in the open and the hand drops him (he
+## from 1.8 m with the shipped shove; the hand drops him in the air, before he lands (he
 ## ragdolls, CATCH_AND_SWAP); the POV runs on up the S2 lane.
 ##
 ## The numbers (probe_ring.gd, eye at the 62 deg window, 5.6 m off the axis, 5.9 m over the deck):
@@ -26,9 +26,11 @@ extends "res://tools/capture/stages/stage.gd"
 ## 68.5 he lands near 75, open deck. 11 m/s ground speed x 0.70 pace is ~8.9 deg/s at r 49.5.
 ##
 ## Dials (--set=): start ("lead,mid,pov" deg; 34,30,25), r (49.5), stop (68.5, the mid man's
-## crouch), pov_stop (65.0), walk_at (6.0, clip s the POV walks in), walk (0.35), reach (1.8),
+## crouch), pov_stop (65.0), walk_at (9.6, clip s the POV walks in: shove ~10.0, >= 4.0 s after
+## the lead hit 5.86), walk (0.35), reach (1.8),
 ## watch (1.1 s the POV stands after the shove), run_to (100.0), window (62.0), hand_at (0.8), zoom_at (1.2), miss_lead (2.0), miss_mid (3.4),
-## miss_by (1.4 m), drop_at (5.5, the lead's squeeze), drop_delay (0.3 s after he lands),
+## miss_by (1.4 m), drop_at (5.5, the lead's squeeze), air_delay (0.05 s after the shove, the
+## shoved man's squeeze: the round reaches him in the air),
 ## impulse / up (0 = the shipped shove).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
@@ -48,7 +50,7 @@ var _guard: PlayerController = null
 var _mid_driver: Node = null
 var _shoved_at: float = -1.0
 var _landed: bool = false
-## Clip seconds the last beat (the shoved man) starts, so its squeeze can be set on his landing.
+## Clip seconds the last beat (the shoved man) starts, so its squeeze can be set off the shove.
 var _last_beat_at: float = 0.0
 
 
@@ -114,7 +116,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 				{"t": 0.12, "right": 4.0, "pitch": -3.0},
 				{"t": 0.4, "right": 0.0, "pitch": -1.5},
 			]
-			steps.append({"do": "until", "t": float(option("walk_at", 6.0)) - cast_at})
+			steps.append({"do": "until", "t": float(option("walk_at", 9.6)) - cast_at})
 			steps.append({"do": "chase", "victim": runners[MID].controller, "range": float(option("reach", 1.8)),
 				"speed": float(option("walk", 0.35)), "timeout": 4.0})
 			# Watch him fly and drop, then continue the course.
@@ -149,12 +151,9 @@ func tick(_delta: float) -> void:
 		if optic != null:
 			optic.set_zoomed(false)
 	var mid: PlayerController = _bodies[MID]
-	# The shoved man is shot standing: the squeeze is set the moment he is back on the deck.
 	if _shoved_at >= 0.0 and not _landed and elapsed() > _shoved_at + 0.25 and is_instance_valid(mid) and mid.is_on_floor():
 		_landed = true
-		var beat: Dictionary = _hand.beats[_hand.beats.size() - 1]
-		beat["fire_at"] = elapsed() + float(option("drop_delay", 0.3)) - _last_beat_at
-		say("%s landed at %.1f deg r %.2f; squeeze at %.2f s" % [mid.name, LIB.bearing_of(mid.global_position), LIB.radius_of(mid.global_position), elapsed() + float(option("drop_delay", 0.3))])
+		say("%s landed at %.2f s, %.1f deg r %.2f" % [mid.name, elapsed(), LIB.bearing_of(mid.global_position), LIB.radius_of(mid.global_position)])
 
 
 ## Stand the tower's brain down, walk the guard to the window, a hand on the mouse.
@@ -188,8 +187,8 @@ func _raise_the_hand() -> void:
 		_hand.beats.append(beat)
 		at = fire + WATCH_SECONDS
 	_last_beat_at = at
-	# lead 0: he has just landed and stands; the slow velocity average still carries his flight.
-	_hand.beats.append({"body": _bodies[MID], "seconds": 100.0, "fire_at": 100.0, "watch": true, "lead": 0.0})
+	# fly: he is led along his arc, flung the instant before the squeeze.
+	_hand.beats.append({"body": _bodies[MID], "seconds": 100.0, "fire_at": 100.0, "watch": true, "fly": true})
 	_hand.park = LIB.ring_point(40.0, 49.5, 0.6)
 	say("guard at the window on %.0f deg; the hand from %.2f s" % [float(option("window", 62.0)), _hand.start_at])
 
@@ -198,6 +197,11 @@ func on_shove(_shover: MatchParticipant, victim: MatchParticipant) -> void:
 	if _shoved_at >= 0.0 or _bodies.size() <= MID or victim.body != _bodies[MID]:
 		return
 	_shoved_at = elapsed()
+	# The squeeze off the shove: the round reaches him in the air, before he lands.
+	if _hand != null and not _hand.beats.is_empty():
+		var beat: Dictionary = _hand.beats[_hand.beats.size() - 1]
+		beat["fire_at"] = _shoved_at + float(option("air_delay", 0.05)) - _last_beat_at
+		say("%s shoved at %.2f s; squeeze at %.2f s" % [victim.body.name, _shoved_at, _shoved_at + float(option("air_delay", 0.05))])
 	# Crouch key up this tick: he flies, lands and stands where he lands.
 	if _mid_driver != null:
 		_mid_driver.retarget([{"do": "hold", "seconds": 60.0}])
@@ -212,4 +216,6 @@ func on_hit(collider: Node3D) -> void:
 
 
 func on_out(participant: MatchParticipant) -> void:
+	if _bodies.size() > MID and participant.body == _bodies[MID]:
+		_landed = true
 	say("out: %s at %.1f deg r %.2f" % [participant.body.name, LIB.bearing_of(participant.body.global_position), LIB.radius_of(participant.body.global_position)])
