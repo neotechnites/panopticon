@@ -41,3 +41,39 @@ pad: 0.2
 | M3 | cuts/03_v1.mp4 | 0 | 2 | beat 2 | | how it's going | |
 | M4 | cuts/04_v1.mp4 | 0 | 1.85 | beat 1.85 | | | |
 | end | title | | 1.75 | | | beta signup in bio | |
+
+## 5
+said: v2 of ## 3 (Ryan on v1: "you seriously just used the footage from short 10? really? ... yeah, what im saying is go stage something for it and give it a try, honestly the how its going isnt super impressive"): hell_going, the sniper at the 306 deg window over the S5 lava platforms: three hop the lake, the hand drops the lead at the top of his leap (3.60 s), flicks onto the next man and drops him in the air too (4.07 s), both fall into the lava; then rides the last man hopping on. 2.0 s from 3.1, game speed 1.0.
+capture: --shot=lava_parkour --stage=hell_going --pov=guard --bots=3 --shimmer=0 --look=social --seed=20261017
+tape: how_it_started_hell_v2
+hud: crosshair
+expect: hit Runner_1 3.5-3.7; in_frame Runner_1 +0.0-0.05; hit Runner_2 +0.4-0.55; in_frame Runner_2 +0.4-0.55; alive Runner_3; lens_clear; lens_cover <= 0.5
+seconds: 2
+in: 3.1
+motion: 0.012
+refilm: v2
+
+## 6
+said: v2 of ## 4 (Ryan on v1, as ## 5): the SAME tape down the last hopper's eyes: he lands, leaps; the lead is shot out of the air ahead of him (3.60 s), the man right in front is shot mid-leap (4.07 s) and drops into the lava under him; he lands and hops on. 1.85 s from 3.1.
+capture: --shot=lava_parkour --stage=hell_going --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017
+tape: how_it_started_hell_v2
+expect: hit Runner_1 3.5-3.7; in_frame Runner_1 +0.0-0.05; hit Runner_2 +0.4-0.55; in_frame Runner_2 +0.4-0.55; alive Runner_3; lens_clear; lens_cover <= 0.5
+seconds: 1.85
+in: 3.1
+refilm: v2
+
+## script v2
+from: v1
+notes: you seriously just used the footage from short 10? really? ... yeah, what im saying is go stage something for it and give it a try, honestly the how its going isnt super impressive
+captions: stack
+captions_size: 96
+captions_plain: M1 M3
+captions_reset: M3 end
+game: 1.0
+pad: 0.2
+| line | clip | in | len | fit | speed | text | card |
+| M1 | ../how_it_started/cuts/01_v1.mp4 | 0 | 2.45 | beat 2.45 | | how it started | |
+| M2 | ../how_it_started/cuts/02_v1.mp4 | 0 | 2.25 | beat 2.25 | | | |
+| M3 | cuts/05_v2.mp4 | 0 | 2 | beat 2 | | how it's going | |
+| M4 | cuts/06_v2.mp4 | 0 | 1.85 | beat 1.85 | | | |
+| end | title | | 1.75 | | | beta signup in bio | |

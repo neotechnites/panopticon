@@ -88,3 +88,41 @@ pad: 0.2
 | M3 | cuts/05_v2.mp4 | 0 | 2 | beat 2 | | how it's going | |
 | M4 | cuts/06_v2.mp4 | 0 | 1.85 | beat 1.85 | | | |
 | end | title | | 1.75 | | | beta signup in bio | |
+
+## 7
+said: v3 of ## 5 (Ryan on v2: "honestly the how its going isnt super impressive, and youre attempt at making the forest energic just reads as it being at a higher speed"): forest_rush, the sniper at the 84 deg window: the hand drops the lead running ahead in the open (2.40 s), swings back onto the pair at the pit lip as the back man shoves the other over it (2.78 s) and drops the shover where he stands (3.50 s); 2.0 s from 1.7, game speed 1.0.
+capture: --shot=s3_open_lane --stage=forest_rush --map=forest --pov=guard --bots=3 --shimmer=0 --look=social --seed=20261017 --set=pov_at=65.0,51.0;lane_mid=69.0;lane_r=49.6;victim_speed=0.65;watch=0.8;run_on=3.0;run_to=110.0;run_r=52.0;drop_pov=3.5
+tape: how_it_started_v3
+hud: crosshair
+expect: hit Runner_3 2.3-2.5; in_frame Runner_3 +0.0-0.05; shove Runner_2 +0.3-0.5; hit Runner_1 +1.0-1.2; lens_clear; lens_cover <= 0.5
+seconds: 2
+in: 1.7
+motion: 0.012
+refilm: v3
+
+## 8
+said: v3 of ## 6 (Ryan on v2: "honestly the how its going isnt super impressive, and youre attempt at making the forest energic just reads as it being at a higher speed"): the SAME tape down the shover's eyes: the lead drops ahead of him (2.40 s), he runs onto the pit-side man, shoves him over the lip (2.78 s) and watches him tumble down the ravine; 1.85 s from 1.5, ending before the hand finds him (3.50 s).
+capture: --shot=s3_open_lane --stage=forest_rush --map=forest --pov=runner --bots=3 --shimmer=0 --look=social --seed=20261017 --set=pov_at=65.0,51.0;lane_mid=69.0;lane_r=49.6;victim_speed=0.65;watch=0.8;run_on=3.0;run_to=110.0;run_r=52.0;drop_pov=3.5
+tape: how_it_started_v3
+expect: hit Runner_3 2.3-2.5; in_frame Runner_3 +0.0-0.05; shove Runner_2 +0.3-0.5; hit Runner_1 +1.0-1.2; lens_clear; lens_cover <= 0.5
+seconds: 1.85
+in: 1.5
+refilm: v3
+
+## script v3
+from: v2
+notes: honestly the how its going isnt super impressive, and youre attempt at making the forest energic just reads as it being at a higher speed
+notes: v11 is great, only issue is the same transparent ragdolls thing, its way too long, signup in bio should always be the same length, and theres no subtitles for the whole point of the short. lastly, the engery in the second clip isnt impressive. so reshoot the second half with the fixes, add the subtitles, lengthen the title card, cut every shot by hald and then give it back. also, make a second variant, with the second half in hell instead of the forest
+more energy in the forest runner clip. leave the pill runner clip exactly as it is
+captions: stack
+captions_size: 96
+captions_plain: M1 M3
+captions_reset: M3 end
+game: 1.0
+pad: 0.2
+| line | clip | in | len | fit | speed | text | card |
+| M1 | cuts/01_v1.mp4 | 0 | 2.45 | beat 2.45 | | how it started | |
+| M2 | cuts/02_v1.mp4 | 0 | 2.25 | beat 2.25 | | | |
+| M3 | cuts/07_v3.mp4 | 0 | 2 | beat 2 | | how it's going | |
+| M4 | cuts/08_v3.mp4 | 0 | 1.85 | beat 1.85 | | | |
+| end | title | | 1.75 | | | beta signup in bio | |
