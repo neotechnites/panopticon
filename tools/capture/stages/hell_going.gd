@@ -5,7 +5,7 @@ extends "res://tools/capture/stages/lavaparkour.gd"
 ## [code]--stage=hell_going --shot=lava_parkour --pov=guard|runner --bots=3 --seed=20261017[/code]
 ## Probe (eye 306:5.6:5.9): every flight's midpoint at h 2.0 open 300.9-335.5; the r 50.2 tops are under the near rim from it.
 ## Mac smoke (seed 20261017, line 3): lead in the air on hop 5 3.35-4.05 (apex 319 deg), mid on hop 4 3.75-4.4 (apex 313), POV
-## lands on 309.5 at 4.18. Dials (--set=): window (306), scope_fov (26), hand_at (1.0), drop_lead (3.6), drop_mid (4.05), reload (0.4), track (3.0).
+## lands on 309.5 at 4.18. Dials (--set=): window (306), scope_fov (14), hand_at (1.0), drop_lead (3.6), drop_mid (4.05), reload (0.4), track (3.0).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
@@ -14,6 +14,8 @@ const MID: int = 1
 const POV: int = 2
 
 var _hand: Node = null
+## The scope's overlay caches its clear centre once zoomed: re-applied for a while so the opened scope fills the tall frame.
+var _vignette: Node = null
 
 
 func bots() -> int:
@@ -44,7 +46,10 @@ func tick(delta: float) -> void:
 		for body: PlayerController in _line:
 			line += " %s %.1f/%.2f h %.2f" % [body.name, LIB.bearing_of(body.global_position), LIB.radius_of(body.global_position), body.global_position.y - LIB.DECK_Y]
 		say("at" + line)
-	if _line.size() < 3 or _hand != null:
+	if _hand != null:
+		_reopen()
+		return
+	if _line.size() < 3:
 		return
 	var shooter: TowerShooter = LIB.stand_down(seat())
 	if shooter == null or shooter.controller == null:
@@ -53,7 +58,7 @@ func tick(delta: float) -> void:
 	LIB.guard_to_window(guard, float(option("window", 306.0)), 5.6)
 	LIB.open_the_scope(guard, 0.74)
 	var optic: WeaponOptic = guard.get_node_or_null(^"Optic") as WeaponOptic
-	var fov: float = float(option("scope_fov", 26.0))
+	var fov: float = float(option("scope_fov", 14.0))
 	if fov > 0.0 and optic != null and optic.profile != null and optic.base_fov > 0.0:
 		optic.profile.zoom_factor = clampf(fov / optic.base_fov, 0.05, 1.0)
 	_hand = GUARD_HAND.new()
@@ -82,3 +87,10 @@ func on_hit(collider: Node3D) -> void:
 
 func on_out(participant: MatchParticipant) -> void:
 	say("out: %s at %.1f deg r %.2f h %.2f" % [participant.body.name, LIB.bearing_of(participant.body.global_position), LIB.radius_of(participant.body.global_position), participant.body.global_position.y - LIB.DECK_Y])
+
+
+func _reopen() -> void:
+	if _vignette == null:
+		_vignette = LIB.find_kind(clip.root, "ScopeVignette")
+	if _vignette != null:
+		_vignette.set(&"_applied", -1.0)

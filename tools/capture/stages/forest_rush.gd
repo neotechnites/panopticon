@@ -4,12 +4,14 @@ extends "res://tools/capture/stages/haters_forest_shove.gd"
 ## (haters_forest_shove's run, the POV shoves the pit-side man over the lip); the hand at the 84 deg window drops the lead
 ## running ahead of them before the shove, then the shover after it. Probe (eye 84:4.4:5.9, forest): r 48.5-50.5 open 78-86
 ## and 90-92 deg, trunks at 76, 88, 94 (r 50.5), 100. Dials (--set=): haters_forest_shove's, and guard_deg (84), guard_r (4.4),
-## scope_fov (24), hand_at (0.8), drop_lead (2.4), drop_pov (3.75), reload (0.45).
+## scope_fov (14), hand_at (0.8), drop_lead (2.4), drop_pov (3.75), reload (0.45).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
 var _lead: PlayerController = null
 var _hand: Node = null
+## The scope's overlay caches its clear centre once zoomed: re-applied for a while so the opened scope fills the tall frame.
+var _vignette: Node = null
 
 
 func tune_rules(rules: MatchRules) -> void:
@@ -32,7 +34,10 @@ func tick(delta: float) -> void:
 	super(delta)
 	if OS.has_environment("STAGE_DEBUG") and _lead != null and Engine.get_physics_frames() % 6 == 0:
 		say("lead %.1f deg r %.2f" % [LIB.bearing_of(_lead.global_position), LIB.radius_of(_lead.global_position)])
-	if _lead == null or _hand != null:
+	if _hand != null:
+		_reopen()
+		return
+	if _lead == null:
 		return
 	var shooter: TowerShooter = LIB.stand_down(seat())
 	if shooter == null or shooter.controller == null:
@@ -41,7 +46,7 @@ func tick(delta: float) -> void:
 	LIB.guard_to_window(guard, float(option("guard_deg", 84.0)), float(option("guard_r", 4.4)))
 	LIB.open_the_scope(guard, 0.74)
 	var optic: WeaponOptic = guard.get_node_or_null(^"Optic") as WeaponOptic
-	var fov: float = float(option("scope_fov", 24.0))
+	var fov: float = float(option("scope_fov", 14.0))
 	if fov > 0.0 and optic != null and optic.profile != null and optic.base_fov > 0.0:
 		optic.profile.zoom_factor = clampf(fov / optic.base_fov, 0.05, 1.0)
 	_hand = GUARD_HAND.new()
@@ -69,3 +74,10 @@ func on_hit(collider: Node3D) -> void:
 
 func on_out(participant: MatchParticipant) -> void:
 	say("out: %s at %.1f deg r %.2f" % [participant.body.name, LIB.bearing_of(participant.body.global_position), LIB.radius_of(participant.body.global_position)])
+
+
+func _reopen() -> void:
+	if _vignette == null:
+		_vignette = LIB.find_kind(clip.root, "ScopeVignette")
+	if _vignette != null:
+		_vignette.set(&"_applied", -1.0)
