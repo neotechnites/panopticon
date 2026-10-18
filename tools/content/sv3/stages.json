@@ -979,7 +979,7 @@
      "expect": "hit Runner_1 6.17-6.37; in_frame Runner_1 +0.0-0.05; lens_clear; lens_cover <= 0.5",
      "seconds": 6.5,
      "in": 1.0,
-     "motion": null,
+     "motion": "0.011",
      "ref": null,
      "ticks": {
       "hit": 6.27,
@@ -1015,7 +1015,7 @@
      "expect": "hit Runner_1 6.17-6.37; in_frame Runner_1 +0.0-0.05; lens_clear; lens_cover <= 0.5",
      "seconds": 4.5,
      "in": 2.6,
-     "motion": null,
+     "motion": "0.011",
      "ref": null,
      "ticks": {
       "hit": 6.27,

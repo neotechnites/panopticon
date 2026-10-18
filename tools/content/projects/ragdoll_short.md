@@ -606,6 +606,7 @@ capture: --shot=s3_open_lane --stage=hell_explainer --pov=runner --bots=3 --shim
 expect: hit Runner_1 6.17-6.37; in_frame Runner_1 +0.0-0.05; lens_clear; lens_cover <= 0.5
 seconds: 4.5
 in: 2.6
+motion: 0.011
 refilm: v20
 
 ## 51

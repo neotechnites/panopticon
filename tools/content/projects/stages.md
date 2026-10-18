@@ -105,6 +105,7 @@ tape: stages_hell_explainer_scoped
 expect: hit Runner_1 6.17-6.37; in_frame Runner_1 +0.0-0.05; lens_clear; lens_cover <= 0.5
 seconds: 6.5
 in: 1.0
+motion: 0.011
 
 ## 14
 said: short 4 L5, Ryan: "clip montage of the sniper hitting people dead ... and if we can, get one that freaks out and break the players model and go flying" / "didnt i say it has to be in the forest?": forest_going's guard scope (stages#7) with the lead's death ragdoll impulse at 1400 (fling; shipped 70), so the first kill throws him; the middle man drops after. Mac smoke: hits 2.30 and 3.70, both in frame; the back man lives.
