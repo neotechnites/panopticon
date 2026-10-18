@@ -33,7 +33,8 @@ extends "res://tools/capture/stages/stage.gd"
 ## before the drop), miss_lead (2.0), miss_mid (3.4),
 ## miss_by (1.4 m), drop_at (5.5, the lead's squeeze), hold_to (9.0, the hand holds on the fallen lead), air_delay (0.05 s after the shove, the
 ## shoved man's squeeze: the round reaches him in the air),
-## impulse / up (0 = the shipped shove).
+## impulse / up (0 = the shipped shove). follow (0 off; ragdoll_short L4): the POV runs this many metres behind the
+## lead on pov_r at the lead's pace (pace), stops at the drop and watches him ragdoll.
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
@@ -91,8 +92,13 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	var run_to: float = float(option("run_to", 100.0))
 	for index: int in 3:
 		var deg: float = float(starts[index]) if starts.size() == 3 else [34.0, 22.0, 4.8][index]
+		var follow: float = float(option("follow", 0.0))
+		var pace: float = float(option("pace", PACE[LEAD]))
+		if index == POV and follow > 0.0:
+			_cast_follower(runners, float(starts[LEAD]) if starts.size() == 3 else 34.0, follow, pace, run_to)
+			continue
 		var lane: Dictionary = {
-			"do": "lane", "to": run_to, "r": r - (0.7 if index == LEAD else 0.0), "speed": PACE[index],
+			"do": "lane", "to": run_to, "r": r - (0.7 if index == LEAD else 0.0), "speed": pace if index == LEAD else PACE[index],
 			"weave": WEAVE[index], "period": PERIOD[index], "timeout": 30.0,
 		}
 		var steps: Array = [
@@ -142,6 +148,28 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	stage_body(_bodies[POV])
 	say("hell_explainer: lead %s, mid %s (stops %.1f), POV %s, r %.1f" % [_bodies[LEAD].name, _bodies[MID].name, stop, _bodies[POV].name, r])
 	return true
+
+
+## follow: the POV a step behind the lead, eyes up the lane on him; at the drop he pulls up and watches the body.
+func _cast_follower(runners: Array[RunnerBrain], lead_deg: float, follow: float, pace: float, run_to: float) -> void:
+	var pov_r: float = float(option("pov_r", float(option("r", 49.5)) - 0.2))
+	var deg: float = lead_deg - rad_to_deg(follow / pov_r)
+	var hit_at: float = float(option("drop_at", 5.5)) + 0.37
+	var lead: PlayerController = runners[LEAD].controller
+	var steps: Array = [
+		{"do": "place", "at": LIB.ring_point(deg, pov_r, 0.1), "face": LIB.tangent_at(deg)},
+		{"do": "human", "on": true},
+		{"do": "lane", "to": run_to, "r": pov_r, "speed": pace, "weave": 0.03, "period": 1.7,
+			"timeout": hit_at + float(option("pull_up", 0.15)) - elapsed(),
+			"glances": [{"t": 0.0, "right": 0.0, "pitch": -4.0}, {"t": 1.6, "right": -3.0, "pitch": -3.0}, {"t": 3.2, "right": 2.0, "pitch": -4.0}],
+			"flinch_on": "hit",
+			"flinch_glances": [{"t": 0.0, "right": -4.0, "pitch": 3.0}, {"t": 0.12, "right": 2.0, "pitch": -6.0}]},
+		{"do": "steer", "on": true},
+		{"do": "watch", "body": lead, "seconds": float(option("watch", 1.1)), "height": float(option("watch_h", 0.5))},
+		{"do": "hold", "seconds": 60.0},
+	]
+	drive(runners[POV], steps, POV)
+	_bodies.append(runners[POV].controller)
 
 
 func tick(_delta: float) -> void:
