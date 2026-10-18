@@ -182,7 +182,7 @@ pad: 0.2
 | line | clip | in | len | fit | speed | text | card |
 | L1 | cuts/01_v4.mp4 | 0 | 2.5 | wait | | Heres how i fixed the worst part about my game | |
 | L2 | cuts/02_v4.mp4 | 0 | 6.4 | line | | In my game, youre either the sniper in the gaurd tower, or youre running an obsticle course to become the sniper. | |
-| L3 | cuts/03_v8.mp4@0.6:1.7,cuts/03_v8.mp4@4.8:1.7,cuts/03_v8.mp4@9.0:0.85,cuts/03_v8.mp4@10.3:0.35 | 0 | | line | | but this has a problem, whos the sniper first? i wanted it to be earned | |
+| L3 | cuts/03_v8.mp4@0.65:1.8,cuts/03_v8.mp4@4.8:1.7,cuts/03_v8.mp4@9.1:0.75,cuts/03_v8.mp4@10.35:0.35 | 0 | | line | | but this has a problem, whos the sniper first? i wanted it to be earned | |
 | L4 | cuts/04_v4.mp4@0:6.4,cuts/07_v7.mp4 | 0 | | line | | so, i implemented a race, every player does the course with no sniper, and the first one to complete it gets to be the sniper. this, was the worst part of my game. it wasnt fun, everyone was the same speed, and it took to long | |
 | L5 | cuts/04_v4.mp4@0:6.4,cuts/07_v7.mp4 | cont | | line | | so how did i fix it? | |
 | L6 | cuts/06_v7.mp4 | 0 | 14.65 | line | | instead of everyone running to the tower, everyone starts in the tower, and the way you get to be the sniper, is to be the last one standing in it. so now, instead of a long drawn out boring race, its a fast, chaotic, brawl to see who goes first | |
