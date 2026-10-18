@@ -34,7 +34,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## miss_by (1.4 m), drop_at (5.5, the lead's squeeze), hold_to (9.0, the hand holds on the fallen lead), air_delay (0.05 s after the shove, the
 ## shoved man's squeeze: the round reaches him in the air),
 ## impulse / up (0 = the shipped shove). follow (0 off; ragdoll_short L4): the POV runs this many metres behind the
-## lead on pov_r at the lead's pace (pace), stops at the drop and watches him ragdoll.
+## lead on pov_r at follow_pace (the lead's pace), stops at the drop and watches him ragdoll.
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
@@ -159,7 +159,7 @@ func _cast_follower(runners: Array[RunnerBrain], lead_deg: float, follow: float,
 	var steps: Array = [
 		{"do": "place", "at": LIB.ring_point(deg, pov_r, 0.1), "face": LIB.tangent_at(deg)},
 		{"do": "human", "on": true},
-		{"do": "lane", "to": run_to, "r": pov_r, "speed": pace, "weave": 0.03, "period": 1.7,
+		{"do": "lane", "to": run_to, "r": pov_r, "speed": float(option("follow_pace", pace)), "weave": 0.03, "period": 1.7,
 			"timeout": hit_at + float(option("pull_up", 0.15)) - elapsed(),
 			"glances": [{"t": 0.0, "right": 0.0, "pitch": -4.0}, {"t": 1.6, "right": -3.0, "pitch": -3.0}, {"t": 3.2, "right": 2.0, "pitch": -4.0}],
 			"flinch_on": "hit",
