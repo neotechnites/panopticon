@@ -127,6 +127,9 @@ func _plain(mat: Material) -> Material:
 	copy.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_DISABLED
 	copy.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
 	copy.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
+	if base.resource_name.begins_with("Shirt"):
+		copy.albedo_texture = null
+		copy.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	copy.set_meta(&"void_plain", true)
 	return copy
 
