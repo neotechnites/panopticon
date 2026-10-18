@@ -179,9 +179,10 @@ $(ss_ps "${avi}")
 Set-Content -Path '${DIR}\\takes\\${tag}.txt' -Value \$line
 \$inv = [Globalization.CultureInfo]::InvariantCulture
 \$cuts = @(ffmpeg -hide_banner -nostats -ss \$ss -t ${TOTAL} -i '${avi}' -an -vf "scale=160:-2,select='gt(scene,${SCENE_CUT})',metadata=print:file=-" -f null - 2>\$null | Select-String 'pts_time:([0-9.]+)' | ForEach-Object { [math]::Round([double]::Parse(\$_.Matches[0].Groups[1].Value, \$inv) + ${IN}, 2) })
-\$lo = [double]${IN}; \$hi = [double]${IN} + [double]${TOTAL}; \$pov = ''; \$bad = @(); \$cam = \$null; \$jumps = @(); \$jumpAt = @(); \$moves = @()
+\$lo = [double]${IN}; \$hi = [double]${IN} + [double]${TOTAL}; \$pov = ''; \$bad = @(); \$cam = \$null; \$jumps = @(); \$jumpAt = @(); \$moves = @(); \$beats = @(); \$beat = \$null
 foreach (\$l in (Get-Content '${log}' -EA SilentlyContinue)) {
-  if (\$l -match '^\[event\]\s+([0-9.]+)\s+(arrive|seat|tower_out)\b' -or \$l -match '^\[event\]\s+([0-9.]+)\s+shove\b.*kill beat') { \$moves += [double]::Parse(\$Matches[1], \$inv) }
+  if (\$l -match '^\[event\]\s+([0-9.]+)\s+(arrive|seat|tower_out)\b') { \$moves += [double]::Parse(\$Matches[1], \$inv); if (\$beat -ne \$null -and \$Matches[2] -ne 'arrive') { \$beats += ,@(\$beat, [double]::Parse(\$Matches[1], \$inv)); \$beat = \$null } }
+  if (\$l -match '^\[event\]\s+([0-9.]+)\s+shove\b.*kill beat') { \$beat = [double]::Parse(\$Matches[1], \$inv); \$moves += \$beat }
   if (\$l -match '^\[cam\]\s+([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)\s+(\S+)\s+(\S+)\s+(\S+)') {
     \$t = [double]::Parse(\$Matches[1], \$inv); \$xyz = @(4,5,6 | ForEach-Object { [double]::Parse(\$Matches[\$_], \$inv) })
     if (\$cam -and \$t -gt \$lo -and \$t -le \$hi) {
@@ -201,7 +202,10 @@ foreach (\$l in (Get-Content '${log}' -EA SilentlyContinue)) {
   }
 }
 # The game's own moves of the player (portal arrive, the kill beat's throw, a seat change) are not teleports or cuts.
-\$own = @(); for (\$i = 0; \$i -lt \$jumps.Count; \$i++) { if (-not (\$moves | Where-Object { [math]::Abs(\$_ - \$jumpAt[\$i]) -le 0.1 })) { \$own += \$jumps[\$i] } }; \$jumps = \$own
+# From the kill beat's shove to the seat change the camera is the game's cinematic, not the player's eyes: its moves are not teleports.
+if (\$beat -ne \$null) { \$beats += ,@(\$beat, [double]::MaxValue) }
+\$own = @(); for (\$i = 0; \$i -lt \$jumps.Count; \$i++) { \$t = \$jumpAt[\$i]; \$inBeat = \$false; foreach (\$b in \$beats) { if (\$t -ge \$b[0] - 0.1 -and \$t -le \$b[1] + 0.1) { \$inBeat = \$true } }
+  if (-not \$inBeat -and -not (\$moves | Where-Object { [math]::Abs(\$_ - \$t) -le 0.1 })) { \$own += \$jumps[\$i] } }; \$jumps = \$own
 \$cuts = @(\$cuts | Where-Object { \$c = \$_; -not (\$moves | Where-Object { [math]::Abs(\$_ - \$c) -le 0.15 }) })
 if (\$cuts.Count -gt 0) { Write-Output ('FAILED: the take cuts inside the shot (scene change at ' + (\$cuts -join ', ') + ' s); one continuous camera only') }
 elseif (\$jumps.Count -gt 0) { Write-Output ('FAILED: the POV camera jumps position at ' + (\$jumps -join ', ') + '; a POV moves only as a player can') }
