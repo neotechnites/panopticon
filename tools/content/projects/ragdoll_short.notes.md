@@ -44,3 +44,6 @@ for short 9. why the hell did anything change prior to the forest run. and for t
 
 ## v28 | ragdoll_short_v28.mp4 | 2026-10-18 17:27
 still the compelte wrong clip. make it from scratch, all its supposed to be is a screen capture of me playing the animation in the godot editor, and then, that face slowly fading in, it should not fade in on top of the character. it should play out, exactly as it doesn in v14, but it should be the most recent model
+
+## v29 | ragdoll_short_v29.mp4 | 2026-10-18 18:09
+still the compelte wrong clip. make it from scratch, all its supposed to be is a screen capture of me playing the animation in the godot editor, and then, that face slowly fading in, it should not fade in on top of the character. it should play out, exactly as it doesn in v14, but it should be the most recent model

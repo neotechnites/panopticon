@@ -46,3 +46,6 @@ cut: the central 9:16 slice of the 3D viewport (718x1276 at 1062,117 of the 2560
 table row: | M2 | cuts/02_v29.mp4 | 0 | 3.2 | beat 3.2 | | | | | external/scared.gif 2.25 0.95 end w=900 y=0.379 |  (assemble.py gif_fade grew w= and y=; default unchanged: full width, centred)
 interpretation: v14's frame shows no editor UI, so the cut is the viewport slice as v14 was; the full-screen take (proofs/short4_editor/v29/screen_fall.png) is the editor itself, Scene dock, FileSystem dock and bottom panel in view.
 proofs: ~/Desktop/panopticon-renders/_work/proofs/short4_editor/v29/ (take.json, listing.txt, cut_tile.png, screen_in.png, screen_fall.png)
+
+## M2 (v29 -> v30)
+v30 = v29 with M2 only: in 0.95 (the standing second dropped), len 2.25, beat 2.25, scared.gif fade from 1.30 s over 0.95 s, ending on full fade; opens on the fall as v14 does (task #630).
