@@ -46,7 +46,8 @@ clip fits the line (the v6 retime of the shove short, generalised):
   grade  a grade named in the script header, applied to this line's picture only:
          `grade_hell: lift 2.6 3` scales RGB by 1 + (2.6 - 1) * (1 - max)^3 --
          shadows and mids up, hue and saturation kept, black and white fixed.
-  gif_fade  `<file> <at> <seconds> [end]`: the gif, full width, composited over this
+  gif_fade  `<file> <at> <seconds> [end] [w=<px>] [y=<frac>]`: the gif, full width (or w wide,
+         its centre at y of the height; default the frame's centre), composited over this
          slot's picture from `at` (slot seconds, or word:<w>[#n][+s]) with a linear
          alpha fade-in over <seconds>; `end` (a beat only) ends the slot as the fade finishes.
   clip = `title`: a black end card, the row's text centred (Impact, title_size: 84), `len`
@@ -272,7 +273,18 @@ def parse_gif_fade(cell):
     bits = cell.split()
     if len(bits) < 3:
         raise SystemExit("assemble: gif_fade wants <file> <at> <seconds> [end]: %r" % cell)
-    gif = {"path": bits[0], "at": bits[1], "fade": float(bits[2]), "end": "end" in bits[3:]}
+    gif = {"path": bits[0], "at": bits[1], "fade": float(bits[2]), "end": False, "w": 0, "y": 0.5}
+    for b in bits[3:]:
+        if b == "end":
+            gif["end"] = True
+            continue
+        k, _, v = b.partition("=")
+        if k == "w":
+            gif["w"] = int(v)
+        elif k == "y":
+            gif["y"] = float(v)
+        else:
+            raise SystemExit("assemble: gif_fade: unknown option %s" % b)
     if gif["fade"] <= 0:
         raise SystemExit("assemble: gif_fade: the fade must be longer than 0 s")
     return gif
@@ -514,7 +526,8 @@ def main():
             seg_len = snap(gif_at + gif["fade"])      # the cut ends right as the fade finishes
             fit = "beat {:.2f}s, ends with the gif fade (clip {:.2f}s on screen)".format(seg_len, out_fixed)
         if gif:
-            fit += "; gif {} full width from {:.2f}s, fade {:.2f}s".format(gif["path"], gif_at, gif["fade"])
+            fit += "; gif {} {} from {:.2f}s, fade {:.2f}s".format(
+                gif["path"], ("%d wide at y %.2f" % (gif["w"], gif["y"])) if gif["w"] else "full width", gif_at, gif["fade"])
 
         # --- the slot's seconds, spread over the parts in order -------------
         rem = seg_len
@@ -599,18 +612,19 @@ def main():
                 if t_out + card["out"] > off and t_in < off + out_len:
                     card_over = card_mod.overlay_args(cw, ch, card["y"], t_in - off, card["in"],
                                                       t_out - off, card["out"], W, H)
-            gif_over = ""
+            gif_over = ""; gif_pos = ""
             if gif:
                 off = part_start - starts[key]
                 if gif_at < off + out_len:
                     st = gif_at - off
                     # fade's st is >= 0: a fade already running when this part starts is shortened
                     gif_over = "scale=%d:-2,format=rgba,fade=t=in:st=%.4f:d=%.4f:alpha=1" % (
-                        W, max(st, 0.0), max(gif["fade"] + min(st, 0.0), 0.01))
+                        gif["w"] or W, max(st, 0.0), max(gif["fade"] + min(st, 0.0), 0.01))
+                    gif_pos = "(W-w)/2:%d-h/2" % int(round(gif["y"] * H))
             seg_key = sha(stat_key(w["src"]), "%.4f" % w["in"], "%.4f" % w["avail"], "%.6f" % w["speed"],
                           "%.4f" % out_len, vf, FPS, card_over,
                           stat_key(card_png) if (card_png and card_over) else "",
-                          gif_over, stat_key(gif["src"]) if gif_over else "")
+                          gif_over, gif_pos, stat_key(gif["src"]) if gif_over else "")
             seg = os.path.join(cache, seg_key + ".mp4")
             if not os.path.exists(seg):
                 args = FF + ["-ss", "%.4f" % w["in"], "-t", "%.4f" % w["avail"], "-i", w["src"]]
@@ -625,8 +639,8 @@ def main():
                         last, n = "pc", n + 1
                     if gif_over:
                         args += ["-stream_loop", "-1", "-i", gif["src"]]
-                        graph += ";[%d:v]%s[gif];[%s][gif]overlay=0:(H-h)/2:enable='gte(t,%.4f)':format=rgb[pg]" % (
-                            n, gif_over, last, max(gif_at - (part_start - starts[key]), 0.0))
+                        graph += ";[%d:v]%s[gif];[%s][gif]overlay=%s:enable='gte(t,%.4f)':format=rgb[pg]" % (
+                            n, gif_over, last, gif_pos, max(gif_at - (part_start - starts[key]), 0.0))
                         last = "pg"
                     graph += ";[%s]%s[v]" % (last, TAIL[1:])
                     args += ["-filter_complex", graph, "-map", "[v]"]

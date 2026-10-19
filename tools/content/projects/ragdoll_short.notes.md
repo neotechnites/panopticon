@@ -41,3 +41,6 @@ for the minigame short, two things, one the host of the running in the forest is
 
 ## v27 | ragdoll_short_v27.mp4 | 2026-10-18 15:20
 for short 9. why the hell did anything change prior to the forest run. and for the fucking too boring forest section, you just added a fucking cut with the exact same footage with the fucking guys moved around? is that  fucking joke? this isnt a fucking pipeline issue what the fuck is wrong with you? and holy fuck, youre example of the bad death animation is now useing the fucking physics. literally just use, for only this one clip, the one i liked from the previous versions. other than that ists good. short 11 is good
+
+## v28 | ragdoll_short_v28.mp4 | 2026-10-18 17:27
+still the compelte wrong clip. make it from scratch, all its supposed to be is a screen capture of me playing the animation in the godot editor, and then, that face slowly fading in, it should not fade in on top of the character. it should play out, exactly as it doesn in v14, but it should be the most recent model
