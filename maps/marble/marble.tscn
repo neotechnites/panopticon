@@ -156,7 +156,7 @@ editor_description = "The bounce's direction, baked: three faint olive static om
 [node name="Fill090" type="OmniLight3D" parent="Skylight/WellFill"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0000, 25.5, 20.0000)
 light_color = Color(0.62, 0.66, 0.6, 1)
-light_energy = 5.0
+light_energy = 9.0
 light_size = 4.0
 light_specular = 0.0
 light_bake_mode = 1
@@ -166,7 +166,7 @@ omni_attenuation = 0.0
 [node name="Fill210" type="OmniLight3D" parent="Skylight/WellFill"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.3205, 25.5, -10.0000)
 light_color = Color(0.62, 0.66, 0.6, 1)
-light_energy = 5.0
+light_energy = 9.0
 light_size = 4.0
 light_specular = 0.0
 light_bake_mode = 1
@@ -176,7 +176,7 @@ omni_attenuation = 0.0
 [node name="Fill330" type="OmniLight3D" parent="Skylight/WellFill"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17.3205, 25.5, -10.0000)
 light_color = Color(0.62, 0.66, 0.6, 1)
-light_energy = 5.0
+light_energy = 9.0
 light_size = 4.0
 light_specular = 0.0
 light_bake_mode = 1
@@ -189,8 +189,10 @@ quality = 2
 bounces = 3
 bounce_indirect_energy = 1.5
 denoiser_strength = 0.2
-interior = true
-environment_mode = 0
+interior = false
+environment_mode = 3
+environment_custom_color = Color(0.62, 0.66, 0.6, 1)
+environment_custom_energy = 3.4
 light_data = ExtResource("26_marble_lightmap")
 
 [node name="Shaft" type="MeshInstance3D" parent="Skylight"]
