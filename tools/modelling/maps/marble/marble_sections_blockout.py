@@ -65,7 +65,8 @@ C_FIRST, C_COUNT = 196.875, 5
 C_STEP = 2 * BAY
 # D: rows of columns across the lane, staggered, every height different
 D_ARC = (16.0, 49.0)
-D_WHOLE_OVER = 2.4              # a forest height over this is a whole column (5 m), else a broken one (2 m)
+BRICK_TILE_M = 6.0              # the map's brick sheet repeats this often on the buttresses (world triplanar)
+STONE_GLOW = 0.35               # the same sheet as a faint emission: the arch's underside sees no lamp
 D_ROWS = (48.1, 50.7, 53.3, 55.9)
 D_PITCH = 3.4                   # metres along a row
 D_RADIUS = 0.6                  # a 1.2 m top to land on
@@ -106,7 +107,7 @@ class Scene(object):
     def box(self, size):
         """A BoxMesh and its BoxShape3D for a grey blockout block."""
         size = tuple(round(v, 3) for v in size)
-        return (self.sub(("bm",) + size, ("BoxMesh", "size = Vector3(%.3f, %.3f, %.3f)" % size)),
+        return (self.sub(("bm",) + size, ("BoxMesh", 'material = SubResource("Blk_stone")\nsize = Vector3(%.3f, %.3f, %.3f)' % size)),
                 self.sub(("bs",) + size, ("BoxShape3D", "size = Vector3(%.3f, %.3f, %.3f)" % size)))
 
     def node(self, text):
@@ -238,23 +239,27 @@ def forest():
 
 
 def section_d(sc):
+    """The trailer's column (marble_column.glb as trailer_marble_column.spawn_columns places it: unscaled, turned -bearing)."""
     p = "Elements/SectionD"
     cols = forest()
-    sc.node('[node name="SectionD" type="Node3D" parent="Elements"]\neditor_description = "D, aesthetic: a column forest of '
-            'the map\'s marble_column (5.0 m) and marble_column_broken (2.0 m) as authored, turned at random, %.1f..%.1f deg; '
-            'room to walk between."\n' % (D_ARC[0], D_ARC[1]))
-    for i, (b, r, h) in enumerate(cols):
-        turn = b + 37.0 * i
-        c, sn = math.cos(rad(turn)), math.sin(rad(turn))
-        o = at(b, r)
-        sc.node('[node name="Column%02d" parent="%s" instance=ExtResource("%s")]\n'
-                'transform = Transform3D(%.6f, 0, %.6f, 0, 1, 0, %.6f, 0, %.6f, %.4f, %.4f, %.4f)\n'
-                % (i + 1, p, "Blk_column" if h > D_WHOLE_OVER else "Blk_broken", c, -sn, sn, c, o[0], o[1], o[2]))
+    sc.node('[node name="SectionD" type="Node3D" parent="Elements"]\neditor_description = "D, aesthetic: a column forest, '
+            '%d of the trailer\'s marble_column as it places them (unscaled, rotation (0, -bearing, 0)), rows across the '
+            'lane, %.1f..%.1f deg, room to walk between."\n' % (len(cols), D_ARC[0], D_ARC[1]))
+    for i, (b, r, _h) in enumerate(cols):
+        sc.node('[node name="Column%02d" parent="%s" instance=ExtResource("Blk_column")]\ntransform = %s\n'
+                % (i + 1, p, xform(b, at(b, r))))
     return cols
+
+
+STONE = ('[sub_resource type="StandardMaterial3D" id="Blk_stone"]\nalbedo_texture = ExtResource("Blk_brick")\n'
+         'emission_enabled = true\nemission_texture = ExtResource("Blk_brick")\nemission_energy_multiplier = %.2f\n'
+         'uv1_scale = Vector3(%.3f, %.3f, %.3f)\nuv1_triplanar = true\nuv1_world_triplanar = true\ntexture_filter = 0\n')
 
 
 def build():
     sc = Scene()
+    k = 1.0 / BRICK_TILE_M
+    sc.subs.append(STONE % (STONE_GLOW, k, k, k))
     section_a(sc)
     section_b(sc)
     section_c(sc)
@@ -278,7 +283,7 @@ def write():
     ext = ('[ext_resource type="PackedScene" path="res://maps/marble/props/marble_trapdoor.tscn" id="Blk_trapdoor"]\n'
            '[ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall.tscn" id="Blk_wall"]\n'
            '[ext_resource type="PackedScene" path="res://maps/marble/models/marble_column.glb" id="Blk_column"]\n'
-           '[ext_resource type="PackedScene" path="res://maps/marble/models/marble_column_broken.glb" id="Blk_broken"]\n')
+           '[ext_resource type="Texture2D" path="res://maps/marble/textures/marble_brick_albedo.png" id="Blk_brick"]\n')
     first_sub = text.index("\n[sub_resource ") + 1
     text = text[:first_sub].rstrip("\n") + "\n" + ext + "\n" + "\n".join(sc.subs) + "\n" + text[first_sub:]
     text = text.rstrip("\n") + "\n\n" + "\n".join(sc.nodes)
