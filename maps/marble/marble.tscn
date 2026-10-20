@@ -414,10 +414,6 @@ transform = Transform3D(-0.585665, 0, -0.810553, 0, 1, 0, 0.810553, 0, -0.585665
 editor_description = "A curved ashlar wall on the lip at 188.15 deg, r 47.3, 9.4 m along the lane, 7.6 m tall: cover from the tower."
 transform = Transform3D(-0.989900, 0, 0.141765, 0, 1, 0, -0.141765, 0, -0.989900, -46.8223, 23.0, -6.7055)
 
-[node name="ArcWall253" parent="Elements" instance=ExtResource("24_wall_arc")]
-editor_description = "A curved ashlar wall on the lip at 252.8 deg, r 47.3, 9.4 m along the lane, 7.6 m tall: cover from the tower."
-transform = Transform3D(-0.295708, 0, 0.955278, 0, 1, 0, -0.955278, 0, -0.295708, -13.9870, 23.0, -45.1847)
-
 [node name="ArcWall306" parent="Elements" instance=ExtResource("24_wall_arc")]
 editor_description = "A curved ashlar wall on the lip at 309.6 deg (moved from 306.32 for Section B, 2026-10-19), r 47.3, 9.4 m along the lane, 7.6 m tall: cover from the tower."
 transform = Transform3D(0.637424, 0, 0.770513, 0, 1, 0, -0.770513, 0, 0.637424, 30.1502, 23.0, -36.4453)
