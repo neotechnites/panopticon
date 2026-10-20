@@ -39,7 +39,7 @@ enum Phase { ARMED, WARN, DROP, OPEN, CLOSE, COOLDOWN }
 @export var hole_size_metres: Vector3 = Vector3(10.7, 1.4, 11.8)
 
 ## A shove trips the target only from a body whose feet are within this of its foot: one on a wall top is the rifle's.
-const REACH_LEVEL_METRES: float = 1.0
+const REACH_LEVEL_METRES: float = 0.5
 ## The hitbox layer the rifle hits and nothing walks into (inside WeaponProfile.hit_mask).
 const SHOT_TARGET_LAYER: int = 1 << 17
 const LEAF_DROP_RADIANS: float = PI * 0.5
