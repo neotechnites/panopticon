@@ -573,13 +573,7 @@ transform = Transform3D(0.998289, -0.058477, 0, 0.058477, 0.998289, 0, 0, 0, 1, 
 mesh = SubResource("Blk_2")
 
 [node name="SectionD" type="Node3D" parent="Elements"]
-editor_description = "D, aesthetic: a column forest, 19 of the trailer's marble_column as it places them (unscaled, rotation (0, -bearing, 0)), stretched in height only to 2.7..7.5 m, 16.0..49.0 deg; room to walk between, the lowest jumpable."
-
-[node name="Column01" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.961262, 0, -0.275637, 0, 0.925922, 0, 0.275637, 0, 0.961262, 46.9096, 23.0000, 13.4511)
-
-[node name="Column02" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.924877, 0, -0.380267, 0, 1.305625, 0, 0.380267, 0, 0.924877, 44.8892, 23.0000, 18.4564)
+editor_description = "D, aesthetic: a column forest, 17 of the trailer's marble_column as it places them (unscaled, rotation (0, -bearing, 0)), stretched in height only to 2.7..7.5 m, 16.0..49.0 deg; room to walk between, the lowest jumpable."
 
 [node name="Column03" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
 transform = Transform3D(0.883210, 0, -0.468978, 0, 0.533478, 0, 0.468978, 0, 0.883210, 42.7843, 23.0000, 22.7181)
