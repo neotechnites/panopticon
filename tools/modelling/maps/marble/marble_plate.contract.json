@@ -1,8 +1,0 @@
-{
-  "_comment": "marble_plate: the sniper-only trapdoor trigger -- a 1.0 m square iron plate 0.08 thick with a bronze octagonal boss and four rivets, origin the back-face centre on the wall, standing out along +X. No colliders: the scene's Hitbox (layer 18) is what the rifle hits.",
-  "node_paths": [
-    "MarblePlate"
-  ],
-  "surfaces": 2,
-  "max_tris": 120
-}

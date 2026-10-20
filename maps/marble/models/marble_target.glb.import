@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://ccty7hqne7rdq"
-path="res://.godot/imported/marble_lever.glb-43fda0cfb8bd658343b430c57f2c09f7.scn"
+uid="uid://hvdge0o0p3il"
+path="res://.godot/imported/marble_target.glb-8d80c1a51d989ca43e5726745c0de240.scn"
 
 [deps]
 
-source_file="res://maps/marble/models/marble_lever.glb"
-dest_files=["res://.godot/imported/marble_lever.glb-43fda0cfb8bd658343b430c57f2c09f7.scn"]
+source_file="res://maps/marble/models/marble_target.glb"
+dest_files=["res://.godot/imported/marble_target.glb-8d80c1a51d989ca43e5726745c0de240.scn"]
 
 [params]
 

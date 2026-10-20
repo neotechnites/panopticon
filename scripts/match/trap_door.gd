@@ -2,24 +2,23 @@
 class_name TrapDoor
 extends Node3D
 
-## A hinged trapdoor in the walkway with its lever: a shove beside the lever, or a
-## rifle hit on its handle, drops both leaves into the spiked pit under them. With no
-## lever, the trigger is a Plate on the wall that only the rifle can hit.
+## A hinged trapdoor across the walkway with its target: a shove beside the target, or a
+## rifle hit on its plate, drops every leaf into the spiked pit under them.
 ## The whole cycle is a pure function of the seconds since the pull, so the host
 ## sends one reliable (cycle, seconds) per pull and every peer animates the same.
 
 enum Phase { ARMED, WARN, DROP, OPEN, CLOSE, COOLDOWN }
 
-## Where the lever stands, in this node's frame (+Z is the way the lap runs).
-@export var lever_offset: Vector3 = Vector3(-2.18, 0.0, -5.15):
+## Where the target stands, in this node's frame (+Z is the way the lap runs).
+@export var target_offset: Vector3 = Vector3(-4.64, 0.0, -6.16):
 	set(value):
-		lever_offset = value
-		_place_lever()
-## The lever's turn about Y, so it can face the lane where it stands.
-@export_range(-180.0, 180.0, 0.01) var lever_yaw_degrees: float = 6.23:
+		target_offset = value
+		_place_target()
+## The target's turn about Y, so its face (local -X) can look at the tower.
+@export_range(-180.0, 180.0, 0.01) var target_yaw_degrees: float = 7.03:
 	set(value):
-		lever_yaw_degrees = value
-		_place_lever()
+		target_yaw_degrees = value
+		_place_target()
 
 @export_group("Timing")
 ## The rattle before the drop: the only warning a runner on it gets.
@@ -33,27 +32,31 @@ enum Phase { ARMED, WARN, DROP, OPEN, CLOSE, COOLDOWN }
 @export_range(1.0, 60.0, 0.5) var rearm_seconds: float = 10.0
 
 @export_group("Bots")
-## Chance, rolled once per arming, that a bot next to the lever pulls it on a rival.
+## Chance, rolled once per arming, that a bot next to the target shoves it on a rival.
 @export_range(0.0, 1.0, 0.05) var bot_pull_chance: float = 0.5
 
 ## The lethal footprint over the hole, in this node's frame: what [RingBake] steers round.
-@export var hole_size_metres: Vector3 = Vector3(5.2, 1.4, 2.5)
+@export var hole_size_metres: Vector3 = Vector3(10.7, 1.4, 11.8)
 
+## A shove trips the target only from a body whose feet are within this of its foot: one on a wall top is the rifle's.
+const REACH_LEVEL_METRES: float = 0.5
 ## The hitbox layer the rifle hits and nothing walks into (inside WeaponProfile.hit_mask).
 const SHOT_TARGET_LAYER: int = 1 << 17
 const LEAF_DROP_RADIANS: float = PI * 0.5
+## Each leaf's body reaches this far past its slab on every side, over the beams and the frame's rim.
+const LEAF_SEAM_METRES: float = 0.3
 const LEAF_RATTLE_RADIANS: float = 0.03
 const LEAF_RATTLE_HZ: float = 38.0
-const HANDLE_REST_RADIANS: float = -0.61
-const HANDLE_THROWN_RADIANS: float = 0.61
-const HANDLE_THROW_SECONDS: float = 0.12
-const HANDLE_RETURN_SECONDS: float = 1.0
+## The plate tips back about its local Z, away from the tower, and stands again on re-arm.
+const PLATE_THROWN_RADIANS: float = -1.25
+const PLATE_THROW_SECONDS: float = 0.12
+const PLATE_RETURN_SECONDS: float = 1.0
 ## How far before the hole, along the lap, a rival counts as about to cross it.
 const BOT_LEAD_METRES: float = 3.0
 const SESSION_PATH: NodePath = ^"/root/NetSession"
 const RNG_SEED: int = 20261008
 
-## Every live door, for [RingBake] and the bots' lever hook. Never iterated in the editor.
+## Every live door, for [RingBake] and the bots' target hook. Never iterated in the editor.
 static var live: Array[TrapDoor] = []
 
 var _cycle: int = 0
@@ -62,9 +65,9 @@ var _phase: Phase = Phase.ARMED
 var _leaves: Array[Node3D] = []
 var _leaf_rest: Array[Transform3D] = []
 var _leaf_bodies: Array[AnimatableBody3D] = []
-var _lever: Node3D = null
-var _handle: Node3D = null
-var _handle_rest: Transform3D = Transform3D.IDENTITY
+var _target: Node3D = null
+var _plate: Node3D = null
+var _plate_rest: Transform3D = Transform3D.IDENTITY
 var _hitbox: StaticBody3D = null
 var _reach: Area3D = null
 var _reachers: Array[PlayerController] = []
@@ -76,7 +79,7 @@ var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 
 func _ready() -> void:
-	_place_lever()
+	_place_target()
 	if Engine.is_editor_hint():
 		set_physics_process(false)
 		return
@@ -112,7 +115,7 @@ func _physics_process(delta: float) -> void:
 
 # --- The trigger --------------------------------------------------------------
 
-## Throw the lever. Only the host decides; a mirror waits for [method _net_pulled].
+## Trip the target. Only the host decides; a mirror waits for [method _net_pulled].
 func pull() -> bool:
 	if _phase != Phase.ARMED or not _decides():
 		return false
@@ -134,11 +137,9 @@ func get_phase() -> Phase:
 	return _phase
 
 
-## The lever's world position (the plate's, with no lever), for bots and tests.
-func get_lever_position() -> Vector3:
-	if _lever != null:
-		return _lever.global_position
-	return _hitbox.global_position if _hitbox != null else global_position
+## The target's world position, for bots and tests.
+func get_target_position() -> Vector3:
+	return _target.global_position if _target != null else global_position
 
 
 ## True when [param point] stands over the hole (within [param margin]) while it is open.
@@ -158,7 +159,7 @@ func covers(point: Vector3, margin: float = 0.0) -> bool:
 	)
 
 
-## A bot at [param body] beside an armed lever, with a rival about to cross the hole.
+## A bot at [param body] beside an armed target, with a rival about to cross the hole.
 static func bot_wants_pull(body: PlayerController, rivals: Array[Node]) -> bool:
 	for door: TrapDoor in live:
 		if door._wants_pull(body, rivals):
@@ -167,7 +168,7 @@ static func bot_wants_pull(body: PlayerController, rivals: Array[Node]) -> bool:
 
 
 func _wants_pull(body: PlayerController, rivals: Array[Node]) -> bool:
-	if not _bots_may_pull or _phase != Phase.ARMED or not _reachers.has(body):
+	if not _bots_may_pull or _phase != Phase.ARMED or not _reachers.has(body) or not _at_level(body):
 		return false
 	var to_local: Transform3D = global_transform.affine_inverse()
 	var half: Vector3 = hole_size_metres * 0.5
@@ -203,9 +204,14 @@ func _on_reach_exited(body: Node3D) -> void:
 		walker.shoved.disconnect(call)
 
 
-## A shove swung beside the lever throws it; the shove itself is still the match's.
-func _on_reacher_shoved(_walker: PlayerController) -> void:
-	pull()
+## A shove swung beside the target trips it; the shove itself is still the match's.
+func _on_reacher_shoved(walker: PlayerController) -> void:
+	if _at_level(walker):
+		pull()
+
+
+func _at_level(walker: PlayerController) -> bool:
+	return _target == null or absf(walker.global_position.y - _target.global_position.y) <= REACH_LEVEL_METRES
 
 
 # --- The network ---------------------------------------------------------------
@@ -261,7 +267,7 @@ func _enter(phase: Phase) -> void:
 	_phase = phase
 	match phase:
 		Phase.WARN:
-			AudioDirector.post_event_at(AudioEvents.HAZARD_LEVER_THROWN, get_lever_position())
+			AudioDirector.post_event_at(AudioEvents.HAZARD_LEVER_THROWN, get_target_position())
 			AudioDirector.post_event_at(AudioEvents.HAZARD_TRAPDOOR_RATTLE, global_position)
 		Phase.DROP:
 			AudioDirector.post_event_at(AudioEvents.HAZARD_TRAPDOOR_DROP, global_position)
@@ -271,6 +277,10 @@ func _enter(phase: Phase) -> void:
 			_since_pull = INF
 			_hit_since_msec = Time.get_ticks_msec()
 			_roll_bots()
+	# Dropping or hanging leaves hold nobody: a body falls between them, however close the beams.
+	var solid: bool = phase != Phase.DROP and phase != Phase.OPEN
+	for body: AnimatableBody3D in _leaf_bodies:
+		body.collision_layer = 1 if solid else 0
 
 
 func _roll_bots() -> void:
@@ -279,7 +289,7 @@ func _roll_bots() -> void:
 
 # --- The pose ------------------------------------------------------------------
 
-## Leaves and handle at [param seconds] since the pull.
+## Leaves and plate at [param seconds] since the pull.
 func _pose(seconds: float) -> void:
 	var leaf: float = _leaf_angle(seconds)
 	for index: int in _leaves.size():
@@ -287,9 +297,9 @@ func _pose(seconds: float) -> void:
 		_leaves[index].transform = pose
 		if index < _leaf_bodies.size():
 			_leaf_bodies[index].transform = pose
-	if _handle != null:
-		var turn: Transform3D = Transform3D(Basis(Vector3.RIGHT, _handle_angle(seconds)), Vector3.ZERO)
-		_handle.transform = _handle_rest * turn
+	if _plate != null:
+		var turn: Transform3D = Transform3D(Basis(Vector3.BACK, _plate_angle(seconds)), Vector3.ZERO)
+		_plate.transform = _plate_rest * turn
 
 
 func _leaf_angle(seconds: float) -> float:
@@ -307,30 +317,32 @@ func _leaf_angle(seconds: float) -> float:
 	return 0.0
 
 
-func _handle_angle(seconds: float) -> float:
+func _plate_angle(seconds: float) -> float:
 	if seconds >= rearm_seconds:
-		return HANDLE_REST_RADIANS
-	var thrown: float = clampf(seconds / HANDLE_THROW_SECONDS, 0.0, 1.0)
-	var back: float = clampf((seconds - (rearm_seconds - HANDLE_RETURN_SECONDS)) / HANDLE_RETURN_SECONDS, 0.0, 1.0)
-	return lerpf(HANDLE_REST_RADIANS, HANDLE_THROWN_RADIANS, thrown * (1.0 - smoothstep(0.0, 1.0, back)))
+		return 0.0
+	var thrown: float = clampf(seconds / PLATE_THROW_SECONDS, 0.0, 1.0)
+	var back: float = clampf((seconds - (rearm_seconds - PLATE_RETURN_SECONDS)) / PLATE_RETURN_SECONDS, 0.0, 1.0)
+	return PLATE_THROWN_RADIANS * thrown * (1.0 - smoothstep(0.0, 1.0, back))
 
 
 # --- The parts -----------------------------------------------------------------
 
-func _place_lever() -> void:
-	var lever: Node3D = get_node_or_null(^"Lever") as Node3D
-	if lever == null:
+func _place_target() -> void:
+	var target: Node3D = get_node_or_null(^"Target") as Node3D
+	if target == null:
 		return
-	lever.transform = Transform3D(Basis(Vector3.UP, deg_to_rad(lever_yaw_degrees)), lever_offset)
+	target.transform = Transform3D(Basis(Vector3.UP, deg_to_rad(target_yaw_degrees)), target_offset)
 
 
 func _find_parts() -> void:
 	var model: Node3D = get_node_or_null(^"Model") as Node3D
-	for leaf_name: String in ["TrapdoorLeafA", "TrapdoorLeafB"]:
-		var leaf: Node3D = model.find_child(leaf_name, true, false) as Node3D if model != null else null
-		if leaf == null:
-			push_warning("TrapDoor at %s has no %s; it will not open." % [get_path(), leaf_name])
-			continue
+	var found: Array[Node] = []
+	if model != null:
+		found = model.find_children("TrapdoorLeaf*", "", true, false)
+	if found.is_empty():
+		push_warning("TrapDoor at %s has no leaves; it will not open." % get_path())
+	for node: Node in found:
+		var leaf: Node3D = node as Node3D
 		var rest: Transform3D = model.transform * leaf.transform
 		# The mesh is re-parented under this node so its pose and its body's share one frame.
 		leaf.get_parent().remove_child(leaf)
@@ -339,30 +351,25 @@ func _find_parts() -> void:
 		_leaves.append(leaf)
 		_leaf_rest.append(rest)
 		_leaf_bodies.append(_make_leaf_body(leaf, rest))
-	_lever = get_node_or_null(^"Lever") as Node3D
-	if _lever != null:
-		var lever_model: Node3D = _lever.get_node_or_null(^"Model") as Node3D
-		_handle = lever_model.find_child("MarbleLeverHandle", true, false) as Node3D if lever_model != null else null
-		if _handle != null:
-			_handle_rest = _handle.transform
-		_hitbox = _lever.get_node_or_null(^"HandleHitbox") as StaticBody3D
-		if _hitbox != null and _handle != null:
-			# Authored in the handle's own frame; parented to it so it swings with it.
+	_target = get_node_or_null(^"Target") as Node3D
+	if _target != null:
+		var target_model: Node3D = _target.get_node_or_null(^"Model") as Node3D
+		_plate = target_model.find_child("MarbleTargetPlate", true, false) as Node3D if target_model != null else null
+		if _plate != null:
+			_plate_rest = _plate.transform
+		_hitbox = _target.get_node_or_null(^"PlateHitbox") as StaticBody3D
+		if _hitbox != null and _plate != null:
+			# Authored in the plate's own frame; parented to it so it tips with it.
 			var authored: Transform3D = _hitbox.transform
 			_hitbox.collision_layer = SHOT_TARGET_LAYER
 			_hitbox.collision_mask = 0
-			_lever.remove_child(_hitbox)
-			_handle.add_child(_hitbox)
+			_target.remove_child(_hitbox)
+			_plate.add_child(_hitbox)
 			_hitbox.transform = authored
-		_reach = _lever.get_node_or_null(^"Reach") as Area3D
+		_reach = _target.get_node_or_null(^"Reach") as Area3D
 		if _reach != null:
 			_reach.body_entered.connect(_on_reach_entered)
 			_reach.body_exited.connect(_on_reach_exited)
-	if _hitbox == null:
-		_hitbox = get_node_or_null(^"Plate/Hitbox") as StaticBody3D
-		if _hitbox != null:
-			_hitbox.collision_layer = SHOT_TARGET_LAYER
-			_hitbox.collision_mask = 0
 
 
 func _make_leaf_body(leaf: Node3D, rest: Transform3D) -> AnimatableBody3D:
@@ -372,6 +379,10 @@ func _make_leaf_body(leaf: Node3D, rest: Transform3D) -> AnimatableBody3D:
 	body.collision_mask = 0
 	body.sync_to_physics = true
 	var bounds: AABB = _mesh_bounds(leaf)
+	# Out over the beams, seams and the frame's rim: the closed door is one floor to the bots' mesh.
+	bounds = bounds.grow(LEAF_SEAM_METRES)
+	bounds.position.y += LEAF_SEAM_METRES
+	bounds.size.y -= 2.0 * LEAF_SEAM_METRES
 	var holder: CollisionShape3D = CollisionShape3D.new()
 	var box: BoxShape3D = BoxShape3D.new()
 	box.size = bounds.size
