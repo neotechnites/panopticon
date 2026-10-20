@@ -1516,13 +1516,13 @@ freeze: waive
 expect: shove Runner_2 2.97-3.03; hit Runner_1 4.94-5.00
 
 # v71 end
-# v71 alt23 (task #657): an alternate of 23 alone, the sniper on a lever instead of the runners (stage trailer_marble_far_lever)
+# v71 alt23 (task #657): an alternate of 23 alone, the sniper on B1's activator instead of the runners (stage trailer_marble_far_lever)
 
 ## 23alt
-said: Ryan 2026-10-20: "will you also please, make an alternate version of just this clip, where instead of shooting at the runners, the sniper shoots one of the levers and drops a runner into a pit?" and, on the first take, "i dont want 12 sections that all fall, I want only two flaps, you can make the put much deeper ... same thing, furhter back on the ring, so that cover is not covering the tower from the pov runners perspective". 23v's POV (eyes on the window, running, two ahead) in Section A's open gap 73.1-84.4 between Wall1 and Wall2, where no lip wall stands between the lane and the tower: the round hits Trapdoor2's lever on the lane (83.0, r 50.4) on beat 50 (1365); the man 8 m ahead crossing that door drops through the two flaps into the pit's 10 m shaft (falling 1382-1445, on the spikes at 1446); the window stays in view every frame. Not B's first door: B's 3 m lip walls hide the guard's window from the whole lane (the sightline crosses the lip at 25.2 m, the wall top is 26) and ArcWall253 (7.6 m, 247-258.5) stands right before B1. Probe: POV 69.5 -> 83.1 at r 55 at pace 0.4 (Wall2's start 84.4 only after the slot), victim 74.2 -> 89 at r 53.5, far man 89 -> 110 at r 54; window 86 in the colonnade's 70-92.5 opening.
+said: Ryan 2026-10-20: "will you also please, make an alternate version of just this clip, where instead of shooting at the runners, the sniper shoots one of the levers and drops a runner into a pit?", then "i dont want 12 sections that all fall, I want only two flaps, you can make the put much deeper ... same thing, furhter back on the ring, so that cover is not covering the tower from the pov runners perspective", then "I TOLD YOU TO DO IT ON SECTION B FAR BACK ENOUGH SO THAT THE RUNNER POV CAN SEE THE TOWER, AND THE RUNNER FALLING INTO THE PIT AT THE SAME TIME". 23v's POV (eyes on the window, running, two ahead) on the open ring before Section B, 245.8 -> 258.3 at r 55 at pace 0.3 (Buttress5 blocks the window below 245.5, ArcWall253 is gone, B's Wall1 starts at 258.75: he reaches the open door's rim at 4.52 s, after the slot): the round hits B1's activator on the wall top (259.75, r 47.15, y 26.7) on beat 50 (1365); the victim 9 m ahead (108 px tall at the hit), 1.5 m onto B1's door, drops through the two equal flaps at 264.5 into the 6 m pit (down 2.87, on the spikes 3.37); the far man 19.5 deg on; window 261.25 in the colonnade's 250-272.5 opening; probed (probe_ring --eye) from 245.5 to 258.5: window, activator and door all open.
 capture: --map=marble --shot=pack_lead --stage=trailer_marble_far_lever --bots=3 --pov=runner --rifle=projectile --seed=20261001
 seconds: 3.5
 in: 0.9
 freeze: waive
-expect: hit PlateHitbox 2.30-2.34; stage dropped 2.84-2.98; out Runner_2 3.58-3.72; stage rim 3.75-5.0
+expect: hit PlateHitbox 2.24-2.32; stage dropped 2.80-2.94; out Runner_2 3.30-3.44; stage rim 4.42-5.2
 

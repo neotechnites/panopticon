@@ -2,14 +2,15 @@ extends "res://tools/capture/stages/stage.gd"
 
 ## trailer_marble_far_lever (23alt): Ryan: "make an alternate version of just this clip, where instead of shooting at the runners,
 ## the sniper shoots one of the levers and drops a runner into a pit?" and "further back on the ring, so that cover is not covering the
-## tower from the pov runners perspective". 23's runner POV (eyes on the window, running, two men ahead) in Section A's open gap
-## between Wall1 and Wall2 (73.1-84.4: no lip wall, the window in plain view the whole slot): the round hits Trapdoor2's lever on the
-## lane (83.0, r 50.4) on the beat and the man 8 m ahead, crossing that door, drops through its two flaps into the pit's 10 m shaft.
-## (B's 3 m lip walls hide the guard's window from the whole lane, and ArcWall253 stands before B's first door: no POV behind it sees the tower.)
+## tower from the pov runners perspective" and "on section B far back enough so that the runner POV can see the tower, and the runner
+## falling into the pit at the same time". 23's runner POV (eyes on the window, running, two men ahead) on the open ring BEFORE Section B
+## (245.5-258.7: ArcWall253 is gone, Buttress5 ends at 245, B's Wall1 starts at 258.75; the window in plain view the whole slot): the round
+## hits B1's activator on the wall top (259.75, r 47.15, y 26.7) on the beat and the man ahead, on B1's door, drops through its two flaps
+## into the 6 m pit.
 ##   --map=marble --shot=pack_lead --stage=trailer_marble_far_lever --bots=3 --pov=runner --rifle=projectile --seed=20261001
-## Dials: start (the POV's bearing at the deal, 69.5), pace (the POV's run, 0.4: slower than the victim, so he is 8 m behind him at the hit
-## and still in the gap when the slot ends), ahead_a/ahead_b (deg ahead of him at the deal: the victim, the far man; 4.7/19.5),
-## section/door (SectionA/Trapdoor2), window (86: the colonnade's 70-92.5 opening), rim (84.0: Wall2's start, the POV short of it through the slot),
+## Dials: start (the POV's bearing at the deal, 245.8), pace (the POV's run, 0.3: slower than the victim, so he is 9 m behind him at the hit,
+## 108 px tall, and short of the open door when the slot ends), ahead_a/ahead_b (deg ahead of him at the deal: the victim, the far man; 4.2/19.5),
+## section/door (SectionB/Trapdoor1), window (261.25: the colonnade's 250-272.5 opening), rim (258.75: Wall1's start, the POV short of it through the slot),
 ## fire (clip s the round is squeezed, 1.945),
 ## look (deg right of his run the eyes rest, 44), look_pitch (5), gravity (the round's drop the squeeze holds over, 22).
 
@@ -63,8 +64,8 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	for brain: RunnerBrain in runners:
 		if brain.controller == null:
 			return false
-	var start: float = float(option("start", 69.5))
-	var starts: Array[float] = [start, start + float(option("ahead_a", 4.7)), start + float(option("ahead_b", 19.5))]
+	var start: float = float(option("start", 245.8))
+	var starts: Array[float] = [start, start + float(option("ahead_a", 4.2)), start + float(option("ahead_b", 19.5))]
 	for index: int in range(3):
 		var legs: Array = _legs(index)
 		var steps: Array = [
@@ -83,17 +84,17 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	return true
 
 
-## The POV's eyes rest on the tower window, a mouse's drift on top; the two ahead run their lines.
+## The POV's eyes rest on the tower window, a mouse's drift on top; the two ahead run their lines (legs end 80 deg on: a lane leg must end within 180).
 func _legs(index: int) -> Array:
 	if index == POV:
 		var look: float = float(option("look", 44.0))
 		var up: float = float(option("look_pitch", 5.0))
-		return [{"to": 150.0, "r": START_R[POV], "speed": float(option("pace", 0.4)), "weave": 0.03, "period": 1.4, "glances": [
+		return [{"to": float(option("start", 245.8)) + 80.0, "r": START_R[POV], "speed": float(option("pace", 0.3)), "weave": 0.03, "period": 1.4, "glances": [
 			{"t": 0.0, "right": look - 6.0, "pitch": up - 1.0}, {"t": 0.9, "right": look + 2.0, "pitch": up},
 			{"t": 1.7, "right": look - 2.0, "pitch": up + 0.5}, {"t": 2.6, "right": look + 1.0, "pitch": up - 0.5},
 		]}]
 	var weave: float = 0.04 if index == VICTIM else 0.05
-	return [{"to": 150.0, "r": START_R[index], "speed": SPEED[index], "weave": weave, "period": 1.2 + 0.2 * index,
+	return [{"to": float(option("start", 245.8)) + 80.0, "r": START_R[index], "speed": SPEED[index], "weave": weave, "period": 1.2 + 0.2 * index,
 		"flinch_on": "hit", "flinch_glances": FLINCH,
 		"glances": [{"t": 0.0, "right": 0.0, "pitch": -1.0}, {"t": 0.8, "right": 6.0 * index, "pitch": -2.0}, {"t": 1.6, "right": -3.0, "pitch": -1.0}]}]
 
@@ -114,7 +115,7 @@ func tick(_delta: float) -> void:
 		_dropped = true
 		say("dropped %s at %.1f deg r %.2f y %.2f" % [victim.name, LIB.bearing_of(victim.global_position), LIB.radius_of(victim.global_position), victim.global_position.y])
 	# The POV runs the same lane: he reaches the open door's rim only after the slot has ended (the brief's expect).
-	if not _at_rim and LIB.bearing_of(_bodies[POV].global_position) >= float(option("rim", 84.0)):
+	if not _at_rim and LIB.bearing_of(_bodies[POV].global_position) >= float(option("rim", 258.75)):
 		_at_rim = true
 		say("rim reached by %s" % _bodies[POV].name)
 
@@ -127,10 +128,12 @@ func _log_frame() -> void:
 	var eye: Camera3D = _bodies[POV].get_node_or_null(^"Head/Camera") as Camera3D
 	if eye != null and eye.is_inside_tree():
 		var size: Vector2 = eye.get_viewport().get_visible_rect().size
-		var points: Array = [["win", _guard.global_position + Vector3.UP * 1.6 if _guard != null else LIB.ring_point(float(option("window", 86.0)), 5.6, 5.65) + Vector3.UP * 23.0]]
+		var points: Array = [["win", _guard.global_position + Vector3.UP * 1.6 if _guard != null else LIB.ring_point(float(option("window", 261.25)), 5.6, 5.65) + Vector3.UP * 23.0]]
 		if _plate != null:
 			points.append(["plate", _plate.global_position])
 		points.append(["a", _bodies[VICTIM].global_position + Vector3.UP])
+		points.append(["af", _bodies[VICTIM].global_position])
+		points.append(["ah", _bodies[VICTIM].global_position + Vector3.UP * 1.8])
 		points.append(["b", _bodies[FAR].global_position + Vector3.UP])
 		for p: Array in points:
 			var at: Vector3 = p[1]
@@ -144,8 +147,8 @@ func _log_frame() -> void:
 
 ## The plate hitbox of a section's door (the rifle's mark).
 func _find_plate() -> Node3D:
-	var section: Node = LIB.find_node(clip.root, String(option("section", "SectionA")))
-	var door: TrapDoor = section.get_node_or_null(NodePath(String(option("door", "Trapdoor2")))) as TrapDoor if section != null else null
+	var section: Node = LIB.find_node(clip.root, String(option("section", "SectionB")))
+	var door: TrapDoor = section.get_node_or_null(NodePath(String(option("door", "Trapdoor1")))) as TrapDoor if section != null else null
 	return door.find_child("PlateHitbox", true, false) as Node3D if door != null else null
 
 
@@ -156,10 +159,10 @@ func _raise_the_hand() -> void:
 		return
 	_plate = _find_plate()
 	if _plate == null:
-		say("no plate for %s/%s" % [String(option("section", "SectionA")), String(option("door", "Trapdoor2"))])
+		say("no plate for %s/%s" % [String(option("section", "SectionB")), String(option("door", "Trapdoor1"))])
 		return
 	_guard = shooter.controller
-	LIB.guard_to_window(_guard, float(option("window", 86.0)), 5.6)
+	LIB.guard_to_window(_guard, float(option("window", 261.25)), 5.6)
 	LIB.open_the_scope(_guard, float(option("clear", 0.74)))
 	_hand = GUARD_HAND.new()
 	_hand.name = "ClipGuardHand"
@@ -168,7 +171,7 @@ func _raise_the_hand() -> void:
 	_hand.start_at = elapsed() + 0.1
 	_hand.park = _plate.global_position
 	_hand.beats.append({"at": _plate.global_position, "seconds": 100.0})
-	say("guard at the window on %.1f deg; plate at %.1f deg r %.2f y %.2f; squeezes at %.2f s" % [float(option("window", 86.0)),
+	say("guard at the window on %.1f deg; plate at %.1f deg r %.2f y %.2f; squeezes at %.2f s" % [float(option("window", 261.25)),
 		LIB.bearing_of(_plate.global_position), LIB.radius_of(_plate.global_position), _plate.global_position.y, float(option("fire", 1.945))])
 	if OS.has_environment("STAGE_DEBUG") and controller().rifle != null:
 		controller().rifle.target_hit.connect(func(c: Node3D, at: Vector3, _n: Vector3) -> void:
