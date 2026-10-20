@@ -85,7 +85,7 @@ background_mode = 1
 background_color = Color(0.20, 0.21, 0.19, 1)
 ambient_light_source = 2
 ambient_light_color = Color(0.62, 0.66, 0.60, 1)
-ambient_light_energy = 0.4
+ambient_light_energy = 0.25
 tonemap_mode = 2
 tonemap_white = 6.0
 adjustment_enabled = true
@@ -122,17 +122,50 @@ shadow_normal_bias = 2.0
 spot_range = 120.0
 spot_attenuation = 0.0
 spot_angle = 38.0
-spot_angle_attenuation = 0.8
+spot_angle_attenuation = 0.2
 
 [node name="AmbientFill" type="OmniLight3D" parent="Skylight"]
 editor_description = "The old flat ambient (Ryan's olive 0.62/0.66/0.60), now one static omni in the well (y 45: the lane floor and the foot of the gallery wall see it under the gallery ceiling, the tiers under the lane fall into its shadow), baked with occlusion: a floor for the far tiers and corners, darker in every reveal and cell, never flat."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 45, 0)
 light_color = Color(0.62, 0.66, 0.6, 1)
-light_energy = 2.8
+light_energy = 2.0
 light_size = 6.0
 light_specular = 0.0
 light_bake_mode = 1
 omni_range = 130.0
+omni_attenuation = 0.0
+
+[node name="WellFill" type="Node3D" parent="Skylight"]
+editor_description = "The bounce's direction, baked: three faint olive static omnis in the open well at the gallery's own height (r 20, y 27), the only height from which light gets under the gallery ceiling onto its back wall. Flat falloff, so the ring is even; the cells, reveals and ceilings shade themselves in the bake."
+
+[node name="Fill090" type="OmniLight3D" parent="Skylight/WellFill"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0000, 27, 20.0000)
+light_color = Color(0.62, 0.66, 0.6, 1)
+light_energy = 0.35
+light_size = 4.0
+light_specular = 0.0
+light_bake_mode = 1
+omni_range = 150.0
+omni_attenuation = 0.0
+
+[node name="Fill210" type="OmniLight3D" parent="Skylight/WellFill"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.3205, 27, -10.0000)
+light_color = Color(0.62, 0.66, 0.6, 1)
+light_energy = 0.35
+light_size = 4.0
+light_specular = 0.0
+light_bake_mode = 1
+omni_range = 150.0
+omni_attenuation = 0.0
+
+[node name="Fill330" type="OmniLight3D" parent="Skylight/WellFill"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17.3205, 27, -10.0000)
+light_color = Color(0.62, 0.66, 0.6, 1)
+light_energy = 0.35
+light_size = 4.0
+light_specular = 0.0
+light_bake_mode = 1
+omni_range = 150.0
 omni_attenuation = 0.0
 
 [node name="MarbleLightmap" type="LightmapGI" parent="."]
@@ -387,53 +420,6 @@ light_bake_mode = 1
 shadow_enabled = false
 omni_range = 75.0
 omni_attenuation = 0.25
-
-[node name="BaseFill" type="Node3D" parent="Tower"]
-editor_description = "Downward fill on the tower foot: four warm unshadowed omnis at r 10, world y 10, so the base reads its texture without a hot spot."
-
-[node name="Fill045" type="OmniLight3D" parent="Tower/BaseFill"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.0711, -15.35, 7.0711)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 0.8
-light_specular = 0.0
-light_bake_mode = 1
-shadow_enabled = false
-omni_range = 30.0
-omni_attenuation = 1.0
-
-[node name="Fill135" type="OmniLight3D" parent="Tower/BaseFill"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.0711, -15.35, -7.0711)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 0.8
-light_specular = 0.0
-light_bake_mode = 1
-shadow_enabled = false
-omni_range = 30.0
-omni_attenuation = 1.0
-
-[node name="Fill225" type="OmniLight3D" parent="Tower/BaseFill"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.0711, -15.35, -7.0711)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 0.8
-light_specular = 0.0
-light_bake_mode = 1
-shadow_enabled = false
-omni_range = 30.0
-omni_attenuation = 1.0
-
-[node name="Fill315" type="OmniLight3D" parent="Tower/BaseFill"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.0711, -15.35, 7.0711)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 0.8
-light_specular = 0.0
-light_bake_mode = 1
-shadow_enabled = false
-omni_range = 30.0
-omni_attenuation = 1.0
 
 [node name="Elements" type="Node3D" parent="."]
 editor_description = "Placed lane elements: six curved walls on the lip at Ryan's six bearings, and the four sections as a grey blockout (tools/modelling/maps/marble/marble_sections_blockout.py writes them): A trapdoors under cover 70-118 deg, B wall with activators on top 259-295, C buttresses 197-242, D column forest 16-57."
