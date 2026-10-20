@@ -499,10 +499,10 @@ target_offset = Vector3(-6.8429, 3.0000, -3.8140)
 target_yaw_degrees = 4.625
 
 [node name="SectionC" type="Node3D" parent="Elements"]
-editor_description = "C, aesthetic only: evenly spaced flying buttresses (grey blocks; there is no buttress element): a pier on the inner edge, one arch leaning from its top over the lane onto the outer wall; runners pass under. 196.875..241.875 deg."
+editor_description = "C, aesthetic only: evenly spaced flying buttresses (grey blocks; there is no buttress element): a pier on the inner edge, one arch leaning from its top over the lane onto the outer wall; runners pass under. 199.675..244.675 deg."
 
 [node name="Buttress1" type="StaticBody3D" parent="Elements/SectionC"]
-transform = Transform3D(-0.956940, 0, 0.290285, 0, 1, 0, -0.290285, 0, -0.956940, -45.5504, 23.0000, -13.8176)
+transform = Transform3D(-0.941618, 0, 0.336684, 0, 1, 0, -0.336684, 0, -0.941618, -44.8210, 23.0000, -16.0262)
 
 [node name="Pier" type="MeshInstance3D" parent="Elements/SectionC/Buttress1"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.300, 0)
@@ -517,7 +517,7 @@ transform = Transform3D(0.998289, -0.058477, 0, 0.058477, 0.998289, 0, 0, 0, 1, 
 mesh = SubResource("Blk_2")
 
 [node name="Buttress2" type="StaticBody3D" parent="Elements/SectionC"]
-transform = Transform3D(-0.881921, 0, 0.471397, 0, 1, 0, -0.471397, 0, -0.881921, -41.9795, 23.0000, -22.4385)
+transform = Transform3D(-0.857841, 0, 0.513916, 0, 1, 0, -0.513916, 0, -0.857841, -40.8332, 23.0000, -24.4624)
 
 [node name="Pier" type="MeshInstance3D" parent="Elements/SectionC/Buttress2"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.300, 0)
@@ -532,7 +532,7 @@ transform = Transform3D(0.998289, -0.058477, 0, 0.058477, 0.998289, 0, 0, 0, 1, 
 mesh = SubResource("Blk_2")
 
 [node name="Buttress3" type="StaticBody3D" parent="Elements/SectionC"]
-transform = Transform3D(-0.773010, 0, 0.634393, 0, 1, 0, -0.634393, 0, -0.773010, -36.7953, 23.0000, -30.1971)
+transform = Transform3D(-0.741098, 0, 0.671397, 0, 1, 0, -0.671397, 0, -0.741098, -35.2762, 23.0000, -31.9585)
 
 [node name="Pier" type="MeshInstance3D" parent="Elements/SectionC/Buttress3"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.300, 0)
@@ -547,7 +547,7 @@ transform = Transform3D(0.998289, -0.058477, 0, 0.058477, 0.998289, 0, 0, 0, 1, 
 mesh = SubResource("Blk_2")
 
 [node name="Buttress4" type="StaticBody3D" parent="Elements/SectionC"]
-transform = Transform3D(-0.634393, 0, 0.773010, 0, 1, 0, -0.773010, 0, -0.634393, -30.1971, 23.0000, -36.7953)
+transform = Transform3D(-0.595875, 0, 0.803078, 0, 1, 0, -0.803078, 0, -0.595875, -28.3636, 23.0000, -38.2265)
 
 [node name="Pier" type="MeshInstance3D" parent="Elements/SectionC/Buttress4"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.300, 0)
@@ -562,7 +562,7 @@ transform = Transform3D(0.998289, -0.058477, 0, 0.058477, 0.998289, 0, 0, 0, 1, 
 mesh = SubResource("Blk_2")
 
 [node name="Buttress5" type="StaticBody3D" parent="Elements/SectionC"]
-transform = Transform3D(-0.471397, 0, 0.881921, 0, 1, 0, -0.881921, 0, -0.471397, -22.4385, 23.0000, -41.9795)
+transform = Transform3D(-0.427752, 0, 0.903896, 0, 1, 0, -0.903896, 0, -0.427752, -20.3610, 23.0000, -43.0254)
 
 [node name="Pier" type="MeshInstance3D" parent="Elements/SectionC/Buttress5"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.300, 0)

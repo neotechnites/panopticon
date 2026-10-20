@@ -63,7 +63,7 @@ CEILING_H = 8.0                 # the lane's ceiling (the next tier's floor) ove
 PIER_R, PIER_W, PIER_H = 47.6, 1.4, 6.6
 ARCH_LAND_R, SPAN_LAND_H = 59.55, 7.3  # the span's top lands on the wall face this high
 ARCH_T, ARCH_W = 0.7, 1.0
-C_FIRST, C_COUNT = 196.875, 5
+C_FIRST, C_COUNT = 199.675, 5          # v72 (Ryan 2026-10-20): the row moved +2.8 deg so the far shot's two fall seen between ArcWall188's end and the first pier
 C_STEP = 2 * BAY
 # D: rows of columns across the lane, staggered, every height different
 D_ARC = (16.0, 49.0)

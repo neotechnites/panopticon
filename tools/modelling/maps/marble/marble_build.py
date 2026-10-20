@@ -187,7 +187,7 @@ TRAPDOOR_BEARINGS = (67.5, 90.0, 112.5, 264.375, 275.625, 286.875, 298.125)
 TRAPDOOR_CELLS = 4          # 9.7 m at r 49.4, 11.7 m at the wall: over a running jump (7.0 m)
 TRAPDOOR_IN_K = 1           # the hole's inner ring, DECK_RS[1] = 49.4: r 46.7..49.4 is the section wall's strip
 TRAPDOOR_R = 0.5 * (DECK_RS[TRAPDOOR_IN_K] + WALL_R * math.cos(math.pi / NSIDE))   # 53.989: the prop's origin, mid-hole
-PIT_Z = 21.6                # the pit floor: over the lower tier's cell vaults (crown 21.5)
+PIT_Z = 17.0                # the pit floor, 6 m down: the two flaps hang into it (Ryan 2026-10-20); inside the lower tier's wall mass
 
 # ---- texture ------------------------------------------------------------------
 TEX_SEED = 9021131          # the window unwrap's random stream
