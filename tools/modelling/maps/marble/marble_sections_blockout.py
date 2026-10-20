@@ -66,7 +66,7 @@ ARCH_T, ARCH_W = 0.7, 1.0
 C_FIRST, C_COUNT = 196.875, 5
 C_STEP = 2 * BAY
 # D: rows of columns across the lane, staggered, every height different
-D_ARC = (16.0, 49.0)
+D_ARC = (150.0, 183.0)             # v72 (Ryan 2026-10-20): the forest moved from 16..49 to the stretch after ArcWall126, before ArcWall188
 BRICK_TILE_M = 6.0              # the map's brick sheet repeats this often on the buttresses (world triplanar)
 STONE_GLOW = 0.35               # the same sheet as a faint emission: the arch's underside sees no lamp
 D_ROWS = (48.6, 52.6, 56.4)
