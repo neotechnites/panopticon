@@ -109,7 +109,7 @@ light_energy = 0.0
 shadow_enabled = false
 
 [node name="Skylight" type="Node3D" parent="."]
-editor_description = "The oculus: daylight through the dome's glazed crown (marble.glb, r 11). Key is a shadowed SpotLight3D at the glass (y 82) pointing straight down (Ryan 2026-10-20: no tilting the light, no new openings), an 84 deg cone that lights the tower, the pit and the lane from its lip to r 53 all the way round (the gallery ceiling shades the rest), and nothing else directly; bake mode STATIC: LightmapGI bakes neither direct nor bounce for a Dynamic light (measured 2026-10-20: key 6 -> 14 left the lightmap unchanged), so its light, its shadows of walls, columns and piers on the lane, and its bounce are all baked; it still lights props and players in real time. Shaft, Pool and Motes are the visible light, additive and cheap."
+editor_description = "The oculus: daylight through the dome's glazed crown (marble.glb, r 11). Key is a shadowed SpotLight3D at the glass (y 82) pointing straight down (Ryan 2026-10-20: no tilting the light, no new openings), an 84 deg cone that lights the tower, the pit and the lane from its lip to r 53 all the way round (the gallery ceiling shades the rest), and nothing else directly; bake mode Dynamic: its direct light and the shadows of walls, columns and piers on the lane are real time, its bounce is in MarbleLightmap. Shaft and Pool are gi_mode Disabled: as occluders they wrapped this light and the fill at the glass, and the bake saw neither (2026-10-20). Shaft, Pool and Motes are the visible light, additive and cheap."
 
 [node name="Key" type="SpotLight3D" parent="Skylight"]
 transform = Transform3D(0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 82, 0)
@@ -117,7 +117,7 @@ light_color = Color(1, 0.96, 0.88, 1)
 light_energy = 14.0
 light_size = 3.0
 light_specular = 0.0
-light_bake_mode = 1
+light_bake_mode = 2
 shadow_enabled = true
 shadow_normal_bias = 2.0
 spot_range = 120.0
@@ -180,7 +180,7 @@ omni_range = 150.0
 omni_attenuation = 0.0
 
 [node name="MarbleLightmap" type="LightmapGI" parent="."]
-editor_description = "The oculus bounce and the dim lamps on the marble, tower and bars (Static Lightmaps imports): Key, AmbientFill and WellFill whole (Static), three bounces; its probes light anything not lightmapped. Rebake: tools/pc_bake_lightmap.sh <ref> res://maps/marble/marble.tscn."
+editor_description = "The oculus bounce and the dim lamps on the marble, tower and bars (Static Lightmaps imports): Key indirect only (Dynamic), AmbientFill and WellFill whole (Static), three bounces; its probes light anything not lightmapped. Rebake: tools/pc_bake_lightmap.sh <ref> res://maps/marble/marble.tscn."
 quality = 2
 bounces = 3
 bounce_indirect_energy = 1.5
@@ -192,11 +192,13 @@ light_data = ExtResource("26_marble_lightmap")
 [node name="Shaft" type="MeshInstance3D" parent="Skylight"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 38.97, 0)
 cast_shadow = 0
+gi_mode = 0
 mesh = SubResource("ShaftMesh")
 
 [node name="Pool" type="MeshInstance3D" parent="Skylight"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.95, 0)
 cast_shadow = 0
+gi_mode = 0
 mesh = SubResource("PoolMesh")
 
 [node name="Motes" type="CPUParticles3D" parent="Skylight"]
