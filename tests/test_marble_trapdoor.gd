@@ -132,7 +132,7 @@ func test_the_target_fires_from_the_guards_shot() -> void:
 
 
 ## Every trapdoor in the scene stands over a hole the map cut for it, wall strip to wall: rays
-## down it, past its own flaps, meet the pit floor 6 m down, not the deck.
+## down it, past its own flaps, meet a pit floor (the 1.4 m ledge or the 10.4 m shaft), not the deck.
 ## A door off the bearings in marble_build.TRAPDOOR_BEARINGS fails here.
 func test_every_trapdoor_sits_over_a_cut_hole() -> void:
 	var doors: Array[TrapDoor] = []
@@ -150,7 +150,7 @@ func test_every_trapdoor_sits_over_a_cut_hole() -> void:
 		for probe: Vector3 in [Vector3.ZERO, Vector3(-4.5, 0.0, 0.0), Vector3(4.5, 0.0, 0.0), Vector3(0.0, 0.0, 4.5), Vector3(0.0, 0.0, -4.5)]:
 			var top: Vector3 = door.global_transform * (probe + Vector3.UP * 0.5)
 			var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
-				top, top + Vector3.DOWN * 8.0, STATIC_COLLIDER_MASK,
+				top, top + Vector3.DOWN * 12.0, STATIC_COLLIDER_MASK,
 			)
 			query.exclude = exclude
 			var hit: Dictionary = space.intersect_ray(query)
