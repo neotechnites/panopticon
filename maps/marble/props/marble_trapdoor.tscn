@@ -20,15 +20,26 @@ hole_size_metres = Vector3(12.1, 10.4, 11.8)
 [node name="Model" parent="." instance=ExtResource("2_trapdoor_model")]
 
 [node name="PitTrap" type="Area3D" parent="."]
-editor_description = "The pit's spikes kill: y -10.4 (the shaft floor) to -0.5, under the closed flaps (bottom -0.15), so nobody on the closed door is touched; the 1.4 m ledge is inside it too."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5.45, 0)
+editor_description = "The shaft floor's spikes kill: y -10.4 to -9.5 over r 52..60 (x -2.0..5.85 here), so a body that drops falls the whole shaft before it goes limp; the closed flaps (bottom -0.15) touch nobody."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.93, -9.95, 0)
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
 script = ExtResource("4_trap_volume")
-size_metres = Vector3(11.7, 9.9, 11.6)
+size_metres = Vector3(7.84, 0.9, 11.6)
 
 [node name="Shape" type="CollisionShape3D" parent="PitTrap"]
+
+[node name="PitTrapLedge" type="Area3D" parent="."]
+editor_description = "The ledge's spikes kill: y -1.4 to -0.5 over r 48.05..52 (x -5.85..-2.0 here), under the inner flap."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.92, -0.95, 0)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("4_trap_volume")
+size_metres = Vector3(3.86, 0.9, 11.6)
+
+[node name="Shape" type="CollisionShape3D" parent="PitTrapLedge"]
 
 [node name="Target" type="Node3D" parent="."]
 editor_description = "1.4 deg before the hole at r 50.4, beside a section wall's lead-in, its bullseye (local -X) toward the tower."
