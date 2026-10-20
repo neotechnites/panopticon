@@ -79,7 +79,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			stage_body(_bodies[0])
 		"ashove":
 			drive(runners[0], [{"do": "place", "deg": 82.3, "r": 51.0}, {"do": "human", "on": true},
-				{"do": "until", "t": float(option("shove", 2.45))}, {"do": "shove"}, {"do": "hold", "seconds": 60.0}], 0)
+				{"do": "until", "t": float(option("shove", 1.85))}, {"do": "shove"}, {"do": "hold", "seconds": 60.0}], 0)
 			drive(runners[1], [{"do": "place", "deg": 85.6, "r": 54.0}, {"do": "human", "on": true}, {"do": "until", "t": 1.2},
 				{"do": "run", "to": LIB.ring_point(95.0, 54.0, 0.1), "speed": float(option("pace", 0.18)), "timeout": 12.0},
 				{"do": "hold", "seconds": 60.0}], 1)
