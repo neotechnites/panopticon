@@ -63,10 +63,10 @@ CEILING_H = 8.0                 # the lane's ceiling (the next tier's floor) ove
 PIER_R, PIER_W, PIER_H = 47.6, 1.4, 6.6
 ARCH_LAND_R, SPAN_LAND_H = 59.55, 7.3  # the span's top lands on the wall face this high
 ARCH_T, ARCH_W = 0.7, 1.0
-C_FIRST, C_COUNT = 196.875, 5
+C_FIRST, C_COUNT = 199.675, 5          # v72 (Ryan 2026-10-20): the row moved +2.8 deg so the far shot's two fall seen between ArcWall188's end and the first pier
 C_STEP = 2 * BAY
 # D: rows of columns across the lane, staggered, every height different
-D_ARC = (150.0, 183.0)             # v72 (Ryan 2026-10-20): the forest moved from 16..49 to the stretch after ArcWall126, before ArcWall188
+D_ARC = (16.0, 49.0)
 BRICK_TILE_M = 6.0              # the map's brick sheet repeats this often on the buttresses (world triplanar)
 STONE_GLOW = 0.35               # the same sheet as a faint emission: the arch's underside sees no lamp
 D_ROWS = (48.6, 52.6, 56.4)
