@@ -38,7 +38,9 @@ STRIP = (46.8, 49.4)            # DECK_RS[0]..[1]: kept as deck over every hole;
 TRAP_R = 0.5 * (49.4 + 60.0 * math.cos(math.pi / 64.0))   # marble_build.TRAPDOOR_R
 TRAP_CELLS = 4                  # marble_build.TRAPDOOR_CELLS
 
-WALL_H = 2.0                    # A and B: over a 1.8 m runner and his 1.1 m jump; hides the 29.3 m eye from the lane
+MARBLE_WALL_H = 2.0          # marble_wall.tscn as authored
+WALL_ROWS = 2                # stacked two high: a 4 m wall hides a 1.6 m eye anywhere behind it from the 29.3 m eye (2.53 m needed)
+WALL_H = MARBLE_WALL_H * WALL_ROWS                    # A and B: over a 1.8 m runner and his 1.1 m jump; hides the 29.3 m eye from the lane
 ACT_BEFORE_DEG = 1.4            # the activator this far before its trapdoor's first pier
 ACT_R_LANE = 50.4               # A: on the lane, 1 m outside the wall's face
 ACT_R_TOP = 49.15                 # B: on the wall top's centre line (WALL_R)
@@ -58,19 +60,21 @@ B_ACT_AFTER_DEG = 1.0
 # the lip walls moved out of A's and B's way: name -> new mid bearing
 LIP_MOVES = {"ArcWall064": 55.9, "ArcWall306": 309.6}
 # C: a flying buttress on every other pier: a pier on the inner strip, one arch up onto the outer wall
-PIER_R, PIER_W, PIER_H = 47.6, 1.4, 8.0
-ARCH_LAND_R, ARCH_RISE = 59.55, 6.0    # lands on the wall face 14 m over the deck
-ARCH_T, ARCH_W, ARC_SEGS = 0.9, 1.0, 8
+CEILING_H = 8.0                 # the lane's ceiling (the next tier's floor) over the deck
+PIER_R, PIER_W, PIER_H = 47.6, 1.4, 6.6
+ARCH_LAND_R, SPAN_LAND_H = 59.55, 7.3  # the span's top lands on the wall face this high
+ARCH_T, ARCH_W = 0.7, 1.0
 C_FIRST, C_COUNT = 196.875, 5
 C_STEP = 2 * BAY
 # D: rows of columns across the lane, staggered, every height different
 D_ARC = (16.0, 49.0)
 BRICK_TILE_M = 6.0              # the map's brick sheet repeats this often on the buttresses (world triplanar)
 STONE_GLOW = 0.35               # the same sheet as a faint emission: the arch's underside sees no lamp
-D_ROWS = (48.1, 50.7, 53.3, 55.9)
-D_PITCH = 3.4                   # metres along a row
+D_ROWS = (48.6, 52.6, 56.4)
+D_PITCH = 5.2                   # metres along a row
 D_RADIUS = 0.6                  # a 1.2 m top to land on
-D_H = (0.7, 3.6)                # lowest and highest top
+D_H = (0.9, 5.0)                # lowest and highest top: the column is 5.0 m, sunk to show this much
+COLUMN_H = 5.0
 D_STEP = 0.9                    # a top this far over its neighbour's is a jump up (apex 1.11 m)
 D_REACH = 4.3                   # centre to centre, a neighbour you can jump to
 
@@ -128,13 +132,14 @@ def trapdoor(sc, parent, name, start, act_r, act_y, desc, act_deg=None):
 def wall_over(sc, parent, name, start, desc):
     """The map's marble_wall (4 m, 2 m, 0.5 m) as authored, WALL_N of them end to end over one trapdoor, outer face on r 49.4."""
     pitch = TRAP_CELLS * CELL / WALL_N
-    for k in range(WALL_N):
-        b = start + (k + 0.5) * pitch
-        c, sn = math.cos(rad(b)), math.sin(rad(b))
-        o = at(b, WALL_R)
-        sc.node('[node name="%s%d" parent="%s" instance=ExtResource("Blk_wall")]\neditor_description = "%s"\n'
-                'transform = Transform3D(%.6f, 0, %.6f, 0, 1, 0, %.6f, 0, %.6f, %.4f, %.4f, %.4f)\n'
-                % (name, k + 1, parent, desc, -sn, -c, c, -sn, o[0], o[1], o[2]))
+    for row in range(WALL_ROWS):
+        for k in range(WALL_N):
+            b = start + (k + 0.5) * pitch
+            c, sn = math.cos(rad(b)), math.sin(rad(b))
+            o = at(b, WALL_R, DECK_Y + row * MARBLE_WALL_H)
+            sc.node('[node name="%s%d%s" parent="%s" instance=ExtResource("Blk_wall")]\neditor_description = "%s"\n'
+                    'transform = Transform3D(%.6f, 0, %.6f, 0, 1, 0, %.6f, 0, %.6f, %.4f, %.4f, %.4f)\n'
+                    % (name, k + 1, "ab"[row], parent, desc, -sn, -c, c, -sn, o[0], o[1], o[2]))
 
 
 def section_a(sc):
@@ -172,7 +177,6 @@ def section_c(sc):
             'arch leaning from its top over the lane onto the outer wall; runners pass under. %.3f..%.3f deg."\n'
             % (C_FIRST, C_FIRST + (C_COUNT - 1) * C_STEP))
     pm, ps = sc.box((PIER_W, PIER_H, PIER_W))
-    seg = math.pi / 2.0 / ARC_SEGS
     for k in range(C_COUNT):
         b = C_FIRST + k * C_STEP
         name = "Buttress%d" % (k + 1)
@@ -181,22 +185,16 @@ def section_c(sc):
                 % (p, name, PIER_H / 2.0, pm))
         sc.node('[node name="PierShape" type="CollisionShape3D" parent="%s/%s"]\ntransform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, %.3f, 0)\nshape = SubResource("%s")\n'
                 % (p, name, PIER_H / 2.0, ps))
-        # the flying arch: its soffit a quarter ellipse centred over the wall foot at pier-top height
-        ax, ay = ARCH_LAND_R - PIER_R, ARCH_RISE
-        for i in range(ARC_SEGS):
-            t0, t1 = i * seg, (i + 1) * seg
-            p0 = (ax - ax * math.cos(t0), PIER_H + ay * math.sin(t0))
-            p1 = (ax - ax * math.cos(t1), PIER_H + ay * math.sin(t1))
-            L = math.hypot(p1[0] - p0[0], p1[1] - p0[1]) + 0.25
-            ang = math.atan2(p1[1] - p0[1], p1[0] - p0[0])
-            mm, _ = sc.box((L, ARCH_T, ARCH_W))
-            cx, cy = 0.5 * (p0[0] + p1[0]), 0.5 * (p0[1] + p1[1])
-            nx, ny = -math.sin(ang), math.cos(ang)         # the block sits on the soffit
-            cx, cy = cx + nx * ARCH_T / 2.0, cy + ny * ARCH_T / 2.0
-            ca, sa = math.cos(ang), math.sin(ang)
-            sc.node('[node name="Arch%d" type="MeshInstance3D" parent="%s/%s"]\n'
-                    'transform = Transform3D(%.6f, %.6f, 0, %.6f, %.6f, 0, 0, 0, 1, %.4f, %.4f, 0)\nmesh = SubResource("%s")\n'
-                    % (i, p, name, ca, -sa, sa, ca, cx, cy, mm))
+        # the flying span: one straight block from the pier's top to the wall face, under the lane's 8 m ceiling
+        x0, y0, x1, y1 = 0.0, PIER_H, ARCH_LAND_R - PIER_R, SPAN_LAND_H
+        L = math.hypot(x1 - x0, y1 - y0)
+        ang = math.atan2(y1 - y0, x1 - x0)
+        mm, _ = sc.box((L, ARCH_T, ARCH_W))
+        ca, sa = math.cos(ang), math.sin(ang)
+        cx, cy = 0.5 * (x0 + x1), 0.5 * (y0 + y1) - ARCH_T / 2.0      # its top edge runs pier top to SPAN_LAND_H
+        sc.node('[node name="Span" type="MeshInstance3D" parent="%s/%s"]\n'
+                'transform = Transform3D(%.6f, %.6f, 0, %.6f, %.6f, 0, 0, 0, 1, %.4f, %.4f, 0)\nmesh = SubResource("%s")\n'
+                % (p, name, ca, -sa, sa, ca, cx, cy, mm))
 
 
 def forest():
@@ -208,7 +206,7 @@ def forest():
         j = 0
         while b <= D_ARC[1]:
             jit = 0.25 * math.sin(j * 2.3 + row * 1.1)
-            f = 0.5 + 0.5 * math.sin(j * 1.37 + row * 2.11) * math.cos(j * 0.53 - row * 0.7)
+            f = (0.5 + 0.5 * math.sin(j * 2.39 + row * 2.11)) ** 1.3
             cols.append([b + math.degrees(jit / r), r + 0.2 * math.cos(j * 1.9 + row), D_H[0] + (D_H[1] - D_H[0]) * f])
             b += step
             j += 1
@@ -216,7 +214,7 @@ def forest():
     def xy(c):
         return (c[1] * math.cos(rad(c[0])), c[1] * math.sin(rad(c[0])))
 
-    for _ in range(50):                    # lower any top nobody can reach until all can
+    for _ in range(0):                     # v5: no reach rule; the heights only vary (Ryan 23:07)
         reach = [c[2] <= D_STEP for c in cols]
         changed = True
         while changed:
@@ -239,15 +237,17 @@ def forest():
 
 
 def section_d(sc):
-    """The trailer's column (marble_column.glb as trailer_marble_column.spawn_columns places it: unscaled, turned -bearing)."""
+    """The trailer's column (marble_column.glb as trailer_marble_column.spawn_columns places it: unscaled, turned -bearing),
+    sunk into the deck by 5 m less its height so the forest's tops vary."""
     p = "Elements/SectionD"
     cols = forest()
     sc.node('[node name="SectionD" type="Node3D" parent="Elements"]\neditor_description = "D, aesthetic: a column forest, '
-            '%d of the trailer\'s marble_column as it places them (unscaled, rotation (0, -bearing, 0)), rows across the '
-            'lane, %.1f..%.1f deg, room to walk between."\n' % (len(cols), D_ARC[0], D_ARC[1]))
-    for i, (b, r, _h) in enumerate(cols):
+            '%d of the trailer\'s marble_column as it places them (unscaled, rotation (0, -bearing, 0)), sunk to show '
+            '%.1f..%.1f m, %.1f..%.1f deg; room to walk between, the lowest jumpable."\n'
+            % (len(cols), min(c[2] for c in cols), max(c[2] for c in cols), D_ARC[0], D_ARC[1]))
+    for i, (b, r, h) in enumerate(cols):
         sc.node('[node name="Column%02d" parent="%s" instance=ExtResource("Blk_column")]\ntransform = %s\n'
-                % (i + 1, p, xform(b, at(b, r))))
+                % (i + 1, p, xform(b, at(b, r, DECK_Y + h - COLUMN_H))))
     return cols
 
 
