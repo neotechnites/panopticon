@@ -4,7 +4,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## the sniper shoots one of the levers and drops a runner into a pit?" and "further back on the ring, so that cover is not covering the
 ## tower from the pov runners perspective". 23's runner POV (eyes on the window, running, two men ahead) in Section A's open gap
 ## between Wall1 and Wall2 (73.1-84.4: no lip wall, the window in plain view the whole slot): the round hits Trapdoor2's lever on the
-## lane (83.0, r 50.4) on the beat and the man 8 m ahead, crossing that door, drops through its two flaps into the 6 m pit.
+## lane (83.0, r 50.4) on the beat and the man 8 m ahead, crossing that door, drops through its two flaps into the pit's 10 m shaft.
 ## (B's 3 m lip walls hide the guard's window from the whole lane, and ArcWall253 stands before B's first door: no POV behind it sees the tower.)
 ##   --map=marble --shot=pack_lead --stage=trailer_marble_far_lever --bots=3 --pov=runner --rifle=projectile --seed=20261001
 ## Dials: start (the POV's bearing at the deal, 69.5), pace (the POV's run, 0.4: slower than the victim, so he is 8 m behind him at the hit
