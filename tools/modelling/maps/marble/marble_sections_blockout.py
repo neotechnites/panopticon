@@ -38,15 +38,16 @@ STRIP = (46.8, 49.4)            # DECK_RS[0]..[1]: kept as deck over every hole;
 TRAP_R = 0.5 * (49.4 + 60.0 * math.cos(math.pi / 64.0))   # marble_build.TRAPDOOR_R
 TRAP_CELLS = 4                  # marble_build.TRAPDOOR_CELLS
 
-WALL_H = 3.0                    # A and B: over a 1.8 m runner and his 1.1 m jump; hides the 29.3 m eye from the lane
+WALL_H = 2.0                    # A and B: over a 1.8 m runner and his 1.1 m jump; hides the 29.3 m eye from the lane
 ACT_BEFORE_DEG = 1.4            # the activator this far before its trapdoor's first pier
 ACT_R_LANE = 50.4               # A: on the lane, 1 m outside the wall's face
-ACT_R_TOP = 48.925                # B: on the wall top's centre line (WALL_R)
+ACT_R_TOP = 49.15                 # B: on the wall top's centre line (WALL_R)
 
 # v2 walls: the map's marble_wall_arc (r 47.3, 11.4 deg, 7.6 m) stood with its outer face on the hole's edge,
 # squashed to WALL_H and to one trapdoor's 11.25 deg, so cover is only ever over trapdoor floor
-ARC_R, ARC_DEG, ARC_H, ARC_T = 47.3, 11.4, 7.6, 0.75
-WALL_R = 49.4 - ARC_T / 2.0 - 0.10    # 48.925: the socle's outer face on r 49.4
+ARC_R = 47.3                 # the lip walls' radius (marble_wall_arc), for LIP_MOVES
+WALL_R = 49.15               # marble_wall (0.5 m thick) with its outer face on r 49.4
+WALL_N = 3                   # 4 m walls end to end over a trapdoor's 9.7 m (they overlap a little; the element is not reshaped)
 # A: three trapdoors, two bays of open, uncovered ground between; activators in the open, the rifle's too
 A_STARTS = (61.875, 84.375, 106.875)
 A_LEAD_CELLS = 0
@@ -56,14 +57,15 @@ B_WALL = (B_STARTS[0], B_STARTS[-1] + 4 * CELL)
 B_ACT_AFTER_DEG = 1.0
 # the lip walls moved out of A's and B's way: name -> new mid bearing
 LIP_MOVES = {"ArcWall064": 55.9, "ArcWall306": 309.6}
-# C: a flying buttress on every other pier: three marble_arch (4 m) side by side, wall to lip, passages along the lap
-ARCH_W = 4.0
-ARCH_RS = (49.55, 53.55, 57.55)   # wall pilaster (59.55) to 47.55
+# C: a flying buttress on every other pier: a pier on the inner strip, one arch up onto the outer wall
+PIER_R, PIER_W, PIER_H = 47.6, 1.4, 8.0
+ARCH_LAND_R, ARCH_RISE = 59.55, 6.0    # lands on the wall face 14 m over the deck
+ARCH_T, ARCH_W, ARC_SEGS = 0.9, 1.0, 8
 C_FIRST, C_COUNT = 196.875, 5
 C_STEP = 2 * BAY
 # D: rows of columns across the lane, staggered, every height different
 D_ARC = (16.0, 49.0)
-COLUMN_H = 5.0                  # marble_column.glb, whole: squashed in height only, so it stays round
+D_WHOLE_OVER = 2.4              # a forest height over this is a whole column (5 m), else a broken one (2 m)
 D_ROWS = (48.1, 50.7, 53.3, 55.9)
 D_PITCH = 3.4                   # metres along a row
 D_RADIUS = 0.6                  # a 1.2 m top to land on
@@ -101,6 +103,12 @@ class Scene(object):
             self.subs.append('[sub_resource type="%s" id="%s"]\n%s\n' % (text[0], self.shapes[key], text[1]))
         return self.shapes[key]
 
+    def box(self, size):
+        """A BoxMesh and its BoxShape3D for a grey blockout block."""
+        size = tuple(round(v, 3) for v in size)
+        return (self.sub(("bm",) + size, ("BoxMesh", "size = Vector3(%.3f, %.3f, %.3f)" % size)),
+                self.sub(("bs",) + size, ("BoxShape3D", "size = Vector3(%.3f, %.3f, %.3f)" % size)))
+
     def node(self, text):
         self.nodes.append(text)
 
@@ -117,14 +125,15 @@ def trapdoor(sc, parent, name, start, act_r, act_y, desc, act_deg=None):
 
 
 def wall_over(sc, parent, name, start, desc):
-    """The map's marble_wall_arc over one trapdoor, ends on its ends, outer face on the hole's edge."""
-    mid = start + TRAP_CELLS / 2.0 * CELL
-    c, sn = math.cos(rad(mid)), math.sin(rad(mid))
-    ky, kz = WALL_H / ARC_H, TRAP_CELLS * CELL / ARC_DEG
-    o = at(mid, WALL_R)
-    sc.node('[node name="%s" parent="%s" instance=ExtResource("Blk_wall")]\neditor_description = "%s"\n'
-            'transform = Transform3D(%.6f, 0, %.6f, 0, %.6f, 0, %.6f, 0, %.6f, %.4f, %.4f, %.4f)\n'
-            % (name, parent, desc, c, -sn * kz, ky, sn, c * kz, o[0], o[1], o[2]))
+    """The map's marble_wall (4 m, 2 m, 0.5 m) as authored, WALL_N of them end to end over one trapdoor, outer face on r 49.4."""
+    pitch = TRAP_CELLS * CELL / WALL_N
+    for k in range(WALL_N):
+        b = start + (k + 0.5) * pitch
+        c, sn = math.cos(rad(b)), math.sin(rad(b))
+        o = at(b, WALL_R)
+        sc.node('[node name="%s%d" parent="%s" instance=ExtResource("Blk_wall")]\neditor_description = "%s"\n'
+                'transform = Transform3D(%.6f, 0, %.6f, 0, 1, 0, %.6f, 0, %.6f, %.4f, %.4f, %.4f)\n'
+                % (name, k + 1, parent, desc, -sn, -c, c, -sn, o[0], o[1], o[2]))
 
 
 def section_a(sc):
@@ -155,16 +164,38 @@ def section_b(sc):
 
 
 def section_c(sc):
+    """A flying buttress per C_STEP: a square pier on the lane's inner edge, one arch from its top to high on the outer wall."""
     p = "Elements/SectionC"
     sc.node('[node name="SectionC" type="Node3D" parent="Elements"]\neditor_description = "C, aesthetic only: '
-            'evenly spaced flying buttresses from the outer wall to the inner edge, hollow: three of the map\'s '
-            'marble_arch side by side, the lane running through their openings. %.3f..%.3f deg."\n'
+            'evenly spaced flying buttresses (grey blocks; there is no buttress element): a pier on the inner edge, one '
+            'arch leaning from its top over the lane onto the outer wall; runners pass under. %.3f..%.3f deg."\n'
             % (C_FIRST, C_FIRST + (C_COUNT - 1) * C_STEP))
+    pm, ps = sc.box((PIER_W, PIER_H, PIER_W))
+    seg = math.pi / 2.0 / ARC_SEGS
     for k in range(C_COUNT):
         b = C_FIRST + k * C_STEP
-        for i, r in enumerate(ARCH_RS):
-            sc.node('[node name="Buttress%d%s" parent="%s" instance=ExtResource("Blk_arch")]\ntransform = %s\n'
-                    % (k + 1, "abc"[i], p, xform(b, at(b, r))))
+        name = "Buttress%d" % (k + 1)
+        sc.node('[node name="%s" type="StaticBody3D" parent="%s"]\ntransform = %s\n' % (name, p, xform(b, at(b, PIER_R))))
+        sc.node('[node name="Pier" type="MeshInstance3D" parent="%s/%s"]\ntransform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, %.3f, 0)\nmesh = SubResource("%s")\n'
+                % (p, name, PIER_H / 2.0, pm))
+        sc.node('[node name="PierShape" type="CollisionShape3D" parent="%s/%s"]\ntransform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, %.3f, 0)\nshape = SubResource("%s")\n'
+                % (p, name, PIER_H / 2.0, ps))
+        # the flying arch: its soffit a quarter ellipse centred over the wall foot at pier-top height
+        ax, ay = ARCH_LAND_R - PIER_R, ARCH_RISE
+        for i in range(ARC_SEGS):
+            t0, t1 = i * seg, (i + 1) * seg
+            p0 = (ax - ax * math.cos(t0), PIER_H + ay * math.sin(t0))
+            p1 = (ax - ax * math.cos(t1), PIER_H + ay * math.sin(t1))
+            L = math.hypot(p1[0] - p0[0], p1[1] - p0[1]) + 0.25
+            ang = math.atan2(p1[1] - p0[1], p1[0] - p0[0])
+            mm, _ = sc.box((L, ARCH_T, ARCH_W))
+            cx, cy = 0.5 * (p0[0] + p1[0]), 0.5 * (p0[1] + p1[1])
+            nx, ny = -math.sin(ang), math.cos(ang)         # the block sits on the soffit
+            cx, cy = cx + nx * ARCH_T / 2.0, cy + ny * ARCH_T / 2.0
+            ca, sa = math.cos(ang), math.sin(ang)
+            sc.node('[node name="Arch%d" type="MeshInstance3D" parent="%s/%s"]\n'
+                    'transform = Transform3D(%.6f, %.6f, 0, %.6f, %.6f, 0, 0, 0, 1, %.4f, %.4f, 0)\nmesh = SubResource("%s")\n'
+                    % (i, p, name, ca, -sa, sa, ca, cx, cy, mm))
 
 
 def forest():
@@ -209,15 +240,16 @@ def forest():
 def section_d(sc):
     p = "Elements/SectionD"
     cols = forest()
-    sc.node('[node name="SectionD" type="Node3D" parent="Elements"]\neditor_description = "D, aesthetic: a column forest, '
-            '%d of the map\'s marble_column %.1f..%.1f m tall (squashed in height only, round), %.1f..%.1f deg, '
-            'every top jumpable, room to walk between."\n' % (len(cols), min(c[2] for c in cols), max(c[2] for c in cols), D_ARC[0], D_ARC[1]))
+    sc.node('[node name="SectionD" type="Node3D" parent="Elements"]\neditor_description = "D, aesthetic: a column forest of '
+            'the map\'s marble_column (5.0 m) and marble_column_broken (2.0 m) as authored, turned at random, %.1f..%.1f deg; '
+            'room to walk between."\n' % (D_ARC[0], D_ARC[1]))
     for i, (b, r, h) in enumerate(cols):
-        c, sn, k = math.cos(rad(b)), math.sin(rad(b)), h / COLUMN_H
+        turn = b + 37.0 * i
+        c, sn = math.cos(rad(turn)), math.sin(rad(turn))
         o = at(b, r)
-        sc.node('[node name="Column%02d" parent="%s" instance=ExtResource("Blk_column")]\n'
-                'transform = Transform3D(%.6f, 0, %.6f, 0, %.6f, 0, %.6f, 0, %.6f, %.4f, %.4f, %.4f)\n'
-                % (i + 1, p, c, -sn, k, sn, c, o[0], o[1], o[2]))
+        sc.node('[node name="Column%02d" parent="%s" instance=ExtResource("%s")]\n'
+                'transform = Transform3D(%.6f, 0, %.6f, 0, 1, 0, %.6f, 0, %.6f, %.4f, %.4f, %.4f)\n'
+                % (i + 1, p, "Blk_column" if h > D_WHOLE_OVER else "Blk_broken", c, -sn, sn, c, o[0], o[1], o[2]))
     return cols
 
 
@@ -244,9 +276,9 @@ def write():
                       lambda m: m.group(1) + "Transform3D(%.6f, 0, %.6f, 0, 1, 0, %.6f, 0, %.6f, %.4f, 23.0, %.4f)"
                       % (c, -sn, sn, c, ARC_R * c, ARC_R * sn), text)
     ext = ('[ext_resource type="PackedScene" path="res://maps/marble/props/marble_trapdoor.tscn" id="Blk_trapdoor"]\n'
-           '[ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall_arc.tscn" id="Blk_wall"]\n'
-           '[ext_resource type="PackedScene" path="res://maps/marble/models/marble_arch.glb" id="Blk_arch"]\n'
-           '[ext_resource type="PackedScene" path="res://maps/marble/models/marble_column.glb" id="Blk_column"]\n')
+           '[ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall.tscn" id="Blk_wall"]\n'
+           '[ext_resource type="PackedScene" path="res://maps/marble/models/marble_column.glb" id="Blk_column"]\n'
+           '[ext_resource type="PackedScene" path="res://maps/marble/models/marble_column_broken.glb" id="Blk_broken"]\n')
     first_sub = text.index("\n[sub_resource ") + 1
     text = text[:first_sub].rstrip("\n") + "\n" + ext + "\n" + "\n".join(sc.subs) + "\n" + text[first_sub:]
     text = text.rstrip("\n") + "\n\n" + "\n".join(sc.nodes)
@@ -290,9 +322,8 @@ def layout(path):
         g.ellipse([x - 4, y - 4, x + 4, y + 4], fill=(255, 210, 0))
     for k in range(C_COUNT):
         b = C_FIRST + k * C_STEP
-        for r in ARCH_RS:
-            band(b - 0.8, b + 0.8, r - 2.0, r - 0.6, (235, 235, 235))
-            band(b - 0.8, b + 0.8, r + 0.6, r + 2.0, (235, 235, 235))
+        band(b - 0.8, b + 0.8, PIER_R - PIER_W / 2.0, PIER_R + PIER_W / 2.0, (235, 235, 235))
+        band(b - 0.5, b + 0.5, PIER_R + PIER_W / 2.0, ARCH_LAND_R, (150, 150, 150))
     for b, r, h in forest():
         x, y = P(b, r)
         v = int(120 + 135 * (h - D_H[0]) / (D_H[1] - D_H[0]))
