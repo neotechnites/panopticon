@@ -13,33 +13,22 @@ radius = 0.6
 radius = 1.8
 
 [node name="MarbleTrapdoor" type="Node3D"]
-editor_description = "Target and trapdoor. Origin is the deck at r 53.989 (mid-hole) on a pier (+X out, +Z the way the lap runs); the hole is four lane cells, pilaster to pilaster, r 48.05 to the wall (r 46.8..48.05 stays deck under the lip walls), cut into marble.glb from where these stand: place it (parent at identity), run python3 tools/modelling/maps/marble/marble_build.py --sync-trapdoors (it snaps you to a pier), then tools/modelling/model build marble. Shove beside the target, or shoot its plate: 0.3 s rattle, the two flaps part at the seam along the lane and hang into the spiked pit (a 1.4 m ledge over the cells, a 10.4 m shaft from r 52 out), open 4 s, close, re-arm 10 s after the pull. Move the target with target_offset / target_yaw_degrees."
+editor_description = "Target and trapdoor. Origin is the deck at r 53.989 (mid-hole) on a pier (+X out, +Z the way the lap runs); the hole is four lane cells, pilaster to pilaster, r 48.05 to the wall (r 46.8..48.05 stays deck under the lip walls), cut into marble.glb from where these stand: place it (parent at identity), run python3 tools/modelling/maps/marble/marble_build.py --sync-trapdoors (it snaps you to a pier), then tools/modelling/model build marble. Shove beside the target, or shoot its plate: 0.3 s rattle, the two flaps part at the seam along the lane and hang into the 6 m spiked pit, open 4 s, close, re-arm 10 s after the pull. Move the target with target_offset / target_yaw_degrees."
 script = ExtResource("1_trap_door")
-hole_size_metres = Vector3(12.1, 10.4, 11.8)
+hole_size_metres = Vector3(12.1, 6, 11.8)
 
 [node name="Model" parent="." instance=ExtResource("2_trapdoor_model")]
 
 [node name="PitTrap" type="Area3D" parent="."]
-editor_description = "The shaft floor's spikes kill: y -10.4 to -9.5 over r 52..60 (x -2.0..5.85 here), so a body that drops falls the whole shaft before it goes limp; the closed flaps (bottom -0.15) touch nobody."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.93, -9.95, 0)
+editor_description = "The pit floor's spikes kill: y -6.0 to -5.1, under the hanging flaps (bottom -5.7), so a body that drops falls the whole pit before it goes limp; nobody on the closed door is touched."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5.55, 0)
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
 script = ExtResource("4_trap_volume")
-size_metres = Vector3(7.84, 0.9, 11.6)
+size_metres = Vector3(11.7, 0.9, 11.6)
 
 [node name="Shape" type="CollisionShape3D" parent="PitTrap"]
-
-[node name="PitTrapLedge" type="Area3D" parent="."]
-editor_description = "The ledge's spikes kill: y -1.4 to -0.5 over r 48.05..52 (x -5.85..-2.0 here), under the inner flap."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.92, -0.95, 0)
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-script = ExtResource("4_trap_volume")
-size_metres = Vector3(3.86, 0.9, 11.6)
-
-[node name="Shape" type="CollisionShape3D" parent="PitTrapLedge"]
 
 [node name="Target" type="Node3D" parent="."]
 editor_description = "1.4 deg before the hole at r 50.4, beside a section wall's lead-in, its bullseye (local -X) toward the tower."

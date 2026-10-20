@@ -187,10 +187,7 @@ TRAPDOOR_BEARINGS = (67.5, 90.0, 112.5, 264.375, 275.625, 286.875, 298.125)
 TRAPDOOR_CELLS = 4          # 9.7 m at r 49.4, 11.7 m at the wall: over a running jump (7.0 m)
 TRAPDOOR_IN_K = 1           # the hole's inner ring, DECK_RS[1] = 49.4: r 46.7..49.4 is the section wall's strip
 TRAPDOOR_R = 0.5 * (DECK_RS[TRAPDOOR_IN_K] + WALL_R * math.cos(math.pi / NSIDE))   # 53.989: the prop's origin, mid-hole
-PIT_Z = 21.6                # the pit's inner LEDGE floor, r 48.05..SHAFT_R: over the lower tier's cell vaults (crown 21.5; the cells
-                            # are recessed r 47.15..50.15), so nothing of the pit pokes into a cell (Ryan 2026-10-20)
-SHAFT_R = DECK_RS[2]        # 52.0: outward of here, behind the cells' backs, the pit is a shaft the outer flap hangs into ...
-SHAFT_Z = 12.6              # ... 10.4 m deep (Ryan: "make the pit much deeper for them to have a place to fold down into")
+PIT_Z = 17.0                # the pit floor, 6 m down: the two flaps hang into it (Ryan 2026-10-20); inside the lower tier's wall mass
 
 # ---- texture ------------------------------------------------------------------
 TEX_SEED = 9021131          # the window unwrap's random stream
@@ -596,6 +593,28 @@ def trapdoor_cells():
     """Lane cell indices (between stations i and i+1, Blender angles) opened for TRAPDOOR_BEARINGS."""
     n = NSIDE * DECK_SUB
     return {i % n for (a, b) in trapdoor_spans() for i in range(a, b)}
+
+
+def walled_cells():
+    """Bays of SLAB_TIER (the tier under the deck) whose cell recess a trapdoor pit would cut into: built as
+    plain wall, no arch (Ryan 2026-10-20: "get rid of the cell in those sections"). The pit's footprint is
+    the run's angles from DECK_RS[TRAPDOOR_IN_K] out; the recess reaches CELL_D behind the face."""
+    step = TWO_PI / (NSIDE * DECK_SUB)
+    runs = [(a * step, b * step) for (a, b) in trapdoor_runs()]
+    rad, n = tier_ring(SLAB_TIER)
+    r0 = DECK_RS[TRAPDOOR_IN_K]
+    hw = ARCH_W / 2.0
+    out = set()
+    for i in range(n):
+        bay = _Bay(i, rad, n)
+        pts = [bay.at(u, 0.0, d) for u in (bay.L / 2.0 - hw, bay.L / 2.0 + hw) for d in (0.0, CELL_D)]
+        angs = [math.atan2(p[1], p[0]) % TWO_PI for p in pts]
+        if max(math.hypot(p[0], p[1]) for p in pts) <= r0:
+            continue
+        for (a0, a1) in runs:
+            if max(angs) > a0 + EPS and min(angs) < a1 - EPS:
+                out.add(i)
+    return out
 
 
 def wall_stations(rad=WALL_R, n=NSIDE):

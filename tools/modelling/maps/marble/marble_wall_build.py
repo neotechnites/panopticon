@@ -365,6 +365,19 @@ def _cell(m, i, tier, zone_face):
     _STATS["cells"] = _STATS.get("cells", 0) + 1
 
 
+def _walled(m, i, tier, zone_face):
+    """Bay i on tier `tier` with no cell: the plinth strip and a plain face, on the vertices the
+    pilasters and cornice share with a cell (bottom corners, sill corners, top corners)."""
+    bay = _Bay(i, *mb.tier_ring(tier))
+    cell = _Cell(bay, tier)
+    bl, br = m.v(bay.at(cell.u0, cell.B)), m.v(bay.at(cell.u1, cell.B))
+    sl, sr = m.v(bay.at(cell.u0, cell.s)), m.v(bay.at(cell.u1, cell.s))
+    tl, tr = m.v(bay.at(cell.u0, cell.z1)), m.v(bay.at(cell.u1, cell.z1))
+    m.quad(bl, br, sr, sl, bay.n_in, "plinth")
+    m.quad(sl, sr, tr, tl, bay.n_in, zone_face)
+    _STATS["walled"] = _STATS.get("walled", 0) + 1
+
+
 # =============================================================================
 # PILASTERS AND CORNICES
 # =============================================================================
@@ -639,8 +652,9 @@ def build(m):
         band = _tier_band(t)
         z1, z2 = B + band[0], B + band[1]
         rad, n = mb.tier_ring(t)
+        walled = mb.walled_cells() if t == mb.SLAB_TIER else set()
         for i in range(n):
-            _cell(m, i, t, "marble" if (i + t) % 2 == 0 else "marble2")
+            (_walled if i in walled else _cell)(m, i, t, "marble" if (i + t) % 2 == 0 else "marble2")
         take("tris_cells")
         for i in range(n):
             bay = _Bay(i, rad, n)
@@ -678,7 +692,7 @@ def build(m):
     # the bars were built with their cells: count them apart
     counts["tris_bars"] = _STATS.get("tris_bars", 0)
     counts["tris_cells"] -= counts["tris_bars"]
-    info = {"cells": _STATS.get("cells", 0), "bars": _STATS.get("bars", 0),
+    info = {"cells": _STATS.get("cells", 0), "walled": _STATS.get("walled", 0), "bars": _STATS.get("bars", 0),
             "tiers": len(mb.TIER_BASE), "dome_apex": round(apex, 2)}
     info.update(counts)
     return info

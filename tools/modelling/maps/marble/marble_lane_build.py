@@ -283,13 +283,13 @@ def _zip_open(m, outer, oang, inner, iang, want, zone):
 
 
 def _pits(m):
-    """Under each trapdoor a stepped pit welded to the deck's hole and the wall's foot: an inner LEDGE at
-    PIT_Z from DECK_RS[TRAPDOOR_IN_K] to SHAFT_R (over the lower tier's cell vaults), then a SHAFT down to
-    SHAFT_Z out to the lane tier's own foot carried down. Near-black inside, the cells' back-wall tone."""
+    """Under each trapdoor a closed pit welded to the deck's hole and the wall's foot: floor PIT_Z,
+    the inner side straight down at DECK_RS[TRAPDOOR_IN_K], the outer side the lane tier's own
+    foot carried down. Near-black inside, the cells' back-wall tone, so the open pit reads as a drop."""
     ang = mb.lane_angles()
     n = len(ang)
-    top, z_ledge, z_shaft = mb.DECK_Z, mb.PIT_Z, mb.SHAFT_Z
-    r0, rs = mb.DECK_RS[mb.TRAPDOOR_IN_K], mb.SHAFT_R
+    top, z0 = mb.DECK_Z, mb.PIT_Z
+    r0 = rs = mb.DECK_RS[mb.TRAPDOOR_IN_K]
 
     def P(r, i, z):
         a = ang[i % n]
@@ -298,24 +298,20 @@ def _pits(m):
     for (first, last) in mb.trapdoor_runs():
         for i in range(first, last):
             er = _er(TWO_PI * (i + 0.5) / n)
-            m.quad(P(r0, i, top), P(r0, i + 1, top), P(r0, i + 1, z_ledge), P(r0, i, z_ledge), er, "cellin")   # the inner side
-            m.quad(P(r0, i, z_ledge), P(r0, i + 1, z_ledge), P(rs, i + 1, z_ledge), P(rs, i, z_ledge), UP, "cellin")   # the ledge
-            m.quad(P(rs, i, z_ledge), P(rs, i + 1, z_ledge), P(rs, i + 1, z_shaft), P(rs, i, z_shaft), er, "cellin")   # the step
+            m.quad(P(r0, i, top), P(r0, i + 1, top), P(r0, i + 1, z0), P(r0, i, z0), er, "cellin")
         A0, A1 = TWO_PI * first / n, TWO_PI * last / n
         foot = _foot_between(A0, A1)
         for (wa, pa), (wb, pb) in zip(foot, foot[1:]):
             inward = tuple(-c for c in _er(0.5 * (wa + wb)))
-            m.quad(m.v(pa), m.v(pb), m.v((pb[0], pb[1], z_shaft)), m.v((pa[0], pa[1], z_shaft)), inward, "cellin")
-        _zip_open(m, [m.v((p[0], p[1], z_shaft)) for (_w, p) in foot], [w for (w, _p) in foot],
-                  [P(rs, i, z_shaft) for i in range(first, last + 1)],
+            m.quad(m.v(pa), m.v(pb), m.v((pb[0], pb[1], z0)), m.v((pa[0], pa[1], z0)), inward, "cellin")
+        _zip_open(m, [m.v((p[0], p[1], z0)) for (_w, p) in foot], [w for (w, _p) in foot],
+                  [P(rs, i, z0) for i in range(first, last + 1)],
                   [TWO_PI * i / n for i in range(first, last + 1)], UP, "cellin")
-        # the two end walls: the ledge's rectangle, and the shaft's as a fan from its outer foot
+        # the two end walls, each a fan from the inner side's foot
         for i, (_w, corner), want in ((first, foot[0], _et(A0)), (last, foot[-1], tuple(-c for c in _et(A1)))):
-            m.quad(P(r0, i, top), P(r0, i, z_ledge), P(rs, i, z_ledge), P(rs, i, top), want, "cellin")
-            hub = m.v((corner[0], corner[1], z_shaft))
-            rim = [P(rs, i, z_shaft), P(rs, i, z_ledge)]
-            rim += [P(r, i, top) for r in mb.DECK_RS if r >= rs - 1e-9]
-            rim.append(m.v(corner))
+            hub = P(r0, i, z0)
+            rim = [m.v((corner[0], corner[1], z0)), m.v(corner)]
+            rim += [P(r, i, top) for r in reversed(mb.DECK_RS) if r >= r0 - 1e-9]
             for p, q in zip(rim, rim[1:]):
                 m.tri(hub, p, q, want, "cellin")
 
@@ -424,23 +420,18 @@ def collider(c):
                 continue
             c.quad(P(rs[k], i, mb.DECK_Z), P(rs[k], i + 1, mb.DECK_Z), P(rs[k + 1], i + 1, mb.DECK_Z),
                    P(rs[k + 1], i, mb.DECK_Z), UP, "floor")
-    # each trapdoor's pit: the stepped box under the hole (ledge at PIT_Z to SHAFT_R, shaft to SHAFT_Z), so a body that drops lands on one floor
-    z_ledge, z_shaft, z1, ra, rs_, rb = mb.PIT_Z, mb.SHAFT_Z, mb.DECK_Z, mb.DECK_RS[mb.TRAPDOOR_IN_K], mb.SHAFT_R, r_out
+    # each trapdoor's pit: an open box under the hole, wall strip to wall, so a body that drops lands at PIT_Z
+    z0, z1, ra, rb = mb.PIT_Z, mb.DECK_Z, mb.DECK_RS[mb.TRAPDOOR_IN_K], r_out
 
     for (first, last) in mb.trapdoor_runs():
         for i in range(first, last):
             er = _er(TWO_PI * (i + 0.5) / n)
-            c.quad(P(ra, i, z_ledge), P(ra, i + 1, z_ledge), P(rs_, i + 1, z_ledge), P(rs_, i, z_ledge), UP, "floor")
-            c.quad(P(rs_, i, z_shaft), P(rs_, i + 1, z_shaft), P(rb, i + 1, z_shaft), P(rb, i, z_shaft), UP, "floor")
-            c.quad(P(ra, i, z1), P(ra, i + 1, z1), P(ra, i + 1, z_ledge), P(ra, i, z_ledge), er, "floor")
-            c.quad(P(rs_, i, z_ledge), P(rs_, i + 1, z_ledge), P(rs_, i + 1, z_shaft), P(rs_, i, z_shaft), er, "floor")
-            c.quad(P(rb, i, z1), P(rb, i + 1, z1), P(rb, i + 1, z_ledge), P(rb, i, z_ledge), (-er[0], -er[1], 0.0), "floor")
-            c.quad(P(rb, i, z_ledge), P(rb, i + 1, z_ledge), P(rb, i + 1, z_shaft), P(rb, i, z_shaft), (-er[0], -er[1], 0.0), "floor")
+            c.quad(P(ra, i, z0), P(ra, i + 1, z0), P(rb, i + 1, z0), P(rb, i, z0), UP, "floor")
+            c.quad(P(ra, i, z1), P(ra, i + 1, z1), P(ra, i + 1, z0), P(ra, i, z0), er, "floor")
+            c.quad(P(rb, i, z1), P(rb, i + 1, z1), P(rb, i + 1, z0), P(rb, i, z0), (-er[0], -er[1], 0.0), "floor")
         a0, a1 = TWO_PI * first / n, TWO_PI * last / n
-        for i, want in ((first, _et(a0)), (last, tuple(-x for x in _et(a1)))):
-            c.quad(P(ra, i, z1), P(ra, i, z_ledge), P(rs_, i, z_ledge), P(rs_, i, z1), want, "floor")
-            c.quad(P(rs_, i, z1), P(rs_, i, z_ledge), P(rb, i, z_ledge), P(rb, i, z1), want, "floor")
-            c.quad(P(rs_, i, z_ledge), P(rs_, i, z_shaft), P(rb, i, z_shaft), P(rb, i, z_ledge), want, "floor")
+        c.quad(P(ra, first, z1), P(ra, first, z0), P(rb, first, z0), P(rb, first, z1), _et(a0), "floor")
+        c.quad(P(ra, last, z1), P(ra, last, z0), P(rb, last, z0), P(rb, last, z1), tuple(-x for x in _et(a1)), "floor")
 
 if __name__ == "__main__":
     m = mb._Mesh()
