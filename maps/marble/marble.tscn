@@ -18,6 +18,7 @@
 [ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall_arc.tscn" id="Blk_wall"]
 [ext_resource type="PackedScene" path="res://maps/marble/models/marble_column.glb" id="Blk_column"]
 [ext_resource type="Texture2D" path="res://maps/marble/textures/marble_brick_albedo.png" id="Blk_brick"]
+[ext_resource type="LightmapGIData" path="res://maps/marble/marble.lmbake" id="26_marble_lightmap"]
 
 [sub_resource type="StandardMaterial3D" id="Blk_stone"]
 albedo_texture = ExtResource("Blk_brick")
@@ -142,6 +143,7 @@ bounce_indirect_energy = 1.0
 denoiser_strength = 0.2
 interior = true
 environment_mode = 0
+light_data = ExtResource("26_marble_lightmap")
 
 [node name="Shaft" type="MeshInstance3D" parent="Skylight"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 38.97, 0)
