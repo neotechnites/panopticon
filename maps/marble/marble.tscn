@@ -85,7 +85,7 @@ background_mode = 1
 background_color = Color(0.20, 0.21, 0.19, 1)
 ambient_light_source = 2
 ambient_light_color = Color(0.62, 0.66, 0.60, 1)
-ambient_light_energy = 0.25
+ambient_light_energy = 1.2
 tonemap_mode = 2
 tonemap_white = 6.0
 adjustment_enabled = true
@@ -139,15 +139,15 @@ light_bake_mode = 0
 shadow_enabled = false
 
 [node name="AmbientFill" type="OmniLight3D" parent="Skylight"]
-editor_description = "The old flat ambient (Ryan's olive 0.62/0.66/0.60), now one static omni under the oculus (y 76) falling off as 1/d, baked with occlusion: the dome and the top tiers near the glass are bright, the lower tiers, the pit corners and every reveal fall away from it."
+editor_description = "The old flat ambient (Ryan's olive 0.62/0.66/0.60), now one static omni under the oculus (y 76), flat falloff at BEFORE's level (2.6 vs ambient 3.4 x 0.63), baked with occlusion: every reveal, cell and underside shades itself, nothing crushes to black."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 76, 0)
 light_color = Color(0.62, 0.66, 0.6, 1)
-light_energy = 80.0
+light_energy = 2.6
 light_size = 4.0
 light_specular = 0.0
 light_bake_mode = 1
-omni_range = 140.0
-omni_attenuation = 1.0
+omni_range = 150.0
+omni_attenuation = 0.0
 
 [node name="WellFill" type="Node3D" parent="Skylight"]
 editor_description = "The bounce's direction, baked: three faint olive static omnis in the open well at the gallery's own height (r 20, y 25.5), the only height from which light gets under the gallery ceiling onto its back wall. Flat falloff, so the ring is even; the cells, reveals and ceilings shade themselves in the bake."
@@ -155,7 +155,7 @@ editor_description = "The bounce's direction, baked: three faint olive static om
 [node name="Fill090" type="OmniLight3D" parent="Skylight/WellFill"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0000, 25.5, 20.0000)
 light_color = Color(0.62, 0.66, 0.6, 1)
-light_energy = 0.6
+light_energy = 1.4
 light_size = 4.0
 light_specular = 0.0
 light_bake_mode = 1
@@ -165,7 +165,7 @@ omni_attenuation = 0.0
 [node name="Fill210" type="OmniLight3D" parent="Skylight/WellFill"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.3205, 25.5, -10.0000)
 light_color = Color(0.62, 0.66, 0.6, 1)
-light_energy = 0.6
+light_energy = 1.4
 light_size = 4.0
 light_specular = 0.0
 light_bake_mode = 1
@@ -175,7 +175,7 @@ omni_attenuation = 0.0
 [node name="Fill330" type="OmniLight3D" parent="Skylight/WellFill"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17.3205, 25.5, -10.0000)
 light_color = Color(0.62, 0.66, 0.6, 1)
-light_energy = 0.6
+light_energy = 1.4
 light_size = 4.0
 light_specular = 0.0
 light_bake_mode = 1
