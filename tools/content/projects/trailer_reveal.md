@@ -1424,7 +1424,7 @@ capture: --map=marble --shot=pack_lead --stage=trailer_marble_sections --bots=3 
 seconds: 4.0
 in: 0.75
 freeze: waive
-expect: out Runner_2 3.9-4.5
+expect: out Runner_2 3.0-3.8
 
 ## 10ba
 said: v69 marble scope in 10br's slot (1852-2009): the scope picks a runner coming out of Section A's cover into the open gap and hits him on 1986

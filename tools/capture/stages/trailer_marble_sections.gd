@@ -63,8 +63,8 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	var park: Array = [{"do": "place", "at": LIB.ring_point(SPARE_DEG, 52.0, 0.1)}, {"do": "hold", "seconds": 90.0}]
 	match _beat:
 		"bscope":
-			drive(runners[0], [{"do": "place", "deg": 273.0, "r": 54.0}, {"do": "human", "on": true},
-				{"do": "run", "to": LIB.ring_point(279.0, 54.0, 0.1), "speed": 0.2, "timeout": 12.0}, {"do": "hold", "seconds": 60.0}], 0)
+			drive(runners[0], [{"do": "place", "deg": 284.5, "r": 54.0}, {"do": "human", "on": true},
+				{"do": "run", "to": LIB.ring_point(290.0, 54.0, 0.1), "speed": 0.2, "timeout": 12.0}, {"do": "hold", "seconds": 60.0}], 0)
 			drive(runners[1], park, 1)
 			drive(runners[2], [{"do": "place", "at": LIB.ring_point(SPARE_DEG + 4.0, 52.0, 0.1)}, {"do": "hold", "seconds": 90.0}], 2)
 			stage_body(_bodies[0])
@@ -78,11 +78,10 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 				{"do": "run", "to": LIB.ring_point(303.0, 55.0, 0.1), "speed": 0.12, "timeout": 12.0}, {"do": "hold", "seconds": 60.0}], 2)
 			stage_body(_bodies[0])
 		"ashove":
-			drive(runners[0], [{"do": "place", "deg": 81.4, "r": 51.0}, {"do": "human", "on": true}, {"do": "hold", "seconds": 1.0},
-				{"do": "run", "to": LIB.ring_point(82.7, 51.0, 0.1), "speed": 0.25, "within": 0.3},
-				{"do": "until", "t": float(option("shove", 3.033))}, {"do": "shove"}, {"do": "hold", "seconds": 60.0}], 0)
-			drive(runners[1], [{"do": "place", "deg": 82.4, "r": 54.0}, {"do": "human", "on": true}, {"do": "until", "t": 1.5},
-				{"do": "run", "to": LIB.ring_point(95.0, 54.0, 0.1), "speed": float(option("pace", 0.3)), "timeout": 12.0},
+			drive(runners[0], [{"do": "place", "deg": 82.3, "r": 51.0}, {"do": "human", "on": true},
+				{"do": "until", "t": float(option("shove", 2.45))}, {"do": "shove"}, {"do": "hold", "seconds": 60.0}], 0)
+			drive(runners[1], [{"do": "place", "deg": 85.6, "r": 54.0}, {"do": "human", "on": true}, {"do": "until", "t": 1.2},
+				{"do": "run", "to": LIB.ring_point(95.0, 54.0, 0.1), "speed": float(option("pace", 0.18)), "timeout": 12.0},
 				{"do": "hold", "seconds": 60.0}], 1)
 			drive(runners[2], park, 2)
 			stage_body(_bodies[0])
@@ -141,7 +140,8 @@ func _raise_the_hand() -> void:
 	if shooter == null or shooter.controller == null:
 		return
 	_guard = shooter.controller
-	var window: float = {"bscope": 271.0, "bfar": 288.0, "ascope": 78.0}.get(_beat, 0.0)
+	# A window is an opening of the colonnade (columns at 25 + 22.5k): 283.75 frames B3's plate between two columns.
+	var window: float = {"bscope": 283.75, "bfar": 288.0, "ascope": 78.0}.get(_beat, 0.0)
 	LIB.guard_to_window(_guard, float(option("window", window)), 5.6)
 	LIB.open_the_scope(_guard, float(option("clear", 0.74)))
 	_hand = GUARD_HAND.new()
@@ -151,9 +151,9 @@ func _raise_the_hand() -> void:
 	_hand.start_at = elapsed() + 0.1
 	match _beat:
 		"bscope":
-			_plates = [_plate(_door("SectionB", "Trapdoor2"))]
+			_plates = [_plate(_door("SectionB", "Trapdoor3"))]
 			_fire_times = [float(option("fire", 2.6))]
-			_hand.park = LIB.ring_point(float(option("park", 264.0)), 52.0, 1.0)
+			_hand.park = LIB.ring_point(float(option("park", 277.0)), 52.0, 1.0)
 			_hand.beats.append({"at": _plates[0].global_position, "seconds": 100.0})
 		"bfar":
 			_plates = [_plate(_door("SectionB", "Trapdoor3")), _plate(_door("SectionB", "Trapdoor4"))]
