@@ -134,7 +134,7 @@ light_bake_mode = 1
 omni_range = 110.0
 omni_attenuation = 0.0
 
-[node name="MarbleLightmap" type="LightmapGI" parent="Skylight"]
+[node name="MarbleLightmap" type="LightmapGI" parent="."]
 editor_description = "The oculus bounce and the dim lamps on the marble, tower and bars (Static Lightmaps imports): Key indirect only (Dynamic), AmbientFill and Lamps whole (Static), three bounces; its probes light anything not lightmapped. Rebake: tools/pc_bake_lightmap.sh <ref> res://maps/marble/marble.tscn."
 quality = 2
 bounces = 3
