@@ -38,6 +38,7 @@ STRIP = (46.8, 49.4)            # DECK_RS[0]..[1]: kept as deck over every hole;
 TRAP_R = 0.5 * (48.05 + 60.0 * math.cos(math.pi / 64.0))   # marble_build.TRAPDOOR_R
 TRAP_CELLS = 4                  # marble_build.TRAPDOOR_CELLS
 
+B_WALL_H = 3.0               # B's lip wall in Y only: a 1.8 m runner's head at the outer wall needs 2.87 m to hide; the activator on it stays under the 8 m ceiling
 WALL_H = 7.6                 # marble_wall_arc as authored: 11.4 deg, 7.6 m, over a 11.25 deg trapdoor                    # A and B: over a 1.8 m runner and his 1.1 m jump; hides the 29.3 m eye from the lane
 ACT_BEFORE_DEG = 1.4            # the activator this far before its trapdoor's first pier
 ACT_R_LANE = 50.4               # A: on the lane, 1 m outside the wall's face
@@ -56,7 +57,7 @@ B_STARTS = (258.75, 270.0, 281.25, 292.5)
 B_WALL = (B_STARTS[0], B_STARTS[-1] + 4 * CELL)
 B_ACT_AFTER_DEG = 1.0
 # the lip walls moved out of A's and B's way: name -> new mid bearing
-LIP_MOVES = {"ArcWall064": 55.9, "ArcWall306": 309.6}
+LIP_MOVES = {"ArcWall064": 53.3, "ArcWall306": 309.6}   # 064 ends at 59.0: A1's activator (60.5) in the tower's sight
 # C: a flying buttress on every other pier: a pier on the inner strip, one arch up onto the outer wall
 CEILING_H = 8.0                 # the lane's ceiling (the next tier's floor) over the deck
 PIER_R, PIER_W, PIER_H = 47.6, 1.4, 6.6
@@ -127,11 +128,15 @@ def trapdoor(sc, parent, name, start, act_r, act_y, desc, act_deg=None):
             % (name, parent, desc, xform(centre, at(centre, TRAP_R)), off[0], off[1], off[2], -math.degrees(d)))
 
 
-def wall_over(sc, parent, name, start, desc):
-    """The ring's own cover wall (marble_wall_arc.tscn, unscaled) on the lip over one trapdoor, placed as ArcWall064 is."""
+def wall_over(sc, parent, name, start, desc, height=7.6):
+    """The ring's own cover wall (marble_wall_arc.tscn) on the lip over one trapdoor, placed as ArcWall064 is; [param height]
+    scales it in Y only (B)."""
     mid = start + TRAP_CELLS / 2.0 * CELL
-    sc.node('[node name="%s" parent="%s" instance=ExtResource("Blk_wall")]\neditor_description = "%s"\ntransform = %s\n'
-            % (name, parent, desc, xform(mid, at(mid, ARC_R))))
+    c, sn, ky = math.cos(rad(mid)), math.sin(rad(mid)), height / 7.6
+    o = at(mid, ARC_R)
+    sc.node('[node name="%s" parent="%s" instance=ExtResource("Blk_wall")]\neditor_description = "%s"\n'
+            'transform = Transform3D(%.6f, 0, %.6f, 0, %.6f, 0, %.6f, 0, %.6f, %.4f, %.4f, %.4f)\n'
+            % (name, parent, desc, c, -sn, ky, sn, c, o[0], o[1], o[2]))
 
 
 def section_a(sc):
@@ -155,8 +160,9 @@ def section_b(sc):
             'activators stand on its top, too high to shove. The runner cannot see the sniper, only where he shoots. '
             '%.2f..%.2f deg."\n' % B_WALL)
     for j, s in enumerate(B_STARTS):
-        wall_over(sc, p, "Wall%d" % (j + 1), s, "Over trapdoor %d, %.1f m: a 1.6 m eye cannot see the tower over it." % (j + 1, WALL_H))
-        trapdoor(sc, p, "Trapdoor%d" % (j + 1), s, ACT_R_TOP, WALL_H,
+        wall_over(sc, p, "Wall%d" % (j + 1), s, "The lip wall over trapdoor %d at %.1f m (Y only): over a runner and his jump, "
+                  "and a runner anywhere behind it is out of the tower's sight." % (j + 1, B_WALL_H), height=B_WALL_H)
+        trapdoor(sc, p, "Trapdoor%d" % (j + 1), s, ACT_R_TOP, B_WALL_H,
                  "Trapdoor %d, %.4f..%.4f deg; its activator on the wall top %.1f deg into it: the rifle's only."
                  % (j + 1, s, s + TRAP_CELLS * CELL, B_ACT_AFTER_DEG), act_deg=s + B_ACT_AFTER_DEG)
 
@@ -230,20 +236,20 @@ def forest():
 
 def section_d(sc):
     """The trailer's column (marble_column.glb as trailer_marble_column.spawn_columns places it, turned -bearing),
-    scaled uniformly so the forest's tops vary, every one standing on the deck."""
+    stretched in Y only so the forest's tops vary, every one standing on the deck."""
     p = "Elements/SectionD"
     cols = forest()
     sc.node('[node name="SectionD" type="Node3D" parent="Elements"]\neditor_description = "D, aesthetic: a column forest, '
-            '%d of the trailer\'s marble_column as it places them (unscaled, rotation (0, -bearing, 0)), scaled uniformly to '
+            '%d of the trailer\'s marble_column as it places them (unscaled, rotation (0, -bearing, 0)), stretched in height only to '
             '%.1f..%.1f m, %.1f..%.1f deg; room to walk between, the lowest jumpable."\n'
             % (len(cols), min(c[2] for c in cols), max(c[2] for c in cols), D_ARC[0], D_ARC[1]))
     for i, (b, r, h) in enumerate(cols):
-        k = h / COLUMN_H
+        k = h / COLUMN_H                                    # Y only: the authored thickness, a new height
         c, sn = math.cos(rad(b)), math.sin(rad(b))
         o = at(b, r)
         sc.node('[node name="Column%02d" parent="%s" instance=ExtResource("Blk_column")]\n'
                 'transform = Transform3D(%.6f, 0, %.6f, 0, %.6f, 0, %.6f, 0, %.6f, %.4f, %.4f, %.4f)\n'
-                % (i + 1, p, c * k, -sn * k, k, sn * k, c * k, o[0], o[1], o[2]))
+                % (i + 1, p, c, -sn, k, sn, c, o[0], o[1], o[2]))
     return cols
 
 
