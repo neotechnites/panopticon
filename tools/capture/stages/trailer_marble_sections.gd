@@ -69,13 +69,13 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			drive(runners[2], [{"do": "place", "at": LIB.ring_point(SPARE_DEG + 4.0, 52.0, 0.1)}, {"do": "hold", "seconds": 90.0}], 2)
 			stage_body(_bodies[0])
 		"bfar":
-			drive(runners[0], [{"do": "place", "deg": 262.0, "r": 53.0}, {"do": "human", "on": true}, {"do": "hold", "seconds": 0.2},
-				{"do": "run", "to": LIB.ring_point(279.5, 53.0, 0.1), "speed": float(option("pace", 0.3)), "timeout": 12.0},
+			drive(runners[0], [{"do": "place", "deg": float(option("walk_from", 271.5)), "r": 53.0}, {"do": "human", "on": true}, {"do": "hold", "seconds": 0.2},
+				{"do": "run", "to": LIB.ring_point(280.0, 53.0, 0.1), "speed": float(option("pace", 0.25)), "timeout": 12.0},
 				{"do": "hold", "seconds": 60.0}], 0)
-			drive(runners[1], [{"do": "place", "deg": 285.0, "r": 54.0}, {"do": "human", "on": true},
-				{"do": "run", "to": LIB.ring_point(292.0, 54.0, 0.1), "speed": 0.15, "timeout": 12.0}, {"do": "hold", "seconds": 60.0}], 1)
-			drive(runners[2], [{"do": "place", "deg": 295.0, "r": 55.0}, {"do": "human", "on": true},
-				{"do": "run", "to": LIB.ring_point(303.0, 55.0, 0.1), "speed": 0.15, "timeout": 12.0}, {"do": "hold", "seconds": 60.0}], 2)
+			drive(runners[1], [{"do": "place", "deg": 283.6, "r": 54.5}, {"do": "human", "on": true},
+				{"do": "run", "to": LIB.ring_point(292.0, 54.5, 0.1), "speed": 0.12, "timeout": 12.0}, {"do": "hold", "seconds": 60.0}], 1)
+			drive(runners[2], [{"do": "place", "deg": 294.6, "r": 55.0}, {"do": "human", "on": true},
+				{"do": "run", "to": LIB.ring_point(303.0, 55.0, 0.1), "speed": 0.12, "timeout": 12.0}, {"do": "hold", "seconds": 60.0}], 2)
 			stage_body(_bodies[0])
 		"ashove":
 			drive(runners[0], [{"do": "place", "deg": 81.4, "r": 51.0}, {"do": "human", "on": true}, {"do": "hold", "seconds": 1.0},
