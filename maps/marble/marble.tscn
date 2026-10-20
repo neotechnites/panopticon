@@ -96,7 +96,7 @@ editor_description = "MAP 2, MARBLE: the Bentham drawing in white marble, one cl
 
 A prisoner runs one 340 deg lap at r 52 from 5 deg to the portal at 345 deg. THE LANE IS BARE (Ryan, 2026-09-22: \"for the marble level, can you just get rid of all the elements on the ring? just so it looks good for screenshots and trailers and stuff\"): the obstacle course -- 71 placed instances, columns, broken columns, arches, spike patches and strips, pads, the orbs -- came off, and nothing stands on the 340 deg run now but the portal at the finish. The bars at 353 deg stayed, behind the finish and out of every shot of the lane, because the bake and the harness proved them structural rather than scenery: see the Bars node. The models the course used are still in maps/marble/models/; only this scene changed. Off the walkway there is nothing to stand on until the spikes, and SpikeFloor kills before a body reaches them; KillBox below the ground floor catches anything that fell through the world.
 
-The light (2026-10-20, Ryan: \"the lighting is so flat... how would the oculus light get to the rest of the map other than bounce light\") is the OCULUS: Skylight/Key, one shadowed cone of daylight from the glazed crown onto the tower and the pit, and everything else is its bounce, baked by MarbleLightmap (LightmapGI: the GL Compatibility renderer has no SDFGI or SSAO, so bounce and contact shade are baked). The lamps are dim and baked. The ambient is cut to 0.6 and lights only what the lightmap does not (props, players)."
+The light (2026-10-20, Ryan: \"the lighting is so flat... how would the oculus light get to the rest of the map other than bounce light\") is the OCULUS: Skylight/Key, one shadowed cone of daylight from the glazed crown onto the tower and the pit, and everything else is its bounce, baked by MarbleLightmap (LightmapGI: the GL Compatibility renderer has no SDFGI or SSAO, so bounce and contact shade are baked). The lamps are gone (GL Compatibility lights at most 8 positional lights per mesh, and the eight lanterns were taking the oculus key's slot on the rotunda mesh). The ambient is cut to 0.6 and lights only what the lightmap does not (props, players)."
 
 [node name="Environment" type="Node3D" parent="."]
 
@@ -339,97 +339,6 @@ omni_range = 90.0
 omni_attenuation = 0.35
 script = ExtResource("3_tower_light")
 profile = ExtResource("4_tower_light_profile")
-
-[node name="Lamps" type="Node3D" parent="Tower"]
-editor_description = "Bentham's reflector lamps: one OmniLight3D at each lantern the tower model carries on the spandrels over its columns (bearings 25 + 45k, local y 6.0, world 31.35).\nOFF (energy 0, not baked) since 2026-10-20: the oculus and its bounce light the ring; the lanterns stay on the model as fixtures."
-
-[node name="Lamp025" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.9473, 6.0, 3.2396)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 0.0
-light_specular = 0.0
-light_bake_mode = 0
-shadow_enabled = false
-omni_range = 75.0
-omni_attenuation = 0.25
-
-[node name="Lamp070" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.6218, 6.0, 7.2032)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 0.0
-light_specular = 0.0
-light_bake_mode = 0
-shadow_enabled = false
-omni_range = 75.0
-omni_attenuation = 0.25
-
-[node name="Lamp115" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.2396, 6.0, 6.9473)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 0.0
-light_specular = 0.0
-light_bake_mode = 0
-shadow_enabled = false
-omni_range = 75.0
-omni_attenuation = 0.25
-
-[node name="Lamp160" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.2032, 6.0, 2.6218)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 0.0
-light_specular = 0.0
-light_bake_mode = 0
-shadow_enabled = false
-omni_range = 75.0
-omni_attenuation = 0.25
-
-[node name="Lamp205" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.9473, 6.0, -3.2396)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 0.0
-light_specular = 0.0
-light_bake_mode = 0
-shadow_enabled = false
-omni_range = 75.0
-omni_attenuation = 0.25
-
-[node name="Lamp250" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.6218, 6.0, -7.2032)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 0.0
-light_specular = 0.0
-light_bake_mode = 0
-shadow_enabled = false
-omni_range = 75.0
-omni_attenuation = 0.25
-
-[node name="Lamp295" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.2396, 6.0, -6.9473)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 0.0
-light_specular = 0.0
-light_bake_mode = 0
-shadow_enabled = false
-omni_range = 75.0
-omni_attenuation = 0.25
-
-[node name="Lamp340" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.2032, 6.0, -2.6218)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 0.0
-light_specular = 0.0
-light_bake_mode = 0
-shadow_enabled = false
-omni_range = 75.0
-omni_attenuation = 0.25
 
 [node name="Elements" type="Node3D" parent="."]
 editor_description = "Placed lane elements: six curved walls on the lip at Ryan's six bearings, and the four sections as a grey blockout (tools/modelling/maps/marble/marble_sections_blockout.py writes them): A trapdoors under cover 70-118 deg, B wall with activators on top 259-295, C buttresses 197-242, D column forest 16-57."
