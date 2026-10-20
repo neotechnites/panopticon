@@ -1416,7 +1416,7 @@ capture: --map=marble --shot=pack_lead --stage=trailer_marble_sections --bots=3 
 seconds: 3.5
 in: 0.9
 freeze: waive
-expect: hit PlateHitbox 2.27-2.34; hit PlateHitbox 3.32-3.39
+expect: hit PlateHitbox 2.27-2.34; out Runner_3 3.85-4.05
 
 ## 10aa
 said: v69 marble runner in 10ar's slot (1717-1851): the POV shoves Section A's activator on the beat (1802) and the runner ahead on the trapdoor drops
