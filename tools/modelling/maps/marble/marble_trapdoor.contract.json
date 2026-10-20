@@ -1,25 +1,11 @@
 {
-  "_comment": "marble_trapdoor: the walkway trapdoor's moving parts, for the hole marble_build cuts on a pier in TRAPDOOR_BEARINGS: four lane cells (9.7 m at r 49.4, 11.7 m at the wall) from the section wall's strip (r 49.4) to the wall, over its 1.4 m pit. Origin the deck point at r 54.664 (mid-hole) on the hole's centre bearing, y 0 the deck, +X radial out, +Z toward increasing bearing. TrapdoorFrame: near-black iron rim 0.28 m inside the hole, 0.35 deep, seven 0.28 m hinge beams across it on the half-cell lines, one knuckle per strap hinge. TrapdoorLeaf00..15: one 0.15 m stone leaf each side of every beam, darker worn flags, three iron strap hinges and an iron lip on the free edge (the dark seams), iron undersides; node origin is the hinge axis at the leaf's bottom arris, local +X along the hinge, local +Z toward the free edge: +90 deg about local X hangs it (to 0.74 m at most). TrapdoorSpikes: pale stone spikes in a row under each of the eight seams on the pit floor (y -1.4), tips -0.55..-0.3, clear of the hanging leaves. NO colliders: the scene gives the leaves their bodies.",
+  "_comment": "marble_trapdoor: the walkway trapdoor's moving parts, for the hole marble_build cuts on a pier in TRAPDOOR_BEARINGS: four lane cells from the section wall's strip to the wall, over its 6 m pit. Origin the deck point at r 53.989 (mid-hole) on the hole's centre bearing, y 0 the deck, +X radial out, +Z toward increasing bearing. TrapdoorFrame: near-black iron rim inside the hole, 0.35 deep, its lane sides straight chords (0.28 m at the narrowest), five knuckles along each hinge. TrapdoorLeaf00 (inner, hinged on the lip chord) and TrapdoorLeaf01 (outer, on the wall chord): two 0.15 m stone flaps 5.55 m wide meeting at a seam along the lane, darker worn flags, five iron strap hinges and an iron lip on the free edge, iron undersides; node origin is the hinge axis at the flap's bottom arris, local +X along the hinge, local +Z toward the free edge: +90 deg about local X hangs it (to 5.7 m). TrapdoorSpikes: pale stone spikes on a 0.9 m grid over the pit floor (y -6.0), tips -5.15..-4.9, 0.45 m clear of the rim. NO colliders: the scene gives the flaps their bodies.",
   "node_paths": [
     "TrapdoorFrame",
     "TrapdoorLeaf00",
     "TrapdoorLeaf01",
-    "TrapdoorLeaf02",
-    "TrapdoorLeaf03",
-    "TrapdoorLeaf04",
-    "TrapdoorLeaf05",
-    "TrapdoorLeaf06",
-    "TrapdoorLeaf07",
-    "TrapdoorLeaf08",
-    "TrapdoorLeaf09",
-    "TrapdoorLeaf10",
-    "TrapdoorLeaf11",
-    "TrapdoorLeaf12",
-    "TrapdoorLeaf13",
-    "TrapdoorLeaf14",
-    "TrapdoorLeaf15",
     "TrapdoorSpikes"
   ],
-  "surfaces": 34,
-  "max_tris": 5500
+  "surfaces": 6,
+  "max_tris": 2000
 }
