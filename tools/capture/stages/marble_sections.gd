@@ -7,11 +7,11 @@ extends "res://tools/capture/stages/stage.gd"
 ## c, d: a walk through the buttresses (C) and the column forest (D), hopping in D.
 
 ## Section A's second trapdoor and its activator (marble_sections_blockout.py).
-const A_START: float = 90.0
-const A_ACT: float = 88.6
+const A_START: float = 84.375
+const A_ACT: float = 82.975
 ## Section B: the walk, and the second trapdoor's wall-top activator, the one the rifle hits.
-const B_FROM: float = 259.0
-const B_STOP: float = 278.5
+const B_FROM: float = 254.0
+const B_STOP: float = 268.5
 const SPARE_DEG: float = 330.0
 
 var _beat: String = "a"
@@ -73,7 +73,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		"c":
 			drive(runners[0], [
 				{"do": "place", "deg": 192.0, "r": 55.3}, {"do": "hold", "seconds": 0.8},
-			] + _arc(192.0, 246.0, 55.3, {"speed": float(option("pace", 0.5))}) + [
+			] + _arc(192.0, 246.0, 53.55, {"speed": float(option("pace", 0.5))}) + [
 				{"do": "hold", "seconds": 60.0},
 			], 0, "walker")
 			drive(runners[1], [{"do": "place", "at": LIB.ring_point(SPARE_DEG + 4.0, 52.0, 0.1)}, {"do": "hold", "seconds": 90.0}], 1, "spare2")
@@ -81,7 +81,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		_:
 			drive(runners[0], [
 				{"do": "place", "deg": 12.0, "r": 52.0}, {"do": "hold", "seconds": 0.8},
-			] + _arc(12.0, 60.0, 52.0, {"speed": float(option("pace", 0.45)), "hop": float(option("hop", 1.1))}) + [
+			] + _arc(12.0, 52.0, 52.0, {"speed": float(option("pace", 0.45)), "hop": float(option("hop", 1.1))}) + [
 				{"do": "hold", "seconds": 60.0},
 			], 0, "walker")
 			drive(runners[1], [{"do": "place", "at": LIB.ring_point(SPARE_DEG + 4.0, 52.0, 0.1)}, {"do": "hold", "seconds": 90.0}], 1, "spare2")
@@ -113,7 +113,7 @@ func tick(_delta: float) -> void:
 		if shooter == null or shooter.controller == null:
 			return
 		_guard = shooter.controller
-		LIB.guard_to_window(_guard, 279.85)
+		LIB.guard_to_window(_guard, 271.0)
 		return
 	var section: Node = LIB.find_node(clip.root, "SectionB")
 	var door: TrapDoor = section.get_node_or_null(^"Trapdoor2") as TrapDoor if section != null else null
