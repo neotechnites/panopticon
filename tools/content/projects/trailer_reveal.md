@@ -1498,8 +1498,8 @@ freeze: waive
 expect: hit Runner_1 2.94-3.00
 
 ## 10aw
-said: v71 (Ryan 08:25: "GO GET THE EXACT SAME SHOTS ONLY IN THE NEW ENVIROMENT ... GET THE SAME FUCKING SHOTS"): 10av bearing only, turn -62.3 onto ArcWall126's end 131.6 (for ArcWall188's 193.9; window 193.5 -> 131.2, the hit 200.6 -> 137.3), the open stretch with ArcWall188 and Section C's buttresses ahead in the runner's eyes. Head on the first v71: Section A's Wall1 (turn -120.6) put its activator plate on the victim in the scope; no other wall end on marble v7 has 13 deg of open, seen deck after it (A: plates; B: no ends; C piers: the next pier or ArcWall253; ArcWall306: the tower's own pier blocks the hit).
-capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=runner --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;kick=0.1;back_pace=0.5;follow=0.4;run_after=0.9;settle_omega=45;max_rate=55;turn=-62.3 --seed=20261001
+said: v73 (Ryan 2026-10-20: "the shove seuquence in the marble feels sparce, so can you have the shove be into the column section?"): 10aw turned -180.4 onto ArcWall003's far end 13.47 (window 193.5 -> 13.1, the hit 200.6 -> 19.2), the shove throws him into Section D's column forest (16-49 deg): he flies 12.9 -> 25.6 at r 48.4-48.8 past Column07 (19.1, r 52.7) and Column13/14 (16.2/21.0, r 56.3) and lands beside Column08 (24.4, r 52.4) and Column03 (28.0, r 48.4); Column01 (16.0) and Column02 (22.35), on his flight and run-back lane at r 48.5, removed (Ryan: "just move the columns. literally just remove them"). probe_ring --eye=13.1:5.6:5.65: r 47.5/48.6/50 open 13.5-27, no column between the window and him. Re-taped. v71 (Ryan 08:25: "GO GET THE EXACT SAME SHOTS ONLY IN THE NEW ENVIROMENT ... GET THE SAME FUCKING SHOTS"): 10av bearing only, turn -62.3 onto ArcWall126's end 131.6 (for ArcWall188's 193.9; window 193.5 -> 131.2, the hit 200.6 -> 137.3), the open stretch with ArcWall188 and Section C's buttresses ahead in the runner's eyes. Head on the first v71: Section A's Wall1 (turn -120.6) put its activator plate on the victim in the scope; no other wall end on marble v7 has 13 deg of open, seen deck after it (A: plates; B: no ends; C piers: the next pier or ArcWall253; ArcWall306: the tower's own pier blocks the hit).
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=runner --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;kick=0.1;back_pace=0.5;follow=0.4;run_after=0.9;settle_omega=45;max_rate=55;turn=-180.4 --seed=20261001
 tape: marble_column_a
 seconds: 4.0
 in: 0.75
@@ -1507,8 +1507,8 @@ freeze: waive
 expect: shove Runner_2 2.97-3.03
 
 ## 10bw
-said: v71 (Ryan 08:25: "GO GET THE EXACT SAME SHOTS ONLY IN THE NEW ENVIROMENT ... GET THE SAME FUCKING SHOTS"): 10bv bearing only, the same turn -62.3 as 10aw (ArcWall126; the scope rests on its end 131.6, no prop near him)
-capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;kick=0.1;back_pace=0.5;follow=0.4;run_after=0.9;settle_omega=45;max_rate=55;turn=-62.3 --seed=20261001
+said: v73: the same turn -180.4 as 10aw (ArcWall003's end 13.47; the scope rests on it, Column07/13/14 behind him in the glass, the hit at 19.2 with Column03/07/08 round him). v71 (Ryan 08:25: "GO GET THE EXACT SAME SHOTS ONLY IN THE NEW ENVIROMENT ... GET THE SAME FUCKING SHOTS"): 10bv bearing only, the same turn -62.3 as 10aw (ArcWall126; the scope rests on its end 131.6, no prop near him)
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;kick=0.1;back_pace=0.5;follow=0.4;run_after=0.9;settle_omega=45;max_rate=55;turn=-180.4 --seed=20261001
 tape: marble_column_a
 seconds: 4.4
 in: 1.75
