@@ -3,14 +3,16 @@ marble_trapdoor -- the walkway's trapdoor: an iron frame lining the hole marble_
 (TRAPDOOR_CELLS lane cells round a pier in TRAPDOOR_BEARINGS, r 49.4 to wall foot), TWO stone flaps
 hinged on the hole's lane-side edges (the lip chord and the wall chord) that part at a seam along the
 lane and hang into the pit, spikes on the pit floor PIT_D down (Ryan 2026-10-20: "only two flaps,
-you can make the pit much deeper for them to have a place to fold down into").
+you can make the pit much deeper for them to have a place to fold down into"). The pit is stepped: the lower tier's
+cells are recessed to r 50.15 under the hole's inner band, so that band is a 1.4 m ledge and only the band from
+SHAFT_R (52.0) out is the 10.4 m shaft; the inner flap is INNER_W wide and hangs into the ledge, the outer flap into the shaft.
 
 ORIGIN: the deck point at r PIVOT_R (mid-hole) on the hole's centre bearing, z 0 the deck.
 Godot +X radial outward, +Z toward INCREASING bearing (Blender -Y).
 
     TrapdoorFrame   iron rim inside the hole, its lane sides straight chords, top flush, knuckles proud
     TrapdoorLeaf00  the inner flap, hinged on the lip chord;  TrapdoorLeaf01  the outer, on the wall chord
-    TrapdoorSpikes  a grid of pale spikes on the pit floor, clear of the hanging flaps
+    TrapdoorSpikes  a grid of pale spikes on both pit floors, clear of the hanging flaps
 
 Each flap's ORIGIN sits on its hinge axis -- the hinge line's midpoint at the
 flap's BOTTOM arris (z -LEAF_T), so the slab swings clear of the rim -- and its
@@ -59,7 +61,9 @@ PIVOT_R = mb.TRAPDOOR_R                 # 54.664: the prop's origin radius, mid-
 R_IN = mb.DECK_RS[mb.TRAPDOOR_IN_K]     # 49.4: the hole's inner side; its outer side is the wall foot
 STEP = math.radians(360.0 / (mb.NSIDE * mb.DECK_SUB))   # one lane cell: 2.8125 deg
 HALF_CELLS = mb.TRAPDOOR_CELLS // 2
-PIT_D = mb.DECK_Z - mb.PIT_Z            # 6.0: the pit floor under the deck, room for a flap to hang
+PIT_D = mb.DECK_Z - mb.PIT_Z            # 1.4: the inner LEDGE under the deck (the lower tier's cells are recessed to r 50.15 under it)
+SHAFT_D = mb.DECK_Z - mb.SHAFT_Z        # 10.4: the shaft from SHAFT_R out, room for the outer flap to hang
+INNER_W = 1.15                          # the inner flap, hinged on the lip chord: hangs into the ledge, clear of the cells below
 FRAME_W = 0.28                          # the iron rim, inside the hole, at its narrowest: reads from 15 m
 FRAME_D = 0.35                          # ... this deep
 FRAME_SKIN = 0.002                      # its outer faces held off the pit's own walls
@@ -193,10 +197,10 @@ def inner_polyline(outer):
 
 
 def leaves():
-    """(name, [hinge a, hinge b, free b, free a]) for the two flaps: the inner hinged on the lip chord, the
-    outer on the wall chord, both free edges GAP off the seam midway between."""
+    """(name, [hinge a, hinge b, free b, free a]) for the two flaps: the inner hinged on the lip chord, INNER_W wide
+    (it hangs into the ledge over the cells' crowns), the outer on the wall chord, both free edges GAP off the seam."""
     x_lip, x_wall = chords()
-    x_mid = 0.5 * (x_lip + x_wall)
+    x_mid = x_lip + INNER_W
     lo, hi = _end_line(-1), _end_line(1)
     inner = [_at_x(lo, x_lip), _at_x(hi, x_lip), _at_x(hi, x_mid - GAP), _at_x(lo, x_mid - GAP)]
     outer = [_at_x(hi, x_wall), _at_x(lo, x_wall), _at_x(lo, x_mid + GAP), _at_x(hi, x_mid + GAP)]
@@ -353,31 +357,32 @@ def leaf(poly2):
 # =============================================================================
 
 def spikes():
-    """Pale stone spikes on a SPIKE_PITCH grid over the pit floor, SPIKE_MARGIN in from the rim (the hanging
-    flaps clear them), heights from a fixed stream."""
+    """Pale stone spikes on a SPIKE_PITCH grid over both pit floors (the ledge at -PIT_D in to SHAFT_R, the shaft
+    at -SHAFT_D from it), SPIKE_MARGIN in from the rim and the step (the hanging flaps clear them), heights from a fixed stream."""
     m = mb._Mesh()
     r = mb._Rng(7711)
-    z0 = -PIT_D
     x_lip, x_wall = chords()
+    x_step = C(mb.SHAFT_R, 0.0)[0]
     lo, hi = _end_line(-1), _end_line(1)
-    nx = int((x_wall - x_lip - 2.0 * SPIKE_MARGIN) / SPIKE_PITCH)
-    for i in range(nx + 1):
-        x = x_lip + SPIKE_MARGIN + (x_wall - x_lip - 2.0 * SPIKE_MARGIN) * (i / float(nx))
-        y_lo, y_hi = _at_x(lo, x)[1], _at_x(hi, x)[1]            # y_lo > y_hi (Blender -y is +bearing)
-        span = abs(y_lo - y_hi) - 2.0 * SPIKE_MARGIN
-        ny = int(span / SPIKE_PITCH)
-        for j in range(ny + 1):
-            y = y_lo - SPIKE_MARGIN - span * (j / float(ny))
-            h = SPIKE_H[0] + (SPIKE_H[1] - SPIKE_H[0]) * r.f()
-            b = [m.v((x + sx * SPIKE_HW, y + sy * SPIKE_HW, z0 + 0.001))
-                 for (sx, sy) in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
-            apex = m.v((x, y, z0 + h))
-            m.quad(b[0], b[1], b[2], b[3], DOWN, "spike")
-            for e in range(4):
-                p, q2 = b[e], b[(e + 1) % 4]
-                mx = 0.5 * (m.verts[p][0] + m.verts[q2][0]) - x
-                my = 0.5 * (m.verts[p][1] + m.verts[q2][1]) - y
-                m.tri(p, q2, apex, (mx, my, 0.3), "spike")
+    for (xa, xb, z0) in ((x_lip + SPIKE_MARGIN, x_step - 0.3, -PIT_D), (x_step + 0.3, x_wall - SPIKE_MARGIN, -SHAFT_D)):
+        nx = max(1, int((xb - xa) / SPIKE_PITCH))
+        for i in range(nx + 1):
+            x = xa + (xb - xa) * (i / float(nx))
+            y_lo, y_hi = _at_x(lo, x)[1], _at_x(hi, x)[1]            # y_lo > y_hi (Blender -y is +bearing)
+            span = abs(y_lo - y_hi) - 2.0 * SPIKE_MARGIN
+            ny = int(span / SPIKE_PITCH)
+            for j in range(ny + 1):
+                y = y_lo - SPIKE_MARGIN - span * (j / float(ny))
+                h = SPIKE_H[0] + (SPIKE_H[1] - SPIKE_H[0]) * r.f()
+                b = [m.v((x + sx * SPIKE_HW, y + sy * SPIKE_HW, z0 + 0.001))
+                     for (sx, sy) in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+                apex = m.v((x, y, z0 + h))
+                m.quad(b[0], b[1], b[2], b[3], DOWN, "spike")
+                for e in range(4):
+                    p, q2 = b[e], b[(e + 1) % 4]
+                    mx = 0.5 * (m.verts[p][0] + m.verts[q2][0]) - x
+                    my = 0.5 * (m.verts[p][1] + m.verts[q2][1]) - y
+                    m.tri(p, q2, apex, (mx, my, 0.3), "spike")
     return m
 
 
@@ -408,8 +413,9 @@ def _check():
     for name, poly in leaves():
         _m, _o, _r, w = leaf(poly)
         hang = LEAF_T + w
-        ok = ok and hang < mb.DECK_Z - mb.PIT_Z             # clears the pit floor
-        print("%s width %.3f, hangs to %.3f (pit %.2f)" % (name, w, hang, PIT_D))
+        depth = PIT_D if name.endswith("00") else SHAFT_D   # the inner flap hangs into the ledge, the outer into the shaft
+        ok = ok and hang < depth
+        print("%s width %.3f, hangs to %.3f (floor %.2f)" % (name, w, hang, depth))
     print("CONTIGUOUS %s" % ("YES" if ok else "NO"))
     return ok
 

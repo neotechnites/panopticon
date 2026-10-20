@@ -283,13 +283,13 @@ def _zip_open(m, outer, oang, inner, iang, want, zone):
 
 
 def _pits(m):
-    """Under each trapdoor a closed pit welded to the deck's hole and the wall's foot: floor PIT_Z,
-    the inner side straight down at DECK_RS[TRAPDOOR_IN_K], the outer side the lane tier's own
-    foot carried down. Near-black inside, the cells' back-wall tone, so the open pit reads as a drop."""
+    """Under each trapdoor a stepped pit welded to the deck's hole and the wall's foot: an inner LEDGE at
+    PIT_Z from DECK_RS[TRAPDOOR_IN_K] to SHAFT_R (over the lower tier's cell vaults), then a SHAFT down to
+    SHAFT_Z out to the lane tier's own foot carried down. Near-black inside, the cells' back-wall tone."""
     ang = mb.lane_angles()
     n = len(ang)
-    top, z0 = mb.DECK_Z, mb.PIT_Z
-    r0 = rs = mb.DECK_RS[mb.TRAPDOOR_IN_K]
+    top, z_ledge, z_shaft = mb.DECK_Z, mb.PIT_Z, mb.SHAFT_Z
+    r0, rs = mb.DECK_RS[mb.TRAPDOOR_IN_K], mb.SHAFT_R
 
     def P(r, i, z):
         a = ang[i % n]
@@ -298,20 +298,424 @@ def _pits(m):
     for (first, last) in mb.trapdoor_runs():
         for i in range(first, last):
             er = _er(TWO_PI * (i + 0.5) / n)
-            m.quad(P(r0, i, top), P(r0, i + 1, top), P(r0, i + 1, z0), P(r0, i, z0), er, "cellin")
+            m.quad(P(r0, i, top), P(r0, i + 1, top), P(r0, i + 1, z_ledge), P(r0, i, z_ledge), er, "cellin")   # the inner side
+            m.quad(P(r0, i, z_ledge), P(r0, i + 1, z_ledge), P(rs, i + 1, z_ledge), P(rs, i, z_ledge), UP, "cellin")   # the ledge
+            m.quad(P(rs, i, z_ledge), P(rs, i + 1, z_ledge), P(rs, i + 1, z_shaft), P(rs, i, z_shaft), er, "cellin")   # the step
         A0, A1 = TWO_PI * first / n, TWO_PI * last / n
         foot = _foot_between(A0, A1)
         for (wa, pa), (wb, pb) in zip(foot, foot[1:]):
             inward = tuple(-c for c in _er(0.5 * (wa + wb)))
-            m.quad(m.v(pa), m.v(pb), m.v((pb[0], pb[1], z0)), m.v((pa[0], pa[1], z0)), inward, "cellin")
-        _zip_open(m, [m.v((p[0], p[1], z0)) for (_w, p) in foot], [w for (w, _p) in foot],
-                  [P(rs, i, z0) for i in range(first, last + 1)],
+            m.quad(m.v(pa), m.v(pb), m.v((pb[0], pb[1], z_shaft)), m.v((pa[0], pa[1], z_shaft)), inward, "cellin")
+        _zip_open(m, [m.v((p[0], p[1], z_shaft)) for (_w, p) in foot], [w for (w, _p) in foot],
+                  [P(rs, i, z_shaft) for i in range(first, last + 1)],
                   [TWO_PI * i / n for i in range(first, last + 1)], UP, "cellin")
-        # the two end walls, each a fan from the inner side's foot
+        # the two end walls: the ledge's rectangle, and the shaft's as a fan from its inner foot
         for i, (_w, corner), want in ((first, foot[0], _et(A0)), (last, foot[-1], tuple(-c for c in _et(A1)))):
-            hub = P(r0, i, z0)
-            rim = [m.v((corner[0], corner[1], z0)), m.v(corner)]
-            rim += [P(r, i, top) for r in reversed(mb.DECK_RS) if r >= r0 - 1e-9]
+            m.quad(P(r0, i, top), P(r0, i, z_ledge), P(rs, i, z_ledge), P(rs, i, top), want, "cellin")
+            hub = m.v((corner[0], corner[1], z_shaft))
+            rim = [P(rs, i, z_shaft), P(rs, i, z_ledge)]
+            rim += [P(r, i, top) for r in mb.DECK_RS if r >= rs - 1e-9]
+            rim.append(m.v(corner))
+            for p, q in zip(rim, rim[1:]):
+                m.tri(hub, p, q, want, "cellin")
+
+
+def _stitch(m, a, b, want, zone):
+    """Flat triangles between closed rings a (inner) and b (outer), both ascending from angle 0:
+    by angle, but never a folded triangle -- the lip's strip is 0.1 m against 2.3 m stations."""
+    def ok(p, q, r):
+        P, Q, R = m.verts[p], m.verts[q], m.verts[r]
+        return (Q[0] - P[0]) * (R[1] - P[1]) - (Q[1] - P[1]) * (R[0] - P[0]) < -1e-9
+
+    def ang(v, k, n):
+        return math.atan2(m.verts[v][1], m.verts[v][0]) % TWO_PI + (TWO_PI if k >= n else 0.0)
+
+    na, nb = len(a), len(b)
+    ia = ib = 0
+    while ia < na or ib < nb:
+        a0, b0 = a[ia % na], b[ib % nb]
+        can_a = ia < na and ok(a0, a[(ia + 1) % na], b0)
+        can_b = ib < nb and ok(b0, a0, b[(ib + 1) % nb])
+        by_a = ia < na and (ib >= nb or ang(a[(ia + 1) % na], ia + 1, na) < ang(b[(ib + 1) % nb], ib + 1, nb))
+        if can_a and (by_a or not can_b):
+            m.tri(a0, a[(ia + 1) % na], b0, want, zone)
+            ia += 1
+        elif can_b:
+            m.tri(a0, b[(ib + 1) % nb], b0, want, zone)
+            ib += 1
+        else:
+            raise RuntimeError("lip stitch folds")
+
+
+def _edge(m):
+    """The open inner edge: the deck's inner ring closed onto the slab tier's cornice front, the lip."""
+    stations, z = mb.seam_slab()
+    seam = [m.v(p) for p in mb.station_pts(stations, z)]
+    _stitch(m, seam, _ring(m, mb.lane_angles(), mb.DECK_RS[0], z), UP, "shade")
+
+
+def _margin(m):
+    """The plain stone between the paving's outer ring and the lane tier's foot, open over each trapdoor."""
+    ang = mb.lane_angles()
+    n = len(ang)
+    stations, z = mb.seam_lane_foot()
+    spans = mb.trapdoor_runs()
+    if not spans:
+        seam = [m.v(p) for p in mb.station_pts(stations, z)]
+        deck_out = _ring(m, ang, mb.DECK_RS[-1], z)
+        mb._zipper(m, seam, mb.station_angles(stations), deck_out, ang, UP, "marble2")
+        return
+    r = mb.DECK_RS[-1]
+    for k, (_first, last) in enumerate(spans):
+        nxt = spans[(k + 1) % len(spans)][0] + (n if k == len(spans) - 1 else 0)
+        foot = _foot_between(TWO_PI * last / n, TWO_PI * nxt / n)
+        deck = [m.v((r * math.cos(ang[i % n]), r * math.sin(ang[i % n]), z)) for i in range(last, nxt + 1)]
+        _zip_open(m, [m.v(p) for (_w, p) in foot], [w for (w, _p) in foot],
+                  deck, [TWO_PI * i / n for i in range(last, nxt + 1)], UP, "marble2")
+
+
+# =============================================================================
+# THE PART
+# =============================================================================
+
+def _stages(m, sp):
+    return (("floor", lambda: _floor(m, sp)), ("deck", lambda: _deck(m)), ("pits", lambda: _pits(m)), ("edge", lambda: _edge(m)),
+            ("margin", lambda: _margin(m)))
+
+
+def _info(sp):
+    return {"spikes": sp.count, "spikes_small": sp.small,
+            "tip_max": round(sp.tip_max, 2), "tip_min": round(sp.tip_min, 2)}
+
+
+def build(m):
+    sp = _Spikes()
+    for _name, fn in _stages(m, sp):
+        fn()
+    return _info(sp)
+
+
+def collider(c):
+    """Light and purpose-built: the floor disc, the flat deck (the inner tiers'
+    collider is its lip face). Not required to be one surface -- Godot makes a concave
+    shape of it. The spikes are not colliders: a body that leaves the walkway
+    is dead by the kill cylinder before it lands."""
+    z = mb.FLOOR_Z
+    hub = c.v((0.0, 0.0, z))
+    prev = _ring(c, mb.ANG, 30.0, z)
+    for i in range(64):
+        c.tri(hub, prev[i], prev[(i + 1) % 64], UP, "field")
+    foot = _ring(c, mb.ANG, mb.INNER_R, z)
+    for i in range(64):
+        j = (i + 1) % 64
+        c.quad(prev[i], prev[j], foot[j], foot[i], UP, "field")
+    ang = mb.lane_angles()
+    n = len(ang)
+    r_out = mb.WALL_R - mb.BAND_PROUD
+    def P(r, i, z):
+        a = ang[i % n]
+        return c.v((r * math.cos(a), r * math.sin(a), z))
+
+    rs = (mb.INNER_R, mb.DECK_RS[mb.TRAPDOOR_IN_K], 52.0, r_out)
+    holes = mb.trapdoor_cells()
+    for k in range(3):
+        for i in range(n):
+            if i in holes and k >= 1:
+                continue
+            c.quad(P(rs[k], i, mb.DECK_Z), P(rs[k], i + 1, mb.DECK_Z), P(rs[k + 1], i + 1, mb.DECK_Z),
+                   P(rs[k + 1], i, mb.DECK_Z), UP, "floor")
+    # each trapdoor's pit: the stepped box under the hole (ledge at PIT_Z to SHAFT_R, shaft to SHAFT_Z), so a body that drops lands on one floor
+    z_ledge, z_shaft, z1, ra, rs_, rb = mb.PIT_Z, mb.SHAFT_Z, mb.DECK_Z, mb.DECK_RS[mb.TRAPDOOR_IN_K], mb.SHAFT_R, r_out
+
+    for (first, last) in mb.trapdoor_runs():
+        for i in range(first, last):
+            er = _er(TWO_PI * (i + 0.5) / n)
+            c.quad(P(ra, i, z_ledge), P(ra, i + 1, z_ledge), P(rs_, i + 1, z_ledge), P(rs_, i, z_ledge), UP, "floor")
+            c.quad(P(rs_, i, z_shaft), P(rs_, i + 1, z_shaft), P(rb, i + 1, z_shaft), P(rb, i, z_shaft), UP, "floor")
+            c.quad(P(ra, i, z1), P(ra, i + 1, z1), P(ra, i + 1, z_ledge), P(ra, i, z_ledge), er, "floor")
+            c.quad(P(rs_, i, z_ledge), P(rs_, i + 1, z_ledge), P(rs_, i + 1, z_shaft), P(rs_, i, z_shaft), er, "floor")
+            c.quad(P(rb, i, z1), P(rb, i + 1, z1), P(rb, i + 1, z_ledge), P(rb, i, z_ledge), (-er[0], -er[1], 0.0), "floor")
+            c.quad(P(rb, i, z_ledge), P(rb, i + 1, z_ledge), P(rb, i + 1, z_shaft), P(rb, i, z_shaft), (-er[0], -er[1], 0.0), "floor")
+        a0, a1 = TWO_PI * first / n, TWO_PI * last / n
+        for i, want in ((first, _et(a0)), (last, tuple(-x for x in _et(a1)))):
+            c.quad(P(ra, i, z1), P(ra, i, z_ledge), P(rs_, i, z_ledge), P(rs_, i, z1), want, "floor")
+            c.quad(P(rs_, i, z1), P(rs_, i, z_ledge), P(rb, i, z_ledge), P(rb, i, z1), want, "floor")
+            c.quad(P(rs_, i, z_ledge), P(rs_, i, z_shaft), P(rb, i, z_shaft), P(rb, i, z_ledge), want, "floor")
+
+if __name__ == "__main__":                # the wall part is not needed to audit this one
+    import types
+    sys.modules.setdefault("marble_wall_build", types.ModuleType("marble_wall_build"))
+
+import marble_build as mb  # noqa: E402
+
+# =============================================================================
+# TUNABLES (the geometry's numbers live in marble_build; these are this part's)
+# =============================================================================
+
+PEDESTAL = 0.12             # every spike stands on a low plinth this tall
+SPIKE_P = (0.40, 0.55)      # spike probability: floor + span * a smooth field in [0,1]
+CLUSTER_K = (2.3, 0.9)      # the field's wavelengths, metres: (radial-ish, along the ring) ... x2 octaves
+H_JITTER = (0.85, 1.15)
+BASE_FRAC = 0.4             # a base half-width never over this of the cell's smaller side
+CENTRE_JIT = 0.6            # base centre wanders this far of the slack, either way
+MIN_CELL_W = 0.9            # no spike in a cell narrower than this
+TIP_CAP = mb.FLOOR_Z + 3.0  # no tip over this
+
+# the floor's rings, hub outward: (outer radius, station count, pitch) per
+# band; ~SPIKE_PITCH where spikes stand, coarse under the walkway where
+# nothing stands and nobody alive looks. The outermost is the 64-ring the
+# wall foot zippers from.
+FLOOR_BANDS = ((16.0, 32, mb.SPIKE_PITCH), (30.0, 64, mb.SPIKE_PITCH),
+               (47.0, 128, mb.SPIKE_PITCH))
+
+
+def _floor_rings():
+    out = []
+    r0 = 0.0
+    for (r1, n, pitch) in FLOOR_BANDS:
+        k = max(1, int(round((r1 - r0) / pitch)))
+        for i in range(1, k + 1):
+            out.append((r0 + (r1 - r0) * i / k, n))
+        r0 = r1
+    return tuple(out)
+
+
+# the ring at 47.0 (never a spike) would graze the inner tiers' foot: the last ring zips to it instead
+FLOOR_RINGS = tuple(r for r in _floor_rings() if r[0] < mb.INNER_R - 1.0)
+
+UP, DOWN = mb.UP, mb.DOWN
+TWO_PI = mb.TWO_PI
+ANG32 = [TWO_PI * i / 32 for i in range(32)]
+
+
+# =============================================================================
+# HELPERS
+# =============================================================================
+
+def _angles(n):
+    if n == 128:
+        return mb.lane_angles()
+    if n == 64:
+        return mb.ANG
+    return ANG32
+
+
+def _ring(m, angles, rad, z):
+    """Vertex ids of a ring; the registry hands back existing ones."""
+    return [m.v((rad * math.cos(a), rad * math.sin(a), z)) for a in angles]
+
+
+def _er(a):
+    return (math.cos(a), math.sin(a), 0.0)
+
+
+def _et(a):
+    return (-math.sin(a), math.cos(a), 0.0)
+
+
+def _mid(angles, i):
+    j = (i + 1) % len(angles)
+    return 0.5 * (angles[i] + (angles[j] if j else angles[0] + TWO_PI))
+
+
+def _field(rad, ang):
+    """A smooth seeded 0..1 field over the floor: two octaves of sines, so the
+    spikes come in clumps with thin patches between."""
+    x, y = rad * math.cos(ang), rad * math.sin(ang)
+    k0, k1 = TWO_PI / CLUSTER_K[0] / 3.0, TWO_PI / CLUSTER_K[1] / 3.0
+    v = (math.sin(k0 * x + 1.3) * math.cos(k0 * y * 0.8 - 0.7)
+         + 0.5 * math.sin(k1 * x * 0.7 - k1 * y * 0.4 + 2.1))
+    return 0.5 + v / 3.0            # v in [-1.5, 1.5]
+
+
+# =============================================================================
+# SPIKES -- a floor cell becomes a pedestal ring and a pyramid
+# =============================================================================
+
+class _Spikes(object):
+    def __init__(self):
+        self.r = mb._Rng(mb.SPIKE_SEED)
+        self.count = self.small = 0
+        self.tip_max = -9.9
+        self.tip_min = 9.9
+
+    def cell(self, m, lo_i, lo_j, hi_j, hi_i, r_lo, r_hi, a_i, a_j, z0):
+        """Decide and build the spike for one cell; returns False if the cell
+        stays a plain floor quad."""
+        r = self.r
+        if a_j < a_i:
+            a_j += TWO_PI
+        rc, ac = 0.5 * (r_lo + r_hi), 0.5 * (a_i + a_j)
+        if not (mb.SPIKE_R0 <= rc <= mb.SPIKE_R1):
+            return False
+        depth, width = r_hi - r_lo, rc * (a_j - a_i)
+        if width < MIN_CELL_W:
+            return False
+        p = SPIKE_P[0] + SPIKE_P[1] * _field(rc, ac)
+        if r.f() > p:
+            return False
+        zb = z0 + PEDESTAL
+        h = mb.SPIKE_H[0] + (mb.SPIKE_H[1] - mb.SPIKE_H[0]) * r.f()
+        h *= H_JITTER[0] + (H_JITTER[1] - H_JITTER[0]) * r.f()
+        h = min(h, TIP_CAP - zb)
+        small = (self.count + 1) % mb.SMALL_EVERY == 0     # every third spike is a small one
+        if small:
+            h *= mb.SMALL_H
+        bw = mb.BASE_K[0] + mb.BASE_K[1] * h
+        cap = BASE_FRAC * min(depth, width)
+        if bw > cap:                                    # a fat spike in a small cell: shrink it whole
+            bw = cap
+            h = (bw - mb.BASE_K[0]) / mb.BASE_K[1]
+        if h < 0.3:
+            return False
+        # the base centre: near the cell's, wandering within the slack
+        jr = CENTRE_JIT * (0.5 * depth - bw)
+        jt = CENTRE_JIT * (0.5 * width - bw)
+        rb = rc + r.sf() * jr
+        ab = ac + r.sf() * jt / rc
+        er, et = _er(ab), _et(ab)
+        cx, cy = rb * math.cos(ab), rb * math.sin(ab)
+
+        def at(sr, st):
+            return (cx + er[0] * sr * bw + et[0] * st * bw, cy + er[1] * sr * bw + et[1] * st * bw, zb)
+
+        b0, b1, b2, b3 = m.v(at(-1, -1)), m.v(at(-1, 1)), m.v(at(1, 1)), m.v(at(1, -1))
+        m.quad(lo_i, lo_j, b1, b0, UP, "field")          # the pedestal ring, rising to the base
+        m.quad(lo_j, hi_j, b2, b1, UP, "field")
+        m.quad(hi_j, hi_i, b3, b2, UP, "field")
+        m.quad(hi_i, lo_i, b0, b3, UP, "field")
+        apex = m.v((cx, cy, zb + h))
+        for (p, q, w) in ((b0, b1, (-er[0], -er[1], 0.0)), (b1, b2, et), (b2, b3, er),
+                          (b3, b0, (-et[0], -et[1], 0.0))):
+            m.tri(p, q, apex, (w[0], w[1], 0.3), "spike")
+        tip = zb + h
+        self.count += 1
+        self.small += 1 if small else 0
+        self.tip_max = max(self.tip_max, tip)
+        self.tip_min = min(self.tip_min, tip)
+        return True
+
+
+def _spike_band(m, angles, r_lo, r_hi, z, sp):
+    """A floor band between two rings of the same station count; each cell a
+    plain quad or a stitched spike."""
+    lo, hi = _ring(m, angles, r_lo, z), _ring(m, angles, r_hi, z)
+    n = len(angles)
+    for i in range(n):
+        j = (i + 1) % n
+        if not sp.cell(m, lo[i], lo[j], hi[j], hi[i], r_lo, r_hi, angles[i], angles[j], z):
+            m.quad(lo[i], lo[j], hi[j], hi[i], UP, "field")
+
+
+# =============================================================================
+# THE SPIKE FLOOR
+# =============================================================================
+
+def _floor(m, sp):
+    """One disc at FLOOR_Z: hub, rings of ~SPIKE_PITCH, zippers where the
+    station count doubles, and the wall foot seam as the outermost ring."""
+    z = mb.FLOOR_Z
+    hub = m.v((0.0, 0.0, z))
+    r0, n0 = FLOOR_RINGS[0]
+    first = _ring(m, _angles(n0), r0, z)
+    for i in range(n0):
+        m.tri(hub, first[i], first[(i + 1) % n0], UP, "field")
+    for k in range(len(FLOOR_RINGS) - 1):
+        (ra, na), (rb, nb) = FLOOR_RINGS[k], FLOOR_RINGS[k + 1]
+        if na == nb:
+            _spike_band(m, _angles(na), ra, rb, z, sp)
+        else:
+            outer, inner = _ring(m, _angles(nb), rb, z), _ring(m, _angles(na), ra, z)
+            mb._zipper(m, outer, _angles(nb), inner, _angles(na), UP, "field")
+    stations, zf = mb.seam_wall_foot()
+    outer = [m.v(p) for p in mb.station_pts(stations, zf)]
+    rl, nl = FLOOR_RINGS[-1]
+    inner = _ring(m, _angles(nl), rl, zf)
+    mb._zipper(m, outer, mb.station_angles(stations), inner, _angles(nl), UP, "field")
+
+
+# =============================================================================
+# THE WALKWAY SLAB
+# =============================================================================
+
+def _deck(m):
+    """The lane at DECK_Z: 128 columns of DECK_RS facets. Nothing stands on
+    it; the bars between finish and start are a scene node, as on Map 1."""
+    ang = mb.lane_angles()
+    n = len(ang)
+    z = mb.DECK_Z
+    holes = mb.trapdoor_cells()
+
+    def P(r, i):
+        return m.v((r * math.cos(ang[i % n]), r * math.sin(ang[i % n]), z))
+
+    for k in range(len(mb.DECK_RS) - 1):
+        r0, r1 = mb.DECK_RS[k], mb.DECK_RS[k + 1]
+        for i in range(n):
+            if i in holes and k >= mb.TRAPDOOR_IN_K:   # a trapdoor's cells: the pit's mouth, wall strip to wall foot
+                continue
+            m.quad(P(r0, i), P(r0, i + 1), P(r1, i + 1), P(r1, i), UP, "floor")
+
+
+def _foot_between(a0, a1):
+    """The lane tier's foot stations from Blender angle a0 to a1 (a1 > a0, unwrapped), ends included."""
+    stations, z = mb.seam_lane_foot()
+    out = []
+    for (a, x, y) in stations:
+        for w in (a - TWO_PI, a, a + TWO_PI):
+            if a0 - 1e-9 <= w <= a1 + 1e-9:
+                out.append((w, (x, y, z)))
+    return sorted(out)
+
+
+def _zip_open(m, outer, oang, inner, iang, want, zone):
+    """_zipper for open strips: both start on one angle and end on another."""
+    io = ii = 0
+    while io < len(outer) - 1 or ii < len(inner) - 1:
+        next_o = oang[io + 1] if io < len(outer) - 1 else 1e9
+        next_i = iang[ii + 1] if ii < len(inner) - 1 else 1e9
+        if next_o < next_i - 1e-9:
+            m.tri(outer[io], outer[io + 1], inner[ii], want, zone)
+            io += 1
+        else:
+            m.tri(outer[io], inner[ii + 1], inner[ii], want, zone)
+            ii += 1
+
+
+def _pits(m):
+    """Under each trapdoor a stepped pit welded to the deck's hole and the wall's foot: an inner LEDGE at
+    PIT_Z from DECK_RS[TRAPDOOR_IN_K] to SHAFT_R (over the lower tier's cell vaults), then a SHAFT down to
+    SHAFT_Z out to the lane tier's own foot carried down. Near-black inside, the cells' back-wall tone."""
+    ang = mb.lane_angles()
+    n = len(ang)
+    top, z_ledge, z_shaft = mb.DECK_Z, mb.PIT_Z, mb.SHAFT_Z
+    r0, rs = mb.DECK_RS[mb.TRAPDOOR_IN_K], mb.SHAFT_R
+
+    def P(r, i, z):
+        a = ang[i % n]
+        return m.v((r * math.cos(a), r * math.sin(a), z))
+
+    for (first, last) in mb.trapdoor_runs():
+        for i in range(first, last):
+            er = _er(TWO_PI * (i + 0.5) / n)
+            m.quad(P(r0, i, top), P(r0, i + 1, top), P(r0, i + 1, z_ledge), P(r0, i, z_ledge), er, "cellin")   # the inner side
+            m.quad(P(r0, i, z_ledge), P(r0, i + 1, z_ledge), P(rs, i + 1, z_ledge), P(rs, i, z_ledge), UP, "cellin")   # the ledge
+            m.quad(P(rs, i, z_ledge), P(rs, i + 1, z_ledge), P(rs, i + 1, z_shaft), P(rs, i, z_shaft), er, "cellin")   # the step
+        A0, A1 = TWO_PI * first / n, TWO_PI * last / n
+        foot = _foot_between(A0, A1)
+        for (wa, pa), (wb, pb) in zip(foot, foot[1:]):
+            inward = tuple(-c for c in _er(0.5 * (wa + wb)))
+            m.quad(m.v(pa), m.v(pb), m.v((pb[0], pb[1], z_shaft)), m.v((pa[0], pa[1], z_shaft)), inward, "cellin")
+        _zip_open(m, [m.v((p[0], p[1], z_shaft)) for (_w, p) in foot], [w for (w, _p) in foot],
+                  [P(rs, i, z_shaft) for i in range(first, last + 1)],
+                  [TWO_PI * i / n for i in range(first, last + 1)], UP, "cellin")
+        # the two end walls: the ledge's rectangle, and the shaft's as a fan from its inner foot
+        for i, (_w, corner), want in ((first, foot[0], _et(A0)), (last, foot[-1], tuple(-c for c in _et(A1)))):
+            m.quad(P(r0, i, top), P(r0, i, z_ledge), P(rs, i, z_ledge), P(rs, i, top), want, "cellin")
+            hub = m.v((corner[0], corner[1], z_shaft))
+            rim = [P(rs, i, z_shaft), P(rs, i, z_ledge)]
+            rim += [P(r, i, top) for r in mb.DECK_RS if r >= rs - 1e-9]
+            rim.append(m.v(corner))
             for p, q in zip(rim, rim[1:]):
                 m.tri(hub, p, q, want, "cellin")
 
