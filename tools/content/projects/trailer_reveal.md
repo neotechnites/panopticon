@@ -1498,8 +1498,8 @@ freeze: waive
 expect: hit Runner_1 2.94-3.00
 
 ## 10aw
-said: v71 (Ryan 08:25: "GO GET THE EXACT SAME SHOTS ONLY IN THE NEW ENVIROMENT ... GET THE SAME FUCKING SHOTS"): 10av bearing only, turn -120.6 onto Section A's Wall1 (its end 73.3 for ArcWall188's 193.9; window 193.5 -> 72.9, the hit 200.6 -> 79.0 in the gap before Wall2)
-capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=runner --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;kick=0.1;back_pace=0.5;follow=0.4;run_after=0.9;settle_omega=45;max_rate=55;turn=-120.6 --seed=20261001
+said: v71 (Ryan 08:25: "GO GET THE EXACT SAME SHOTS ONLY IN THE NEW ENVIROMENT ... GET THE SAME FUCKING SHOTS"): 10av bearing only, turn -62.3 onto ArcWall126's end 131.6 (for ArcWall188's 193.9; window 193.5 -> 131.2, the hit 200.6 -> 137.3), the open stretch with ArcWall188 and Section C's buttresses ahead in the runner's eyes. Head on the first v71: Section A's Wall1 (turn -120.6) put its activator plate on the victim in the scope; no other wall end on marble v7 has 13 deg of open, seen deck after it (A: plates; B: no ends; C piers: the next pier or ArcWall253; ArcWall306: the tower's own pier blocks the hit).
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=runner --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;kick=0.1;back_pace=0.5;follow=0.4;run_after=0.9;settle_omega=45;max_rate=55;turn=-62.3 --seed=20261001
 tape: marble_column_a
 seconds: 4.0
 in: 0.75
@@ -1507,8 +1507,8 @@ freeze: waive
 expect: shove Runner_2 2.97-3.03
 
 ## 10bw
-said: v71 (Ryan 08:25: "GO GET THE EXACT SAME SHOTS ONLY IN THE NEW ENVIROMENT ... GET THE SAME FUCKING SHOTS"): 10bv bearing only, the same turn -120.6 as 10aw (Section A's Wall1; the scope rests on its end 73.3)
-capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;kick=0.1;back_pace=0.5;follow=0.4;run_after=0.9;settle_omega=45;max_rate=55;turn=-120.6 --seed=20261001
+said: v71 (Ryan 08:25: "GO GET THE EXACT SAME SHOTS ONLY IN THE NEW ENVIROMENT ... GET THE SAME FUCKING SHOTS"): 10bv bearing only, the same turn -62.3 as 10aw (ArcWall126; the scope rests on its end 131.6, no prop near him)
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;kick=0.1;back_pace=0.5;follow=0.4;run_after=0.9;settle_omega=45;max_rate=55;turn=-62.3 --seed=20261001
 tape: marble_column_a
 seconds: 4.4
 in: 1.75

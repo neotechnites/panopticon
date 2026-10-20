@@ -22,7 +22,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## v42 (Ryan): "the sniper half jumps and snaps around like a robot". Dials max_accel (260 deg/s^2: speed ramps), react 0.15 and blend (0.3 s: each
 ## change of aim, from the rest onto him and onto the lead, eases); expects: acceleration cap, no speed jump at a beat, a new aim every frame.
 ## v71 (marble v7 sections): turn (deg, 0) rotates the whole staging onto another wall's leading end: the window, the two bodies, the
-## wall end, edge, cover, rest and the hand's park. The v68 numbers are the ArcWall188 staging; v71 films it at Section A's Wall1 (turn -120.6).
+## wall end, edge, cover, rest and the hand's park. The v68 numbers are the ArcWall188 staging; v71 films it at ArcWall126's end (turn -62.3).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const COLUMN_SCENE: String = "res://maps/marble/models/marble_column.glb"
