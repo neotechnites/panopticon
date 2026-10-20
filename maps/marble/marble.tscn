@@ -85,7 +85,7 @@ background_mode = 1
 background_color = Color(0.20, 0.21, 0.19, 1)
 ambient_light_source = 2
 ambient_light_color = Color(0.62, 0.66, 0.60, 1)
-ambient_light_energy = 0.6
+ambient_light_energy = 0.4
 tonemap_mode = 2
 tonemap_white = 6.0
 adjustment_enabled = true
@@ -109,37 +109,37 @@ light_energy = 0.0
 shadow_enabled = false
 
 [node name="Skylight" type="Node3D" parent="."]
-editor_description = "The oculus: daylight through the dome's glazed crown (marble.glb, r 11). Key is a shadowed SpotLight3D at the glass (y 82) leaning 15 deg to -X, a 64 deg cone that lights the tower, the pit and the near lip of the lane on its lean side, and nothing else directly; bake mode Dynamic, so its direct light and shadows are real time and its bounce is in MarbleLightmap. Shaft, Pool and Motes are the visible light, additive and cheap."
+editor_description = "The oculus: daylight through the dome's glazed crown (marble.glb, r 11). Key is a shadowed SpotLight3D at the glass (y 82) leaning 15 deg to -X, a 76 deg cone that lights the tower, the pit and the near lip of the lane on its lean side, and nothing else directly; bake mode Dynamic, so its direct light and shadows are real time and its bounce is in MarbleLightmap. Shaft, Pool and Motes are the visible light, additive and cheap."
 
 [node name="Key" type="SpotLight3D" parent="Skylight"]
 transform = Transform3D(0, 0.9659, 0.2588, 0, -0.2588, 0.9659, 1, 0, 0, 0, 82, 0)
 light_color = Color(1, 0.96, 0.88, 1)
-light_energy = 2.5
+light_energy = 3.5
 light_specular = 0.0
 light_bake_mode = 2
 shadow_enabled = true
 shadow_normal_bias = 2.0
 spot_range = 120.0
 spot_attenuation = 0.0
-spot_angle = 32.0
+spot_angle = 38.0
 spot_angle_attenuation = 0.8
 
 [node name="AmbientFill" type="OmniLight3D" parent="Skylight"]
-editor_description = "The old flat ambient (Ryan's olive 0.62/0.66/0.60), now one static omni in the well, baked with occlusion: a floor for the far tiers and corners, darker in every reveal and cell, never flat."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 40, 0)
+editor_description = "The old flat ambient (Ryan's olive 0.62/0.66/0.60), now one static omni high in the well (y 58, over the lane ceiling so the whole lane floor sees it), baked with occlusion: a floor for the far tiers and corners, darker in every reveal and cell, never flat."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 58, 0)
 light_color = Color(0.62, 0.66, 0.6, 1)
-light_energy = 0.8
+light_energy = 2.4
 light_size = 8.0
 light_specular = 0.0
 light_bake_mode = 1
-omni_range = 110.0
+omni_range = 130.0
 omni_attenuation = 0.0
 
 [node name="MarbleLightmap" type="LightmapGI" parent="."]
 editor_description = "The oculus bounce and the dim lamps on the marble, tower and bars (Static Lightmaps imports): Key indirect only (Dynamic), AmbientFill and Lamps whole (Static), three bounces; its probes light anything not lightmapped. Rebake: tools/pc_bake_lightmap.sh <ref> res://maps/marble/marble.tscn."
 quality = 2
 bounces = 3
-bounce_indirect_energy = 1.0
+bounce_indirect_energy = 1.5
 denoiser_strength = 0.2
 interior = true
 environment_mode = 0
@@ -284,10 +284,10 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 [node name="TowerLight" type="OmniLight3D" parent="Tower"]
 light_cull_mask = 4294964223
 light_bake_mode = 0
-editor_description = "The tower's own lamp under the arcade, UNSHADOWED since 2026-09-22: it hangs at 5.6 over the datum -- world 30.95, over the guard's head and under the arches' crowns -- as a warm room light, and because nothing occludes it, it reaches out through the shaft and the walkway slab to the three cell tiers under the lane (90 m) that the shadowed Skylight cannot light. It is a SOFT lamp (Ryan, 2026-09-16: \"it's way way harsh in the middle of the tower\"): 2.4 m wide, energy 4 over a nearly flat falloff (attenuation 0.35), so the room floor 3 m under it rolls off at the tonemap white instead of clipping. Every number is marble_tower_light_profile.tres'; the light_* properties here mirror it for the editor view."
+editor_description = "The tower's own lamp under the arcade, UNSHADOWED since 2026-09-22: it hangs at 5.6 over the datum -- world 30.95, over the guard's head and under the arches' crowns -- as a warm room light, and because nothing occludes it, it reaches out through the shaft and the walkway slab to the three cell tiers under the lane (90 m) that the shadowed Skylight cannot light. It is a SOFT lamp (Ryan, 2026-09-16: \"it's way way harsh in the middle of the tower\"): 2.4 m wide, energy 1.5 since the oculus bounce took over the fill (2026-10-20) over a nearly flat falloff (attenuation 0.35), so the room floor 3 m under it rolls off at the tonemap white instead of clipping. Every number is marble_tower_light_profile.tres'; the light_* properties here mirror it for the editor view."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.6, 0)
 light_color = Color(1, 0.92, 0.74, 1)
-light_energy = 4.0
+light_energy = 1.5
 light_size = 2.4
 light_specular = 0.1
 shadow_enabled = false
