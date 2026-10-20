@@ -3,9 +3,10 @@ extends "res://tools/capture/stages/stage.gd"
 ## trailer_marble_far_lever (23alt): Ryan: "make an alternate version of just this clip, where instead of shooting at the runners,
 ## the sniper shoots one of the levers and drops a runner into a pit?" 23's runner POV as it is (eyes on the window, running, two men
 ## ahead) on Section B: the round hits a trapdoor's wall-top plate on the beat and the man crossing that door drops into the pit.
-## Section B: low walls (3 m) at the lip never hide the window; the POV starts past ArcWall253 (ends 258.5); the victim 15 deg ahead at the drop, big enough to read.
+## Section B: low walls (3 m) at the lip never hide the window; the victim 8 m ahead at the hit (a sixth of the frame tall), the plate 12 m off; the POV sees him go down into the pit.
 ##   --map=marble --shot=pack_lead --stage=trailer_marble_far_lever --bots=3 --pov=runner --rifle=projectile --seed=20261001
-## Dials: start (the POV's bearing at the deal, 265), ahead_a/ahead_b (deg ahead of him at the deal: the victim, the far man; 16/31),
+## Dials: start (the POV's bearing at the deal, 274), pace (the POV's run, 0.5: slower than the victim, so he is 8 m behind him at the hit
+## and still short of the open door when the slot ends), ahead_a/ahead_b (deg ahead of him at the deal: the victim, the far man; 6.5/21.5),
 ## section/door (SectionB/Trapdoor4), window (291: the opening 273.7-293.8 of the colonnade), fire (clip s the round is squeezed, 1.98),
 ## look (deg right of his run the eyes rest, 47), look_pitch (5), gravity (the round's drop the squeeze holds over, 22).
 
@@ -29,6 +30,7 @@ var _guard: PlayerController = null
 var _plate: Node3D = null
 var _fired: bool = false
 var _dropped: bool = false
+var _at_rim: bool = false
 
 
 func bots() -> int:
@@ -58,8 +60,8 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	for brain: RunnerBrain in runners:
 		if brain.controller == null:
 			return false
-	var start: float = float(option("start", 265.0))
-	var starts: Array[float] = [start, start + float(option("ahead_a", 16.0)), start + float(option("ahead_b", 31.0))]
+	var start: float = float(option("start", 274.0))
+	var starts: Array[float] = [start, start + float(option("ahead_a", 6.5)), start + float(option("ahead_b", 21.5))]
 	for index: int in range(3):
 		var legs: Array = _legs(index)
 		var steps: Array = [
@@ -83,7 +85,7 @@ func _legs(index: int) -> Array:
 	if index == POV:
 		var look: float = float(option("look", 47.0))
 		var up: float = float(option("look_pitch", 5.0))
-		return [{"to": 350.0, "r": START_R[POV], "speed": SPEED[POV], "weave": 0.03, "period": 1.4, "glances": [
+		return [{"to": 350.0, "r": START_R[POV], "speed": float(option("pace", 0.5)), "weave": 0.03, "period": 1.4, "glances": [
 			{"t": 0.0, "right": look - 6.0, "pitch": up - 1.0}, {"t": 0.9, "right": look + 2.0, "pitch": up},
 			{"t": 1.7, "right": look - 2.0, "pitch": up + 0.5}, {"t": 2.6, "right": look + 1.0, "pitch": up - 0.5},
 		]}]
@@ -108,6 +110,10 @@ func tick(_delta: float) -> void:
 	if not _dropped and is_instance_valid(victim) and victim.global_position.y < LIB.DECK_Y - 0.4:
 		_dropped = true
 		say("dropped %s at %.1f deg r %.2f y %.2f" % [victim.name, LIB.bearing_of(victim.global_position), LIB.radius_of(victim.global_position), victim.global_position.y])
+	# The POV runs the same lane: he reaches the open door's rim only after the slot has ended (the brief's expect).
+	if not _at_rim and LIB.bearing_of(_bodies[POV].global_position) >= float(option("rim", 292.0)):
+		_at_rim = true
+		say("rim reached by %s" % _bodies[POV].name)
 
 
 ## Positions, and where the window, the plate and the two ahead sit in the POV's frame (0..1 across and down; "x" behind him).
