@@ -73,7 +73,7 @@ expect: alive Runner_1
 
 ## 5
 said: Section C wide: the flying buttresses from over the void
-capture: --map=marble --shot=pack_lead --stage=marble_sections --bots=3 --seed=20261001 --set=beat=cwide
+capture: --map=marble --shot=pack_lead --stage=marble_sections --bots=3 --seed=20261001 --set=beat=cwide;eye_deg=186;look_deg=212
 seconds: 6
 in: 0.9
 freeze: waive

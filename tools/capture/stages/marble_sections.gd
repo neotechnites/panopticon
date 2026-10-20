@@ -32,8 +32,8 @@ func needs_pov() -> String:
 func lens(_delta: float) -> bool:
 	if _beat != "cwide":
 		return false
-	camera().global_position = LIB.ring_point(float(option("eye_deg", 200.0)), 38.0, 7.0)
-	camera().look_at(LIB.ring_point(float(option("look_deg", 222.0)), 55.0, 6.0), Vector3.UP)
+	camera().global_position = LIB.ring_point(float(option("eye_deg", 200.0)), 47.0, 5.0)
+	camera().look_at(LIB.ring_point(float(option("look_deg", 222.0)), 54.0, 7.0), Vector3.UP)
 	return true
 
 
