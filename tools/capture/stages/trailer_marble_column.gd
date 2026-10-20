@@ -21,10 +21,14 @@ extends "res://tools/capture/stages/stage.gd"
 ## him as he runs back. Rest on the wall's end (193.9); expects judge the cuts: m1 (m1_from/m1_to) and m2 (scope_from/scope_to), take s.
 ## v42 (Ryan): "the sniper half jumps and snaps around like a robot". Dials max_accel (260 deg/s^2: speed ramps), react 0.15 and blend (0.3 s: each
 ## change of aim, from the rest onto him and onto the lead, eases); expects: acceleration cap, no speed jump at a beat, a new aim every frame.
+## v71 (marble v7 sections): turn (deg, 0) rotates the whole staging onto another wall's leading end: the window, the two bodies, the
+## wall end, edge, cover, rest and the hand's park. The v68 numbers are the ArcWall188 staging; v71 films it at Section A's Wall1 (turn -120.6).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const COLUMN_SCENE: String = "res://maps/marble/models/marble_column.glb"
 const COLUMN_R: float = 47.5
+## A spawned column keeps this much (m) between its axis and any map prop's box.
+const COLUMN_CLEAR: float = 1.2
 ## The window the guard stands at, by the wall's leading end.
 const WINDOW: float = 193.5
 
@@ -98,17 +102,41 @@ var _lead_deg_rate: float = 0.0
 
 
 ## Marble columns at [param degrees] on the inner edge for one shot only; the map scene is untouched.
+## v71: a column whose spot already holds map geometry (a section pier, a wall) is not spawned.
 static func spawn_columns(map: Node, degrees: Array[float]) -> void:
 	var packed: PackedScene = load(COLUMN_SCENE) as PackedScene
 	if map == null or packed == null:
 		printerr("[stage] no marble map or no column; nothing spawned")
 		return
 	for deg: float in degrees:
+		var taken: Node3D = _occupant(map, LIB.ring_point(deg, COLUMN_R, 1.0))
+		if taken != null:
+			print("[stage] column at %.1f deg not spawned: %s stands there" % [deg, taken.name])
+			continue
 		var column: Node3D = packed.instantiate() as Node3D
 		column.name = "ClipColumn%d" % int(deg * 10.0)
 		map.add_child(column)
 		column.global_position = LIB.ring_point(deg, COLUMN_R, 0.0)
 		column.rotation = Vector3(0.0, -deg_to_rad(deg), 0.0)
+
+
+## The first map mesh (a prop standing on the deck, not the ring itself) whose box comes within a column's width of [param at].
+static func _occupant(map: Node, at: Vector3) -> Node3D:
+	var pending: Array[Node] = [map]
+	while not pending.is_empty():
+		var node: Node = pending.pop_back()
+		pending.append_array(node.get_children())
+		var mesh: MeshInstance3D = node as MeshInstance3D
+		if mesh == null or not mesh.is_inside_tree():
+			continue
+		var box: AABB = mesh.global_transform * mesh.get_aabb()
+		if box.size.x > 30.0 or box.size.z > 30.0 or box.size.y < 1.0 or box.position.y > at.y or box.end.y < at.y:
+			continue
+		var dx: float = maxf(box.position.x - at.x, maxf(0.0, at.x - box.end.x))
+		var dz: float = maxf(box.position.z - at.z, maxf(0.0, at.z - box.end.z))
+		if Vector2(dx, dz).length() < COLUMN_CLEAR:
+			return mesh
+	return null
 
 
 func bots() -> int:
@@ -117,6 +145,19 @@ func bots() -> int:
 
 func _late() -> bool:
 	return int(option("late", 0)) == 1
+
+
+## v71: the whole staging turned by this many degrees round the ring (0: the ArcWall188 numbers as written).
+func _turn() -> float:
+	return float(option("turn", 0.0))
+
+
+func _window() -> float:
+	return float(option("window", WINDOW + _turn()))
+
+
+func _wall_end() -> float:
+	return WALL_END + _turn()
 
 
 func tune_rules(rules: MatchRules) -> void:
@@ -140,13 +181,13 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	for brain: RunnerBrain in runners:
 		if brain.controller == null:
 			return false
-	var v: Vector3 = LIB.polar(String(option("victim", "193.281,48.55")), LIB.ring_point(193.281, 48.55))
-	var p: Vector3 = LIB.polar(String(option("pov", "192.28,48.75")), LIB.ring_point(192.28, 48.75))
+	var v: Vector3 = LIB.polar(String(option("victim", "")), LIB.ring_point(193.281 + _turn(), 48.55))
+	var p: Vector3 = LIB.polar(String(option("pov", "")), LIB.ring_point(192.28 + _turn(), 48.75))
 	var v_deg: float = LIB.bearing_of(v)
 	var p_deg: float = LIB.bearing_of(p)
 	_victim = runners[0].controller
 	_pov = runners[1].controller
-	var tower: Vector3 = LIB.ring_point(WINDOW, 5.6, 6.0)
+	var tower: Vector3 = LIB.ring_point(_window(), 5.6, 6.0)
 	# The victim: in the wall's shadow, half turned to peek round it at the tower; a slow sway.
 	var v_face: Vector3 = (-LIB.radial_at(v_deg) * 0.75 + LIB.tangent_at(v_deg) * 0.45).normalized()
 	_victim_driver = drive(runners[0], [
@@ -190,11 +231,11 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "hold", "seconds": 60.0, "fidget": true},
 	], 1, "ClipColumnShover")
 	for index: int in range(2, runners.size()):
-		drive(runners[index], [{"do": "place", "at": LIB.ring_point(250.0, 52.0, 0.1)}, {"do": "hold", "seconds": 60.0}], index)
+		drive(runners[index], [{"do": "place", "at": LIB.ring_point(250.0 + _turn(), 52.0, 0.1)}, {"do": "hold", "seconds": 60.0}], index)
 		LIB.hide_from_the_rifle(runners[index].controller)
 	victim_body(_victim)
 	stage_body(_pov)
-	say("trailer_marble_column: %s behind ArcWall188 at %.1f, %s behind him" % [_victim.name, v_deg, _pov.name])
+	say("trailer_marble_column: %s behind the wall ending %.1f at %.1f, %s behind him" % [_victim.name, _wall_end(), v_deg, _pov.name])
 	return true
 
 
@@ -225,7 +266,7 @@ func tick(delta: float) -> void:
 		if optic != null:
 			optic.set_zoomed(false)
 	# Exposed: his shoulder clears the wall's edge (edge, deg); the round is already led into the open.
-	if _shoved and not _exposed and is_instance_valid(_victim) and LIB.bearing_of(_victim.global_position) >= float(option("edge", 193.85)):
+	if _shoved and not _exposed and is_instance_valid(_victim) and LIB.bearing_of(_victim.global_position) >= float(option("edge", 193.85 + _turn())):
 		_exposed = true
 		_exposed_at = elapsed()
 		if not _late():
@@ -261,7 +302,7 @@ func _raise_the_hand() -> void:
 	if shooter == null or shooter.controller == null:
 		return
 	_guard = shooter.controller
-	LIB.guard_to_window(_guard, float(option("window", WINDOW)), 5.6)
+	LIB.guard_to_window(_guard, _window(), 5.6)
 	LIB.open_the_scope(_guard, float(option("clear", 0.74)))
 	_hand = GUARD_HAND.new()
 	_hand.name = "ClipGuardHand"
@@ -273,11 +314,11 @@ func _raise_the_hand() -> void:
 		_hand.beats.append({"body": _victim, "seconds": 100.0, "fire_at": -1.0, "watch": true, "centre": true, "omega": float(option("omega", 10.0)),
 			"follow": float(option("follow", 0.5)), "max_rate": float(option("max_rate", 140.0)), "lead": 0.0, "now": int(option("now", 0)) == 1, "kick": float(option("kick", 0.3)),
 			"max_accel": float(option("max_accel", 260.0)), "blend": float(option("blend", 0.3))})
-		_hand.park = LIB.ring_point(float(option("rest", WALL_END)), 48.6, 1.3)
+		_hand.park = LIB.ring_point(float(option("rest", _wall_end())), 48.6, 1.3)
 		_hand.start_at = INF
 	else:
 		_hand.beats.append({"body": _victim, "seconds": 100.0, "fire_at": -1.0, "watch": true, "lead": float(option("lead", 0.7)), "now": true, "kick": float(option("kick", 0.3))})
-		_hand.park = LIB.ring_point(195.35, 48.6, 1.3)
+		_hand.park = LIB.ring_point(195.35 + _turn(), 48.6, 1.3)
 		_hand.start_at = elapsed() + 0.3
 	if controller().rifle != null:
 		controller().rifle.fired.connect(_on_fired)
@@ -298,7 +339,7 @@ func on_shove(_shover: MatchParticipant, victim: MatchParticipant) -> void:
 		# behind cover." He lies where the throw puts him until he is up (no input on a flopping body), then sprints back for the wall.
 		_victim_driver.retarget([
 			{"do": "hold", "seconds": float(option("run_after", 1.25))},
-			{"do": "lane", "to": float(option("cover", 193.65)), "dir": -1, "r": 48.6, "speed": float(option("back_pace", 1.0)), "timeout": 4.0,
+			{"do": "lane", "to": float(option("cover", 193.65 + _turn())), "dir": -1, "r": 48.6, "speed": float(option("back_pace", 1.0)), "timeout": 4.0,
 				"glances": [{"t": 0.0, "right": 0.0, "pitch": -3.0}]},
 			{"do": "hold", "seconds": 60.0},
 		])
@@ -319,8 +360,8 @@ func _expect(ok: bool, what: String) -> void:
 func _expect_in_the_open(label: String) -> void:
 	var at: Vector3 = _victim.global_position
 	var deg: float = LIB.bearing_of(at)
-	_expect(deg >= WALL_END + CLEAR_DEG, "%s at %.1f deg is %.1f deg past the wall's end (need %.1f)" % [label, deg, deg - WALL_END, CLEAR_DEG])
-	var query := PhysicsRayQueryParameters3D.create(LIB.ring_point(float(option("window", WINDOW)), 5.6, 5.65), at + Vector3.UP * 0.9)
+	_expect(deg >= _wall_end() + CLEAR_DEG, "%s at %.1f deg is %.1f deg past the wall's end (need %.1f)" % [label, deg, deg - _wall_end(), CLEAR_DEG])
+	var query := PhysicsRayQueryParameters3D.create(LIB.ring_point(_window(), 5.6, 5.65), at + Vector3.UP * 0.9)
 	query.exclude = [_victim.get_rid(), _guard.get_rid()]
 	var blocker: Dictionary = clip.root.get_world_3d().direct_space_state.intersect_ray(query)
 	_expect(blocker.is_empty(), "%s in the guard's line of sight%s" % [label, "" if blocker.is_empty() else " (blocked by %s)" % blocker["collider"].name])
@@ -353,7 +394,7 @@ func _watch_the_scope() -> void:
 		_view_worst_at = t
 	# Before the shove: how far the eye is off the wall's end, and how fast it moves.
 	if not _shoved:
-		_rest_off = maxf(_rest_off, rad_to_deg(look.angle_to(LIB.ring_point(WALL_END, WALL_R, 1.3) - view.origin)))
+		_rest_off = maxf(_rest_off, rad_to_deg(look.angle_to(LIB.ring_point(_wall_end(), WALL_R, 1.3) - view.origin)))
 		if _last_t >= 0.0 and t > _last_t:
 			_rest_rate = maxf(_rest_rate, rad_to_deg(_last_eye.angle_to(look)) / (t - _last_t))
 		_rest_rows += 1
@@ -444,7 +485,7 @@ func _watch_the_runner() -> void:
 		var deg: float = LIB.bearing_of(_victim.global_position)
 		_expect(_shoved and _shoved_at >= float(option("m1_from", 1.75)) and to - _shoved_at >= 0.5, "m1: the shove at %.2f, %.2f s before the cut ends (need 0.5)" % [_shoved_at if _shoved else -1.0, to - _shoved_at if _shoved else -1.0])
 		_expect(_shoved and _m1_worst <= IN_FRAME, "m1: the shoved man inside %.0f%% of the runner's frame from the shove to the cut's end (worst %.0f%% at %.2f)" % [IN_FRAME * 100.0, _m1_worst * 100.0, _m1_worst_at])
-		_expect(deg >= WALL_END + CLEAR_DEG, "m1: at the cut's end he is %.1f deg past the wall's end (need %.1f)" % [deg - WALL_END, CLEAR_DEG])
+		_expect(deg >= _wall_end() + CLEAR_DEG, "m1: at the cut's end he is %.1f deg past the wall's end (need %.1f)" % [deg - _wall_end(), CLEAR_DEG])
 		return
 	if not _shoved:
 		return

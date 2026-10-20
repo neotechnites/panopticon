@@ -7,6 +7,8 @@ extends "res://tools/capture/stages/stage.gd"
 ## stage turns +24 deg (turn) onto the clear 132-182 stretch: probe --eye=150:5.6:5.65, r 49.7/51.5 open 132-175.
 ## Dials: turn (24), start (the lead's bearing at the deal, 107.7), zoom (0.8), swing (clip s the hand leaves the lead, 2.4), fire (clip s: the
 ## hand rides the lead from the start and squeezes on him then; -1 no shot: 5b), lead (1.0).
+## v71 (marble v7 sections): turn 85.35 puts the same run under Section C's buttresses, the hit at 213.7 between piers 208.1 and 219.4
+## (window 211.35); a stage column whose spot a pier takes is not spawned (COLUMNS.spawn_columns).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const COLUMNS := preload("res://tools/capture/stages/trailer_marble_column.gd")
