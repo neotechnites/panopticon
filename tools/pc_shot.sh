@@ -34,6 +34,8 @@
 #                   then shows FORM and nothing else, which is the only way to
 #                   tell a geometry defect from a texture one without guessing.
 #   FOV=45          camera field of view in degrees (shot.gd's default is 100).
+#   AVATAR=x,y,z,yaw stand one idle prisoner there (shot.gd --avatar=), a 1.8 m scale
+#                   and legibility reference in every shot of the run.
 # Unset, all of them leave the godot command line and the render exactly as they were.
 set -euo pipefail
 
@@ -75,6 +77,7 @@ RES=${RES:-}
 SETTLE=${SETTLE:-}
 FLAT=${FLAT:-}
 FOV=${FOV:-}
+AVATAR=${AVATAR:-}
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 
 # override.cfg is this script's alone: write it only when RES asks, but always
@@ -93,6 +96,7 @@ SETTLE_ARG=""
 [ -n "$SETTLE" ] && SETTLE_ARG=" --settle=$SETTLE"
 [ -n "$FLAT" ]   && SETTLE_ARG="$SETTLE_ARG --flat=$FLAT"
 [ -n "$FOV" ]    && SETTLE_ARG="$SETTLE_ARG --fov=$FOV"
+[ -n "$AVATAR" ] && SETTLE_ARG="$SETTLE_ARG --avatar=$AVATAR"
 
 say() { printf '\033[1m==> %s\033[0m\n' "$*"; }
 

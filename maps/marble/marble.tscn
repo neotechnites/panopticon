@@ -84,7 +84,7 @@ background_mode = 1
 background_color = Color(0.20, 0.21, 0.19, 1)
 ambient_light_source = 2
 ambient_light_color = Color(0.62, 0.66, 0.60, 1)
-ambient_light_energy = 3.4
+ambient_light_energy = 0.6
 tonemap_mode = 2
 tonemap_white = 6.0
 adjustment_enabled = true
@@ -95,7 +95,7 @@ editor_description = "MAP 2, MARBLE: the Bentham drawing in white marble, one cl
 
 A prisoner runs one 340 deg lap at r 52 from 5 deg to the portal at 345 deg. THE LANE IS BARE (Ryan, 2026-09-22: \"for the marble level, can you just get rid of all the elements on the ring? just so it looks good for screenshots and trailers and stuff\"): the obstacle course -- 71 placed instances, columns, broken columns, arches, spike patches and strips, pads, the orbs -- came off, and nothing stands on the 340 deg run now but the portal at the finish. The bars at 353 deg stayed, behind the finish and out of every shot of the lane, because the bake and the harness proved them structural rather than scenery: see the Bars node. The models the course used are still in maps/marble/models/; only this scene changed. Off the walkway there is nothing to stand on until the spikes, and SpikeFloor kills before a body reaches them; KillBox below the ground floor catches anything that fell through the world.
 
-The light (2026-09-30, Ryan: \"there's no light on the tower. it's dark.\") is Bentham's own: Tower/Lamps, eight unshadowed reflector lamps on the tower's arcade throwing warm light out across the ring onto every cell, plus the TowerLight in the guard room and a flat ambient fill. No sun, no sky, no light from nowhere."
+The light (2026-10-20, Ryan: \"the lighting is so flat... how would the oculus light get to the rest of the map other than bounce light\") is the OCULUS: Skylight/Key, one shadowed cone of daylight from the glazed crown onto the tower and the pit, and everything else is its bounce, baked by MarbleLightmap (LightmapGI: the GL Compatibility renderer has no SDFGI or SSAO, so bounce and contact shade are baked). The lamps are dim and baked. The ambient is cut to 0.6 and lights only what the lightmap does not (props, players)."
 
 [node name="Environment" type="Node3D" parent="."]
 
@@ -108,15 +108,40 @@ light_energy = 0.0
 shadow_enabled = false
 
 [node name="Skylight" type="Node3D" parent="."]
-editor_description = "The oculus: daylight through the dome's glazed crown (marble.glb, r 11). Key lights the tower alone (layer 11, no shadows) from straight above with a slight lean; Shaft, Pool and Motes are the visible light, additive and cheap. The cells and lane see only the ambient and the lamps."
+editor_description = "The oculus: daylight through the dome's glazed crown (marble.glb, r 11). Key is a shadowed SpotLight3D at the glass (y 82) leaning 15 deg to -X, a 64 deg cone that lights the tower, the pit and the near lip of the lane on its lean side, and nothing else directly; bake mode Dynamic, so its direct light and shadows are real time and its bounce is in MarbleLightmap. Shaft, Pool and Motes are the visible light, additive and cheap."
 
-[node name="Key" type="DirectionalLight3D" parent="Skylight"]
-transform = Transform3D(0, 0.9659, 0.2588, 0, -0.2588, 0.9659, 1, 0, 0, 0, 60, 0)
+[node name="Key" type="SpotLight3D" parent="Skylight"]
+transform = Transform3D(0, 0.9659, 0.2588, 0, -0.2588, 0.9659, 1, 0, 0, 0, 82, 0)
 light_color = Color(1, 0.96, 0.88, 1)
-light_energy = 2.0
+light_energy = 2.5
 light_specular = 0.0
-light_cull_mask = 1024
-shadow_enabled = false
+light_bake_mode = 2
+shadow_enabled = true
+shadow_normal_bias = 2.0
+spot_range = 120.0
+spot_attenuation = 0.0
+spot_angle = 32.0
+spot_angle_attenuation = 0.8
+
+[node name="AmbientFill" type="OmniLight3D" parent="Skylight"]
+editor_description = "The old flat ambient (Ryan's olive 0.62/0.66/0.60), now one static omni in the well, baked with occlusion: a floor for the far tiers and corners, darker in every reveal and cell, never flat."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 40, 0)
+light_color = Color(0.62, 0.66, 0.6, 1)
+light_energy = 0.8
+light_size = 8.0
+light_specular = 0.0
+light_bake_mode = 1
+omni_range = 110.0
+omni_attenuation = 0.0
+
+[node name="MarbleLightmap" type="LightmapGI" parent="Skylight"]
+editor_description = "The oculus bounce and the dim lamps on the marble, tower and bars (Static Lightmaps imports): Key indirect only (Dynamic), AmbientFill and Lamps whole (Static), three bounces; its probes light anything not lightmapped. Rebake: tools/pc_bake_lightmap.sh <ref> res://maps/marble/marble.tscn."
+quality = 2
+bounces = 3
+bounce_indirect_energy = 1.0
+denoiser_strength = 0.2
+interior = true
+environment_mode = 0
 
 [node name="Shaft" type="MeshInstance3D" parent="Skylight"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 38.97, 0)
@@ -256,6 +281,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
 [node name="TowerLight" type="OmniLight3D" parent="Tower"]
 light_cull_mask = 4294964223
+light_bake_mode = 0
 editor_description = "The tower's own lamp under the arcade, UNSHADOWED since 2026-09-22: it hangs at 5.6 over the datum -- world 30.95, over the guard's head and under the arches' crowns -- as a warm room light, and because nothing occludes it, it reaches out through the shaft and the walkway slab to the three cell tiers under the lane (90 m) that the shadowed Skylight cannot light. It is a SOFT lamp (Ryan, 2026-09-16: \"it's way way harsh in the middle of the tower\"): 2.4 m wide, energy 4 over a nearly flat falloff (attenuation 0.35), so the room floor 3 m under it rolls off at the tonemap white instead of clipping. Every number is marble_tower_light_profile.tres'; the light_* properties here mirror it for the editor view."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.6, 0)
 light_color = Color(1, 0.92, 0.74, 1)
@@ -270,14 +296,15 @@ script = ExtResource("3_tower_light")
 profile = ExtResource("4_tower_light_profile")
 
 [node name="Lamps" type="Node3D" parent="Tower"]
-editor_description = "Bentham's reflector lamps: one OmniLight3D at each lantern the tower model carries on the spandrels over its columns (bearings 25 + 45k, local y 6.0, world 31.35).\nWarm, unshadowed, no specular; range 75 reaches the cell wall at r 60 and spills back onto the arcade, balcony and dome."
+editor_description = "Bentham's reflector lamps: one OmniLight3D at each lantern the tower model carries on the spandrels over its columns (bearings 25 + 45k, local y 6.0, world 31.35).\nWarm, dim (1.5), no specular, bake mode Static: MarbleLightmap bakes them with occlusion; range 75 reaches the cell wall at r 60."
 
 [node name="Lamp025" type="OmniLight3D" parent="Tower/Lamps"]
 light_cull_mask = 4294964223
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.9473, 6.0, 3.2396)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 5.0
+light_energy = 1.5
 light_specular = 0.0
+light_bake_mode = 1
 shadow_enabled = false
 omni_range = 75.0
 omni_attenuation = 0.25
@@ -286,8 +313,9 @@ omni_attenuation = 0.25
 light_cull_mask = 4294964223
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.6218, 6.0, 7.2032)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 5.0
+light_energy = 1.5
 light_specular = 0.0
+light_bake_mode = 1
 shadow_enabled = false
 omni_range = 75.0
 omni_attenuation = 0.25
@@ -296,8 +324,9 @@ omni_attenuation = 0.25
 light_cull_mask = 4294964223
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.2396, 6.0, 6.9473)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 5.0
+light_energy = 1.5
 light_specular = 0.0
+light_bake_mode = 1
 shadow_enabled = false
 omni_range = 75.0
 omni_attenuation = 0.25
@@ -306,8 +335,9 @@ omni_attenuation = 0.25
 light_cull_mask = 4294964223
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.2032, 6.0, 2.6218)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 5.0
+light_energy = 1.5
 light_specular = 0.0
+light_bake_mode = 1
 shadow_enabled = false
 omni_range = 75.0
 omni_attenuation = 0.25
@@ -316,8 +346,9 @@ omni_attenuation = 0.25
 light_cull_mask = 4294964223
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.9473, 6.0, -3.2396)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 5.0
+light_energy = 1.5
 light_specular = 0.0
+light_bake_mode = 1
 shadow_enabled = false
 omni_range = 75.0
 omni_attenuation = 0.25
@@ -326,8 +357,9 @@ omni_attenuation = 0.25
 light_cull_mask = 4294964223
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.6218, 6.0, -7.2032)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 5.0
+light_energy = 1.5
 light_specular = 0.0
+light_bake_mode = 1
 shadow_enabled = false
 omni_range = 75.0
 omni_attenuation = 0.25
@@ -336,8 +368,9 @@ omni_attenuation = 0.25
 light_cull_mask = 4294964223
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.2396, 6.0, -6.9473)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 5.0
+light_energy = 1.5
 light_specular = 0.0
+light_bake_mode = 1
 shadow_enabled = false
 omni_range = 75.0
 omni_attenuation = 0.25
@@ -346,8 +379,9 @@ omni_attenuation = 0.25
 light_cull_mask = 4294964223
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.2032, 6.0, -2.6218)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 5.0
+light_energy = 1.5
 light_specular = 0.0
+light_bake_mode = 1
 shadow_enabled = false
 omni_range = 75.0
 omni_attenuation = 0.25
@@ -361,6 +395,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.0711, -15.35, 7.0711)
 light_color = Color(1, 0.94, 0.84, 1)
 light_energy = 0.8
 light_specular = 0.0
+light_bake_mode = 1
 shadow_enabled = false
 omni_range = 30.0
 omni_attenuation = 1.0
@@ -371,6 +406,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.0711, -15.35, -7.0711)
 light_color = Color(1, 0.94, 0.84, 1)
 light_energy = 0.8
 light_specular = 0.0
+light_bake_mode = 1
 shadow_enabled = false
 omni_range = 30.0
 omni_attenuation = 1.0
@@ -381,6 +417,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.0711, -15.35, -7.0711)
 light_color = Color(1, 0.94, 0.84, 1)
 light_energy = 0.8
 light_specular = 0.0
+light_bake_mode = 1
 shadow_enabled = false
 omni_range = 30.0
 omni_attenuation = 1.0
@@ -391,6 +428,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.0711, -15.35, 7.0711)
 light_color = Color(1, 0.94, 0.84, 1)
 light_energy = 0.8
 light_specular = 0.0
+light_bake_mode = 1
 shadow_enabled = false
 omni_range = 30.0
 omni_attenuation = 1.0
