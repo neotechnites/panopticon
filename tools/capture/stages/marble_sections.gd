@@ -25,7 +25,16 @@ func bots() -> int:
 
 
 func needs_pov() -> String:
-	return "runner"
+	return "" if String(option("beat", "a")) == "cwide" else "runner"
+
+
+## cwide: a fixed wide lens over the void onto Section C's flying buttresses.
+func lens(_delta: float) -> bool:
+	if _beat != "cwide":
+		return false
+	camera().global_position = LIB.ring_point(float(option("eye_deg", 200.0)), 38.0, 7.0)
+	camera().look_at(LIB.ring_point(float(option("look_deg", 222.0)), 55.0, 6.0), Vector3.UP)
+	return true
 
 
 func tune_rules(rules: MatchRules) -> void:
@@ -70,10 +79,10 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			], 0, "walker")
 			drive(runners[1], [{"do": "place", "at": LIB.ring_point(SPARE_DEG + 4.0, 52.0, 0.1)}, {"do": "hold", "seconds": 90.0}], 1, "spare2")
 			stage_body(one)
-		"c":
+		"c", "cwide":
 			drive(runners[0], [
 				{"do": "place", "deg": 192.0, "r": 55.3}, {"do": "hold", "seconds": 0.8},
-			] + _arc(192.0, 246.0, 53.55, {"speed": float(option("pace", 0.5))}) + [
+			] + _arc(192.0, 246.0, 53.0, {"speed": float(option("pace", 0.5))}) + [
 				{"do": "hold", "seconds": 60.0},
 			], 0, "walker")
 			drive(runners[1], [{"do": "place", "at": LIB.ring_point(SPARE_DEG + 4.0, 52.0, 0.1)}, {"do": "hold", "seconds": 90.0}], 1, "spare2")
