@@ -15,7 +15,7 @@
 [ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall_arc.tscn" id="24_wall_arc"]
 [ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall_arc_long.tscn" id="25_wall_arc_long"]
 [ext_resource type="PackedScene" path="res://maps/marble/props/marble_trapdoor.tscn" id="Blk_trapdoor"]
-[ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall.tscn" id="Blk_wall"]
+[ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall_arc.tscn" id="Blk_wall"]
 [ext_resource type="PackedScene" path="res://maps/marble/models/marble_column.glb" id="Blk_column"]
 [ext_resource type="Texture2D" path="res://maps/marble/textures/marble_brick_albedo.png" id="Blk_brick"]
 
@@ -425,217 +425,77 @@ transform = Transform3D(0.637424, 0, 0.770513, 0, 1, 0, -0.770513, 0, 0.637424, 
 [node name="SectionA" type="Node3D" parent="Elements"]
 editor_description = "A, Ryan 2026-10-19: trapdoors that span the full lane; where there is trapdoor floor there is cover (a wall on the inner edge), where there is not there is not; an activator at the start of each, out in the open where the rifle and a runner both reach it (Ryan 22:14). 61.875..118.125 deg."
 
-[node name="Wall11a" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
-editor_description = "Cover over trapdoor 1 only, 61.8750..73.1250 deg, 4.0 m."
-transform = Transform3D(-0.896873, 0, -0.442289, 0, 1, 0, 0.442289, 0, -0.896873, 21.7385, 23.0000, 44.0813)
-
-[node name="Wall12a" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
-editor_description = "Cover over trapdoor 1 only, 61.8750..73.1250 deg, 4.0 m."
-transform = Transform3D(-0.923880, 0, -0.382683, 0, 1, 0, 0.382683, 0, -0.923880, 18.8089, 23.0000, 45.4087)
-
-[node name="Wall13a" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
-editor_description = "Cover over trapdoor 1 only, 61.8750..73.1250 deg, 4.0 m."
-transform = Transform3D(-0.946930, 0, -0.321439, 0, 1, 0, 0.321439, 0, -0.946930, 15.7987, 23.0000, 46.5416)
-
-[node name="Wall11b" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
-editor_description = "Cover over trapdoor 1 only, 61.8750..73.1250 deg, 4.0 m."
-transform = Transform3D(-0.896873, 0, -0.442289, 0, 1, 0, 0.442289, 0, -0.896873, 21.7385, 25.0000, 44.0813)
-
-[node name="Wall12b" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
-editor_description = "Cover over trapdoor 1 only, 61.8750..73.1250 deg, 4.0 m."
-transform = Transform3D(-0.923880, 0, -0.382683, 0, 1, 0, 0.382683, 0, -0.923880, 18.8089, 25.0000, 45.4087)
-
-[node name="Wall13b" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
-editor_description = "Cover over trapdoor 1 only, 61.8750..73.1250 deg, 4.0 m."
-transform = Transform3D(-0.946930, 0, -0.321439, 0, 1, 0, 0.321439, 0, -0.946930, 15.7987, 25.0000, 46.5416)
+[node name="Wall1" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
+editor_description = "Cover over trapdoor 1 only, 61.8750..73.1250 deg, 7.6 m."
+transform = Transform3D(0.382683, 0, -0.923880, 0, 1, 0, 0.923880, 0, 0.382683, 18.1009, 23.0000, 43.6995)
 
 [node name="Trapdoor1" parent="Elements/SectionA" instance=ExtResource("Blk_trapdoor")]
 editor_description = "Trapdoor 1, 61.8750..73.1250 deg; its activator on the open lane at r 50.4, 1.4 deg before it: a runner shoves it, the rifle can hit it."
-transform = Transform3D(0.382683, 0, -0.923880, 0, 1, 0, 0.923880, 0, 0.382683, 20.9190, 23.0000, 50.5028)
-target_offset = Vector3(-4.6422, 0.0000, -6.1640)
+transform = Transform3D(0.382683, 0, -0.923880, 0, 1, 0, 0.923880, 0, 0.382683, 20.6606, 23.0000, 49.8792)
+target_offset = Vector3(-3.9672, 0.0000, -6.1640)
 target_yaw_degrees = 7.025
 
-[node name="Wall21a" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
-editor_description = "Cover over trapdoor 2 only, 84.3750..95.6250 deg, 4.0 m."
-transform = Transform3D(-0.997859, 0, -0.065403, 0, 1, 0, 0.065403, 0, -0.997859, 3.2146, 23.0000, 49.0448)
-
-[node name="Wall22a" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
-editor_description = "Cover over trapdoor 2 only, 84.3750..95.6250 deg, 4.0 m."
-transform = Transform3D(-1.000000, 0, -0.000000, 0, 1, 0, 0.000000, 0, -1.000000, 0.0000, 23.0000, 49.1500)
-
-[node name="Wall23a" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
-editor_description = "Cover over trapdoor 2 only, 84.3750..95.6250 deg, 4.0 m."
-transform = Transform3D(-0.997859, 0, 0.065403, 0, 1, 0, -0.065403, 0, -0.997859, -3.2146, 23.0000, 49.0448)
-
-[node name="Wall21b" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
-editor_description = "Cover over trapdoor 2 only, 84.3750..95.6250 deg, 4.0 m."
-transform = Transform3D(-0.997859, 0, -0.065403, 0, 1, 0, 0.065403, 0, -0.997859, 3.2146, 25.0000, 49.0448)
-
-[node name="Wall22b" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
-editor_description = "Cover over trapdoor 2 only, 84.3750..95.6250 deg, 4.0 m."
-transform = Transform3D(-1.000000, 0, -0.000000, 0, 1, 0, 0.000000, 0, -1.000000, 0.0000, 25.0000, 49.1500)
-
-[node name="Wall23b" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
-editor_description = "Cover over trapdoor 2 only, 84.3750..95.6250 deg, 4.0 m."
-transform = Transform3D(-0.997859, 0, 0.065403, 0, 1, 0, -0.065403, 0, -0.997859, -3.2146, 25.0000, 49.0448)
+[node name="Wall2" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
+editor_description = "Cover over trapdoor 2 only, 84.3750..95.6250 deg, 7.6 m."
+transform = Transform3D(0.000000, 0, -1.000000, 0, 1, 0, 1.000000, 0, 0.000000, 0.0000, 23.0000, 47.3000)
 
 [node name="Trapdoor2" parent="Elements/SectionA" instance=ExtResource("Blk_trapdoor")]
 editor_description = "Trapdoor 2, 84.3750..95.6250 deg; its activator on the open lane at r 50.4, 1.4 deg before it: a runner shoves it, the rifle can hit it."
-transform = Transform3D(0.000000, 0, -1.000000, 0, 1, 0, 1.000000, 0, 0.000000, 0.0000, 23.0000, 54.6639)
-target_offset = Vector3(-4.6422, 0.0000, -6.1640)
+transform = Transform3D(0.000000, 0, -1.000000, 0, 1, 0, 1.000000, 0, 0.000000, 0.0000, 23.0000, 53.9889)
+target_offset = Vector3(-3.9672, 0.0000, -6.1640)
 target_yaw_degrees = 7.025
 
-[node name="Wall31a" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
-editor_description = "Cover over trapdoor 3 only, 106.8750..118.1250 deg, 4.0 m."
-transform = Transform3D(-0.946930, 0, 0.321439, 0, 1, 0, -0.321439, 0, -0.946930, -15.7987, 23.0000, 46.5416)
-
-[node name="Wall32a" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
-editor_description = "Cover over trapdoor 3 only, 106.8750..118.1250 deg, 4.0 m."
-transform = Transform3D(-0.923880, 0, 0.382683, 0, 1, 0, -0.382683, 0, -0.923880, -18.8089, 23.0000, 45.4087)
-
-[node name="Wall33a" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
-editor_description = "Cover over trapdoor 3 only, 106.8750..118.1250 deg, 4.0 m."
-transform = Transform3D(-0.896873, 0, 0.442289, 0, 1, 0, -0.442289, 0, -0.896873, -21.7385, 23.0000, 44.0813)
-
-[node name="Wall31b" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
-editor_description = "Cover over trapdoor 3 only, 106.8750..118.1250 deg, 4.0 m."
-transform = Transform3D(-0.946930, 0, 0.321439, 0, 1, 0, -0.321439, 0, -0.946930, -15.7987, 25.0000, 46.5416)
-
-[node name="Wall32b" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
-editor_description = "Cover over trapdoor 3 only, 106.8750..118.1250 deg, 4.0 m."
-transform = Transform3D(-0.923880, 0, 0.382683, 0, 1, 0, -0.382683, 0, -0.923880, -18.8089, 25.0000, 45.4087)
-
-[node name="Wall33b" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
-editor_description = "Cover over trapdoor 3 only, 106.8750..118.1250 deg, 4.0 m."
-transform = Transform3D(-0.896873, 0, 0.442289, 0, 1, 0, -0.442289, 0, -0.896873, -21.7385, 25.0000, 44.0813)
+[node name="Wall3" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
+editor_description = "Cover over trapdoor 3 only, 106.8750..118.1250 deg, 7.6 m."
+transform = Transform3D(-0.382683, 0, -0.923880, 0, 1, 0, 0.923880, 0, -0.382683, -18.1009, 23.0000, 43.6995)
 
 [node name="Trapdoor3" parent="Elements/SectionA" instance=ExtResource("Blk_trapdoor")]
 editor_description = "Trapdoor 3, 106.8750..118.1250 deg; its activator on the open lane at r 50.4, 1.4 deg before it: a runner shoves it, the rifle can hit it."
-transform = Transform3D(-0.382683, 0, -0.923880, 0, 1, 0, 0.923880, 0, -0.382683, -20.9190, 23.0000, 50.5028)
-target_offset = Vector3(-4.6422, 0.0000, -6.1640)
+transform = Transform3D(-0.382683, 0, -0.923880, 0, 1, 0, 0.923880, 0, -0.382683, -20.6606, 23.0000, 49.8792)
+target_offset = Vector3(-3.9672, 0.0000, -6.1640)
 target_yaw_degrees = 7.025
 
 [node name="SectionB" type="Node3D" parent="Elements"]
 editor_description = "B, Ryan 2026-10-19: a wall slightly higher than a runner along the inner edge, every metre of it over trapdoor floor; the activators stand on its top, too high to shove. The runner cannot see the sniper, only where he shoots. 258.75..303.75 deg."
 
-[node name="Wall11a" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 1, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.986643, 0, 0.162895, 0, 1, 0, -0.162895, 0, 0.986643, -8.0063, 23.0000, -48.4935)
-
-[node name="Wall12a" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 1, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.995185, 0, 0.098017, 0, 1, 0, -0.098017, 0, 0.995185, -4.8175, 23.0000, -48.9133)
-
-[node name="Wall13a" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 1, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.999465, 0, 0.032719, 0, 1, 0, -0.032719, 0, 0.999465, -1.6081, 23.0000, -49.1237)
-
-[node name="Wall11b" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 1, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.986643, 0, 0.162895, 0, 1, 0, -0.162895, 0, 0.986643, -8.0063, 25.0000, -48.4935)
-
-[node name="Wall12b" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 1, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.995185, 0, 0.098017, 0, 1, 0, -0.098017, 0, 0.995185, -4.8175, 25.0000, -48.9133)
-
-[node name="Wall13b" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 1, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.999465, 0, 0.032719, 0, 1, 0, -0.032719, 0, 0.999465, -1.6081, 25.0000, -49.1237)
+[node name="Wall1" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
+editor_description = "Over trapdoor 1, 7.6 m: a 1.6 m eye cannot see the tower over it."
+transform = Transform3D(-0.098017, 0, 0.995185, 0, 1, 0, -0.995185, 0, -0.098017, -4.6362, 23.0000, -47.0722)
 
 [node name="Trapdoor1" parent="Elements/SectionB" instance=ExtResource("Blk_trapdoor")]
 editor_description = "Trapdoor 1, 258.7500..270.0000 deg; its activator on the wall top 1.0 deg into it: the rifle's only."
-transform = Transform3D(-0.098017, 0, 0.995185, 0, 1, 0, -0.995185, 0, -0.098017, -5.3580, 23.0000, -54.4006)
-target_offset = Vector3(-5.6739, 4.0000, -3.9632)
+transform = Transform3D(-0.098017, 0, 0.995185, 0, 1, 0, -0.995185, 0, -0.098017, -5.2918, 23.0000, -53.7289)
+target_offset = Vector3(-6.8429, 7.6000, -3.8140)
 target_yaw_degrees = 4.625
 
-[node name="Wall21a" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 2, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.999465, 0, -0.032719, 0, 1, 0, 0.032719, 0, 0.999465, 1.6081, 23.0000, -49.1237)
-
-[node name="Wall22a" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 2, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.995185, 0, -0.098017, 0, 1, 0, 0.098017, 0, 0.995185, 4.8175, 23.0000, -48.9133)
-
-[node name="Wall23a" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 2, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.986643, 0, -0.162895, 0, 1, 0, 0.162895, 0, 0.986643, 8.0063, 23.0000, -48.4935)
-
-[node name="Wall21b" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 2, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.999465, 0, -0.032719, 0, 1, 0, 0.032719, 0, 0.999465, 1.6081, 25.0000, -49.1237)
-
-[node name="Wall22b" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 2, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.995185, 0, -0.098017, 0, 1, 0, 0.098017, 0, 0.995185, 4.8175, 25.0000, -48.9133)
-
-[node name="Wall23b" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 2, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.986643, 0, -0.162895, 0, 1, 0, 0.162895, 0, 0.986643, 8.0063, 25.0000, -48.4935)
+[node name="Wall2" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
+editor_description = "Over trapdoor 2, 7.6 m: a 1.6 m eye cannot see the tower over it."
+transform = Transform3D(0.098017, 0, 0.995185, 0, 1, 0, -0.995185, 0, 0.098017, 4.6362, 23.0000, -47.0722)
 
 [node name="Trapdoor2" parent="Elements/SectionB" instance=ExtResource("Blk_trapdoor")]
 editor_description = "Trapdoor 2, 270.0000..281.2500 deg; its activator on the wall top 1.0 deg into it: the rifle's only."
-transform = Transform3D(0.098017, 0, 0.995185, 0, 1, 0, -0.995185, 0, 0.098017, 5.3580, 23.0000, -54.4006)
-target_offset = Vector3(-5.6739, 4.0000, -3.9632)
+transform = Transform3D(0.098017, 0, 0.995185, 0, 1, 0, -0.995185, 0, 0.098017, 5.2918, 23.0000, -53.7289)
+target_offset = Vector3(-6.8429, 7.6000, -3.8140)
 target_yaw_degrees = 4.625
 
-[node name="Wall31a" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 3, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.973877, 0, -0.227076, 0, 1, 0, 0.227076, 0, 0.973877, 11.1608, 23.0000, -47.8661)
-
-[node name="Wall32a" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 3, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.956940, 0, -0.290285, 0, 1, 0, 0.290285, 0, 0.956940, 14.2675, 23.0000, -47.0336)
-
-[node name="Wall33a" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 3, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.935906, 0, -0.352250, 0, 1, 0, 0.352250, 0, 0.935906, 17.3131, 23.0000, -45.9998)
-
-[node name="Wall31b" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 3, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.973877, 0, -0.227076, 0, 1, 0, 0.227076, 0, 0.973877, 11.1608, 25.0000, -47.8661)
-
-[node name="Wall32b" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 3, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.956940, 0, -0.290285, 0, 1, 0, 0.290285, 0, 0.956940, 14.2675, 25.0000, -47.0336)
-
-[node name="Wall33b" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 3, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.935906, 0, -0.352250, 0, 1, 0, 0.352250, 0, 0.935906, 17.3131, 25.0000, -45.9998)
+[node name="Wall3" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
+editor_description = "Over trapdoor 3, 7.6 m: a 1.6 m eye cannot see the tower over it."
+transform = Transform3D(0.290285, 0, 0.956940, 0, 1, 0, -0.956940, 0, 0.290285, 13.7305, 23.0000, -45.2633)
 
 [node name="Trapdoor3" parent="Elements/SectionB" instance=ExtResource("Blk_trapdoor")]
 editor_description = "Trapdoor 3, 281.2500..292.5000 deg; its activator on the wall top 1.0 deg into it: the rifle's only."
-transform = Transform3D(0.290285, 0, 0.956940, 0, 1, 0, -0.956940, 0, 0.290285, 15.8681, 23.0000, -52.3101)
-target_offset = Vector3(-5.6739, 4.0000, -3.9632)
+transform = Transform3D(0.290285, 0, 0.956940, 0, 1, 0, -0.956940, 0, 0.290285, 15.6721, 23.0000, -51.6641)
+target_offset = Vector3(-6.8429, 7.6000, -3.8140)
 target_yaw_degrees = 4.625
 
-[node name="Wall41a" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 4, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.910864, 0, -0.412707, 0, 1, 0, 0.412707, 0, 0.910864, 20.2846, 23.0000, -44.7690)
-
-[node name="Wall42a" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 4, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.881921, 0, -0.471397, 0, 1, 0, 0.471397, 0, 0.881921, 23.1691, 23.0000, -43.3464)
-
-[node name="Wall43a" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 4, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.849202, 0, -0.528068, 0, 1, 0, 0.528068, 0, 0.849202, 25.9545, 23.0000, -41.7383)
-
-[node name="Wall41b" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 4, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.910864, 0, -0.412707, 0, 1, 0, 0.412707, 0, 0.910864, 20.2846, 25.0000, -44.7690)
-
-[node name="Wall42b" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 4, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.881921, 0, -0.471397, 0, 1, 0, 0.471397, 0, 0.881921, 23.1691, 25.0000, -43.3464)
-
-[node name="Wall43b" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "Over trapdoor 4, 4.0 m: a 1.6 m eye cannot see the tower over it."
-transform = Transform3D(0.849202, 0, -0.528068, 0, 1, 0, 0.528068, 0, 0.849202, 25.9545, 25.0000, -41.7383)
+[node name="Wall4" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
+editor_description = "Over trapdoor 4, 7.6 m: a 1.6 m eye cannot see the tower over it."
+transform = Transform3D(0.471397, 0, 0.881921, 0, 1, 0, -0.881921, 0, 0.471397, 22.2971, 23.0000, -41.7149)
 
 [node name="Trapdoor4" parent="Elements/SectionB" instance=ExtResource("Blk_trapdoor")]
 editor_description = "Trapdoor 4, 292.5000..303.7500 deg; its activator on the wall top 1.0 deg into it: the rifle's only."
-transform = Transform3D(0.471397, 0, 0.881921, 0, 1, 0, -0.881921, 0, 0.471397, 25.7684, 23.0000, -48.2092)
-target_offset = Vector3(-5.6739, 4.0000, -3.9632)
+transform = Transform3D(0.471397, 0, 0.881921, 0, 1, 0, -0.881921, 0, 0.471397, 25.4502, 23.0000, -47.6139)
+target_offset = Vector3(-6.8429, 7.6000, -3.8140)
 target_yaw_degrees = 4.625
 
 [node name="SectionC" type="Node3D" parent="Elements"]
@@ -717,61 +577,61 @@ transform = Transform3D(0.998289, -0.058477, 0, 0.058477, 0.998289, 0, 0, 0, 1, 
 mesh = SubResource("Blk_2")
 
 [node name="SectionD" type="Node3D" parent="Elements"]
-editor_description = "D, aesthetic: a column forest, 19 of the trailer's marble_column as it places them (unscaled, rotation (0, -bearing, 0)), sunk to show 0.9..5.0 m, 16.0..49.0 deg; room to walk between, the lowest jumpable."
+editor_description = "D, aesthetic: a column forest, 19 of the trailer's marble_column as it places them (unscaled, rotation (0, -bearing, 0)), scaled uniformly to 2.7..7.5 m, 16.0..49.0 deg; room to walk between, the lowest jumpable."
 
 [node name="Column01" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.961262, 0, -0.275637, 0, 1, 0, 0.275637, 0, 0.961262, 46.9096, 20.5651, 13.4511)
+transform = Transform3D(0.890053, 0, -0.255219, 0, 0.925922, 0, 0.255219, 0, 0.890053, 46.9096, 23.0000, 13.4511)
 
 [node name="Column02" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.924877, 0, -0.380267, 0, 1, 0, 0.380267, 0, 0.924877, 44.8892, 22.1756, 18.4564)
+transform = Transform3D(1.207542, 0, -0.496485, 0, 1.305625, 0, 0.496485, 0, 1.207542, 44.8892, 23.0000, 18.4564)
 
 [node name="Column03" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.883210, 0, -0.468978, 0, 1, 0, 0.468978, 0, 0.883210, 42.7843, 18.9006, 22.7181)
+transform = Transform3D(0.471173, 0, -0.250189, 0, 0.533478, 0, 0.250189, 0, 0.471173, 42.7843, 23.0000, 22.7181)
 
 [node name="Column04" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.823516, 0, -0.567294, 0, 1, 0, 0.567294, 0, 0.823516, 40.1603, 22.4109, 27.6652)
+transform = Transform3D(1.120899, 0, -0.772152, 0, 1.361115, 0, 0.772152, 0, 1.120899, 40.1603, 23.0000, 27.6652)
 
 [node name="Column05" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.759415, 0, -0.650606, 0, 1, 0, 0.650606, 0, 0.759415, 36.9457, 20.2794, 31.6522)
+transform = Transform3D(0.652001, 0, -0.558583, 0, 0.858557, 0, 0.558583, 0, 0.652001, 36.9457, 23.0000, 31.6522)
 
 [node name="Column06" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.689695, 0, -0.724100, 0, 1, 0, 0.724100, 0, 0.689695, 33.3816, 19.4423, 35.0469)
+transform = Transform3D(0.456023, 0, -0.478771, 0, 0.661195, 0, 0.478771, 0, 0.456023, 33.3816, 23.0000, 35.0469)
 
 [node name="Column07" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.945093, 0, -0.326802, 0, 1, 0, 0.326802, 0, 0.945093, 49.8140, 22.6260, 17.2251)
+transform = Transform3D(1.334297, 0, -0.461385, 0, 1.411816, 0, 0.461385, 0, 1.334297, 49.8140, 23.0000, 17.2251)
 
 [node name="Column08" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.910491, 0, -0.413529, 0, 1, 0, 0.413529, 0, 0.910491, 47.7150, 18.9120, 21.6713)
+transform = Transform3D(0.488167, 0, -0.221717, 0, 0.536158, 0, 0.221717, 0, 0.488167, 47.7150, 23.0000, 21.6713)
 
 [node name="Column09" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.865933, 0, -0.500160, 0, 1, 0, 0.500160, 0, 0.865933, 45.5632, 21.8937, 26.3172)
+transform = Transform3D(1.073030, 0, -0.619779, 0, 1.239161, 0, 0.619779, 0, 1.073030, 45.5632, 23.0000, 26.3172)
 
 [node name="Column10" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.808050, 0, -0.589115, 0, 1, 0, 0.589115, 0, 0.808050, 42.6512, 20.8840, 31.0952)
+transform = Transform3D(0.808936, 0, -0.589761, 0, 1.001097, 0, 0.589761, 0, 0.808936, 42.6512, 23.0000, 31.0952)
 
 [node name="Column11" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.751495, 0, -0.659739, 0, 1, 0, 0.659739, 0, 0.751495, 39.4266, 19.1311, 34.6127)
+transform = Transform3D(0.441749, 0, -0.387812, 0, 0.587827, 0, 0.387812, 0, 0.441749, 39.4266, 23.0000, 34.6127)
 
 [node name="Column12" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.679923, 0, -0.733284, 0, 1, 0, 0.733284, 0, 0.679923, 35.6993, 22.9921, 38.5010)
+transform = Transform3D(1.018613, 0, -1.098554, 0, 1.498131, 0, 1.098554, 0, 1.018613, 35.6993, 23.0000, 38.5010)
 
 [node name="Column13" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.960268, 0, -0.279081, 0, 1, 0, 0.279081, 0, 0.960268, 54.0792, 19.0044, 15.7169)
+transform = Transform3D(0.535778, 0, -0.155712, 0, 0.557947, 0, 0.155712, 0, 0.535778, 54.0792, 23.0000, 15.7169)
 
 [node name="Column14" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.933366, 0, -0.358927, 0, 1, 0, 0.358927, 0, 0.933366, 52.5063, 21.2913, 20.1914)
+transform = Transform3D(1.024024, 0, -0.393790, 0, 1.097131, 0, 0.393790, 0, 1.024024, 52.5063, 23.0000, 20.1914)
 
 [node name="Column15" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.893445, 0, -0.449174, 0, 1, 0, 0.449174, 0, 0.893445, 50.5485, 21.5078, 25.4129)
+transform = Transform3D(1.025839, 0, -0.515734, 0, 1.148185, 0, 0.515734, 0, 1.025839, 50.5485, 23.0000, 25.4129)
 
 [node name="Column16" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.848706, 0, -0.528865, 0, 1, 0, 0.528865, 0, 0.848706, 47.8930, 18.9592, 29.8442)
+transform = Transform3D(0.464488, 0, -0.289443, 0, 0.547290, 0, 0.289443, 0, 0.464488, 47.8930, 23.0000, 29.8442)
 
 [node name="Column17" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.799717, 0, -0.600377, 0, 1, 0, 0.600377, 0, 0.799717, 44.9466, 22.8326, 33.7430)
+transform = Transform3D(1.168016, 0, -0.876871, 0, 1.460536, 0, 0.876871, 0, 1.168016, 44.9466, 23.0000, 33.7430)
 
 [node name="Column18" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.735588, 0, -0.677429, 0, 1, 0, 0.677429, 0, 0.735588, 41.5583, 19.6731, 38.2725)
+transform = Transform3D(0.526395, 0, -0.484775, 0, 0.715611, 0, 0.484775, 0, 0.526395, 41.5583, 23.0000, 38.2725)
 
 [node name="Column19" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
-transform = Transform3D(0.674013, 0, -0.738719, 0, 1, 0, 0.738719, 0, 0.674013, 38.1050, 19.9755, 41.7631)
+transform = Transform3D(0.530392, 0, -0.581310, 0, 0.786916, 0, 0.581310, 0, 0.530392, 38.1050, 23.0000, 41.7631)

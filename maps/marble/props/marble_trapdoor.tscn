@@ -13,7 +13,7 @@ radius = 0.6
 radius = 1.8
 
 [node name="MarbleTrapdoor" type="Node3D"]
-editor_description = "Target and trapdoor. Origin is the deck at r 54.664 (mid-hole) on a pier (+X out, +Z the way the lap runs); the hole is four lane cells, pilaster to pilaster, r 49.4 to the wall (r 46.8..49.4 stays deck for a section wall), cut into marble.glb from where these stand: place it (parent at identity), run python3 tools/modelling/maps/marble/marble_build.py --sync-trapdoors (it snaps you to a pier), then tools/modelling/model build marble. Shove beside the target, or shoot its plate: 0.3 s rattle, all 16 leaves drop into the spiked pit, open 4 s, close, re-arm 10 s after the pull. Move the target with target_offset / target_yaw_degrees."
+editor_description = "Target and trapdoor. Origin is the deck at r 53.989 (mid-hole) on a pier (+X out, +Z the way the lap runs); the hole is four lane cells, pilaster to pilaster, r 48.05 to the wall (r 46.8..48.05 stays deck under the lip walls), cut into marble.glb from where these stand: place it (parent at identity), run python3 tools/modelling/maps/marble/marble_build.py --sync-trapdoors (it snaps you to a pier), then tools/modelling/model build marble. Shove beside the target, or shoot its plate: 0.3 s rattle, all 16 leaves drop into the spiked pit, open 4 s, close, re-arm 10 s after the pull. Move the target with target_offset / target_yaw_degrees."
 script = ExtResource("1_trap_door")
 
 [node name="Model" parent="." instance=ExtResource("2_trapdoor_model")]
@@ -25,13 +25,13 @@ collision_layer = 0
 collision_mask = 1048577
 monitorable = false
 script = ExtResource("4_trap_volume")
-size_metres = Vector3(10.3, 0.9, 11.6)
+size_metres = Vector3(11.7, 0.9, 11.6)
 
 [node name="Shape" type="CollisionShape3D" parent="PitTrap"]
 
 [node name="Target" type="Node3D" parent="."]
 editor_description = "1.4 deg before the hole at r 50.4, beside a section wall's lead-in, its bullseye (local -X) toward the tower."
-transform = Transform3D(0.992482, 0, 0.122389, 0, 1, 0, -0.122389, 0, 0.992482, -4.64, 0, -6.16)
+transform = Transform3D(0.992482, 0, 0.122389, 0, 1, 0, -0.122389, 0, 0.992482, -3.97, 0, -6.16)
 
 [node name="Model" parent="Target" instance=ExtResource("3_target_model")]
 
