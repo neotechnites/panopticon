@@ -1399,3 +1399,48 @@ captions: none
 # Ryan: "can you go ahead and make this?" (pod: "trailer optional cut A: 16 before, 96 after"), "cut to melody then fade out. do the drums intro for this."; ending "a gameplay capture of a bot going through the portal, and shoving the gaurd, and that gaurd going flying".
 # Picture (2648 frames, 44.13 s): v42 master 10-1987 (title on 331); 12s (main b4c50f98 FP shove, --movie, cuts\12s.mp4 0-338: portal, shove, the game's throw cinematic) 1978-2316; v42 end card 2582-2742, its frame 2742 held 144, its fade 2743-2768 (2317-2647). Lava cracks and the old ending cut.
 # Music (tools/content/music/pineberry_cutA.py, voice\pineberry_cutA.flac): intro wav's first 16 beats, the mix from bar 14 for 96 beats (drop 5.517 s), melody stem from bar 38 fading to silence at the last frame; 10 ms crossfades; -0.5 dB (v42's level). Graph: final\master\rough_v52_cutA.graph.txt.
+
+# v69 begin (marble v7 sections, task #657; stage trailer_marble_sections, same lenses and beats as the shots they replace)
+
+## 5hb
+said: v69 marble scope in 5hr's slot (996-1063): the scope eases onto Section B's wall-top activator and the round hits it on beat 33
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_sections --bots=3 --pov=guard --hud=crosshair --rifle=projectile --set=beat=bscope --seed=20261001
+seconds: 3.15
+in: 1.8666
+freeze: waive
+expect: hit PlateHitbox 2.92-2.99
+
+## 23b
+said: v69 marble runner POV in 23's slot (1324-1448): walking Section B, the rifle hits two activators ahead and the floor drops under the two runners there, on beats 50 and 53
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_sections --bots=3 --pov=runner --rifle=projectile --set=beat=bfar --seed=20261001
+seconds: 3.5
+in: 0.9
+freeze: waive
+expect: hit PlateHitbox 2.27-2.34; hit PlateHitbox 3.32-3.39
+
+## 10aa
+said: v69 marble runner in 10ar's slot (1717-1851): the POV shoves Section A's activator on the beat (1802) and the runner ahead on the trapdoor drops
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_sections --bots=3 --pov=runner --rifle=projectile --set=beat=ashove --seed=20261001
+seconds: 4.0
+in: 0.75
+freeze: waive
+expect: out Runner_2 3.9-4.5
+
+## 10ba
+said: v69 marble scope in 10br's slot (1852-2009): the scope picks a runner coming out of Section A's cover into the open gap and hits him on 1986
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_sections --bots=3 --pov=guard --hud=crosshair --rifle=projectile --set=beat=ascope --seed=20261001
+seconds: 4.4
+in: 1.75
+freeze: waive
+expect: hit Runner_1 4.95-5.01
+
+## 12sv
+said: v69: 12sr refilmed as it is on marble v7 (the portal approach carries no section; the lip wall it passes moved to 309.6)
+capture: --map=marble --shot=portal --stage=trailer_finale_marble --bots=2 --pov=runner --rifle=projectile --set=wait=0.25;from=311,52.4 --seed=20261001
+tape: finale_fp
+seconds: 5.55
+in: 1.1666
+freeze: waive
+expect: stage arrived 3.57-3.63; stage kill 4.45-4.51
+
+# v69 end
