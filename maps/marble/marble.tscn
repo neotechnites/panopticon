@@ -109,12 +109,13 @@ light_energy = 0.0
 shadow_enabled = false
 
 [node name="Skylight" type="Node3D" parent="."]
-editor_description = "The oculus: daylight through the dome's glazed crown (marble.glb, r 11). Key is a shadowed SpotLight3D 1.45 m under the glass (y 77.5; the glass disc is at 78.95, the vault top 78.05, and a light above the glass bakes nothing, the bake sees the glass as stone) pointing straight down (Ryan 2026-10-20: no tilting the light, no new openings), a 90 deg cone that lights the tower, the pit and the lane from its lip to r 53 all the way round (the gallery ceiling shades the rest), and nothing else directly; bake mode Dynamic: its direct light and the shadows of walls, columns and piers on the lane are real time, its bounce is in MarbleLightmap. Shaft and Pool are gi_mode Disabled (never bake occluders). Shaft, Pool and Motes are the visible light, additive and cheap."
+editor_description = "The oculus: daylight through the dome's glazed crown (marble.glb, r 11). Key is a shadowed SpotLight3D 1.45 m under the glass (y 77.5; the glass disc is at 78.95, the vault top 78.05, and a light above the glass bakes nothing, the bake sees the glass as stone) pointing straight down (Ryan 2026-10-20: no tilting the light, no new openings), a 90 deg cone that lights the tower, the pit and the lane from its lip to r 53 all the way round (the gallery ceiling shades the rest), and nothing else directly; bake mode Dynamic: its direct light and the shadows of walls, columns and piers on the lane are real time, its bounce is in MarbleLightmap at indirect energy 6 (the stone is L*45: one honest bounce off it reads black). Shaft and Pool are gi_mode Disabled (never bake occluders). Shaft, Pool and Motes are the visible light, additive and cheap."
 
 [node name="Key" type="SpotLight3D" parent="Skylight"]
 transform = Transform3D(0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 77.5, 0)
 light_color = Color(1, 0.96, 0.88, 1)
 light_energy = 14.0
+light_indirect_energy = 6.0
 light_size = 3.0
 light_specular = 0.0
 light_bake_mode = 2
@@ -136,15 +137,15 @@ light_bake_mode = 0
 shadow_enabled = false
 
 [node name="AmbientFill" type="OmniLight3D" parent="Skylight"]
-editor_description = "The old flat ambient (Ryan's olive 0.62/0.66/0.60), now one static omni under the oculus (y 76) falling off as 1/d^1.5, baked with occlusion: the dome and the top tiers near the glass are bright, the lower tiers, the pit corners and every reveal fall away from it."
+editor_description = "The old flat ambient (Ryan's olive 0.62/0.66/0.60), now one static omni under the oculus (y 76) falling off as 1/d, baked with occlusion: the dome and the top tiers near the glass are bright, the lower tiers, the pit corners and every reveal fall away from it."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 76, 0)
 light_color = Color(0.62, 0.66, 0.6, 1)
-light_energy = 40.0
+light_energy = 50.0
 light_size = 4.0
 light_specular = 0.0
 light_bake_mode = 1
 omni_range = 140.0
-omni_attenuation = 1.5
+omni_attenuation = 1.0
 
 [node name="WellFill" type="Node3D" parent="Skylight"]
 editor_description = "The bounce's direction, baked: three faint olive static omnis in the open well at the gallery's own height (r 20, y 25.5), the only height from which light gets under the gallery ceiling onto its back wall. Flat falloff, so the ring is even; the cells, reveals and ceilings shade themselves in the bake."
