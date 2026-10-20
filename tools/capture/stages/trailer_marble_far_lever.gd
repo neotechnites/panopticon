@@ -3,9 +3,9 @@ extends "res://tools/capture/stages/stage.gd"
 ## trailer_marble_far_lever (23alt): Ryan: "make an alternate version of just this clip, where instead of shooting at the runners,
 ## the sniper shoots one of the levers and drops a runner into a pit?" 23's runner POV as it is (eyes on the window, running, two men
 ## ahead) on Section B: the round hits a trapdoor's wall-top plate on the beat and the man crossing that door drops into the pit.
-## Section B: low walls (3 m) at the lip never hide the window; ArcWall253 ends 258.5, so the POV is past it before the cut starts.
+## Section B: low walls (3 m) at the lip never hide the window; the POV starts past ArcWall253 (ends 258.5); the victim 15 deg ahead at the drop, big enough to read.
 ##   --map=marble --shot=pack_lead --stage=trailer_marble_far_lever --bots=3 --pov=runner --rifle=projectile --seed=20261001
-## Dials: start (the POV's bearing at the deal, 255), ahead_a/ahead_b (deg ahead of him at the deal: the victim, the far man; 26/41),
+## Dials: start (the POV's bearing at the deal, 265), ahead_a/ahead_b (deg ahead of him at the deal: the victim, the far man; 16/31),
 ## section/door (SectionB/Trapdoor4), window (291: the opening 273.7-293.8 of the colonnade), fire (clip s the round is squeezed, 1.98),
 ## look (deg right of his run the eyes rest, 47), look_pitch (5), gravity (the round's drop the squeeze holds over, 22).
 
@@ -58,8 +58,8 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	for brain: RunnerBrain in runners:
 		if brain.controller == null:
 			return false
-	var start: float = float(option("start", 255.0))
-	var starts: Array[float] = [start, start + float(option("ahead_a", 26.0)), start + float(option("ahead_b", 41.0))]
+	var start: float = float(option("start", 265.0))
+	var starts: Array[float] = [start, start + float(option("ahead_a", 16.0)), start + float(option("ahead_b", 31.0))]
 	for index: int in range(3):
 		var legs: Array = _legs(index)
 		var steps: Array = [
