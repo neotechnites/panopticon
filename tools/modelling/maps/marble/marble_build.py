@@ -183,7 +183,7 @@ BARS_B = 353.0
 # pilaster to pilaster, from DECK_RS[TRAPDOOR_IN_K] (the section wall's footprint stays deck) to the wall foot.
 # WRITTEN FROM THE SCENE: place marble_trapdoor.tscn in maps/marble/marble.tscn, run
 # `python3 marble_build.py --sync-trapdoors`, rebuild marble.
-TRAPDOOR_BEARINGS = (78.75, 95.625, 112.5, 270.0, 286.875)
+TRAPDOOR_BEARINGS = (67.5, 90.0, 112.5, 264.375, 275.625, 286.875, 298.125)
 TRAPDOOR_CELLS = 4          # 9.7 m at r 49.4, 11.7 m at the wall: over a running jump (7.0 m)
 TRAPDOOR_IN_K = 1           # the hole's inner ring, DECK_RS[1] = 49.4: r 46.7..49.4 is the section wall's strip
 TRAPDOOR_R = 0.5 * (DECK_RS[TRAPDOOR_IN_K] + WALL_R * math.cos(math.pi / NSIDE))   # 54.664: the prop's origin, mid-hole
@@ -576,6 +576,17 @@ def trapdoor_spans():
         first = int(round(k)) - TRAPDOOR_CELLS // 2
         out.append((first, first + TRAPDOOR_CELLS))
     return sorted(out)
+
+
+def trapdoor_runs():
+    """trapdoor_spans with back-to-back holes joined: one pit under a run of doors."""
+    out = []
+    for a, b in trapdoor_spans():
+        if out and out[-1][1] == a:
+            out[-1] = (out[-1][0], b)
+        else:
+            out.append((a, b))
+    return out
 
 
 def trapdoor_cells():

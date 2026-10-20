@@ -295,7 +295,7 @@ def _pits(m):
         a = ang[i % n]
         return m.v((r * math.cos(a), r * math.sin(a), z))
 
-    for (first, last) in mb.trapdoor_spans():
+    for (first, last) in mb.trapdoor_runs():
         for i in range(first, last):
             er = _er(TWO_PI * (i + 0.5) / n)
             m.quad(P(r0, i, top), P(r0, i + 1, top), P(r0, i + 1, z0), P(r0, i, z0), er, "cellin")
@@ -355,7 +355,7 @@ def _margin(m):
     ang = mb.lane_angles()
     n = len(ang)
     stations, z = mb.seam_lane_foot()
-    spans = mb.trapdoor_spans()
+    spans = mb.trapdoor_runs()
     if not spans:
         seam = [m.v(p) for p in mb.station_pts(stations, z)]
         deck_out = _ring(m, ang, mb.DECK_RS[-1], z)
@@ -423,7 +423,7 @@ def collider(c):
     # each trapdoor's pit: an open box under the hole, wall strip to wall, so a body that drops lands at PIT_Z
     z0, z1, ra, rb = mb.PIT_Z, mb.DECK_Z, mb.DECK_RS[mb.TRAPDOOR_IN_K], r_out
 
-    for (first, last) in mb.trapdoor_spans():
+    for (first, last) in mb.trapdoor_runs():
         for i in range(first, last):
             er = _er(TWO_PI * (i + 0.5) / n)
             c.quad(P(ra, i, z0), P(ra, i + 1, z0), P(rb, i + 1, z0), P(rb, i, z0), UP, "floor")
