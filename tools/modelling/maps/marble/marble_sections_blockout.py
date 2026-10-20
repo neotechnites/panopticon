@@ -35,20 +35,18 @@ CELL = 360.0 / 128.0            # one lane cell, 2.8125 deg
 BAY = 2.0 * CELL                # one bay, pier to pier
 INNER_R = 46.7                  # the open lip
 STRIP = (46.8, 49.4)            # DECK_RS[0]..[1]: kept as deck over every hole; the walls stand on its outer edge
-TRAP_R = 0.5 * (49.4 + 60.0 * math.cos(math.pi / 64.0))   # marble_build.TRAPDOOR_R
+TRAP_R = 0.5 * (48.05 + 60.0 * math.cos(math.pi / 64.0))   # marble_build.TRAPDOOR_R
 TRAP_CELLS = 4                  # marble_build.TRAPDOOR_CELLS
 
-MARBLE_WALL_H = 2.0          # marble_wall.tscn as authored
-WALL_ROWS = 2                # stacked two high: a 4 m wall hides a 1.6 m eye anywhere behind it from the 29.3 m eye (2.53 m needed)
-WALL_H = MARBLE_WALL_H * WALL_ROWS                    # A and B: over a 1.8 m runner and his 1.1 m jump; hides the 29.3 m eye from the lane
+WALL_H = 7.6                 # marble_wall_arc as authored: 11.4 deg, 7.6 m, over a 11.25 deg trapdoor                    # A and B: over a 1.8 m runner and his 1.1 m jump; hides the 29.3 m eye from the lane
 ACT_BEFORE_DEG = 1.4            # the activator this far before its trapdoor's first pier
 ACT_R_LANE = 50.4               # A: on the lane, 1 m outside the wall's face
-ACT_R_TOP = 49.15                 # B: on the wall top's centre line (WALL_R)
+ACT_R_TOP = 47.3                  # B: on the lip wall's top, its centre line
 
 # v2 walls: the map's marble_wall_arc (r 47.3, 11.4 deg, 7.6 m) stood with its outer face on the hole's edge,
 # squashed to WALL_H and to one trapdoor's 11.25 deg, so cover is only ever over trapdoor floor
 ARC_R = 47.3                 # the lip walls' radius (marble_wall_arc), for LIP_MOVES
-WALL_R = 49.15               # marble_wall (0.5 m thick) with its outer face on r 49.4
+WALL_R = ARC_R
 WALL_N = 3                   # 4 m walls end to end over a trapdoor's 9.7 m (they overlap a little; the element is not reshaped)
 # A: three trapdoors, two bays of open, uncovered ground between; activators in the open, the rifle's too
 A_STARTS = (61.875, 84.375, 106.875)
@@ -73,7 +71,7 @@ STONE_GLOW = 0.35               # the same sheet as a faint emission: the arch's
 D_ROWS = (48.6, 52.6, 56.4)
 D_PITCH = 5.2                   # metres along a row
 D_RADIUS = 0.6                  # a 1.2 m top to land on
-D_H = (0.9, 5.0)                # lowest and highest top: the column is 5.0 m, sunk to show this much
+D_H = (8.0 / 3.0, 7.5)          # a third of deck-to-ceiling (8 m) up to the ceiling less 0.5 m: uniform scale of the 5 m column
 COLUMN_H = 5.0
 D_STEP = 0.9                    # a top this far over its neighbour's is a jump up (apex 1.11 m)
 D_REACH = 4.3                   # centre to centre, a neighbour you can jump to
@@ -130,16 +128,10 @@ def trapdoor(sc, parent, name, start, act_r, act_y, desc, act_deg=None):
 
 
 def wall_over(sc, parent, name, start, desc):
-    """The map's marble_wall (4 m, 2 m, 0.5 m) as authored, WALL_N of them end to end over one trapdoor, outer face on r 49.4."""
-    pitch = TRAP_CELLS * CELL / WALL_N
-    for row in range(WALL_ROWS):
-        for k in range(WALL_N):
-            b = start + (k + 0.5) * pitch
-            c, sn = math.cos(rad(b)), math.sin(rad(b))
-            o = at(b, WALL_R, DECK_Y + row * MARBLE_WALL_H)
-            sc.node('[node name="%s%d%s" parent="%s" instance=ExtResource("Blk_wall")]\neditor_description = "%s"\n'
-                    'transform = Transform3D(%.6f, 0, %.6f, 0, 1, 0, %.6f, 0, %.6f, %.4f, %.4f, %.4f)\n'
-                    % (name, k + 1, "ab"[row], parent, desc, -sn, -c, c, -sn, o[0], o[1], o[2]))
+    """The ring's own cover wall (marble_wall_arc.tscn, unscaled) on the lip over one trapdoor, placed as ArcWall064 is."""
+    mid = start + TRAP_CELLS / 2.0 * CELL
+    sc.node('[node name="%s" parent="%s" instance=ExtResource("Blk_wall")]\neditor_description = "%s"\ntransform = %s\n'
+            % (name, parent, desc, xform(mid, at(mid, ARC_R))))
 
 
 def section_a(sc):
@@ -237,17 +229,21 @@ def forest():
 
 
 def section_d(sc):
-    """The trailer's column (marble_column.glb as trailer_marble_column.spawn_columns places it: unscaled, turned -bearing),
-    sunk into the deck by 5 m less its height so the forest's tops vary."""
+    """The trailer's column (marble_column.glb as trailer_marble_column.spawn_columns places it, turned -bearing),
+    scaled uniformly so the forest's tops vary, every one standing on the deck."""
     p = "Elements/SectionD"
     cols = forest()
     sc.node('[node name="SectionD" type="Node3D" parent="Elements"]\neditor_description = "D, aesthetic: a column forest, '
-            '%d of the trailer\'s marble_column as it places them (unscaled, rotation (0, -bearing, 0)), sunk to show '
+            '%d of the trailer\'s marble_column as it places them (unscaled, rotation (0, -bearing, 0)), scaled uniformly to '
             '%.1f..%.1f m, %.1f..%.1f deg; room to walk between, the lowest jumpable."\n'
             % (len(cols), min(c[2] for c in cols), max(c[2] for c in cols), D_ARC[0], D_ARC[1]))
     for i, (b, r, h) in enumerate(cols):
-        sc.node('[node name="Column%02d" parent="%s" instance=ExtResource("Blk_column")]\ntransform = %s\n'
-                % (i + 1, p, xform(b, at(b, r, DECK_Y + h - COLUMN_H))))
+        k = h / COLUMN_H
+        c, sn = math.cos(rad(b)), math.sin(rad(b))
+        o = at(b, r)
+        sc.node('[node name="Column%02d" parent="%s" instance=ExtResource("Blk_column")]\n'
+                'transform = Transform3D(%.6f, 0, %.6f, 0, %.6f, 0, %.6f, 0, %.6f, %.4f, %.4f, %.4f)\n'
+                % (i + 1, p, c * k, -sn * k, k, sn * k, c * k, o[0], o[1], o[2]))
     return cols
 
 
@@ -281,7 +277,7 @@ def write():
                       lambda m: m.group(1) + "Transform3D(%.6f, 0, %.6f, 0, 1, 0, %.6f, 0, %.6f, %.4f, 23.0, %.4f)"
                       % (c, -sn, sn, c, ARC_R * c, ARC_R * sn), text)
     ext = ('[ext_resource type="PackedScene" path="res://maps/marble/props/marble_trapdoor.tscn" id="Blk_trapdoor"]\n'
-           '[ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall.tscn" id="Blk_wall"]\n'
+           '[ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall_arc.tscn" id="Blk_wall"]\n'
            '[ext_resource type="PackedScene" path="res://maps/marble/models/marble_column.glb" id="Blk_column"]\n'
            '[ext_resource type="Texture2D" path="res://maps/marble/textures/marble_brick_albedo.png" id="Blk_brick"]\n')
     first_sub = text.index("\n[sub_resource ") + 1

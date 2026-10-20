@@ -10,7 +10,7 @@ extends Node3D
 enum Phase { ARMED, WARN, DROP, OPEN, CLOSE, COOLDOWN }
 
 ## Where the target stands, in this node's frame (+Z is the way the lap runs).
-@export var target_offset: Vector3 = Vector3(-4.64, 0.0, -6.16):
+@export var target_offset: Vector3 = Vector3(-3.97, 0.0, -6.16):
 	set(value):
 		target_offset = value
 		_place_target()
@@ -36,7 +36,7 @@ enum Phase { ARMED, WARN, DROP, OPEN, CLOSE, COOLDOWN }
 @export_range(0.0, 1.0, 0.05) var bot_pull_chance: float = 0.5
 
 ## The lethal footprint over the hole, in this node's frame: what [RingBake] steers round.
-@export var hole_size_metres: Vector3 = Vector3(10.7, 1.4, 11.8)
+@export var hole_size_metres: Vector3 = Vector3(12.1, 1.4, 11.8)
 
 ## A shove trips the target only from a body whose feet are within this of its foot: one on a wall top is the rifle's.
 const REACH_LEVEL_METRES: float = 0.5

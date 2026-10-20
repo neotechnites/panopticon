@@ -117,7 +117,7 @@ FLOOR_Z = -1.0              # the rotunda floor, covered in spikes: 24 m under t
 WALL_R = 60.0               # the wall face
 LIP = 0.10                  # the walkway's chamfered nosing at the open edge
 DECK_SUB = 2                # angular subdivision of the deck (2.9 m facets)
-DECK_RS = (INNER_R + LIP, 49.4, 52.0, 54.6, OUTER_R)   # paving rings; the margin beyond is plain stone
+DECK_RS = (INNER_R + LIP, 48.05, 52.0, 54.6, OUTER_R)  # paving rings; [1] is the trapdoors' inner edge, just outside the lip walls
 SLAB_T = 1.0                # the walkway slab's thickness ...
 SLAB_Z0 = DECK_Z - SLAB_T   # ... its underside, 22.0: the third tier's cornice soffit
 
@@ -186,7 +186,7 @@ BARS_B = 353.0
 TRAPDOOR_BEARINGS = (67.5, 90.0, 112.5, 264.375, 275.625, 286.875, 298.125)
 TRAPDOOR_CELLS = 4          # 9.7 m at r 49.4, 11.7 m at the wall: over a running jump (7.0 m)
 TRAPDOOR_IN_K = 1           # the hole's inner ring, DECK_RS[1] = 49.4: r 46.7..49.4 is the section wall's strip
-TRAPDOOR_R = 0.5 * (DECK_RS[TRAPDOOR_IN_K] + WALL_R * math.cos(math.pi / NSIDE))   # 54.664: the prop's origin, mid-hole
+TRAPDOOR_R = 0.5 * (DECK_RS[TRAPDOOR_IN_K] + WALL_R * math.cos(math.pi / NSIDE))   # 53.989: the prop's origin, mid-hole
 PIT_Z = 21.6                # the pit floor: over the lower tier's cell vaults (crown 21.5)
 
 # ---- texture ------------------------------------------------------------------
