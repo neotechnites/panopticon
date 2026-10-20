@@ -1444,3 +1444,42 @@ freeze: waive
 expect: stage arrived 3.57-3.63; stage kill 4.45-4.51
 
 # v69 end
+
+# v70 begin (task #657): the v68 marble shots unchanged, refilmed on marble v7 (531f0975)
+
+## 5hv
+said: v70 = 5hr as it is, on marble v7: v60 refilm of 5h: the marble scope shot, Movie Maker so the round's flight does not stall (v59 913-995; Ryan note 1)
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_track --bots=3 --pov=guard --hud=crosshair --rifle=projectile --set=fire=2.6 --seed=20261001
+tape: marble_hit
+seconds: 3.15
+in: 1.8666
+freeze: waive
+expect: hit Runner_1 2.94-3.00
+
+## 23v
+said: v70 = 23 as it is, on marble v7: Ryan "ok, lets do a marble shot. from a runners pov, watching the sniper tower, snipe at two runners, much further ahead them themselves." In the beach run's slot (v65 1324-1448); hits on beats 50 (1365) and 53 (1428)
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_far --bots=3 --pov=runner --rifle=projectile --seed=20261001
+seconds: 3.5
+in: 0.9
+freeze: waive
+expect: hit Runner_2 2.29-2.35; hit Runner_3 3.34-3.40
+
+## 10av
+said: v70 = 10ar as it is, on marble v7: v60 refilm of 10a: the marble runner (v59 1717-1851)
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=runner --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;kick=0.1;back_pace=0.5;follow=0.4;run_after=0.9;settle_omega=45;max_rate=55 --seed=20261001
+tape: marble_column
+seconds: 4.0
+in: 0.75
+freeze: waive
+expect: shove Runner_2 2.97-3.03
+
+## 10bv
+said: v70 = 10br as it is, on marble v7: v60 refilm of 10b: the scope as the victim is hit (v59 1852-2009)
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;kick=0.1;back_pace=0.5;follow=0.4;run_after=0.9;settle_omega=45;max_rate=55 --seed=20261001
+tape: marble_column
+seconds: 4.4
+in: 1.75
+freeze: waive
+expect: shove Runner_2 2.97-3.03; hit Runner_1 4.94-5.00
+
+# v70 end
