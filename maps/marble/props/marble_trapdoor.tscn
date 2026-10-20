@@ -13,20 +13,20 @@ radius = 0.6
 radius = 1.8
 
 [node name="MarbleTrapdoor" type="Node3D"]
-editor_description = "Target and trapdoor. Origin is the deck at r 53.989 (mid-hole) on a pier (+X out, +Z the way the lap runs); the hole is four lane cells, pilaster to pilaster, r 48.05 to the wall (r 46.8..48.05 stays deck under the lip walls), cut into marble.glb from where these stand: place it (parent at identity), run python3 tools/modelling/maps/marble/marble_build.py --sync-trapdoors (it snaps you to a pier), then tools/modelling/model build marble. Shove beside the target, or shoot its plate: 0.3 s rattle, the two flaps part at the seam along the lane and hang into the 6 m spiked pit, open 4 s, close, re-arm 10 s after the pull. Move the target with target_offset / target_yaw_degrees."
+editor_description = "Target and trapdoor. Origin is the deck at r 53.989 (mid-hole) on a pier (+X out, +Z the way the lap runs); the hole is four lane cells, pilaster to pilaster, r 48.05 to the wall (r 46.8..48.05 stays deck under the lip walls), cut into marble.glb from where these stand: place it (parent at identity), run python3 tools/modelling/maps/marble/marble_build.py --sync-trapdoors (it snaps you to a pier), then tools/modelling/model build marble. Shove beside the target, or shoot its plate: 0.3 s rattle, the two flaps part at the seam along the lane and hang into the spiked pit (a 1.4 m ledge over the cells, a 10.4 m shaft from r 52 out), open 4 s, close, re-arm 10 s after the pull. Move the target with target_offset / target_yaw_degrees."
 script = ExtResource("1_trap_door")
-hole_size_metres = Vector3(12.1, 6, 11.8)
+hole_size_metres = Vector3(12.1, 10.4, 11.8)
 
 [node name="Model" parent="." instance=ExtResource("2_trapdoor_model")]
 
 [node name="PitTrap" type="Area3D" parent="."]
-editor_description = "The pit's spikes kill: y -6.0 (pit floor) to -5.1, under the hanging flaps (bottom -5.7), so nobody on the closed door is touched."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5.55, 0)
+editor_description = "The pit's spikes kill: y -10.4 (the shaft floor) to -0.5, under the closed flaps (bottom -0.15), so nobody on the closed door is touched; the 1.4 m ledge is inside it too."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5.45, 0)
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
 script = ExtResource("4_trap_volume")
-size_metres = Vector3(11.7, 0.9, 11.6)
+size_metres = Vector3(11.7, 9.9, 11.6)
 
 [node name="Shape" type="CollisionShape3D" parent="PitTrap"]
 

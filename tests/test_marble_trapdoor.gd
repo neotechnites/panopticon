@@ -16,7 +16,7 @@ const GRAVITY: float = 22.0
 const BODY_LAYER: int = 1
 const STATIC_COLLIDER_MASK: int = 1
 const SETTLE_TICKS: int = 10
-## Rattle 0.3 + swing 0.35 + a 6 m fall to the spikes, with room to spare.
+## Rattle 0.3 + swing 0.35 + the fall into the pit volume (its top 0.5 m down), with room to spare.
 const DROP_TICKS: int = 90
 ## Under a placed door the map's floor is the pit's, at least this far down.
 const PIT_DEPTH_MIN: float = 1.0
