@@ -125,11 +125,11 @@ spot_angle = 38.0
 spot_angle_attenuation = 0.8
 
 [node name="AmbientFill" type="OmniLight3D" parent="Skylight"]
-editor_description = "The old flat ambient (Ryan's olive 0.62/0.66/0.60), now one static omni high in the well (y 58, over the lane ceiling so the whole lane floor sees it), baked with occlusion: a floor for the far tiers and corners, darker in every reveal and cell, never flat."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 58, 0)
+editor_description = "The old flat ambient (Ryan's olive 0.62/0.66/0.60), now one static omni in the well (y 45: the lane floor and the foot of the gallery wall see it under the gallery ceiling, the tiers under the lane fall into its shadow), baked with occlusion: a floor for the far tiers and corners, darker in every reveal and cell, never flat."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 45, 0)
 light_color = Color(0.62, 0.66, 0.6, 1)
-light_energy = 2.4
-light_size = 8.0
+light_energy = 2.8
+light_size = 6.0
 light_specular = 0.0
 light_bake_mode = 1
 omni_range = 130.0
