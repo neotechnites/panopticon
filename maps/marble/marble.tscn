@@ -114,7 +114,7 @@ editor_description = "The oculus: daylight through the dome's glazed crown (marb
 [node name="Key" type="SpotLight3D" parent="Skylight"]
 transform = Transform3D(0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 77.5, 0)
 light_color = Color(1, 0.96, 0.88, 1)
-light_energy = 8.0
+light_energy = 6.0
 light_indirect_energy = 16.0
 light_size = 3.0
 light_specular = 0.0
@@ -140,10 +140,10 @@ light_bake_mode = 0
 shadow_enabled = false
 
 [node name="AmbientFill" type="OmniLight3D" parent="Skylight"]
-editor_description = "The old flat ambient (Ryan's olive 0.62/0.66/0.60), now one static omni under the oculus (y 76), flat falloff (6.5), baked with occlusion: every reveal, cell and underside shades itself, nothing crushes to black."
+editor_description = "The old flat ambient (Ryan's olive 0.62/0.66/0.60), now one static omni under the oculus (y 76), flat falloff (8.0), baked with occlusion: every reveal, cell and underside shades itself, nothing crushes to black."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 76, 0)
 light_color = Color(0.62, 0.66, 0.6, 1)
-light_energy = 6.5
+light_energy = 8.0
 light_size = 4.0
 light_specular = 0.0
 light_bake_mode = 1
@@ -156,7 +156,7 @@ editor_description = "The bounce's direction, baked: three faint olive static om
 [node name="Fill090" type="OmniLight3D" parent="Skylight/WellFill"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0000, 25.5, 20.0000)
 light_color = Color(0.62, 0.66, 0.6, 1)
-light_energy = 9.0
+light_energy = 13.0
 light_size = 4.0
 light_specular = 0.0
 light_bake_mode = 1
@@ -166,7 +166,7 @@ omni_attenuation = 0.0
 [node name="Fill210" type="OmniLight3D" parent="Skylight/WellFill"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.3205, 25.5, -10.0000)
 light_color = Color(0.62, 0.66, 0.6, 1)
-light_energy = 9.0
+light_energy = 13.0
 light_size = 4.0
 light_specular = 0.0
 light_bake_mode = 1
@@ -176,7 +176,7 @@ omni_attenuation = 0.0
 [node name="Fill330" type="OmniLight3D" parent="Skylight/WellFill"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17.3205, 25.5, -10.0000)
 light_color = Color(0.62, 0.66, 0.6, 1)
-light_energy = 9.0
+light_energy = 13.0
 light_size = 4.0
 light_specular = 0.0
 light_bake_mode = 1
