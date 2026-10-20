@@ -6,10 +6,10 @@ density, and a fluted cap (the tier cornices' band) closes the top.
 
 ORIGIN: the base centre on the arc's mid bearing at RADIUS, z 0 the deck; Godot +X radial out,
 +Z toward increasing bearing (Blender -Y). In the scene: rows (cos b, 0, -sin b | 0 1 0 | sin b,
-0, cos b), origin (R cos b, 23, R sin b). VARIANTS name the sizes; `--variant lane` builds one.
+0, cos b), origin (R cos b, 23, R sin b). VARIANTS name the sizes; `--variant long` builds one.
 
-    python3 tools/modelling/maps/marble/marble_wall_arc_build.py --check [--variant lane]
-    tools/modelling/model build marble_wall_arc --pc [--variant lane]
+    python3 tools/modelling/maps/marble/marble_wall_arc_build.py --check [--variant long]
+    tools/modelling/model build marble_wall_arc --pc [--variant long]
 """
 
 import math
@@ -49,7 +49,6 @@ FACING_YAW = 0.0
 VARIANTS = {
     "": dict(radius=47.3, arc_deg=11.4, height=7.6, thickness=0.75),       # the lip wall: a 9.4 m slab
     "long": dict(radius=47.3, arc_deg=19.7, height=7.6, thickness=0.75),   # ... the 16.2 m one
-    "lane": dict(radius=51.45, arc_deg=11.25, height=4.6, thickness=0.75), # the sections' screen: 4 lane cells
 }
 SOCLE_H = 1.0               # plain ashlar, proud PROUD, the foot of the brick
 PROUD = 0.10                # socle and end piers, both faces

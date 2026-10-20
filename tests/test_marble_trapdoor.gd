@@ -1,11 +1,13 @@
 extends TestCase
 
-## Map 2's lever and trapdoor, driven in the shipped scene: a body on the door
+## Map 2's target and trapdoor, driven in the shipped scene: a body on the door
 ## drops into the pit's lethal volume, a body beside it does not, and a rifle hit
-## on the lever's handle throws it.
+## on the target's plate trips it.
 
 const SCENE_PATH: String = "res://maps/marble/marble.tscn"
-const DOOR_NODE: NodePath = ^"Elements/Trapdoor049"
+const DOOR_NODE: NodePath = ^"Elements/SectionA/Trapdoor1"
+## Section B's door: its target stands on the wall top, in the rifle's line.
+const SHOT_DOOR_NODE: NodePath = ^"Elements/SectionB/Trapdoor1"
 const PIT_NODE: NodePath = ^"PitTrap"
 
 const BODY_RADIUS: float = 0.4
@@ -19,12 +21,12 @@ const DROP_TICKS: int = 90
 ## Under a placed door the map's floor is the pit's, at least this far down.
 const PIT_DEPTH_MIN: float = 1.0
 
-## On the closed door: over leaf B, clear of the seam and the frame.
-const ON_DOOR_LOCAL: Vector3 = Vector3(0.6, 0.05, 0.6)
-## On the deck past the door's leading edge, well outside the hole.
-const BESIDE_DOOR_LOCAL: Vector3 = Vector3(0.6, 0.05, 2.8)
+## On the closed door, mid-hole.
+const ON_DOOR_LOCAL: Vector3 = Vector3(0.0, 0.05, 0.3)
+## On the open ground past the door's far edge (+5.4 m), short of the next wall.
+const BESIDE_DOOR_LOCAL: Vector3 = Vector3(0.0, 0.05, 9.6)
 
-## The shooter: this far toward the tower from the handle, and this far up.
+## The shooter: this far toward the tower from the plate, and this far up.
 const SHOT_BACK_METRES: float = 15.0
 const SHOT_UP_METRES: float = 4.0
 
@@ -92,13 +94,14 @@ func test_a_body_on_the_door_falls_to_the_spikes_and_one_beside_it_does_not() ->
 	])
 
 
-## The guard's rifle, fired at the lever's handle, throws it.
-func test_the_lever_fires_from_the_guards_shot() -> void:
-	if _door == null:
+## The guard's rifle, fired at the target's plate, trips it.
+func test_the_target_fires_from_the_guards_shot() -> void:
+	var door: TrapDoor = _marble.get_node_or_null(SHOT_DOOR_NODE) as TrapDoor
+	if door == null:
 		fail("no trapdoor to shoot at")
 		return
-	var hitbox: StaticBody3D = _door.find_child("HandleHitbox", true, false) as StaticBody3D
-	assert_not_null(hitbox, "the lever carries a handle hitbox")
+	var hitbox: StaticBody3D = door.find_child("PlateHitbox", true, false) as StaticBody3D
+	assert_not_null(hitbox, "the target carries a plate hitbox")
 	if hitbox == null:
 		return
 	var rifle: Rifle = (load(TestFixtures.RIFLE_SCENE_PATH) as PackedScene).instantiate() as Rifle
@@ -117,19 +120,19 @@ func test_the_lever_fires_from_the_guards_shot() -> void:
 	rifle.target_hit.connect(func(collider: Node3D, _at: Vector3, _n: Vector3) -> void: struck.append(collider))
 	await step_ticks(1)
 
-	assert_true(_door.is_armed(), "the door is armed before the shot")
+	assert_true(door.is_armed(), "the door is armed before the shot")
 	assert_true(rifle.try_fire(), "a READY rifle takes the shot")
 	assert_eq_int(struck.size(), 1, "the shot struck something")
 	if struck.size() == 1:
-		assert_true(struck[0] == hitbox, "and it was the lever's handle, not %s" % struck[0].name)
+		assert_true(struck[0] == hitbox, "and it was the target's plate, not %s" % struck[0].name)
 	await step_ticks(2)
-	assert_true(_door.is_open(), "the hit threw the lever and the door is going")
+	assert_true(door.is_open(), "the hit tripped the target and the door is going")
 	remove_child(rifle)
 	rifle.free()
 
 
-## Every trapdoor in the scene stands over a hole the map cut for it: a ray down
-## its centre, past its own leaves, meets the pit floor 1.4 m down, not the deck.
+## Every trapdoor in the scene stands over a hole the map cut for it, wall strip to wall: rays
+## down it, past its own leaves, meet the pit floor 1.4 m down, not the deck.
 ## A door off the bearings in marble_build.TRAPDOOR_BEARINGS fails here.
 func test_every_trapdoor_sits_over_a_cut_hole() -> void:
 	var doors: Array[TrapDoor] = []
@@ -144,7 +147,7 @@ func test_every_trapdoor_sits_over_a_cut_hole() -> void:
 			var leaf: CollisionObject3D = child as CollisionObject3D
 			if leaf != null:
 				exclude.append(leaf.get_rid())
-		for probe: Vector3 in [Vector3(0.0, 0.0, 0.0), Vector3(1.5, 0.0, 0.4), Vector3(-1.5, 0.0, -0.4)]:
+		for probe: Vector3 in [Vector3.ZERO, Vector3(-4.5, 0.0, 0.0), Vector3(4.5, 0.0, 0.0), Vector3(0.0, 0.0, 4.5), Vector3(0.0, 0.0, -4.5)]:
 			var top: Vector3 = door.global_transform * (probe + Vector3.UP * 0.5)
 			var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
 				top, top + Vector3.DOWN * 3.0, STATIC_COLLIDER_MASK,
