@@ -1119,7 +1119,7 @@ func _bind_layers() -> void:
 func _sample_motion(delta: float) -> void:
 	var reference: float = body.profile.ground_speed if body.profile != null else fallback_ground_speed
 	_motion.sample(body, global_transform.basis, reference, delta)
-	_motion.live = not (_has_death and _dead)
+	_motion.live = not (_has_death and _dead) and not _in_emote
 	_motion.limp = _ragdoll != null and (_ragdoll.is_active() or _ragdoll.is_flopping())
 	_motion.shoved = is_flopping()
 	_motion.holding = _held != null
@@ -1747,14 +1747,19 @@ func _build_crouch_animation() -> void:
 const EMOTE_FPS: float = 30.0
 const EMOTE_GRAVITY: float = 9.8
 const EMOTE_SEQUENCE: Array = ["pound", "pound", "cross", "tween", "behind", "inout", "double", "tween"]
-## Stance per move: 0 staggered (Harden's size-up, left foot forward), 1 square.
-const EMOTE_STANCE: Dictionary = {"pound": 0, "cross": 1, "tween": 0, "behind": 1, "inout": 1, "double": 1}
-## Ankles per stance [right, left].
-const EMOTE_FEET: Array = [[Vector3(-0.26, 0.0, -0.55), Vector3(0.16, 0.0, 0.58)], [Vector3(-0.34, 0.0, 0.06), Vector3(0.34, 0.0, 0.10)]]
+## Stance per move: 0 staggered (Harden's size-up, left foot forward), 1 square, 2 the tween's longer step that opens the gap.
+const EMOTE_STANCE: Dictionary = {"pound": 0, "cross": 1, "tween": 2, "behind": 1, "inout": 1, "double": 1}
+## Ankles per stance [right, left]: about 1.5 shoulder widths apart, knees deep.
+const EMOTE_FEET: Array = [[Vector3(-0.20, 0.0, -0.26), Vector3(0.14, 0.0, 0.32)], [Vector3(-0.27, 0.0, 0.04), Vector3(0.27, 0.0, 0.06)],
+	[Vector3(-0.22, 0.0, -0.46), Vector3(0.14, 0.0, 0.48)]]
 const EMOTE_FOOT_YAW: Array = [-30.0, 15.0]
 ## Object centre held per stance [right, left].
-const EMOTE_HOLD: Array = [[Vector3(-0.62, 0.42, 0.42), Vector3(0.54, 0.42, 0.26)], [Vector3(-0.58, 0.42, 0.70), Vector3(0.58, 0.42, 0.70)]]
+const EMOTE_HOLD: Array = [[Vector3(-0.62, 0.42, 0.42), Vector3(0.54, 0.42, 0.26)], [Vector3(-0.58, 0.42, 0.70), Vector3(0.58, 0.42, 0.70)], [Vector3(-0.62, 0.42, 0.42), Vector3(0.54, 0.42, 0.26)]]
 const EMOTE_STEP_TIME: float = 0.18
+## Off hand's wrist and fingers, guarding in front of the chest, relative to the hips.
+const EMOTE_GUARD: Vector3 = Vector3(0.10, 0.34, 0.40)
+## The object's angles (turns) as it passes under the crotch on a tween: long side across, lying low.
+const EMOTE_TWEEN_TUMBLE: Vector3 = Vector3(0.0, 0.25, 0.0)
 ## Whole turns per loop about X, Y, Z: a loose tumble that still loops.
 const EMOTE_TUMBLE: Vector3 = Vector3(5.0, 7.0, -4.0)
 ## Start angles (turns), chosen so the object lies lowest as it passes under the crotch.
@@ -1878,7 +1883,7 @@ func _emote_timeline() -> void:
 		var lead: float = 0.0
 		if want != stance:
 			# Front foot first into the stagger, back foot first out of it.
-			var order: Array = [1, 0] if want == 0 else [0, 1]
+			var order: Array = [0, 1] if want == 1 else [1, 0]
 			for k: int in 2:
 				var side: int = order[k]
 				var t0: float = t + 0.04 + 0.12 * float(k)
@@ -1898,6 +1903,7 @@ func _emote_timeline() -> void:
 			"tween":
 				var gap: Vector3 = (feet[0] + feet[1]) * 0.5
 				t = _emote_throw(hand, other, t + 0.2 + lead, 0.1, 0.12, held, Vector2(gap.x + 0.04, gap.z + 0.05), EMOTE_HOLD[stance][other])
+				_emote_throws[-1]["tween"] = true
 				hand = other
 			"behind":
 				var back := Vector3(s * 0.46, 0.46, -0.14)
@@ -1924,6 +1930,17 @@ func _emote_throw(from: int, to: int, release: float, down: float, up: float, re
 ## The object's tumble at [param t]: whole turns per loop on all three axes, so it is continuous across the loop.
 func _emote_tumble(t: float) -> Basis:
 	var a: Vector3 = (EMOTE_TUMBLE * (t / _emote_period) + EMOTE_TUMBLE_PHASE) * TAU
+	# Eased onto a set lie through each tween's crossing, then back onto the free spin.
+	for th: Dictionary in _emote_throws:
+		if not th.get("tween", false):
+			continue
+		var d: float = fposmod(t - th["tb"] + _emote_period * 0.5, _emote_period) - _emote_period * 0.5
+		var k: float = 1.0 - smoothstep(0.06, 0.3, absf(d))
+		if k <= 0.0:
+			continue
+		var at: Vector3 = (EMOTE_TUMBLE * (th["tb"] / _emote_period) + EMOTE_TUMBLE_PHASE) * TAU
+		var goal: Vector3 = EMOTE_TWEEN_TUMBLE * TAU
+		a += Vector3(angle_difference(at.x, goal.x), angle_difference(at.y, goal.y), angle_difference(at.z, goal.z)) * k
 	return Basis(Vector3.BACK, a.z) * Basis(Vector3.UP, a.y) * Basis(Vector3.RIGHT, a.x)
 
 
@@ -2044,11 +2061,11 @@ func _emote_hand(side: int, t: float, hips: Vector3) -> Array:
 	var x: float = clampf((t - last_t) / maxf(next_t - last_t, 0.001), 0.0, 1.0)
 	var a: Array = _emote_palm(side, last_t)
 	var b: Array = _emote_palm(side, next_t)
-	var ready: Vector3 = hips + Vector3(s * 0.36, 0.24, 0.30)
-	var w: float = sin(PI * x)
+	var guard: Vector3 = hips + Vector3(s * EMOTE_GUARD.x, EMOTE_GUARD.y, EMOTE_GUARD.z)
+	var w: float = minf(smoothstep(0.0, 0.18, t - last_t), smoothstep(0.0, 0.18, next_t - t))
 	var line: Vector3 = (a[0] as Vector3).lerp(b[0], smoothstep(0.0, 1.0, x))
-	var dir: Vector3 = (a[1] as Vector3).lerp(b[1], x).lerp(Vector3(-s * 0.2, -0.5, 0.8), w)
-	return [line.lerp(ready, w * 0.85), dir.normalized()]
+	var dir: Vector3 = (a[1] as Vector3).lerp(b[1], x).lerp(Vector3(-s * 0.3, 0.75, 0.6), w)
+	return [line.lerp(guard, w), dir.normalized(), w]
 
 
 ## An ankle at [param t]: planted, or partway through a step with the foot lifted.
@@ -2087,7 +2104,7 @@ func _emote_pose(t: float) -> Dictionary:
 	var push: float = _emote_push(t)
 	var mid: Vector3 = ((feet[0] as Vector3) + (feet[1] as Vector3)) * 0.5
 	var spread: Vector3 = (feet[1] as Vector3) - (feet[0] as Vector3)
-	var hips_pos := Vector3(mid.x + 0.09 * shift, 0.62 - 0.04 * push - 0.03 * clampf(spread.length() - 0.76, 0.0, 0.5), mid.z + 0.02)
+	var hips_pos := Vector3(mid.x + 0.07 * shift, 0.58 - 0.04 * push - 0.03 * clampf(spread.length() - 0.76, 0.0, 0.5), mid.z + 0.02)
 	out[-1] = hips_pos
 	var yaw: float = -0.5 * atan2(spread.z, spread.x)
 	var hands: Array = [_emote_hand(0, t, hips_pos), _emote_hand(1, t, hips_pos)]
@@ -2131,7 +2148,8 @@ func _emote_pose(t: float) -> Dictionary:
 					pole = Vector3(s * 0.15, 0.0, 1.0)
 				else:
 					goal = hands[side][0]
-					pole = Vector3(s * 0.8, -0.2, -0.5)
+					var guarding: float = hands[side][2] if (hands[side] as Array).size() > 2 else 0.0
+					pole = Vector3(s * 0.8, -0.2, -0.5).lerp(Vector3(s * 0.6, -1.0, 0.0), guarding)
 				var knee: Vector3 = _emote_two_bone(origin, goal, len_a, len_b, pole)
 				mids[side * 2 + (0 if leg else 1)] = goal
 				a = Quaternion(dir_now.normalized(), (knee - origin).normalized()) * a_parent
