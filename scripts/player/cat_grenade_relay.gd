@@ -3,6 +3,7 @@ extends Node
 
 ## The host's cat grenades drawn on every other machine, and their blast played everywhere.
 ## One per tree at /root/CatGrenadeRelay, so the host's calls land on every peer.
+## E on the cat this machine's player holds pets it, as the hub cat is petted.
 
 const NODE_NAME: StringName = &"CatGrenadeRelay"
 const EXPLOSION_SHEET: Texture2D = preload("res://hub/props/cat/fx/explosion_sheet.png")
@@ -17,6 +18,11 @@ var _shown: Dictionary[int, MeshInstance3D] = {}
 ## Cats already gone here, so a late unreliable pose cannot redraw one.
 var _ended: Dictionary[int, bool] = {}
 var _next_id: int = 0
+var _held_id: int = 0
+var _held_mesh: MeshInstance3D = null
+var _prompt: CanvasLayer = null
+var _purr: AudioStreamPlayer3D = null
+var _pet_tween: Tween = null
 
 
 ## Put the relay in [param tree] if it is not there yet.
@@ -41,10 +47,11 @@ func next_id() -> int:
 	return _next_id
 
 
-## Authority: where cat [param cat_id] is this tick.
-func pose(cat_id: int, at: Vector3, yaw: float) -> void:
+## Authority: where cat [param cat_id] is this tick, and which peer holds it (0 for none).
+func pose(cat_id: int, at: Vector3, yaw: float, holder: int, mesh: MeshInstance3D) -> void:
+	_track_held(cat_id, holder, mesh)
 	if _networked():
-		rpc(&"_pose", cat_id, at, yaw)
+		rpc(&"_pose", cat_id, at, yaw, holder)
 
 
 ## Authority: cat [param cat_id] went off at [param at].
@@ -56,12 +63,13 @@ func blast(cat_id: int, at: Vector3) -> void:
 
 ## Authority: cat [param cat_id] is gone without a blast.
 func gone(cat_id: int) -> void:
+	_gone(cat_id)
 	if _networked():
 		rpc(&"_gone", cat_id)
 
 
 @rpc("authority", "unreliable_ordered", "call_remote", 3)
-func _pose(cat_id: int, at: Vector3, yaw: float) -> void:
+func _pose(cat_id: int, at: Vector3, yaw: float, holder: int) -> void:
 	if multiplayer.is_server() or _ended.has(cat_id) or not at.is_finite() or not is_finite(yaw):
 		return
 	var mesh: MeshInstance3D = _shown.get(cat_id, null)
@@ -74,6 +82,7 @@ func _pose(cat_id: int, at: Vector3, yaw: float) -> void:
 		scene.add_child(mesh)
 		_shown[cat_id] = mesh
 	mesh.global_transform = Transform3D(Basis(Vector3.UP, yaw), at)
+	_track_held(cat_id, holder, mesh)
 
 
 @rpc("authority", "reliable", "call_remote", 0)
@@ -116,10 +125,43 @@ func _gone(cat_id: int) -> void:
 	if _ended.size() >= ENDED_MEMORY:
 		_ended.clear()
 	_ended[cat_id] = true
+	if _held_id == cat_id:
+		_track_held(cat_id, 0, null)
 	var mesh: MeshInstance3D = _shown.get(cat_id, null)
 	if is_instance_valid(mesh):
 		mesh.queue_free()
 	_shown.erase(cat_id)
+
+
+## Pet the held cat: [method HubCat.pet], and the first pet makes it happy. The cook rides the intent.
+func _input(event: InputEvent) -> void:
+	if _held_id == 0 or not is_instance_valid(_held_mesh) or not event.is_action_pressed(&"interact"):
+		return
+	get_viewport().set_input_as_handled()
+	if _purr == null:
+		_purr = HubCat.become_happy(_held_mesh)
+	_pet_tween = HubCat.pet(_held_mesh, _pet_tween)
+
+
+## Show the pet prompt while this machine's player holds [param cat_id].
+func _track_held(cat_id: int, holder: int, mesh: MeshInstance3D) -> void:
+	var mine: bool = holder != 0 and holder == multiplayer.get_unique_id() and mesh != null
+	if mine and (_held_id != cat_id or _held_mesh != mesh):
+		_held_id = cat_id
+		_held_mesh = mesh
+		_purr = null
+		_pet_tween = null
+		if _prompt == null:
+			_prompt = HubCat.make_pet_prompt()
+			add_child(_prompt)
+	elif not mine and _held_id == cat_id:
+		_held_id = 0
+		_held_mesh = null
+		_purr = null
+		_pet_tween = null
+		if _prompt != null:
+			_prompt.queue_free()
+			_prompt = null
 
 
 func _networked() -> bool:

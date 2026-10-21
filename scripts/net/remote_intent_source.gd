@@ -147,6 +147,7 @@ func poll(_delta: float) -> MoveIntent:
 	command.fire_pressed = false
 	command.ability_pressed = false
 	command.shove_pressed = false
+	command.cook_pressed = false
 	return _intent
 
 
