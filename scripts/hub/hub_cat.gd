@@ -6,8 +6,8 @@ extends RigidBody3D
 
 enum State { REST, HELD, FLYING }
 
-## Where the cat sits relative to the carrier's head: low, right, ahead.
-const CARRY_OFFSET: Vector3 = Vector3(0.22, -0.38, -0.75)
+## Where the cat sits relative to the carrier's head: just under and ahead of the face.
+const CARRY_OFFSET: Vector3 = Vector3(0.0, -0.3, -0.55)
 const THROW_SPEED: float = 20.0
 const THROW_LIFT: float = 4.0
 const THROW_SPIN: float = 12.0
