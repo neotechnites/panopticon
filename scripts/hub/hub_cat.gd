@@ -27,9 +27,11 @@ const PURR_DB: float = 8.0
 const EXPLOSION_SOUND: AudioStream = preload("res://hub/props/cat/fx/explosion.wav")
 const KEY_TEXTURE: Texture2D = preload("res://hub/props/cat/fx/key_e.png")
 ## The pet prompt: the E keycap drawn this many times its pixels, this far below the crosshair.
-const PROMPT_KEY_SCALE: float = 6.0
+const PROMPT_KEY_SCALE: float = 3.0
 const PROMPT_BELOW_CROSSHAIR: float = 90.0
-const PROMPT_FONT_SIZE: int = 48
+const PROMPT_FONT_SIZE: int = 24
+## Extra drop below the crosshair, as a fraction of screen height.
+const PROMPT_SCREEN_DROP: float = 0.1
 
 ## Frames in the explosion sheet's horizontal strip.
 @export var explosion_frames: int = 17
@@ -69,38 +71,44 @@ func _input(event: InputEvent) -> void:
 	if not _local_held or not event.is_action_pressed(&"interact"):
 		return
 	get_viewport().set_input_as_handled()
-	var mesh: Node3D = get_node_or_null("Mesh") as Node3D
+	var mesh: MeshInstance3D = get_node_or_null("Mesh") as MeshInstance3D
 	if mesh == null:
 		return
-	_spawn_heart()
 	if _purr == null:
-		_become_happy()
-	if _pet_tween != null:
-		_pet_tween.kill()
+		_purr = become_happy(mesh)
+	_pet_tween = pet(mesh, _pet_tween)
+
+
+## One pet of [param mesh]: a heart and a squish. Returns the squish, which replaces [param tween].
+static func pet(mesh: MeshInstance3D, tween: Tween) -> Tween:
+	spawn_heart(mesh)
+	if tween != null:
+		tween.kill()
 	mesh.scale = Vector3.ONE
-	_pet_tween = create_tween()
-	_pet_tween.tween_property(mesh, "scale", Vector3(1.2, 0.75, 1.2), 0.08)
-	_pet_tween.tween_property(mesh, "scale", Vector3(0.92, 1.1, 0.92), 0.1)
-	_pet_tween.tween_property(mesh, "scale", Vector3.ONE, 0.1)
+	var squish: Tween = mesh.create_tween()
+	squish.tween_property(mesh, "scale", Vector3(1.2, 0.75, 1.2), 0.08)
+	squish.tween_property(mesh, "scale", Vector3(0.92, 1.1, 0.92), 0.1)
+	squish.tween_property(mesh, "scale", Vector3.ONE, 0.1)
+	return squish
 
 
-## First pet: meow, swap to the happy face (mesh surface 2) and purr until reset.
-func _become_happy() -> void:
-	var mesh: MeshInstance3D = get_node_or_null("Mesh") as MeshInstance3D
-	if mesh != null and mesh.mesh != null and mesh.mesh.get_surface_count() > 2:
+## First pet: meow, swap to the happy face (mesh surface 2) and purr; returns the purr.
+static func become_happy(mesh: MeshInstance3D) -> AudioStreamPlayer3D:
+	if mesh.mesh != null and mesh.mesh.get_surface_count() > 2:
 		mesh.set_surface_override_material(1, mesh.mesh.surface_get_material(2))
 		mesh.set_surface_override_material(2, mesh.mesh.surface_get_material(1))
 	var meow: AudioStreamPlayer3D = AudioStreamPlayer3D.new()
 	meow.stream = MEOW_SOUND
 	meow.volume_db = MEOW_DB
 	meow.finished.connect(meow.queue_free)
-	add_child(meow)
+	mesh.add_child(meow)
 	meow.play()
-	_purr = AudioStreamPlayer3D.new()
-	_purr.stream = PURR_SOUND
-	_purr.volume_db = PURR_DB
-	add_child(_purr)
-	_purr.play()
+	var purr: AudioStreamPlayer3D = AudioStreamPlayer3D.new()
+	purr.stream = PURR_SOUND
+	purr.volume_db = PURR_DB
+	mesh.add_child(purr)
+	purr.play()
+	return purr
 
 
 ## Back to the neutral face and silence.
@@ -114,8 +122,8 @@ func _become_neutral() -> void:
 		_purr = null
 
 
-## A billboarded heart that drifts up and fades; rapid pets stack.
-func _spawn_heart() -> void:
+## A billboarded heart that drifts up off [param over] and fades; rapid pets stack.
+static func spawn_heart(over: Node3D) -> void:
 	var heart: Sprite3D = Sprite3D.new()
 	heart.texture = HEART_TEXTURE
 	heart.pixel_size = 0.012
@@ -123,8 +131,8 @@ func _spawn_heart() -> void:
 	heart.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	heart.shaded = false
 	heart.no_depth_test = true
-	get_tree().current_scene.add_child(heart)
-	var start: Vector3 = global_position + Vector3(randf_range(-0.2, 0.2), 0.6, 0.0)
+	over.get_tree().current_scene.add_child(heart)
+	var start: Vector3 = over.global_position + Vector3(randf_range(-0.2, 0.2), 0.6, 0.0)
 	heart.global_position = start
 	var drift: float = randf_range(-0.4, 0.4)
 	var tween: Tween = heart.create_tween().set_parallel(true)
@@ -137,33 +145,41 @@ func _spawn_heart() -> void:
 func _set_local_held(held: bool) -> void:
 	_local_held = held
 	if held and _prompt_layer == null:
-		_prompt_layer = CanvasLayer.new()
-		var row: HBoxContainer = HBoxContainer.new()
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override(&"separation", 24)
-		var key: TextureRect = TextureRect.new()
-		key.texture = KEY_TEXTURE
-		key.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		key.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		key.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		key.custom_minimum_size = Vector2(KEY_TEXTURE.get_width(), KEY_TEXTURE.get_height()) * PROMPT_KEY_SCALE
-		row.add_child(key)
-		var label: Label = Label.new()
-		label.text = tr("HUB_CAT_PET_PROMPT")
-		label.add_theme_color_override(&"font_outline_color", Color.BLACK)
-		label.add_theme_constant_override(&"outline_size", 14)
-		label.add_theme_font_size_override(&"font_size", PROMPT_FONT_SIZE)
-		row.add_child(label)
-		row.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-		row.grow_horizontal = Control.GROW_DIRECTION_BOTH
-		row.grow_vertical = Control.GROW_DIRECTION_BOTH
-		row.offset_top += PROMPT_BELOW_CROSSHAIR
-		row.offset_bottom += PROMPT_BELOW_CROSSHAIR
-		_prompt_layer.add_child(row)
+		_prompt_layer = make_pet_prompt()
 		add_child(_prompt_layer)
 	elif not held and _prompt_layer != null:
 		_prompt_layer.queue_free()
 		_prompt_layer = null
+
+
+## The E keycap and "Pet cat", just under the crosshair.
+static func make_pet_prompt() -> CanvasLayer:
+	var layer: CanvasLayer = CanvasLayer.new()
+	var row: HBoxContainer = HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override(&"separation", 24)
+	var key: TextureRect = TextureRect.new()
+	key.texture = KEY_TEXTURE
+	key.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	key.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	key.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	key.custom_minimum_size = Vector2(KEY_TEXTURE.get_width(), KEY_TEXTURE.get_height()) * PROMPT_KEY_SCALE
+	row.add_child(key)
+	var label: Label = Label.new()
+	label.text = TranslationServer.translate("HUB_CAT_PET_PROMPT")
+	label.add_theme_color_override(&"font_outline_color", Color.BLACK)
+	label.add_theme_constant_override(&"outline_size", 14)
+	label.add_theme_font_size_override(&"font_size", PROMPT_FONT_SIZE)
+	row.add_child(label)
+	row.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	row.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	row.grow_vertical = Control.GROW_DIRECTION_BOTH
+	row.anchor_top += PROMPT_SCREEN_DROP
+	row.anchor_bottom += PROMPT_SCREEN_DROP
+	row.offset_top += PROMPT_BELOW_CROSSHAIR
+	row.offset_bottom += PROMPT_BELOW_CROSSHAIR
+	layer.add_child(row)
+	return layer
 
 
 func _announce_held(held: bool) -> void:
@@ -271,7 +287,7 @@ func _explode(fuse: int) -> void:
 		atlas.region = Rect2(i * width, 0, width, EXPLOSION_SHEET.get_height())
 		frames.add_frame(&"boom", atlas)
 	blast.sprite_frames = frames
-	blast.pixel_size = 0.02
+	blast.pixel_size = 0.06
 	blast.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	blast.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	blast.shaded = false

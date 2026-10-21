@@ -28,6 +28,9 @@ var cooking: bool = false
 var fuse_left: float = FUSE_SECONDS
 var id: int = 0
 var _relay: CatGrenadeRelay = null
+## The peer whose player carries it, 0 for a bot: who sees the pet prompt.
+var _holder_peer: int = 0
+var _mesh: MeshInstance3D = null
 
 
 func _init() -> void:
@@ -43,6 +46,7 @@ func _init() -> void:
 	mesh.name = "Mesh"
 	mesh.mesh = MESH
 	add_child(mesh)
+	_mesh = mesh
 	var shape: CollisionShape3D = CollisionShape3D.new()
 	var box: BoxShape3D = BoxShape3D.new()
 	box.size = Vector3(0.28, 0.38, 0.5)
@@ -57,6 +61,7 @@ func _ready() -> void:
 		id = _relay.next_id()
 	if is_instance_valid(carrier):
 		global_transform = _carry_transform()
+		_holder_peer = _peer_of(carrier)
 
 
 ## Light the fuse. Idempotent.
@@ -104,7 +109,7 @@ func _physics_process(delta: float) -> void:
 			_explode()
 			return
 	if _relay != null:
-		_relay.pose(id, global_position, rotation.y)
+		_relay.pose(id, global_position, rotation.y, _holder_peer if carrier != null else 0, _mesh)
 
 
 func _explode() -> void:
@@ -135,6 +140,16 @@ func _push(participant: MatchParticipant, at: Vector3) -> void:
 	target.launch(
 		(away * BLAST_SPEED + Vector3.UP * BLAST_LIFT) * strength, BLAST_AIR_LOCK_SECONDS * strength
 	)
+
+
+func _peer_of(body: PlayerController) -> int:
+	if body.intent_source is HumanIntentSource:
+		return multiplayer.get_unique_id()
+	if body.intent_source is RemoteIntentSource:
+		for child: Node in body.get_children():
+			if child is PlayerNetLink:
+				return (child as PlayerNetLink).owner_peer_id
+	return 0
 
 
 func _carry_basis() -> Basis:
