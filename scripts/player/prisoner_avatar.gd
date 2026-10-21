@@ -1742,8 +1742,8 @@ func _build_crouch_animation() -> void:
 
 ## Half-squat dribble, degrees about model X (pitch) and Z (roll, +X outward): a leg, then each arm low at its bounce and raised between.
 const EMOTE_LEG: Dictionary = {"Thigh": Vector2(-55.0, 14.0), "Shin": Vector2(80.0, 0.0), "Foot": Vector2(-25.0, -14.0)}
-const EMOTE_ARM_LOW: Dictionary = {"UpperArm": Vector2(-55.0, 30.0), "LowerArm": Vector2(-35.0, 0.0), "Hand": Vector2(-10.0, 0.0)}
-const EMOTE_ARM_HIGH: Dictionary = {"UpperArm": Vector2(-65.0, 20.0), "LowerArm": Vector2(-60.0, 0.0), "Hand": Vector2(-25.0, 0.0)}
+const EMOTE_ARM_LOW: Dictionary = {"UpperArm": Vector2(-25.0, 40.0), "LowerArm": Vector2(-65.0, 0.0), "Hand": Vector2(-10.0, 0.0)}
+const EMOTE_ARM_HIGH: Dictionary = {"UpperArm": Vector2(-40.0, 25.0), "LowerArm": Vector2(-105.0, 0.0), "Hand": Vector2(-25.0, 0.0)}
 const EMOTE_TORSO: Dictionary = {"Hips": 10.0, "Spine": 20.0, "Neck": -15.0, "Head": -12.0}
 const EMOTE_PERIOD: float = 1.0
 const EMOTE_STEPS: int = 16
