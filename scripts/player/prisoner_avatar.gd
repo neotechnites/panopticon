@@ -302,9 +302,12 @@ const SHOVE_PALM: Basis = Basis(Vector3(0.0, 0.34, 0.94), Vector3(0.0, 0.94, -0.
 ## eases in is a shove that has already missed.
 @export var shove_blend_time: float = 0.06
 
-## The dribble emote's clip, built by [method _build_emote_animation]; the hub cat is the ball.
+## The dribble emote's clip, built by [method _build_emote_animation].
 @export var emote_clip: StringName = &"Balling"
-@export var emote_cat_scale: float = 0.5
+## What gets dribbled: any scene; its meshes' centre is the pivot. Swap it here, nothing else changes.
+@export var dribble_object: PackedScene = preload("res://hub/props/cat/dribble_cat.tscn")
+## Contact radius for the floor and the palms; 0 measures the object's own mesh as it tumbles.
+@export var object_radius: float = 0.0
 
 ## Which visual layer the mesh draws on, authored per body.
 ##
@@ -466,8 +469,6 @@ var _has_emote: bool = false
 var _in_emote: bool = false
 var _emote_rig: Skeleton3D = null
 var _emote_cat: Node3D = null
-var _emote_cat_mesh: MeshInstance3D = null
-var _emote_hands: PackedInt32Array = PackedInt32Array([-1, -1])
 
 ## This body's own camera, or null. Current, with no claim standing, means the
 ## view is out of this body and it must be shown its own legs.
@@ -883,7 +884,8 @@ func _process(delta: float) -> void:
 			_in_air = false
 			_in_aim = false
 			_running = false
-			_emote_cat_mesh.layers = mesh.layers
+			for part: MeshInstance3D in _emote_objects:
+				part.layers = mesh.layers
 			_emote_cat.visible = true
 			animation.speed_scale = 1.0
 			animation.play(emote_clip, blend_time)
@@ -1740,165 +1742,420 @@ func _build_crouch_animation() -> void:
 	library.add_animation(crouch_clip, crouch_anim)
 
 
-## Half-squat dribble, degrees about model X (pitch) and Z (roll, +X outward); each arm is low at its bounce, raised between. Feet are solved flat.
-const EMOTE_LEG: Dictionary = {"Thigh": Vector2(-55.0, 14.0), "Shin": Vector2(80.0, 0.0)}
-const EMOTE_ARM_LOW: Dictionary = {"UpperArm": Vector2(-10.0, 30.0), "LowerArm": Vector2(-40.0, 0.0), "Hand": Vector2(-10.0, 0.0)}
-const EMOTE_ARM_HIGH: Dictionary = {"UpperArm": Vector2(-35.0, 20.0), "LowerArm": Vector2(-90.0, 0.0), "Hand": Vector2(-25.0, 0.0)}
-const EMOTE_TORSO: Dictionary = {"Hips": 10.0, "Spine": 20.0, "Neck": -15.0, "Head": -12.0}
-const EMOTE_PERIOD: float = 1.0
-const EMOTE_STEPS: int = 16
-const EMOTE_TWIST: float = 8.0
-## Fraction of the cycle each palm rides the cat down before letting it go.
-const EMOTE_HOLD: float = 0.1
+## The dribble: moves rotoscoped from pros, chained so each ends where the next starts. Stance, hold points and
+## timings per move are below; the object's path, feet, hips and arms are all solved from them. Skeleton space, toes +Z, his left +X.
+const EMOTE_FPS: float = 30.0
 const EMOTE_GRAVITY: float = 9.8
-const EMOTE_SPIN: float = 2.0
-const CAT_MESH: ArrayMesh = preload("res://hub/props/cat/cat_mesh.tres")
+const EMOTE_SEQUENCE: Array = ["pound", "pound", "cross", "tween", "behind", "inout", "double", "tween"]
+## Stance per move: 0 staggered (Harden's size-up, left foot forward), 1 square.
+const EMOTE_STANCE: Dictionary = {"pound": 0, "cross": 1, "tween": 0, "behind": 1, "inout": 1, "double": 1}
+## Ankles per stance [right, left].
+const EMOTE_FEET: Array = [[Vector3(-0.26, 0.0, -0.55), Vector3(0.16, 0.0, 0.58)], [Vector3(-0.34, 0.0, 0.06), Vector3(0.34, 0.0, 0.10)]]
+const EMOTE_FOOT_YAW: Array = [-30.0, 15.0]
+## Object centre held per stance [right, left].
+const EMOTE_HOLD: Array = [[Vector3(-0.62, 0.42, 0.42), Vector3(0.54, 0.42, 0.26)], [Vector3(-0.58, 0.42, 0.70), Vector3(0.58, 0.42, 0.70)]]
+const EMOTE_STEP_TIME: float = 0.18
+## Whole turns per loop about X, Y, Z: a loose tumble that still loops.
+const EMOTE_TUMBLE: Vector3 = Vector3(5.0, 7.0, -4.0)
+## Start angles (turns), chosen so the object lies lowest as it passes under the crotch.
+const EMOTE_TUMBLE_PHASE: Vector3 = Vector3(0.25, 0.125, 0.75)
+const EMOTE_DEFAULT_REACH: float = 0.2
 
-var _emote_hip_y: float = 0.0
-var _emote_radius: float = 0.0
-var _emote_floor: Vector3 = Vector3.ZERO
-## Per half cycle (R to L, L to R): release point, catch point, seconds down, seconds up.
-var _emote_release: PackedVector3Array = PackedVector3Array([Vector3.ZERO, Vector3.ZERO])
-var _emote_catch: PackedVector3Array = PackedVector3Array([Vector3.ZERO, Vector3.ZERO])
-var _emote_down: PackedFloat32Array = PackedFloat32Array([0.0, 0.0])
-var _emote_up: PackedFloat32Array = PackedFloat32Array([0.0, 0.0])
+static var _emote_cache: Dictionary = {}
+
+var _emote_throws: Array = []
+var _emote_steps: Array = []
+var _emote_period: float = 1.0
+var _emote_verts: PackedVector3Array = PackedVector3Array()
+var _emote_order: PackedInt32Array = PackedInt32Array()
+var _emote_objects: Array[MeshInstance3D] = []
 
 
-## Keyframes [member emote_clip] and solves the cat's path from the same pose maths, so hands and cat meet by construction.
+## Builds [member emote_clip] (cached per object) and hangs [member dribble_object] on the pivot it drives.
 func _build_emote_animation() -> void:
 	var found: Array = _resolve_skeleton()
-	if found.is_empty():
+	if found.is_empty() or dribble_object == null:
 		return
 	var path: String = found[0]
 	var skeleton: Skeleton3D = found[1]
 	_emote_rig = skeleton
-	_emote_hands[0] = skeleton.find_bone("Hand.R")
-	_emote_hands[1] = skeleton.find_bone("Hand.L")
-	var hips: int = skeleton.find_bone("Hips")
-	var foot_l: int = skeleton.find_bone("Foot.L")
-	var foot_r: int = skeleton.find_bone("Foot.R")
-	if _emote_hands[0] < 0 or _emote_hands[1] < 0 or hips < 0 or foot_l < 0 or foot_r < 0:
-		return
-	# Feet flat: drop the hips by however far the posed ankle sits above its rest height.
-	var rest_hip_y: float = skeleton.get_bone_rest(hips).origin.y
-	_emote_hip_y = rest_hip_y
-	var lift: float = _emote_global(foot_l, 0.0).origin.y - skeleton.get_bone_global_rest(foot_l).origin.y
-	_emote_hip_y = rest_hip_y - lift
+	for name: String in ["Hips", "Spine", "Neck", "Head", "UpperArm.L", "LowerArm.L", "Hand.L", "UpperArm.R", "LowerArm.R", "Hand.R",
+			"Thigh.L", "Shin.L", "Foot.L", "Thigh.R", "Shin.R", "Foot.R"]:
+		if skeleton.find_bone(name) < 0:
+			return
+	_emote_cat = Node3D.new()
+	_emote_cat.name = &"DribblePivot"
+	_emote_cat.visible = false
+	var object: Node3D = dribble_object.instantiate() as Node3D
+	_emote_cat.add_child(object)
+	skeleton.add_child(_emote_cat)
+	var box := AABB()
+	var first: bool = true
+	_emote_verts.clear()
+	for node: Node in object.find_children("*", "MeshInstance3D", true, false):
+		var mi: MeshInstance3D = node as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		_emote_objects.append(mi)
+		var to_root: Transform3D = object.global_transform.affine_inverse() * mi.global_transform if object.is_inside_tree() else mi.transform
+		for surface: int in mi.mesh.get_surface_count():
+			for v: Vector3 in mi.mesh.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX]:
+				var p: Vector3 = to_root * v
+				_emote_verts.append(p)
+				box = AABB(p, Vector3.ZERO) if first else box.expand(p)
+				first = false
+	# The pivot is the object's centre, whatever it is.
+	object.position = -box.get_center()
+	for i: int in _emote_verts.size():
+		_emote_verts[i] -= box.get_center()
+	if object_radius > 0.0 or _emote_verts.is_empty():
+		_emote_verts.clear()
 
-	var clip := Animation.new()
-	clip.length = EMOTE_PERIOD
-	clip.loop_mode = Animation.LOOP_LINEAR
-	for bone: int in skeleton.get_bone_count():
-		var bone_name: String = skeleton.get_bone_name(bone)
-		var track_path := NodePath(path + ":" + bone_name)
-		var rot: int = clip.add_track(Animation.TYPE_ROTATION_3D)
-		clip.track_set_path(rot, track_path)
-		for step: int in EMOTE_STEPS + 1:
-			var t: float = EMOTE_PERIOD * float(step) / float(EMOTE_STEPS)
-			clip.rotation_track_insert_key(rot, t, _pose_bone(skeleton, bone, _emote_rotation(bone_name, TAU * t / EMOTE_PERIOD)))
-		if bone == hips:
-			var pos: int = clip.add_track(Animation.TYPE_POSITION_3D)
-			clip.track_set_path(pos, track_path)
-			var rest: Vector3 = skeleton.get_bone_rest(bone).origin
-			clip.position_track_insert_key(pos, 0.0, Vector3(rest.x, _emote_hip_y, rest.z))
+	var key: String = dribble_object.resource_path + ":" + str(object_radius)
+	if not _emote_cache.has(key):
+		_emote_cache[key] = _emote_bake(skeleton, path)
 	var library: AnimationLibrary
 	if animation.has_animation_library(&""):
 		library = animation.get_animation_library(&"")
 	else:
 		library = AnimationLibrary.new()
 		animation.add_animation_library(&"", library)
-	library.add_animation(emote_clip, clip)
-
-	# The cat pivots on its mesh centre; its radius covers it at any angle of the spin.
-	var box: AABB = CAT_MESH.get_aabb()
-	_emote_radius = Vector2(box.size.x, box.size.y).length() * 0.5 * emote_cat_scale
-	var feet: Vector3 = (_emote_global(foot_l, 0.0).origin + _emote_global(foot_r, 0.0).origin) * 0.5
-	_emote_floor = Vector3(feet.x, _emote_radius, feet.z)
-	for half: int in 2:
-		var released: float = 0.5 * float(half)
-		var caught: float = released + 0.5 - EMOTE_HOLD
-		_emote_release[half] = _emote_palm(half, released)
-		_emote_catch[half] = _emote_palm(1 - half, caught)
-		var flight: float = (0.5 - EMOTE_HOLD) * EMOTE_PERIOD
-		var rise: float = maxf(_emote_catch[half].y - _emote_floor.y, 0.01)
-		_emote_up[half] = minf(0.9 * sqrt(2.0 * rise / EMOTE_GRAVITY), flight * 0.75)
-		_emote_down[half] = flight - _emote_up[half]
-
-	_emote_cat = Node3D.new()
-	_emote_cat.name = &"EmoteCat"
-	_emote_cat.visible = false
-	_emote_cat_mesh = MeshInstance3D.new()
-	_emote_cat_mesh.mesh = CAT_MESH
-	_emote_cat_mesh.position = -box.get_center()
-	_emote_cat.add_child(_emote_cat_mesh)
-	skeleton.add_child(_emote_cat)
-	skeleton.skeleton_updated.connect(_follow_emote_cat)
+	library.add_animation(emote_clip, _emote_cache[key])
 
 
-## One bone's model-space rotation at [param phase] of the dribble; a foot cancels its leg so the sole stays level.
-func _emote_rotation(bone_name: String, phase: float) -> Quaternion:
-	if EMOTE_TORSO.has(bone_name):
-		var twist: float = EMOTE_TWIST * sin(phase) if bone_name == "Spine" else 0.0
-		return Quaternion(Vector3.UP, deg_to_rad(twist)) * Quaternion(Vector3.RIGHT, deg_to_rad(float(EMOTE_TORSO[bone_name])))
-	var dot: int = bone_name.find(".")
-	if dot < 0:
-		return Quaternion.IDENTITY
-	var part: String = bone_name.substr(0, dot)
-	var suffix: String = bone_name.substr(dot)
-	if part == "Foot":
-		return (_emote_rotation("Hips", phase) * _emote_rotation("Thigh" + suffix, phase) * _emote_rotation("Shin" + suffix, phase)).inverse()
-	var side: float = 1.0 if suffix == ".L" else -1.0
-	var angles := Vector2.ZERO
-	if EMOTE_LEG.has(part):
-		angles = EMOTE_LEG[part]
-	elif EMOTE_ARM_LOW.has(part):
-		# Right hand lowest at phase 0, left at half a cycle.
-		var low: float = 0.5 + 0.5 * cos(phase) * -side
-		angles = (EMOTE_ARM_HIGH[part] as Vector2).lerp(EMOTE_ARM_LOW[part], low)
-	return Quaternion(Vector3.BACK, deg_to_rad(angles.y * side)) * Quaternion(Vector3.RIGHT, deg_to_rad(angles.x))
+## The whole loop as one clip: every bone, the hips' position, and the pivot's position and tumble.
+func _emote_bake(skeleton: Skeleton3D, path: String) -> Animation:
+	var depth: Array[int] = []
+	for bone: int in skeleton.get_bone_count():
+		var d: int = 0
+		var p: int = skeleton.get_bone_parent(bone)
+		while p >= 0:
+			d += 1
+			p = skeleton.get_bone_parent(p)
+		depth.append(d)
+	_emote_order.clear()
+	for d: int in 10:
+		for bone: int in skeleton.get_bone_count():
+			if depth[bone] == d:
+				_emote_order.append(bone)
+	_emote_timeline()
+	var clip := Animation.new()
+	clip.length = _emote_period
+	clip.loop_mode = Animation.LOOP_LINEAR
+	var rot_tracks: Array[int] = []
+	for bone: int in skeleton.get_bone_count():
+		var track: int = clip.add_track(Animation.TYPE_ROTATION_3D)
+		clip.track_set_path(track, NodePath(path + ":" + skeleton.get_bone_name(bone)))
+		rot_tracks.append(track)
+	var hip_track: int = clip.add_track(Animation.TYPE_POSITION_3D)
+	clip.track_set_path(hip_track, NodePath(path + ":Hips"))
+	var pivot_pos: int = clip.add_track(Animation.TYPE_POSITION_3D)
+	clip.track_set_path(pivot_pos, NodePath(path + "/DribblePivot"))
+	var pivot_rot: int = clip.add_track(Animation.TYPE_ROTATION_3D)
+	clip.track_set_path(pivot_rot, NodePath(path + "/DribblePivot"))
+	var frames: int = roundi(_emote_period * EMOTE_FPS)
+	for f: int in frames + 1:
+		var t: float = _emote_period * float(f) / float(frames)
+		var pose: Dictionary = _emote_pose(t)
+		for bone: int in skeleton.get_bone_count():
+			clip.rotation_track_insert_key(rot_tracks[bone], t, pose[bone])
+		clip.position_track_insert_key(hip_track, t, pose[-1])
+		clip.position_track_insert_key(pivot_pos, t, _emote_object_at(t))
+		clip.rotation_track_insert_key(pivot_rot, t, _emote_tumble(t).get_rotation_quaternion())
+	return clip
 
 
-## [param bone]'s skeleton-space transform in the emote at cycle fraction [param t], from the clip's own maths.
-func _emote_global(bone: int, t: float) -> Transform3D:
-	var parent: int = _emote_rig.get_bone_parent(bone)
-	var rest: Transform3D = _emote_rig.get_bone_rest(bone)
-	var origin: Vector3 = rest.origin
-	if parent < 0:
-		origin.y = _emote_hip_y
-	var local := Transform3D(Basis(_pose_bone(_emote_rig, bone, _emote_rotation(_emote_rig.get_bone_name(bone), TAU * t))), origin)
-	return local if parent < 0 else _emote_global(parent, t) * local
+## Lays the moves end to end: per throw the hands, the release, bounce and catch times, points and velocities; per stance change two steps.
+func _emote_timeline() -> void:
+	_emote_throws.clear()
+	_emote_steps.clear()
+	var hand: int = 0
+	var stance: int = EMOTE_STANCE[EMOTE_SEQUENCE[-1]]
+	var t: float = 0.0
+	var feet: Array = (EMOTE_FEET[stance] as Array).duplicate()
+	for move: String in EMOTE_SEQUENCE:
+		var want: int = EMOTE_STANCE[move]
+		var lead: float = 0.0
+		if want != stance:
+			# Front foot first into the stagger, back foot first out of it.
+			var order: Array = [1, 0] if want == 0 else [0, 1]
+			for k: int in 2:
+				var side: int = order[k]
+				var t0: float = t + 0.04 + 0.12 * float(k)
+				_emote_steps.append([t0, t0 + EMOTE_STEP_TIME, side, feet[side], EMOTE_FEET[want][side]])
+				feet[side] = EMOTE_FEET[want][side]
+			lead = 0.32
+			stance = want
+		var other: int = 1 - hand
+		var s: float = 1.0 if hand == 1 else -1.0
+		var held: Vector3 = EMOTE_HOLD[stance][hand]
+		match move:
+			"pound":
+				t = _emote_throw(hand, hand, t + 0.22 + lead, 0.12, 0.16, held, Vector2(held.x, held.z + 0.08), held)
+			"cross":
+				t = _emote_throw(hand, other, t + 0.2 + lead, 0.12, 0.16, held, Vector2(0.0, 0.95), EMOTE_HOLD[stance][other])
+				hand = other
+			"tween":
+				var gap: Vector3 = (feet[0] + feet[1]) * 0.5
+				t = _emote_throw(hand, other, t + 0.2 + lead, 0.1, 0.12, held, Vector2(gap.x + 0.04, gap.z + 0.05), EMOTE_HOLD[stance][other])
+				hand = other
+			"behind":
+				var back := Vector3(s * 0.46, 0.46, -0.14)
+				t = _emote_throw(hand, other, t + 0.26 + lead, 0.13, 0.17, back, Vector2(-s * 0.4, -0.55), Vector3(-s * 0.68, 0.42, 0.30))
+				hand = other
+			"inout":
+				var inside := Vector3(s * 0.36, 0.46, 0.80)
+				t = _emote_throw(hand, hand, t + 0.3 + lead, 0.12, 0.16, inside, Vector2(s * 0.56, 0.58), held)
+			"double":
+				t = _emote_throw(hand, other, t + 0.16 + lead, 0.1, 0.13, held, Vector2(0.0, 0.95), EMOTE_HOLD[stance][other])
+				t = _emote_throw(other, hand, t + 0.08, 0.1, 0.13, EMOTE_HOLD[stance][other], Vector2(0.0, 0.95), held)
+	_emote_period = t
+	for i: int in _emote_throws.size():
+		_emote_solve_throw(i)
 
 
-## The cat's centre with hand [param side] (0 right, 1 left) resting on its top, at cycle fraction [param t].
-func _emote_palm(side: int, t: float) -> Vector3:
-	var hand: Transform3D = _emote_global(_emote_hands[side], t)
-	return hand.origin + hand.basis.y.normalized() * 0.1 - Vector3(0.0, _emote_radius + 0.03, 0.0)
+## Appends one throw; returns its catch time.
+func _emote_throw(from: int, to: int, release: float, down: float, up: float, rel: Vector3, bounce: Vector2, catch: Vector3) -> float:
+	_emote_throws.append({"from": from, "to": to, "tr": release, "tb": release + down, "tc": release + down + up,
+		"rel": rel, "bounce": bounce, "catch": catch, "low": 0.0, "vr": Vector3.ZERO, "vc": Vector3.ZERO, "v1": 0.0})
+	return release + down + up
 
 
-## Palm rides it down, it falls under gravity to the floor between the feet, bounces and decelerates up into the other palm.
-func _follow_emote_cat() -> void:
-	if not _in_emote or animation.current_animation != emote_clip:
-		return
-	var t: float = fposmod(animation.current_animation_position / EMOTE_PERIOD, 1.0)
-	var half: int = 0 if t < 0.5 else 1
-	var s: float = (t - 0.5 * float(half)) * EMOTE_PERIOD
-	var at: Vector3
-	if s >= (0.5 - EMOTE_HOLD) * EMOTE_PERIOD:
-		at = _emote_palm(1 - half, t)
-	elif s < _emote_down[half]:
-		var from: Vector3 = _emote_release[half]
-		var down: float = _emote_down[half]
-		var v0: float = (from.y - _emote_floor.y) / down - 0.5 * EMOTE_GRAVITY * down
-		at = from.lerp(_emote_floor, s / down)
-		at.y = from.y - v0 * s - 0.5 * EMOTE_GRAVITY * s * s
-	else:
-		var u: float = s - _emote_down[half]
-		var up: float = _emote_up[half]
-		var to: Vector3 = _emote_catch[half]
-		var v1: float = (to.y - _emote_floor.y) / up + 0.5 * EMOTE_GRAVITY * up
-		at = _emote_floor.lerp(to, u / up)
-		at.y = _emote_floor.y + v1 * u - 0.5 * EMOTE_GRAVITY * u * u
-	_emote_cat.transform = Transform3D(Basis(Vector3.BACK, TAU * EMOTE_SPIN * t).scaled(Vector3.ONE * emote_cat_scale), at)
+## The object's tumble at [param t]: whole turns per loop on all three axes, so it is continuous across the loop.
+func _emote_tumble(t: float) -> Basis:
+	var a: Vector3 = (EMOTE_TUMBLE * (t / _emote_period) + EMOTE_TUMBLE_PHASE) * TAU
+	return Basis(Vector3.BACK, a.z) * Basis(Vector3.UP, a.y) * Basis(Vector3.RIGHT, a.x)
+
+
+## How far the tumbled object reaches from its centre along [param dir] at [param t].
+func _emote_reach(t: float, dir: Vector3) -> float:
+	if _emote_verts.is_empty():
+		return object_radius if object_radius > 0.0 else EMOTE_DEFAULT_REACH
+	var local_dir: Vector3 = _emote_tumble(t).inverse() * dir
+	var most: float = -INF
+	for v: Vector3 in _emote_verts:
+		most = maxf(most, v.dot(local_dir))
+	return most
+
+
+## Ballistic legs either side of throw [param i]'s bounce, with the floor contact where the object's lowest point meets y 0.
+func _emote_solve_throw(i: int) -> void:
+	var th: Dictionary = _emote_throws[i]
+	var low: float = _emote_reach(th["tb"], Vector3.DOWN)
+	th["low"] = low
+	var down: float = th["tb"] - th["tr"]
+	var up: float = th["tc"] - th["tb"]
+	var rel: Vector3 = th["rel"]
+	var to: Vector3 = th["catch"]
+	var b: Vector2 = th["bounce"]
+	var v0: float = (low - rel.y) / down + 0.5 * EMOTE_GRAVITY * down
+	var v1: float = (to.y - low) / up + 0.5 * EMOTE_GRAVITY * up
+	th["vr"] = Vector3((b.x - rel.x) / down, v0, (b.y - rel.z) / down)
+	th["vc"] = Vector3((to.x - b.x) / up, v1 - EMOTE_GRAVITY * up, (to.z - b.y) / up)
+	th["v1"] = v1
+
+
+## The object's centre at [param t]: ballistic in flight, carried between catch and release on a curve that matches both velocities.
+func _emote_object_at(t: float) -> Vector3:
+	var count: int = _emote_throws.size()
+	for i: int in count:
+		var th: Dictionary = _emote_throws[i]
+		var s: float = _emote_wrap(t, th["tr"])
+		if s > th["tc"]:
+			continue
+		var b: Vector2 = th["bounce"]
+		if s <= th["tb"]:
+			var u: float = s - th["tr"]
+			return (th["rel"] as Vector3) + (th["vr"] as Vector3) * u + Vector3.DOWN * 0.5 * EMOTE_GRAVITY * u * u
+		var w: float = s - th["tb"]
+		var vc: Vector3 = th["vc"]
+		return Vector3(b.x, th["low"], b.y) + Vector3(vc.x, th["v1"], vc.z) * w + Vector3.DOWN * 0.5 * EMOTE_GRAVITY * w * w
+	for i: int in count:
+		var th: Dictionary = _emote_throws[i]
+		var nx: Dictionary = _emote_throws[(i + 1) % count]
+		var tc: float = th["tc"]
+		var tr: float = nx["tr"] + (_emote_period if i == count - 1 else 0.0)
+		var s: float = _emote_wrap(t, tc)
+		if s > tr:
+			continue
+		var span: float = tr - tc
+		var x: float = (s - tc) / span
+		var p0: Vector3 = th["catch"]
+		var p1: Vector3 = nx["rel"]
+		var h00: float = 2.0 * x * x * x - 3.0 * x * x + 1.0
+		var h10: float = x * x * x - 2.0 * x * x + x
+		var h11: float = x * x * x - x * x
+		# Tangents capped so a long hold absorbs the catch instead of swinging past it.
+		return p0 * h00 + p1 * (1.0 - h00) + (th["vc"] as Vector3) * minf(span, 0.06) * h10 + (nx["vr"] as Vector3) * minf(span, 0.08) * h11
+	return EMOTE_HOLD[0][0]
+
+
+## [param t] moved by whole loops to sit at or after [param start].
+func _emote_wrap(t: float, start: float) -> float:
+	return start + fposmod(t - start, _emote_period)
+
+
+## Which hand carries the object at [param t], or -1 in flight.
+func _emote_holder(t: float) -> int:
+	var count: int = _emote_throws.size()
+	for i: int in count:
+		var th: Dictionary = _emote_throws[i]
+		var nx: Dictionary = _emote_throws[(i + 1) % count]
+		var tr: float = nx["tr"] + (_emote_period if i == count - 1 else 0.0)
+		if _emote_wrap(t, th["tc"]) <= tr:
+			return th["to"]
+	return -1
+
+
+## Wrist target and finger direction on the object's top at [param t]; the push leans the fingers the way it is thrown.
+func _emote_palm(side: int, t: float) -> Array:
+	var s: float = 1.0 if side == 1 else -1.0
+	var push := Vector3(-s * 0.15, -0.8, 0.5)
+	var count: int = _emote_throws.size()
+	for i: int in count:
+		var th: Dictionary = _emote_throws[i]
+		var start: float = _emote_wrap(t, th["tc"]) - th["tc"]
+		var nx: Dictionary = _emote_throws[(i + 1) % count]
+		var tr: float = nx["tr"] + (_emote_period if i == count - 1 else 0.0)
+		if th["to"] == side and th["tc"] + start <= tr:
+			var x: float = start / (tr - th["tc"])
+			var vr: Vector3 = nx["vr"]
+			var lean := Vector3(vr.x, 0.0, vr.z).normalized() * 0.6
+			push = push.normalized().lerp((Vector3(0.0, -0.8, 0.0) + lean).normalized(), smoothstep(0.3, 1.0, x))
+			break
+	var over: Vector3 = push.normalized()
+	var palm: Vector3 = _emote_object_at(t) + Vector3.UP * (_emote_reach(t, Vector3.UP) + 0.02)
+	return [palm - over * 0.1, over]
+
+
+## Wrist target and finger direction for [param side]: on the object while it holds it, swinging through ready between.
+func _emote_hand(side: int, t: float, hips: Vector3) -> Array:
+	if _emote_holder(t) == side:
+		return _emote_palm(side, t)
+	var s: float = 1.0 if side == 1 else -1.0
+	var last_t: float = -INF
+	var next_t: float = INF
+	for th: Dictionary in _emote_throws:
+		for wrap: float in [-_emote_period, 0.0, _emote_period]:
+			if th["from"] == side and th["tr"] + wrap <= t:
+				last_t = maxf(last_t, th["tr"] + wrap)
+			if th["to"] == side and th["tc"] + wrap >= t:
+				next_t = minf(next_t, th["tc"] + wrap)
+	var x: float = clampf((t - last_t) / maxf(next_t - last_t, 0.001), 0.0, 1.0)
+	var a: Array = _emote_palm(side, last_t)
+	var b: Array = _emote_palm(side, next_t)
+	var ready: Vector3 = hips + Vector3(s * 0.36, 0.24, 0.30)
+	var w: float = sin(PI * x)
+	var line: Vector3 = (a[0] as Vector3).lerp(b[0], smoothstep(0.0, 1.0, x))
+	var dir: Vector3 = (a[1] as Vector3).lerp(b[1], x).lerp(Vector3(-s * 0.2, -0.5, 0.8), w)
+	return [line.lerp(ready, w * 0.85), dir.normalized()]
+
+
+## An ankle at [param t]: planted, or partway through a step with the foot lifted.
+func _emote_foot(side: int, t: float) -> Vector3:
+	var at: Vector3 = EMOTE_FEET[EMOTE_STANCE[EMOTE_SEQUENCE[-1]]][side]
+	for step: Array in _emote_steps:
+		if step[2] != side:
+			continue
+		if t >= step[1]:
+			at = step[4]
+		elif t > step[0]:
+			var x: float = (t - step[0]) / (step[1] - step[0])
+			return (step[3] as Vector3).lerp(step[4], smoothstep(0.0, 1.0, x)) + Vector3.UP * 0.09 * sin(PI * x)
+	return at
+
+
+## A soft pulse at every release, for the knees and hips to give into the push.
+func _emote_push(t: float) -> float:
+	var sum: float = 0.0
+	for th: Dictionary in _emote_throws:
+		var d: float = fposmod(t - th["tr"] + _emote_period * 0.5, _emote_period) - _emote_period * 0.5
+		sum += exp(-d * d / 0.006)
+	return minf(sum, 1.0)
+
+
+## Every bone's local rotation at [param t] (key -1 is the hips position): hips follow the feet and the object, limbs by two-bone IK.
+func _emote_pose(t: float) -> Dictionary:
+	var sk: Skeleton3D = _emote_rig
+	var out: Dictionary = {}
+	var accum: Dictionary = {}
+	var glob: Dictionary = {}
+	var feet: Array = [_emote_foot(0, t), _emote_foot(1, t)]
+	var shift: float = 0.0
+	for k: int in 7:
+		shift += clampf(_emote_object_at(t + (float(k) - 3.0) * 0.05).x / 0.5, -1.0, 1.0) / 7.0
+	var push: float = _emote_push(t)
+	var mid: Vector3 = ((feet[0] as Vector3) + (feet[1] as Vector3)) * 0.5
+	var spread: Vector3 = (feet[1] as Vector3) - (feet[0] as Vector3)
+	var hips_pos := Vector3(mid.x + 0.09 * shift, 0.62 - 0.04 * push - 0.03 * clampf(spread.length() - 0.76, 0.0, 0.5), mid.z + 0.02)
+	out[-1] = hips_pos
+	var yaw: float = -0.5 * atan2(spread.z, spread.x)
+	var hands: Array = [_emote_hand(0, t, hips_pos), _emote_hand(1, t, hips_pos)]
+	var mids: Dictionary = {}
+	for bone: int in _emote_order:
+		var name: String = sk.get_bone_name(bone)
+		var parent: int = sk.get_bone_parent(bone)
+		var rest_g: Transform3D = sk.get_bone_global_rest(bone)
+		var origin: Vector3 = hips_pos
+		var a_parent := Quaternion.IDENTITY
+		if parent >= 0:
+			a_parent = accum[parent]
+			origin = (glob[parent] as Transform3D) * sk.get_bone_rest(bone).origin
+		var dir_now: Vector3 = (a_parent * rest_g.basis.get_rotation_quaternion()) * Vector3.UP
+		var side: int = 1 if name.ends_with(".L") else 0
+		var s: float = 1.0 if side == 1 else -1.0
+		var part: String = name.get_slice(".", 0)
+		var a := Quaternion.IDENTITY
+		match part:
+			"Hips":
+				a = Quaternion(Vector3.UP, yaw + deg_to_rad(5.0 * shift)) * Quaternion(Vector3.RIGHT, deg_to_rad(28.0 + 5.0 * push))
+			"Spine":
+				a = a_parent * Quaternion(Vector3.UP, -0.6 * yaw + deg_to_rad(14.0 * shift)) * Quaternion(Vector3.RIGHT, deg_to_rad(18.0))
+			"Neck":
+				a = a_parent * Quaternion(Vector3.RIGHT, deg_to_rad(-24.0))
+			"Head":
+				a = a_parent * Quaternion(Vector3.UP, -0.4 * yaw) * Quaternion(Vector3.RIGHT, deg_to_rad(-20.0))
+			"Foot":
+				a = Quaternion(Vector3.UP, deg_to_rad(EMOTE_FOOT_YAW[side]))
+			"Thigh", "UpperArm":
+				var leg: bool = part == "Thigh"
+				var suffix: String = ".L" if side == 1 else ".R"
+				var joint: int = sk.find_bone(("Shin" if leg else "LowerArm") + suffix)
+				var end: int = sk.find_bone(("Foot" if leg else "Hand") + suffix)
+				var len_a: float = sk.get_bone_global_rest(joint).origin.distance_to(rest_g.origin)
+				var len_b: float = sk.get_bone_global_rest(end).origin.distance_to(sk.get_bone_global_rest(joint).origin)
+				var goal: Vector3
+				var pole: Vector3
+				if leg:
+					goal = (feet[side] as Vector3) + Vector3.UP * sk.get_bone_global_rest(end).origin.y
+					pole = Vector3(s * 0.15, 0.0, 1.0)
+				else:
+					goal = hands[side][0]
+					pole = Vector3(s * 0.8, -0.2, -0.5)
+				var knee: Vector3 = _emote_two_bone(origin, goal, len_a, len_b, pole)
+				mids[side * 2 + (0 if leg else 1)] = goal
+				a = Quaternion(dir_now.normalized(), (knee - origin).normalized()) * a_parent
+			"Shin", "LowerArm":
+				var goal: Vector3 = mids[side * 2 + (0 if part == "Shin" else 1)]
+				a = Quaternion(dir_now.normalized(), (goal - origin).normalized()) * a_parent
+			"Hand":
+				a = Quaternion(dir_now.normalized(), (hands[side][1] as Vector3).normalized()) * a_parent
+		accum[bone] = a
+		var g_rot: Quaternion = a * rest_g.basis.get_rotation_quaternion()
+		glob[bone] = Transform3D(Basis(g_rot), origin)
+		var parent_rot: Quaternion = (glob[parent] as Transform3D).basis.get_rotation_quaternion() if parent >= 0 else Quaternion.IDENTITY
+		out[bone] = parent_rot.inverse() * g_rot
+	return out
+
+
+## Elbow or knee for a two-bone chain from [param root] to [param goal], bent towards [param pole].
+func _emote_two_bone(root: Vector3, goal: Vector3, len_a: float, len_b: float, pole: Vector3) -> Vector3:
+	var to: Vector3 = goal - root
+	var d: float = clampf(to.length(), absf(len_a - len_b) + 0.001, len_a + len_b - 0.001)
+	var axis: Vector3 = to.normalized()
+	var bend: Vector3 = (pole - axis * pole.dot(axis)).normalized()
+	var cos_a: float = clampf((len_a * len_a + d * d - len_b * len_b) / (2.0 * len_a * d), -1.0, 1.0)
+	return root + axis * len_a * cos_a + bend * len_a * sqrt(1.0 - cos_a * cos_a)
 
 
 func _end_emote() -> void:
