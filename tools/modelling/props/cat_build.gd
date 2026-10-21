@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Builds hub/props/cat/cat_mesh.tres: a chubby standing low-poly grey cat with a ^ ^ 3 face.
+## Builds hub/props/cat/cat_mesh.tres: a chubby standing low-poly grey cat with surfaces: body, neutral :| face, happy ^ ^ 3 face.
 ## Run: godot --headless --script res://tools/modelling/props/cat_build.gd
 
 const OUT: String = "res://hub/props/cat/cat_mesh.tres"
@@ -15,7 +15,6 @@ func _init() -> void:
 	_st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	_body()
 	_head()
-	_face()
 	_legs()
 	_tail()
 	var mat: StandardMaterial3D = StandardMaterial3D.new()
@@ -25,6 +24,19 @@ func _init() -> void:
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_st.set_material(mat)
 	var mesh: ArrayMesh = _st.commit()
+	var hidden: StandardMaterial3D = mat.duplicate()
+	hidden.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	hidden.albedo_color = Color(1, 1, 1, 0)
+	_st.clear()
+	_st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_face_neutral()
+	_st.set_material(mat)
+	_st.commit(mesh)
+	_st.clear()
+	_st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_face_happy()
+	_st.set_material(hidden)  # surface 2 starts hidden; the cat swaps it in when happy
+	_st.commit(mesh)
 	print("cat tris: ", _tris)
 	var err: int = ResourceSaver.save(mesh, OUT)
 	print("saved ", OUT, " err=", err)
@@ -163,7 +175,13 @@ func _ink(a: Vector2, b: Vector2, w: float) -> void:
 	_quad(v[0], v[1], v[2], v[3], INK, Vector3(0, 0.27, 0.0))
 
 
-func _face() -> void:
+func _face_neutral() -> void:
+	for sx: float in [-1.0, 1.0]:  # dot eyes
+		_ink(Vector2(0.038 * sx, 0.272), Vector2(0.038 * sx, 0.28), 0.008)
+	_ink(Vector2(-0.016, 0.248), Vector2(0.016, 0.248), 0.005)  # flat mouth
+
+
+func _face_happy() -> void:
 	for sx: float in [-1.0, 1.0]:  # happy closed eyes: ^ ^
 		var x: float = 0.038 * sx
 		_ink(Vector2(x - 0.017, 0.272), Vector2(x, 0.287), 0.007)
