@@ -428,6 +428,8 @@ var _in_death: bool = false
 var _ragdoll: DeathRagdoll = null
 ## Waiting, after a death, for the rifle hit that caused it; see [constant RAGDOLL_WAIT_MSEC].
 var _ragdoll_pending: bool = false
+## True while [member mesh] is culled by the limp parts rather than by its own bounds.
+var _culled_by_parts: bool = false
 var _death_msec: int = 0
 var _dead_seconds: float = 0.0
 var _death_velocity: Vector3 = Vector3.ZERO
@@ -470,6 +472,12 @@ var _arm_hiders: Array[FirstPersonHead] = []
 ## The rifle on this body's head, or null; its hands are laid on its anchors.
 var _held: Rifle = null
 var _held_model: Node3D = null
+## The held rifle's model while thrown limp: it leaves with the right hand at the grip it had, its own local pose kept to put back.
+var _carried_model: Node3D = null
+var _carried_grip: Transform3D = Transform3D.IDENTITY
+var _carried_local: Transform3D = Transform3D.IDENTITY
+var _rig: Skeleton3D = null
+var _grip_bone: int = -1
 ## Lean, arm IK and hands, in that order.
 var _hold_lean: RifleHold = null
 var _hold_ik: TwoBoneIK3D = null
@@ -604,6 +612,38 @@ func throw_out(throw: Vector3) -> void:
 	_restore_hidden_bones()
 	_pose_rifle(false)
 	_ragdoll.throw_out(throw)
+	_carry_rifle()
+
+
+## Take the held rifle's model along on the limp right hand, as it sits in that hand now.
+func _carry_rifle() -> void:
+	if _held_model == null or _rig == null or _grip_bone < 0 or _carried_model != null:
+		return
+	var hand: Transform3D = _rig.global_transform * _rig.get_bone_global_pose(_grip_bone)
+	_carried_model = _held_model
+	_carried_local = _carried_model.transform
+	_carried_grip = hand.affine_inverse() * _carried_model.global_transform
+	_carried_model.top_level = true
+
+
+## The carried model on the hand's final (ragdoll) pose, each time the skeleton settles one.
+func _follow_carried_rifle() -> void:
+	if _carried_model == null:
+		return
+	if not is_instance_valid(_carried_model):
+		_carried_model = null
+		return
+	_carried_model.global_transform = _rig.global_transform * _rig.get_bone_global_pose(_grip_bone) * _carried_grip
+
+
+## Hand the carried model back to its rifle, where it was.
+func _drop_carried_rifle() -> void:
+	if _carried_model == null:
+		return
+	if is_instance_valid(_carried_model):
+		_carried_model.top_level = false
+		_carried_model.transform = _carried_local
+	_carried_model = null
 
 
 ## Where the body is drawn: the ragdoll's pelvis while limp, else the capsule's middle.
@@ -692,6 +732,10 @@ func _ready() -> void:
 		var rig: Array = _resolve_skeleton()
 		if rig.is_empty() or not _ragdoll.build(rig[1]):
 			_ragdoll = null
+		else:
+			_rig = rig[1]
+			_grip_bone = _rig.find_bone("Hand.R")
+			_rig.skeleton_updated.connect(_follow_carried_rifle)
 
 	_has_aim = animation.has_animation(aim_clip)
 	if not _has_aim:
@@ -750,6 +794,7 @@ func _keep_the_run_cycle_looping() -> void:
 ## Never leave a body that is going away holding the view.
 func _exit_tree() -> void:
 	_drawn.erase(self)
+	_drop_carried_rifle()
 	if _view_claimed and body != null and _viewed_body == body:
 		release_viewed_body()
 
@@ -766,6 +811,7 @@ func _process(delta: float) -> void:
 	_watch_velocity(delta)
 	_tick_flop(delta)
 	_sample_motion(delta)
+	_cull_by_parts()
 
 	# Death outranks everything: whatever the body was doing when it was shot
 	# is no longer happening. It holds until the body moves under its own power
@@ -783,6 +829,7 @@ func _process(delta: float) -> void:
 			_ragdoll_pending = false
 			if _ragdoll != null and _ragdoll.is_active():
 				_ragdoll.stop()
+				_drop_carried_rifle()
 				_pose_rifle(_held != null)
 				_go_idle()
 		else:
@@ -1006,6 +1053,17 @@ func _try_ragdoll() -> void:
 		_ragdoll.start(_death_velocity, Rifle.recent_hit_point(slot), Rifle.recent_hit_direction(slot))
 	elif Time.get_ticks_msec() - _death_msec > RAGDOLL_WAIT_MSEC:
 		_ragdoll_pending = false
+
+
+## A limp body is drawn where its parts lie, metres from the capsule the mesh follows: cull it by them, or the
+## renderer drops a corpse whose standing box has left the frame.
+func _cull_by_parts() -> void:
+	var limp: bool = _ragdoll != null and (_ragdoll.is_active() or _ragdoll.is_flopping())
+	if limp:
+		mesh.custom_aabb = _ragdoll.bounds_in(mesh.global_transform)
+	elif _culled_by_parts:
+		mesh.custom_aabb = AABB()
+	_culled_by_parts = limp
 
 
 ## A dead body placed somewhere else (a respawn, a new round) is no longer the corpse.
@@ -1274,6 +1332,7 @@ func _on_head_child_exiting(node: Node) -> void:
 
 ## Lay this body's hands on [param rifle]'s anchors, or take them off with null.
 func _hold(rifle: Rifle) -> void:
+	_drop_carried_rifle()
 	_held = rifle
 	_held_model = rifle.get_node_or_null(^"ViewModel/Model") as Node3D if rifle != null else null
 	var holding: bool = rifle != null

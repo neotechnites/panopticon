@@ -1,0 +1,11 @@
+{
+  "_comment": "marble_target: the trapdoor's trigger. Origin the post's base centre, y 0 the deck, -X toward the tower, +Z the direction of travel. MarbleTargetPost: 0.40 m square ashlar shaft to 0.60, a 0.52 m plinth cap to 0.70. MarbleTargetPlate: a 1.2 m stone disc 0.14 thick facing -X, a red-and-pale bullseye in two tints of the plain stone, iron rim, stem and pivot boss; node origin AT THE PIVOT (0, 0.7, 0), tipped back about local Z by the scene. MarbleTargetCollision: one -boxcol over the post (0.4 x 0.7 x 0.4); the plate's shot hitbox is the scene's.",
+  "node_paths": [
+    "MarbleTargetPost",
+    "MarbleTargetPlate",
+    "MarbleTargetCollision",
+    "MarbleTargetCollision/MarbleTargetCollisionShape"
+  ],
+  "surfaces": 7,
+  "max_tris": 400
+}

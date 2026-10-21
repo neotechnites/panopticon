@@ -79,6 +79,8 @@ const LIMB_MOST_TURN: float = 6.0
 const STRIKE_MOST_DV: float = 4.0
 ## Most a joint may pull apart, m, before the part is put back on it (joint projection): a hard hit never tears the body.
 const JOINT_MOST_GAP: float = 0.03
+## How far the drawn body reaches past a part's centre (half a limb, a hand, a foot), m.
+const PART_REACH: float = 0.6
 
 enum Flop { NONE, THROWN, RISING }
 
@@ -320,6 +322,15 @@ func _physics_process(delta: float) -> void:
 ## The pelvis, world space.
 func centre() -> Vector3:
 	return _bones[0].global_position if not _bones.is_empty() else Vector3.ZERO
+
+
+## Where the parts lie in [param frame]'s space, padded to the drawn skin: the box a limp body is culled by.
+func bounds_in(frame: Transform3D) -> AABB:
+	var to_local: Transform3D = frame.affine_inverse()
+	var box: AABB = AABB(to_local * _bones[0].global_position, Vector3.ZERO)
+	for bone: PhysicalBone3D in _bones:
+		box = box.expand(to_local * bone.global_position)
+	return box.grow(PART_REACH)
 
 
 ## Every part's centre, world space; the pelvis first, the chest second.

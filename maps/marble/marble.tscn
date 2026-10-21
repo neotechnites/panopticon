@@ -14,9 +14,34 @@
 [ext_resource type="Shader" path="res://maps/marble/materials/skylight_pool.gdshader" id="22_pool_shader"]
 [ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall_arc.tscn" id="24_wall_arc"]
 [ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall_arc_long.tscn" id="25_wall_arc_long"]
-[ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall_arc_lane.tscn" id="26_wall_arc_lane"]
-[ext_resource type="PackedScene" path="res://maps/marble/props/marble_trapdoor_outer.tscn" id="27_trapdoor_outer"]
-[ext_resource type="PackedScene" path="res://maps/marble/props/marble_trapdoor_plate.tscn" id="28_trapdoor_plate"]
+[ext_resource type="PackedScene" path="res://maps/marble/props/marble_trapdoor.tscn" id="Blk_trapdoor"]
+[ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall_arc.tscn" id="Blk_wall"]
+[ext_resource type="PackedScene" path="res://maps/marble/models/marble_column.glb" id="Blk_column"]
+[ext_resource type="Texture2D" path="res://maps/marble/textures/marble_brick_albedo.png" id="Blk_brick"]
+
+[sub_resource type="StandardMaterial3D" id="Blk_stone"]
+albedo_texture = ExtResource("Blk_brick")
+emission_enabled = true
+emission_texture = ExtResource("Blk_brick")
+emission_energy_multiplier = 0.35
+uv1_scale = Vector3(0.167, 0.167, 0.167)
+uv1_triplanar = true
+uv1_world_triplanar = true
+texture_filter = 0
+
+[sub_resource type="BoxMesh" id="Blk_0"]
+material = SubResource("Blk_stone")
+size = Vector3(1.400, 6.600, 1.400)
+
+[sub_resource type="BoxShape3D" id="Blk_1"]
+size = Vector3(1.400, 6.600, 1.400)
+
+[sub_resource type="BoxMesh" id="Blk_2"]
+material = SubResource("Blk_stone")
+size = Vector3(11.970, 0.700, 1.000)
+
+[sub_resource type="BoxShape3D" id="Blk_3"]
+size = Vector3(11.970, 0.700, 1.000)
 
 [sub_resource type="ShaderMaterial" id="ShaftMat"]
 render_priority = 0
@@ -371,15 +396,15 @@ omni_range = 30.0
 omni_attenuation = 1.0
 
 [node name="Elements" type="Node3D" parent="."]
-editor_description = "Placed lane elements: six curved walls on the lip at Ryan's six bearings, and the two sections -- A (two paths) at 94 deg, B (sniper-only trapdoors) at 280 deg."
+editor_description = "Placed lane elements: six curved walls on the lip at Ryan's six bearings, and the four sections as a grey blockout (tools/modelling/maps/marble/marble_sections_blockout.py writes them): A trapdoors under cover 70-118 deg, B wall with activators on top 259-295, C buttresses 197-242, D column forest 16-57."
 
 [node name="ArcWall003" parent="Elements" instance=ExtResource("25_wall_arc_long")]
 editor_description = "A curved ashlar wall on the lip at 3.6 deg (clear of the bars at 353), r 47.3, 16.3 m along the lane, 7.6 m tall: cover from the tower."
 transform = Transform3D(0.998027, 0, -0.062791, 0, 1, 0, 0.062791, 0, 0.998027, 47.2067, 23.0, 2.9700)
 
 [node name="ArcWall064" parent="Elements" instance=ExtResource("24_wall_arc")]
-editor_description = "A curved ashlar wall on the lip at 64.33 deg, r 47.3, 9.4 m along the lane, 7.6 m tall: cover from the tower."
-transform = Transform3D(0.433187, 0, -0.901304, 0, 1, 0, 0.901304, 0, 0.433187, 20.4898, 23.0, 42.6317)
+editor_description = "A curved ashlar wall on the lip at 55.9 deg (moved from 64.33 for Section A, 2026-10-19), r 47.3, 9.4 m along the lane, 7.6 m tall: cover from the tower."
+transform = Transform3D(0.597625, 0, -0.801776, 0, 1, 0, 0.801776, 0, 0.597625, 28.2677, 23.0, 37.9240)
 
 [node name="ArcWall126" parent="Elements" instance=ExtResource("24_wall_arc")]
 editor_description = "A curved ashlar wall on the lip at 125.85 deg, r 47.3, 9.4 m along the lane, 7.6 m tall: cover from the tower."
@@ -394,43 +419,219 @@ editor_description = "A curved ashlar wall on the lip at 252.8 deg, r 47.3, 9.4 
 transform = Transform3D(-0.295708, 0, 0.955278, 0, 1, 0, -0.955278, 0, -0.295708, -13.9870, 23.0, -45.1847)
 
 [node name="ArcWall306" parent="Elements" instance=ExtResource("24_wall_arc")]
-editor_description = "A curved ashlar wall on the lip at 306.32 deg, r 47.3, 9.4 m along the lane, 7.6 m tall: cover from the tower."
-transform = Transform3D(0.592294, 0, 0.805722, 0, 1, 0, -0.805722, 0, 0.592294, 28.0155, 23.0, -38.1106)
+editor_description = "A curved ashlar wall on the lip at 309.6 deg (moved from 306.32 for Section B, 2026-10-19), r 47.3, 9.4 m along the lane, 7.6 m tall: cover from the tower."
+transform = Transform3D(0.637424, 0, 0.770513, 0, 1, 0, -0.770513, 0, 0.637424, 30.1502, 23.0, -36.4453)
 
 [node name="SectionA" type="Node3D" parent="Elements"]
-editor_description = "TWO PATHS, 90.0..101.25 deg: a 4.6 m wall at r 51.45 splits the lane -- the inner path by the drop is open to the tower, the outer path behind the wall is covered but floored with three trapdoors whose levers stand on the inner path (runners trigger them on each other; the sniper can shoot a lever)."
+editor_description = "A, Ryan 2026-10-19: trapdoors that span the full lane; where there is trapdoor floor there is cover (a wall on the inner edge), where there is not there is not; an activator at the start of each, out in the open where the rifle and a runner both reach it (Ryan 22:14). 61.875..118.125 deg."
 
-[node name="LaneWall094" parent="Elements/SectionA" instance=ExtResource("26_wall_arc_lane")]
-editor_description = "The screen wall, four lane cells from the first pit's leading edge (90.00000 deg) on; its outer face on the pits' edge at r 52."
-transform = Transform3D(-0.098017, 0, -0.995185, 0, 1, 0, 0.995185, 0, -0.098017, -5.0430, 23.0, 51.2023)
+[node name="Wall1" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
+editor_description = "Cover over trapdoor 1 only, 61.8750..73.1250 deg, 7.6 m."
+transform = Transform3D(0.382683, 0, -0.923880, 0, 1.000000, 0, 0.923880, 0, 0.382683, 18.1009, 23.0000, 43.6995)
 
-[node name="Trapdoor091" parent="Elements/SectionA" instance=ExtResource("27_trapdoor_outer")]
-editor_description = "Outer pit on the cell centred at 91.40625 deg (marble_build.TRAPDOOR_OUTER_BEARINGS), r 52.0..57.3, behind LaneWall094; its lever on the inner path at r 49.4, 2.5 m before it."
-transform = Transform3D(-0.024541, 0, -0.999699, 0, 1, 0, 0.999699, 0, -0.024541, -1.3412, 23.0, 54.6335)
+[node name="Trapdoor1" parent="Elements/SectionA" instance=ExtResource("Blk_trapdoor")]
+editor_description = "Trapdoor 1, 61.8750..73.1250 deg; its activator on the open lane at r 50.4, 1.4 deg before it: a runner shoves it, the rifle can hit it."
+transform = Transform3D(0.382683, 0, -0.923880, 0, 1, 0, 0.923880, 0, 0.382683, 20.6606, 23.0000, 49.8792)
+target_offset = Vector3(-3.9672, 0.0000, -6.1640)
+target_yaw_degrees = 7.025
 
-[node name="Trapdoor094" parent="Elements/SectionA" instance=ExtResource("27_trapdoor_outer")]
-editor_description = "Outer pit on the cell centred at 94.21875 deg (marble_build.TRAPDOOR_OUTER_BEARINGS), r 52.0..57.3, behind LaneWall094; its lever on the inner path at r 49.4, 2.5 m before it."
-transform = Transform3D(-0.073565, 0, -0.997290, 0, 1, 0, 0.997290, 0, -0.073565, -4.0203, 23.0, 54.5019)
+[node name="Wall2" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
+editor_description = "Cover over trapdoor 2 only, 84.3750..95.6250 deg, 7.6 m."
+transform = Transform3D(0.000000, 0, -1.000000, 0, 1.000000, 0, 1.000000, 0, 0.000000, 0.0000, 23.0000, 47.3000)
 
-[node name="Trapdoor097" parent="Elements/SectionA" instance=ExtResource("27_trapdoor_outer")]
-editor_description = "Outer pit on the cell centred at 97.03125 deg (marble_build.TRAPDOOR_OUTER_BEARINGS), r 52.0..57.3, behind LaneWall094; its lever on the inner path at r 49.4, 2.5 m before it."
-transform = Transform3D(-0.122411, 0, -0.992480, 0, 1, 0, 0.992480, 0, -0.122411, -6.6897, 23.0, 54.2390)
+[node name="Trapdoor2" parent="Elements/SectionA" instance=ExtResource("Blk_trapdoor")]
+editor_description = "Trapdoor 2, 84.3750..95.6250 deg; its activator on the open lane at r 50.4, 1.4 deg before it: a runner shoves it, the rifle can hit it."
+transform = Transform3D(0.000000, 0, -1.000000, 0, 1, 0, 1.000000, 0, 0.000000, 0.0000, 23.0000, 53.9889)
+target_offset = Vector3(-3.9672, 0.0000, -6.1640)
+target_yaw_degrees = 7.025
+
+[node name="Wall3" parent="Elements/SectionA" instance=ExtResource("Blk_wall")]
+editor_description = "Cover over trapdoor 3 only, 106.8750..118.1250 deg, 7.6 m."
+transform = Transform3D(-0.382683, 0, -0.923880, 0, 1.000000, 0, 0.923880, 0, -0.382683, -18.1009, 23.0000, 43.6995)
+
+[node name="Trapdoor3" parent="Elements/SectionA" instance=ExtResource("Blk_trapdoor")]
+editor_description = "Trapdoor 3, 106.8750..118.1250 deg; its activator on the open lane at r 50.4, 1.4 deg before it: a runner shoves it, the rifle can hit it."
+transform = Transform3D(-0.382683, 0, -0.923880, 0, 1, 0, 0.923880, 0, -0.382683, -20.6606, 23.0000, 49.8792)
+target_offset = Vector3(-3.9672, 0.0000, -6.1640)
+target_yaw_degrees = 7.025
 
 [node name="SectionB" type="Node3D" parent="Elements"]
-editor_description = "SNIPER-ONLY TRAPDOORS, 275.6..286.9 deg: the same wall and three outer pits behind it, but no levers -- each pit's release is a bronze plate high on the wall's tower-facing side that only the rifle can hit."
+editor_description = "B, Ryan 2026-10-19: a wall slightly higher than a runner along the inner edge, every metre of it over trapdoor floor; the activators stand on its top, too high to shove. The runner cannot see the sniper, only where he shoots. 258.75..303.75 deg."
 
-[node name="LaneWall280" parent="Elements/SectionB" instance=ExtResource("26_wall_arc_lane")]
-editor_description = "The screen wall, four lane cells from the first pit's leading edge (275.62500 deg) on; its outer face on the pits' edge at r 52."
-transform = Transform3D(0.195090, 0, 0.980785, 0, 1, 0, -0.980785, 0, 0.195090, 10.0374, 23.0, -50.4614)
+[node name="Wall1" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
+editor_description = "The lip wall over trapdoor 1 at 3.0 m (Y only): over a runner and his jump, and a runner anywhere behind it is out of the tower's sight."
+transform = Transform3D(-0.098017, 0, 0.995185, 0, 0.394737, 0, -0.995185, 0, -0.098017, -4.6362, 23.0000, -47.0722)
 
-[node name="Trapdoor277" parent="Elements/SectionB" instance=ExtResource("28_trapdoor_plate")]
-editor_description = "Outer pit on the cell centred at 277.03125 deg (marble_build.TRAPDOOR_OUTER_BEARINGS), r 52.0..57.3, behind LaneWall280; its plate on the wall's inner face, 3.1 m up."
-transform = Transform3D(0.122411, 0, 0.992480, 0, 1, 0, -0.992480, 0, 0.122411, 6.6897, 23.0, -54.2390)
+[node name="Trapdoor1" parent="Elements/SectionB" instance=ExtResource("Blk_trapdoor")]
+editor_description = "Trapdoor 1, 258.7500..270.0000 deg; its activator on the wall top 1.0 deg into it: the rifle's only."
+transform = Transform3D(-0.098017, 0, 0.995185, 0, 1, 0, -0.995185, 0, -0.098017, -5.2918, 23.0000, -53.7289)
+target_offset = Vector3(-6.8429, 3.0000, -3.8140)
+target_yaw_degrees = 4.625
 
-[node name="Trapdoor280" parent="Elements/SectionB" instance=ExtResource("28_trapdoor_plate")]
-editor_description = "Outer pit on the cell centred at 279.84375 deg (marble_build.TRAPDOOR_OUTER_BEARINGS), r 52.0..57.3, behind LaneWall280; its plate on the wall's inner face, 3.1 m up."
-transform = Transform3D(0.170962, 0, 0.985278, 0, 1, 0, -0.985278, 0, 0.170962, 9.3431, 23.0, -53.8454)
+[node name="Wall2" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
+editor_description = "The lip wall over trapdoor 2 at 3.0 m (Y only): over a runner and his jump, and a runner anywhere behind it is out of the tower's sight."
+transform = Transform3D(0.098017, 0, 0.995185, 0, 0.394737, 0, -0.995185, 0, 0.098017, 4.6362, 23.0000, -47.0722)
 
-[node name="Trapdoor283" parent="Elements/SectionB" instance=ExtResource("28_trapdoor_plate")]
-editor_description = "Outer pit on the cell centred at 282.65625 deg (marble_build.TRAPDOOR_OUTER_BEARINGS), r 52.0..57.3, behind LaneWall280; its plate on the wall's inner face, 3.1 m up."
-transform = Transform3D(0.219101, 0, 0.975702, 0, 1, 0, -0.975702, 0, 0.219101, 11.9739, 23.0, -53.3221)
+[node name="Trapdoor2" parent="Elements/SectionB" instance=ExtResource("Blk_trapdoor")]
+editor_description = "Trapdoor 2, 270.0000..281.2500 deg; its activator on the wall top 1.0 deg into it: the rifle's only."
+transform = Transform3D(0.098017, 0, 0.995185, 0, 1, 0, -0.995185, 0, 0.098017, 5.2918, 23.0000, -53.7289)
+target_offset = Vector3(-6.8429, 3.0000, -3.8140)
+target_yaw_degrees = 4.625
+
+[node name="Wall3" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
+editor_description = "The lip wall over trapdoor 3 at 3.0 m (Y only): over a runner and his jump, and a runner anywhere behind it is out of the tower's sight."
+transform = Transform3D(0.290285, 0, 0.956940, 0, 0.394737, 0, -0.956940, 0, 0.290285, 13.7305, 23.0000, -45.2633)
+
+[node name="Trapdoor3" parent="Elements/SectionB" instance=ExtResource("Blk_trapdoor")]
+editor_description = "Trapdoor 3, 281.2500..292.5000 deg; its activator on the wall top 1.0 deg into it: the rifle's only."
+transform = Transform3D(0.290285, 0, 0.956940, 0, 1, 0, -0.956940, 0, 0.290285, 15.6721, 23.0000, -51.6641)
+target_offset = Vector3(-6.8429, 3.0000, -3.8140)
+target_yaw_degrees = 4.625
+
+[node name="Wall4" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
+editor_description = "The lip wall over trapdoor 4 at 3.0 m (Y only): over a runner and his jump, and a runner anywhere behind it is out of the tower's sight."
+transform = Transform3D(0.471397, 0, 0.881921, 0, 0.394737, 0, -0.881921, 0, 0.471397, 22.2971, 23.0000, -41.7149)
+
+[node name="Trapdoor4" parent="Elements/SectionB" instance=ExtResource("Blk_trapdoor")]
+editor_description = "Trapdoor 4, 292.5000..303.7500 deg; its activator on the wall top 1.0 deg into it: the rifle's only."
+transform = Transform3D(0.471397, 0, 0.881921, 0, 1, 0, -0.881921, 0, 0.471397, 25.4502, 23.0000, -47.6139)
+target_offset = Vector3(-6.8429, 3.0000, -3.8140)
+target_yaw_degrees = 4.625
+
+[node name="SectionC" type="Node3D" parent="Elements"]
+editor_description = "C, aesthetic only: evenly spaced flying buttresses (grey blocks; there is no buttress element): a pier on the inner edge, one arch leaning from its top over the lane onto the outer wall; runners pass under. 196.875..241.875 deg."
+
+[node name="Buttress1" type="StaticBody3D" parent="Elements/SectionC"]
+transform = Transform3D(-0.956940, 0, 0.290285, 0, 1, 0, -0.290285, 0, -0.956940, -45.5504, 23.0000, -13.8176)
+
+[node name="Pier" type="MeshInstance3D" parent="Elements/SectionC/Buttress1"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.300, 0)
+mesh = SubResource("Blk_0")
+
+[node name="PierShape" type="CollisionShape3D" parent="Elements/SectionC/Buttress1"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.300, 0)
+shape = SubResource("Blk_1")
+
+[node name="Span" type="MeshInstance3D" parent="Elements/SectionC/Buttress1"]
+transform = Transform3D(0.998289, -0.058477, 0, 0.058477, 0.998289, 0, 0, 0, 1, 5.9750, 6.6000, 0)
+mesh = SubResource("Blk_2")
+
+[node name="Buttress2" type="StaticBody3D" parent="Elements/SectionC"]
+transform = Transform3D(-0.881921, 0, 0.471397, 0, 1, 0, -0.471397, 0, -0.881921, -41.9795, 23.0000, -22.4385)
+
+[node name="Pier" type="MeshInstance3D" parent="Elements/SectionC/Buttress2"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.300, 0)
+mesh = SubResource("Blk_0")
+
+[node name="PierShape" type="CollisionShape3D" parent="Elements/SectionC/Buttress2"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.300, 0)
+shape = SubResource("Blk_1")
+
+[node name="Span" type="MeshInstance3D" parent="Elements/SectionC/Buttress2"]
+transform = Transform3D(0.998289, -0.058477, 0, 0.058477, 0.998289, 0, 0, 0, 1, 5.9750, 6.6000, 0)
+mesh = SubResource("Blk_2")
+
+[node name="Buttress3" type="StaticBody3D" parent="Elements/SectionC"]
+transform = Transform3D(-0.773010, 0, 0.634393, 0, 1, 0, -0.634393, 0, -0.773010, -36.7953, 23.0000, -30.1971)
+
+[node name="Pier" type="MeshInstance3D" parent="Elements/SectionC/Buttress3"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.300, 0)
+mesh = SubResource("Blk_0")
+
+[node name="PierShape" type="CollisionShape3D" parent="Elements/SectionC/Buttress3"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.300, 0)
+shape = SubResource("Blk_1")
+
+[node name="Span" type="MeshInstance3D" parent="Elements/SectionC/Buttress3"]
+transform = Transform3D(0.998289, -0.058477, 0, 0.058477, 0.998289, 0, 0, 0, 1, 5.9750, 6.6000, 0)
+mesh = SubResource("Blk_2")
+
+[node name="Buttress4" type="StaticBody3D" parent="Elements/SectionC"]
+transform = Transform3D(-0.634393, 0, 0.773010, 0, 1, 0, -0.773010, 0, -0.634393, -30.1971, 23.0000, -36.7953)
+
+[node name="Pier" type="MeshInstance3D" parent="Elements/SectionC/Buttress4"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.300, 0)
+mesh = SubResource("Blk_0")
+
+[node name="PierShape" type="CollisionShape3D" parent="Elements/SectionC/Buttress4"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.300, 0)
+shape = SubResource("Blk_1")
+
+[node name="Span" type="MeshInstance3D" parent="Elements/SectionC/Buttress4"]
+transform = Transform3D(0.998289, -0.058477, 0, 0.058477, 0.998289, 0, 0, 0, 1, 5.9750, 6.6000, 0)
+mesh = SubResource("Blk_2")
+
+[node name="Buttress5" type="StaticBody3D" parent="Elements/SectionC"]
+transform = Transform3D(-0.471397, 0, 0.881921, 0, 1, 0, -0.881921, 0, -0.471397, -22.4385, 23.0000, -41.9795)
+
+[node name="Pier" type="MeshInstance3D" parent="Elements/SectionC/Buttress5"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.300, 0)
+mesh = SubResource("Blk_0")
+
+[node name="PierShape" type="CollisionShape3D" parent="Elements/SectionC/Buttress5"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.300, 0)
+shape = SubResource("Blk_1")
+
+[node name="Span" type="MeshInstance3D" parent="Elements/SectionC/Buttress5"]
+transform = Transform3D(0.998289, -0.058477, 0, 0.058477, 0.998289, 0, 0, 0, 1, 5.9750, 6.6000, 0)
+mesh = SubResource("Blk_2")
+
+[node name="SectionD" type="Node3D" parent="Elements"]
+editor_description = "D, aesthetic: a column forest, 19 of the trailer's marble_column as it places them (unscaled, rotation (0, -bearing, 0)), stretched in height only to 2.7..7.5 m, 16.0..49.0 deg; room to walk between, the lowest jumpable."
+
+[node name="Column01" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
+transform = Transform3D(0.961262, 0, -0.275637, 0, 0.925922, 0, 0.275637, 0, 0.961262, 46.9096, 23.0000, 13.4511)
+
+[node name="Column02" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
+transform = Transform3D(0.924877, 0, -0.380267, 0, 1.305625, 0, 0.380267, 0, 0.924877, 44.8892, 23.0000, 18.4564)
+
+[node name="Column03" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
+transform = Transform3D(0.883210, 0, -0.468978, 0, 0.533478, 0, 0.468978, 0, 0.883210, 42.7843, 23.0000, 22.7181)
+
+[node name="Column04" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
+transform = Transform3D(0.823516, 0, -0.567294, 0, 1.361115, 0, 0.567294, 0, 0.823516, 40.1603, 23.0000, 27.6652)
+
+[node name="Column05" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
+transform = Transform3D(0.759415, 0, -0.650606, 0, 0.858557, 0, 0.650606, 0, 0.759415, 36.9457, 23.0000, 31.6522)
+
+[node name="Column06" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
+transform = Transform3D(0.689695, 0, -0.724100, 0, 0.661195, 0, 0.724100, 0, 0.689695, 33.3816, 23.0000, 35.0469)
+
+[node name="Column07" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
+transform = Transform3D(0.945093, 0, -0.326802, 0, 1.411816, 0, 0.326802, 0, 0.945093, 49.8140, 23.0000, 17.2251)
+
+[node name="Column08" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
+transform = Transform3D(0.910491, 0, -0.413529, 0, 0.536158, 0, 0.413529, 0, 0.910491, 47.7150, 23.0000, 21.6713)
+
+[node name="Column09" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
+transform = Transform3D(0.865933, 0, -0.500160, 0, 1.239161, 0, 0.500160, 0, 0.865933, 45.5632, 23.0000, 26.3172)
+
+[node name="Column10" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
+transform = Transform3D(0.808050, 0, -0.589115, 0, 1.001097, 0, 0.589115, 0, 0.808050, 42.6512, 23.0000, 31.0952)
+
+[node name="Column11" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
+transform = Transform3D(0.751495, 0, -0.659739, 0, 0.587827, 0, 0.659739, 0, 0.751495, 39.4266, 23.0000, 34.6127)
+
+[node name="Column12" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
+transform = Transform3D(0.679923, 0, -0.733284, 0, 1.498131, 0, 0.733284, 0, 0.679923, 35.6993, 23.0000, 38.5010)
+
+[node name="Column13" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
+transform = Transform3D(0.960268, 0, -0.279081, 0, 0.557947, 0, 0.279081, 0, 0.960268, 54.0792, 23.0000, 15.7169)
+
+[node name="Column14" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
+transform = Transform3D(0.933366, 0, -0.358927, 0, 1.097131, 0, 0.358927, 0, 0.933366, 52.5063, 23.0000, 20.1914)
+
+[node name="Column15" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
+transform = Transform3D(0.893445, 0, -0.449174, 0, 1.148185, 0, 0.449174, 0, 0.893445, 50.5485, 23.0000, 25.4129)
+
+[node name="Column16" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
+transform = Transform3D(0.848706, 0, -0.528865, 0, 0.547290, 0, 0.528865, 0, 0.848706, 47.8930, 23.0000, 29.8442)
+
+[node name="Column17" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
+transform = Transform3D(0.799717, 0, -0.600377, 0, 1.460536, 0, 0.600377, 0, 0.799717, 44.9466, 23.0000, 33.7430)
+
+[node name="Column18" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
+transform = Transform3D(0.735588, 0, -0.677429, 0, 0.715611, 0, 0.677429, 0, 0.735588, 41.5583, 23.0000, 38.2725)
+
+[node name="Column19" parent="Elements/SectionD" instance=ExtResource("Blk_column")]
+transform = Transform3D(0.674013, 0, -0.738719, 0, 0.786916, 0, 0.738719, 0, 0.674013, 38.1050, 23.0000, 41.7631)

@@ -2380,6 +2380,11 @@ func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 	forward = forward.normalized()
 
 	var match_rules: MatchRules = get_rules()
+	if HubCat.claim_shove(shover.body, forward, match_rules.shove_range_metres):
+		# A cat took the swing: lifted, or hucked from the arms.
+		shover.shove_cooldown_remaining = maxf(match_rules.shove_cooldown_seconds, 0.0)
+		shover.body.shoved.emit()
+		return null
 	if shover == _finisher and _phase == Phase.ROUND:
 		# The finale: the finisher's shove is for the guard, and one is the round.
 		var guard: MatchParticipant = _guard_in_reach(shover, forward, match_rules.shove_range_metres)
