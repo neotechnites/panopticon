@@ -151,9 +151,11 @@ const DRAW_BUDGETS: Dictionary = {
 	# ceilings set from the build's counts, not re-measured here.
 	# 2026-10-05: four base-fill omnis (dadc5ac) and NoSun (a9152c7) make lights 15; the pit floor's own
 	# tile (d569188) makes surfaces and materials 38. Ceilings measured + 20 %.
+	# 2026-10-20: lighting rebuilt from scratch (oculus spot, two spill omnis, all shadowed; the portal glow): lights 4,
+	# shadow_casters 3; the 48-tri additive beam. Ceilings set from the scene's counts, not re-measured here.
 	"marble": {
 		"tris": 92500, "surfaces": 46, "materials": 46,
-		"transparent_tris": 0, "lights": 18, "shadow_casters": 1,
+		"transparent_tris": 58, "lights": 5, "shadow_casters": 3,
 	},
 	# The expensive one: 2.5x the Ring, plus 2196 transparent triangles, plus a
 	# shadow caster. Re-measured after the obstacle course came off the lane

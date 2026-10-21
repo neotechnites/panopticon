@@ -68,7 +68,6 @@ C_STEP = 2 * BAY
 # D: rows of columns across the lane, staggered, every height different
 D_ARC = (16.0, 49.0)
 BRICK_TILE_M = 6.0              # the map's brick sheet repeats this often on the buttresses (world triplanar)
-STONE_GLOW = 0.35               # the same sheet as a faint emission: the arch's underside sees no lamp
 D_ROWS = (48.6, 52.6, 56.4)
 D_PITCH = 5.2                   # metres along a row
 D_RADIUS = 0.6                  # a 1.2 m top to land on
@@ -254,14 +253,13 @@ def section_d(sc):
 
 
 STONE = ('[sub_resource type="StandardMaterial3D" id="Blk_stone"]\nalbedo_texture = ExtResource("Blk_brick")\n'
-         'emission_enabled = true\nemission_texture = ExtResource("Blk_brick")\nemission_energy_multiplier = %.2f\n'
-         'uv1_scale = Vector3(%.3f, %.3f, %.3f)\nuv1_triplanar = true\nuv1_world_triplanar = true\ntexture_filter = 0\n')
+         'uv1_scale = Vector3(%.3f, %.3f, %.3f)\nuv1_triplanar = true\nuv1_world_triplanar = true\ntexture_filter = 5\n')
 
 
 def build():
     sc = Scene()
     k = 1.0 / BRICK_TILE_M
-    sc.subs.append(STONE % (STONE_GLOW, k, k, k))
+    sc.subs.append(STONE % (k, k, k))
     section_a(sc)
     section_b(sc)
     section_c(sc)
