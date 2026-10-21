@@ -31,7 +31,7 @@ const PROMPT_KEY_SCALE: float = 3.0
 const PROMPT_BELOW_CROSSHAIR: float = 90.0
 const PROMPT_FONT_SIZE: int = 24
 ## Extra drop below the crosshair, as a fraction of screen height.
-const PROMPT_SCREEN_DROP: float = 0.2
+const PROMPT_SCREEN_DROP: float = 0.1
 
 ## Frames in the explosion sheet's horizontal strip.
 @export var explosion_frames: int = 17
