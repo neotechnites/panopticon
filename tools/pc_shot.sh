@@ -34,6 +34,9 @@
 #                   then shows FORM and nothing else, which is the only way to
 #                   tell a geometry defect from a texture one without guessing.
 #   FOV=45          camera field of view in degrees (shot.gd's default is 100).
+#   PC_SHOT_SUFFIX=-x  own clone/work dir/task on the PC (two agents sharing one clone race each other).
+#   AVATAR=x,y,z,yaw stand one idle prisoner there (shot.gd --avatar=), a 1.8 m scale
+#                   and legibility reference in every shot of the run.
 # Unset, all of them leave the godot command line and the render exactly as they were.
 set -euo pipefail
 
@@ -62,19 +65,21 @@ git rev-parse --verify --quiet "$REF^{commit}" >/dev/null || { echo "pc_shot: no
 
 PC=${PC_HOST:-panopticon-pc}
 GODOT=${PC_GODOT:-'C:\tools\godot\godot.exe'}
-CLONE='C:/Users/ddd/panopticon-ceiling'          # forward slashes: git, scp, --path
-CLONE_W='C:\Users\ddd\panopticon-ceiling'        # backslashes: cmd
-WORK='C:/Users/ddd/panopticon-shot-work'
-WORK_W='C:\Users\ddd\panopticon-shot-work'
-PC_PNG='C:/Users/ddd/panopticon-ceiling-shot.png'
-PC_SHOTS='C:/Users/ddd/panopticon-shot-work/shots'
-PC_SHOTS_W='C:\Users\ddd\panopticon-shot-work\shots'
-TASK=PanopticonShot
+SFX=${PC_SHOT_SUFFIX:-}                            # set it (e.g. -light) for a clone, work dir and task of your own: two agents on one clone race
+CLONE="C:/Users/ddd/panopticon-ceiling$SFX"          # forward slashes: git, scp, --path
+CLONE_W="C:\\Users\\ddd\\panopticon-ceiling$SFX"        # backslashes: cmd
+WORK="C:/Users/ddd/panopticon-shot-work$SFX"
+WORK_W="C:\\Users\\ddd\\panopticon-shot-work$SFX"
+PC_PNG="C:/Users/ddd/panopticon-ceiling-shot$SFX.png"
+PC_SHOTS="C:/Users/ddd/panopticon-shot-work$SFX/shots"
+PC_SHOTS_W="C:\\Users\\ddd\\panopticon-shot-work$SFX\\shots"
+TASK="PanopticonShot$SFX"
 TIMEOUT=${PC_SHOT_TIMEOUT:-600}
 RES=${RES:-}
 SETTLE=${SETTLE:-}
 FLAT=${FLAT:-}
 FOV=${FOV:-}
+AVATAR=${AVATAR:-}
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 
 # override.cfg is this script's alone: write it only when RES asks, but always
@@ -93,6 +98,7 @@ SETTLE_ARG=""
 [ -n "$SETTLE" ] && SETTLE_ARG=" --settle=$SETTLE"
 [ -n "$FLAT" ]   && SETTLE_ARG="$SETTLE_ARG --flat=$FLAT"
 [ -n "$FOV" ]    && SETTLE_ARG="$SETTLE_ARG --fov=$FOV"
+[ -n "$AVATAR" ] && SETTLE_ARG="$SETTLE_ARG --avatar=$AVATAR"
 
 say() { printf '\033[1m==> %s\033[0m\n' "$*"; }
 

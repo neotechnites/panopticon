@@ -18,6 +18,7 @@
 [ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall_arc.tscn" id="Blk_wall"]
 [ext_resource type="PackedScene" path="res://maps/marble/models/marble_column.glb" id="Blk_column"]
 [ext_resource type="Texture2D" path="res://maps/marble/textures/marble_brick_albedo.png" id="Blk_brick"]
+[ext_resource type="LightmapGIData" path="res://maps/marble/marble.lmbake" id="26_marble_lightmap"]
 
 [sub_resource type="StandardMaterial3D" id="Blk_stone"]
 albedo_texture = ExtResource("Blk_brick")
@@ -95,7 +96,7 @@ editor_description = "MAP 2, MARBLE: the Bentham drawing in white marble, one cl
 
 A prisoner runs one 340 deg lap at r 52 from 5 deg to the portal at 345 deg. THE LANE IS BARE (Ryan, 2026-09-22: \"for the marble level, can you just get rid of all the elements on the ring? just so it looks good for screenshots and trailers and stuff\"): the obstacle course -- 71 placed instances, columns, broken columns, arches, spike patches and strips, pads, the orbs -- came off, and nothing stands on the 340 deg run now but the portal at the finish. The bars at 353 deg stayed, behind the finish and out of every shot of the lane, because the bake and the harness proved them structural rather than scenery: see the Bars node. The models the course used are still in maps/marble/models/; only this scene changed. Off the walkway there is nothing to stand on until the spikes, and SpikeFloor kills before a body reaches them; KillBox below the ground floor catches anything that fell through the world.
 
-The light (2026-09-30, Ryan: \"there's no light on the tower. it's dark.\") is Bentham's own: Tower/Lamps, eight unshadowed reflector lamps on the tower's arcade throwing warm light out across the ring onto every cell, plus the TowerLight in the guard room and a flat ambient fill. No sun, no sky, no light from nowhere."
+The light (2026-10-20, Ryan: \"the lighting is so flat... how would the oculus light get to the rest of the map other than bounce light\") is the OCULUS: Skylight/Key, one shadowed cone of daylight from the glazed crown onto the tower and the pit, and everything else is its bounce, baked by MarbleLightmap (LightmapGI: the GL Compatibility renderer has no SDFGI or SSAO, so bounce and contact shade are baked). The lamps are gone (GL Compatibility lights at most 8 positional lights per mesh, and the eight lanterns were taking the oculus key's slot on the rotunda mesh). The ambient is cut to 0.6 and lights only what the lightmap does not (props, players)."
 
 [node name="Environment" type="Node3D" parent="."]
 
@@ -108,24 +109,230 @@ light_energy = 0.0
 shadow_enabled = false
 
 [node name="Skylight" type="Node3D" parent="."]
-editor_description = "The oculus: daylight through the dome's glazed crown (marble.glb, r 11). Key lights the tower alone (layer 11, no shadows) from straight above with a slight lean; Shaft, Pool and Motes are the visible light, additive and cheap. The cells and lane see only the ambient and the lamps."
+editor_description = "The oculus: daylight through the dome's glazed crown (marble.glb, r 11). Key is a shadowed SpotLight3D 1.45 m under the glass (y 77.5; the glass disc is at 78.95, the vault top 78.05, and a light above the glass bakes nothing, the bake sees the glass as stone) pointing straight down (Ryan 2026-10-20: no tilting the light, no new openings), an 84 deg cone (soft edge, attenuation 0.3 so the floor far below is not the brightest thing) that lights the tower, the pit and the lane from its lip to r 53 all the way round (the gallery ceiling shades the rest), and nothing else directly (layer 11, the tower, is out of its mask: its cap glowed white; TowerKey and the fills light the tower, and the tower still casts its shadow); bake mode Dynamic: its direct light and the shadows of walls, columns and piers on the lane are real time, its bounce is in MarbleLightmap at indirect energy 12 (the stone is L*45: one honest bounce off it reads black). Shaft and Pool are gi_mode Disabled (never bake occluders). Shaft, Pool and Motes are the visible light, additive and cheap."
 
-[node name="Key" type="DirectionalLight3D" parent="Skylight"]
+[node name="Key" type="SpotLight3D" parent="Skylight"]
+transform = Transform3D(0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 77.5, 0)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 6.0
+light_indirect_energy = 12.0
+light_size = 3.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 2
+shadow_enabled = true
+shadow_bias = 0.1
+shadow_normal_bias = 2.5
+shadow_blur = 3.0
+spot_range = 120.0
+spot_attenuation = 0.3
+spot_angle = 42.0
+spot_angle_attenuation = 0.5
+
+[node name="TowerKey" type="DirectionalLight3D" parent="Skylight"]
+editor_description = "The sun's lean on the tower alone (layer 11, unshadowed, not baked): a point light on the axis can only light the tower's roof, since the shaft stands in its own roof's shadow, so these parallel rays at 15 deg give the shaft its lit side, shaded side and dark underside, as the oculus key did before 2026-10-20."
 transform = Transform3D(0, 0.9659, 0.2588, 0, -0.2588, 0.9659, 1, 0, 0, 0, 60, 0)
 light_color = Color(1, 0.96, 0.88, 1)
-light_energy = 2.0
+light_energy = 1.0
 light_specular = 0.0
 light_cull_mask = 1024
+light_bake_mode = 0
 shadow_enabled = false
+
+[node name="AmbientFill" type="OmniLight3D" parent="Skylight"]
+editor_description = "The old flat ambient (Ryan's olive 0.62/0.66/0.60), now one static omni under the oculus (y 76), flat falloff (6.0), baked with occlusion: every reveal, cell and underside shades itself, nothing crushes to black."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 76, 0)
+light_color = Color(0.62, 0.66, 0.6, 1)
+light_energy = 6.0
+light_size = 4.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+omni_range = 150.0
+omni_attenuation = 0.0
+
+[node name="Pole" type="Node3D" parent="Skylight"]
+editor_description = "Ryan 2026-10-20: 'a light source that is a bar, or like a pole, down the center, casting light out... the back corners of the ring are dark'. GL Compatibility has no line light, so the pole is four warm static omnis on the axis from under the glass (y 70) down to y 43, plus six at r 11 (just outside the tower shaft, which would occlude anything on the axis there) at y 24 and y 14: those two rings light the gallery vault's underside and the tiers under the lane, baked by MarbleLightmap: together one glowing shaft lighting the ring outward to its back corners, evenly all round. Range 90 reaches the wall at r 60 with soft falloff; layer 11 (the tower) is out of their mask so the centre does not go white."
+
+[node name="Pole0" type="OmniLight3D" parent="Skylight/Pole"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 70, 0)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 9.0
+light_size = 3.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+omni_range = 90.0
+omni_attenuation = 0.4
+
+[node name="Pole1" type="OmniLight3D" parent="Skylight/Pole"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 61, 0)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 9.0
+light_size = 3.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+omni_range = 90.0
+omni_attenuation = 0.4
+
+[node name="Pole2" type="OmniLight3D" parent="Skylight/Pole"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 52, 0)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 9.0
+light_size = 3.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+omni_range = 90.0
+omni_attenuation = 0.4
+
+[node name="Pole3" type="OmniLight3D" parent="Skylight/Pole"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 43, 0)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 9.0
+light_size = 3.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+omni_range = 90.0
+omni_attenuation = 0.4
+
+[node name="Pole4" type="OmniLight3D" parent="Skylight/Pole"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 34, 0)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 9.0
+light_size = 3.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+omni_range = 90.0
+omni_attenuation = 0.4
+
+[node name="Ring24_000" type="OmniLight3D" parent="Skylight/Pole"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.0000, 24, 0.0000)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 11.0
+light_size = 3.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+omni_range = 90.0
+omni_attenuation = 0.4
+
+[node name="Ring24_120" type="OmniLight3D" parent="Skylight/Pole"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.5000, 24, 9.5263)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 11.0
+light_size = 3.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+omni_range = 90.0
+omni_attenuation = 0.4
+
+[node name="Ring24_240" type="OmniLight3D" parent="Skylight/Pole"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.5000, 24, -9.5263)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 11.0
+light_size = 3.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+omni_range = 90.0
+omni_attenuation = 0.4
+
+[node name="Ring14_000" type="OmniLight3D" parent="Skylight/Pole"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.0000, 14, 0.0000)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 11.0
+light_size = 3.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+omni_range = 90.0
+omni_attenuation = 0.4
+
+[node name="Ring14_120" type="OmniLight3D" parent="Skylight/Pole"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.5000, 14, 9.5263)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 11.0
+light_size = 3.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+omni_range = 90.0
+omni_attenuation = 0.4
+
+[node name="Ring14_240" type="OmniLight3D" parent="Skylight/Pole"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.5000, 14, -9.5263)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 11.0
+light_size = 3.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+omni_range = 90.0
+omni_attenuation = 0.4
+
+[node name="TowerSide" type="Node3D" parent="Skylight"]
+editor_description = "The tower shaft's own side light (layer 11 only, static, baked): three warm omnis round the shaft at r 12, y 20, so the shaft reads as it did under the old ambient while the cap stays at the lit stone's level."
+
+[node name="Side060" type="OmniLight3D" parent="Skylight/TowerSide"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.0000, 20, 10.3923)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 4.0
+light_size = 3.0
+light_specular = 0.0
+light_cull_mask = 1024
+light_bake_mode = 1
+omni_range = 40.0
+omni_attenuation = 0.4
+
+[node name="Side180" type="OmniLight3D" parent="Skylight/TowerSide"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12.0000, 20, 0.0000)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 4.0
+light_size = 3.0
+light_specular = 0.0
+light_cull_mask = 1024
+light_bake_mode = 1
+omni_range = 40.0
+omni_attenuation = 0.4
+
+[node name="Side300" type="OmniLight3D" parent="Skylight/TowerSide"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.0000, 20, -10.3923)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 4.0
+light_size = 3.0
+light_specular = 0.0
+light_cull_mask = 1024
+light_bake_mode = 1
+omni_range = 40.0
+omni_attenuation = 0.4
+
+[node name="MarbleLightmap" type="LightmapGI" parent="."]
+editor_description = "The oculus bounce and the dim lamps on the marble, tower and bars (Static Lightmaps imports): Key indirect only (Dynamic), AmbientFill and the Pole whole (Static), three bounces; its probes light anything not lightmapped. Rebake: tools/pc_bake_lightmap.sh <ref> res://maps/marble/marble.tscn."
+quality = 2
+bounces = 3
+bounce_indirect_energy = 1.5
+denoiser_strength = 0.2
+interior = false
+environment_mode = 3
+environment_custom_color = Color(0.62, 0.66, 0.6, 1)
+environment_custom_energy = 3.4
+light_data = ExtResource("26_marble_lightmap")
 
 [node name="Shaft" type="MeshInstance3D" parent="Skylight"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 38.97, 0)
 cast_shadow = 0
+gi_mode = 0
 mesh = SubResource("ShaftMesh")
 
 [node name="Pool" type="MeshInstance3D" parent="Skylight"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.95, 0)
 cast_shadow = 0
+gi_mode = 0
 mesh = SubResource("PoolMesh")
 
 [node name="Motes" type="CPUParticles3D" parent="Skylight"]
@@ -256,10 +463,11 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
 [node name="TowerLight" type="OmniLight3D" parent="Tower"]
 light_cull_mask = 4294964223
-editor_description = "The tower's own lamp under the arcade, UNSHADOWED since 2026-09-22: it hangs at 5.6 over the datum -- world 30.95, over the guard's head and under the arches' crowns -- as a warm room light, and because nothing occludes it, it reaches out through the shaft and the walkway slab to the three cell tiers under the lane (90 m) that the shadowed Skylight cannot light. It is a SOFT lamp (Ryan, 2026-09-16: \"it's way way harsh in the middle of the tower\"): 2.4 m wide, energy 4 over a nearly flat falloff (attenuation 0.35), so the room floor 3 m under it rolls off at the tonemap white instead of clipping. Every number is marble_tower_light_profile.tres'; the light_* properties here mirror it for the editor view."
+light_bake_mode = 0
+editor_description = "The tower's own lamp under the arcade, UNSHADOWED since 2026-09-22: it hangs at 5.6 over the datum -- world 30.95, over the guard's head and under the arches' crowns -- as a warm room light, and because nothing occludes it, it reaches out through the shaft and the walkway slab to the three cell tiers under the lane (90 m) that the shadowed Skylight cannot light. It is a SOFT lamp (Ryan, 2026-09-16: \"it's way way harsh in the middle of the tower\"): 2.4 m wide, energy 0.5 since the oculus bounce took over the fill (2026-10-20) over a nearly flat falloff (attenuation 0.35), so the room floor 3 m under it rolls off at the tonemap white instead of clipping. Every number is marble_tower_light_profile.tres'; the light_* properties here mirror it for the editor view."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.6, 0)
 light_color = Color(1, 0.92, 0.74, 1)
-light_energy = 4.0
+light_energy = 0.5
 light_size = 2.4
 light_specular = 0.1
 shadow_enabled = false
@@ -268,132 +476,6 @@ omni_range = 90.0
 omni_attenuation = 0.35
 script = ExtResource("3_tower_light")
 profile = ExtResource("4_tower_light_profile")
-
-[node name="Lamps" type="Node3D" parent="Tower"]
-editor_description = "Bentham's reflector lamps: one OmniLight3D at each lantern the tower model carries on the spandrels over its columns (bearings 25 + 45k, local y 6.0, world 31.35).\nWarm, unshadowed, no specular; range 75 reaches the cell wall at r 60 and spills back onto the arcade, balcony and dome."
-
-[node name="Lamp025" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.9473, 6.0, 3.2396)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 5.0
-light_specular = 0.0
-shadow_enabled = false
-omni_range = 75.0
-omni_attenuation = 0.25
-
-[node name="Lamp070" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.6218, 6.0, 7.2032)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 5.0
-light_specular = 0.0
-shadow_enabled = false
-omni_range = 75.0
-omni_attenuation = 0.25
-
-[node name="Lamp115" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.2396, 6.0, 6.9473)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 5.0
-light_specular = 0.0
-shadow_enabled = false
-omni_range = 75.0
-omni_attenuation = 0.25
-
-[node name="Lamp160" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.2032, 6.0, 2.6218)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 5.0
-light_specular = 0.0
-shadow_enabled = false
-omni_range = 75.0
-omni_attenuation = 0.25
-
-[node name="Lamp205" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.9473, 6.0, -3.2396)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 5.0
-light_specular = 0.0
-shadow_enabled = false
-omni_range = 75.0
-omni_attenuation = 0.25
-
-[node name="Lamp250" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.6218, 6.0, -7.2032)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 5.0
-light_specular = 0.0
-shadow_enabled = false
-omni_range = 75.0
-omni_attenuation = 0.25
-
-[node name="Lamp295" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.2396, 6.0, -6.9473)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 5.0
-light_specular = 0.0
-shadow_enabled = false
-omni_range = 75.0
-omni_attenuation = 0.25
-
-[node name="Lamp340" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.2032, 6.0, -2.6218)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 5.0
-light_specular = 0.0
-shadow_enabled = false
-omni_range = 75.0
-omni_attenuation = 0.25
-
-[node name="BaseFill" type="Node3D" parent="Tower"]
-editor_description = "Downward fill on the tower foot: four warm unshadowed omnis at r 10, world y 10, so the base reads its texture without a hot spot."
-
-[node name="Fill045" type="OmniLight3D" parent="Tower/BaseFill"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.0711, -15.35, 7.0711)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 0.8
-light_specular = 0.0
-shadow_enabled = false
-omni_range = 30.0
-omni_attenuation = 1.0
-
-[node name="Fill135" type="OmniLight3D" parent="Tower/BaseFill"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.0711, -15.35, -7.0711)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 0.8
-light_specular = 0.0
-shadow_enabled = false
-omni_range = 30.0
-omni_attenuation = 1.0
-
-[node name="Fill225" type="OmniLight3D" parent="Tower/BaseFill"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.0711, -15.35, -7.0711)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 0.8
-light_specular = 0.0
-shadow_enabled = false
-omni_range = 30.0
-omni_attenuation = 1.0
-
-[node name="Fill315" type="OmniLight3D" parent="Tower/BaseFill"]
-light_cull_mask = 4294964223
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.0711, -15.35, 7.0711)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 0.8
-light_specular = 0.0
-shadow_enabled = false
-omni_range = 30.0
-omni_attenuation = 1.0
 
 [node name="Elements" type="Node3D" parent="."]
 editor_description = "Placed lane elements: six curved walls on the lip at Ryan's six bearings, and the four sections as a grey blockout (tools/modelling/maps/marble/marble_sections_blockout.py writes them): A trapdoors under cover 70-118 deg, B wall with activators on top 259-295, C buttresses 197-242, D column forest 16-57."
