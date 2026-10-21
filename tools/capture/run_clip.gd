@@ -404,6 +404,10 @@ func _build() -> void:
 	if seed_value != 0:
 		seed(seed_value)
 
+	if _plugin != null and String(_plugin.scene()) != "":
+		_build_scene(String(_plugin.scene()), shot)
+		return
+
 	var packed: PackedScene = load(MATCH_SCENE) as PackedScene
 	if packed == null:
 		_fail("Cannot load %s; there is no match to film." % MATCH_SCENE)
@@ -488,6 +492,50 @@ func _build() -> void:
 
 	if _pov == "":
 		_aim_camera(_key_start)
+	_announce(shot)
+
+
+## A stage in a world of its own (the hub): its human body is the eye, driven by the stage; no tower, no bots.
+func _build_scene(path: String, shot: Dictionary) -> void:
+	var packed: PackedScene = load(path) as PackedScene
+	var world: Node = packed.instantiate() if packed != null else null
+	_controller = world.get_node_or_null(^"MatchController") as MatchController if world != null else null
+	if _controller == null:
+		_fail("%s has no MatchController; nothing would play." % path)
+		if world != null:
+			world.free()
+		return
+	_controller.auto_start = false
+	for gone: String in ["SettingsBoot", "Music"]:
+		var node: Node = world.get_node_or_null(NodePath(gone))
+		if node != null:
+			node.free()
+	for quiet: String in ["HUD", "Overlay", "PauseMenu", "HubLobby"]:
+		var node: Node = world.get_node_or_null(NodePath(quiet))
+		if node == null:
+			continue
+		node.process_mode = Node.PROCESS_MODE_DISABLED
+		if node is CanvasLayer:
+			(node as CanvasLayer).visible = false
+	BotMatchWorld.silence_local_input(world)
+	root.add_child(world)
+	var body: PlayerController = world.get_node_or_null(^"Player") as PlayerController
+	if body == null or _eye_of(body) == null:
+		_fail("%s has no Player with a Head/Camera to film through." % path)
+		return
+	_pov = "player"
+	_listen_to_audio()
+	if String(_options.get("audio", "")) == "near":
+		_keep_audio_near()
+	_log_events()
+	_plugin.before_start()
+	_controller.start_match()
+	if not _install_the_tape(world):
+		return
+	_eye_of(body).current = true
+	_pov_body = body
+	_wear_the_body(body)
+	print("[pov] %5.2f ride %s at %v" % [_elapsed, body.name, body.global_position])
 	_announce(shot)
 
 
@@ -1153,6 +1201,8 @@ func _fail(message: String) -> void:
 ## being ridden is taken. The body's camera is never written to: only made
 ## current, which is what [FxSpectatorView] does for a dead player.
 func _ride_a_body() -> void:
+	if _pov == "player":
+		return
 	# The finale's tracking shot holds the view; the ride takes it back after.
 	var finale: FinaleView = _controller.get_node_or_null(^"../FinaleView") as FinaleView
 	if finale != null and finale.is_active():

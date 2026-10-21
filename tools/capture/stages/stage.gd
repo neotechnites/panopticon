@@ -38,6 +38,11 @@ func needs_pov() -> String:
 	return ""
 
 
+## A world other than the match (res://hub/hub.tscn): filmed down that scene's own human body's eyes. "" is the match.
+func scene() -> String:
+	return ""
+
+
 ## Retune the match's private rules copy (reload, shove impulse, ghosts off).
 func tune_rules(_rules: MatchRules) -> void:
 	pass
