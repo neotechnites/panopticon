@@ -78,6 +78,9 @@ func cast(_runners: Array[RunnerBrain]) -> bool:
 func tick(_delta: float) -> void:
 	if _cat == null or not is_instance_valid(_cat):
 		return
+	var prompt: CanvasLayer = _cat.get("_prompt_layer") as CanvasLayer
+	if prompt != null and prompt.visible:
+		prompt.visible = false   # no HUD on a shot: the pet prompt is off the take
 	_pet_on_time()
 	_watch_the_blast()
 	var now: int = int(_cat.get("_state"))
