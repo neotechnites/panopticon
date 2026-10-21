@@ -12,6 +12,14 @@ seconds: 4.0
 in: 1.2
 motion: 0.012
 
+## 2
+said: Ryan (22:45, task #687): "ok, can you do it in the hell map now instead of the hub?" ## 1's choreography on bentham_ring: a cat.tscn spawned at 42 deg r 50 (probe_ring --clear: 0-71 deg pad- and trap-free; --heights: deck +-0.08 m at 40-50 deg r 47-55; at 45 deg the walk stuck on an unprobed collider at r 52.6, so 42), the runner POV walks in from r 56, picks it up, shuffles and looks over it, hucks it over the pit at the tower; the cut ends 0.45 s after the throw. lens_clear is off this entry: the held cat sits 0.34 m from the lens by design.
+capture: --shot=s3_open_lane --stage=cat_cozy --pov=runner --bots=1 --shimmer=0 --look=social --seed=20261020 --set=at=42:50;back=6.0
+tape: cat_short_v3
+expect: pickup Cat1 2.4-2.8; throw Cat1 +1.8-2.2; alive Runner_1; lens_cover <= 0.5
+seconds: 3.8
+in: 1.2
+
 ## script v1
 # TikTok/IG: the caption from the first frame to the cut, the end card with beta_link.wav (Ryan's card voice, house loudness).
 captions: stack
@@ -34,3 +42,34 @@ pad: 0.2
 | line | clip | in | len | fit | speed | text | card |
 | c1 | cuts/01.mp4 | 0 | 4.0 | beat 4.0 | | can i be considered a cozy game now? | |
 | end | title | | | line | | beta sign up on my channel | beta signup on my channel |
+
+## script v3
+from: v2
+notes: Ryan (22:40, task #687): "get rid of the audio for beta link in bio on the cat short"; Ryan (22:45): "ok, can you do it in the hell map now instead of the hub?"
+# YouTube: the hell take (## 2), the card silent; voice/silence.wav is a silent bed so the cut has a (silent) track.
+music: voice/silence.wav
+music_db: 0
+music_fade: 0.02 0.02
+captions: stack
+captions_size: 96
+captions_plain: c1
+captions_reset: end
+pad: 0.2
+| line | clip | in | len | fit | speed | text | card |
+| c1 | cuts/02.mp4 | 0 | 3.8 | beat 3.8 | | can i be considered a cozy game now? | |
+| end | title | | 1.2 | | | beta signup on my channel | |
+
+## script v4
+from: v3
+# TikTok/IG: v3 with the TikTok/IG card line.
+music: voice/silence.wav
+music_db: 0
+music_fade: 0.02 0.02
+captions: stack
+captions_size: 96
+captions_plain: c1
+captions_reset: end
+pad: 0.2
+| line | clip | in | len | fit | speed | text | card |
+| c1 | cuts/02.mp4 | 0 | 3.8 | beat 3.8 | | can i be considered a cozy game now? | |
+| end | title | | 1.2 | | | beta signup in bio | |
