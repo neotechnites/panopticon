@@ -25,6 +25,8 @@ var _picked_at: float = -1.0
 var _pets: int = 0
 var _thrown: bool = false
 var _petted: bool = false
+## The steps from the turn on; the turn's yaw is measured when the pets end.
+var _after_pets: Array = []
 var _boom_at: float = -1.0
 var _blast: Node3D = null
 
@@ -91,10 +93,14 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "hold", "seconds": 0.35, "look_at": look},
 		{"do": "run", "to": stop, "speed": float(option("pace", 1.0)), "within": 0.25, "timeout": 6.0, "look_at": look},
 		{"do": "hesitate", "seconds": 0.15, "look_at": look},
+		{"do": "hold", "seconds": float(option("look_extra", 0.0)), "look_at": look},
 		{"do": "shove", "victim": _cat},
-		{"do": "wait_flag", "flag": "petted", "timeout": 4.0, "look_down": carry},
+		{"do": "wait_flag", "flag": "petted", "timeout": 6.0, "look_down": carry},
+		{"do": "hold", "seconds": 1.0, "look_down": carry},
+	]
+	_after_pets = [
 		{"do": "glance", "right": aim, "seconds": float(option("turn_s", 0.4)), "smooth": true, "look_down": float(option("throw_down", -8.0))},
-		{"do": "wait_flag", "flag": "throw", "timeout": 2.0, "look_down": float(option("throw_down", -8.0))},
+		{"do": "wait_flag", "flag": "throw", "timeout": 4.0, "look_down": float(option("throw_down", -8.0))},
 		{"do": "shove"},
 		{"do": "hold", "seconds": 3.0, "look_down": float(option("throw_down", -8.0))},
 	]
@@ -157,14 +163,23 @@ func tick(_delta: float) -> void:
 	_state = now
 
 
-## E on the carried cat at pickup + lead + i * span / 3; the throw flag `wait` s after the last.
+## E on the carried cat: `pets` over `span` from pickup + `lead`; the turn to the pit; then `pets2` over `span2`
+## after `turn_s` + `gap2`; the throw flag `wait` (one burst) or `wait2` (two) s after the last pet.
 func _pet_on_time() -> void:
 	if _picked_at < 0.0 or _thrown:
 		return
+	var first: int = int(option("pets", PETS))
+	var second: int = int(option("pets2", 0))
 	var lead: float = float(option("lead", 0.2))
 	var span: float = float(option("span", 1.0))
 	var since: float = elapsed() - _picked_at
-	if _pets < PETS and since >= lead + span * float(_pets) / float(PETS - 1):
+	var next_at: float = 0.0
+	if _pets < first:
+		next_at = lead + span * float(_pets) / float(maxi(first - 1, 1))
+	else:
+		var from: float = lead + span + float(option("turn_s", 0.4)) + float(option("gap2", 0.5))
+		next_at = from + float(option("span2", 0.5)) * float(_pets - first) / float(maxi(second - 1, 1))
+	if _pets < first + second and since >= next_at:
 		var press: InputEventAction = InputEventAction.new()
 		press.action = &"interact"
 		press.pressed = true
@@ -172,12 +187,28 @@ func _pet_on_time() -> void:
 		_pets += 1
 		var hearts: int = _hearts_in_frame()
 		print("[event] %6.2f  pet  %s n%d hearts_in_frame%d %s" % [elapsed(), _cat.name, _pets, hearts, "prompt" if _cat.get("_prompt_layer") != null else "no_prompt"])
-	if _pets >= PETS and not _petted:
+	if _pets >= first and not _petted:
 		_petted = true
-		flag_all("petted")
-	if _pets >= PETS and since >= lead + span + float(option("wait", 0.45)):
+		_aim_at_the_pit()
+	var throw_at: float = lead + span + float(option("wait", 0.45))
+	if second > 0:
+		throw_at = lead + span + float(option("turn_s", 0.4)) + float(option("gap2", 0.5)) + float(option("span2", 0.5)) + float(option("wait2", 0.25))
+	if _pets >= first + second and since >= throw_at:
 		_thrown = true
 		flag_all("throw")
+
+
+## The turn: from where the eyes face now to the arena's axis (the pit), off the body as it stands; 0 in the hub.
+func _aim_at_the_pit() -> void:
+	if _in_map() and not drivers.is_empty():
+		var body: PlayerController = drivers[0].body()
+		var facing: Vector3 = -body.global_transform.basis.z
+		facing = Vector3(facing.x, 0.0, facing.z).normalized()
+		var inward: Vector3 = Vector3(-body.global_position.x, 0.0, -body.global_position.z).normalized()
+		_after_pets[0]["right"] = -rad_to_deg(facing.signed_angle_to(inward, Vector3.UP))
+		say("turn %.1f deg to the pit" % float(_after_pets[0]["right"]))
+	for driver: Node in drivers:
+		driver.retarget(_after_pets)
 
 
 func _watch_the_blast() -> void:
