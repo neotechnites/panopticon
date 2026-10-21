@@ -56,3 +56,9 @@ Ryan (20:50, on v33/v34 and v14/v15, tasks #630/#601): "ok, ragdolls audio is go
 
 ## v34 | ragdoll_short_final_youtube.mp4 | 2026-10-20 21:07
 Ryan (20:50, on v33/v34 and v14/v15, tasks #630/#601): "ok, ragdolls audio is good. on the "once i had this" clip, it needs to be reshot because it has sone lag. also remove all sound effects, only my voice and future music. minigame is good, just al ittle more space between "sniper" and "this" say add half a second. once those are done we can pick music"
+
+## v35 | ragdoll_short_final_youtube.mp4 | 2026-10-20 22:05
+Ryan (22:04, task #630): "we never put in the actual youtube comment in the ragdoll short. i just pulled them all down. my most recent screenshot is what you need, finish that short"
+
+## v36 | ragdoll_short_final_ttig.mp4 | 2026-10-20 22:05
+Ryan (22:04, task #630): "we never put in the actual youtube comment in the ragdoll short. i just pulled them all down. my most recent screenshot is what you need, finish that short"
