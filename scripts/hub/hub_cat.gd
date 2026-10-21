@@ -160,6 +160,14 @@ static func claim_shove(body: PlayerController, forward: Vector3, reach: float) 
 	return true
 
 
+## True while [param body] holds a cat.
+static func is_carrying(body: PlayerController) -> bool:
+	for cat: HubCat in _all:
+		if cat._carrier == body:
+			return true
+	return false
+
+
 func _pick_up(body: PlayerController) -> void:
 	_fuse += 1
 	_carrier = body
