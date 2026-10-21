@@ -150,41 +150,77 @@ light_bake_mode = 1
 omni_range = 150.0
 omni_attenuation = 0.0
 
-[node name="WellFill" type="Node3D" parent="Skylight"]
-editor_description = "The bounce's direction, baked: three faint olive static omnis in the open well at the gallery's own height (r 20, y 25.5), the only height from which light gets under the gallery ceiling onto its back wall. Flat falloff, so the ring is even; the cells, reveals and ceilings shade themselves in the bake."
+[node name="Pole" type="Node3D" parent="Skylight"]
+editor_description = "Ryan 2026-10-20: 'a light source that is a bar, or like a pole, down the center, casting light out... the back corners of the ring are dark'. GL Compatibility has no line light, so the pole is six warm static omnis on the axis from under the glass (y 70) to the lane (y 25), baked by MarbleLightmap: together one glowing shaft lighting the ring outward to its back corners, evenly all round. Range 90 reaches the wall at r 60 with soft falloff; layer 11 (the tower) is out of their mask so the centre does not go white."
 
-[node name="Fill090" type="OmniLight3D" parent="Skylight/WellFill"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0000, 25.5, 20.0000)
-light_color = Color(0.62, 0.66, 0.6, 1)
-light_energy = 6.0
-light_size = 4.0
+[node name="Pole0" type="OmniLight3D" parent="Skylight/Pole"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 70, 0)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 2.5
+light_size = 3.0
 light_specular = 0.0
+light_cull_mask = 4294966271
 light_bake_mode = 1
-omni_range = 150.0
-omni_attenuation = 0.0
+omni_range = 90.0
+omni_attenuation = 0.4
 
-[node name="Fill210" type="OmniLight3D" parent="Skylight/WellFill"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.3205, 25.5, -10.0000)
-light_color = Color(0.62, 0.66, 0.6, 1)
-light_energy = 6.0
-light_size = 4.0
+[node name="Pole1" type="OmniLight3D" parent="Skylight/Pole"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 61, 0)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 2.5
+light_size = 3.0
 light_specular = 0.0
+light_cull_mask = 4294966271
 light_bake_mode = 1
-omni_range = 150.0
-omni_attenuation = 0.0
+omni_range = 90.0
+omni_attenuation = 0.4
 
-[node name="Fill330" type="OmniLight3D" parent="Skylight/WellFill"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17.3205, 25.5, -10.0000)
-light_color = Color(0.62, 0.66, 0.6, 1)
-light_energy = 6.0
-light_size = 4.0
+[node name="Pole2" type="OmniLight3D" parent="Skylight/Pole"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 52, 0)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 2.5
+light_size = 3.0
 light_specular = 0.0
+light_cull_mask = 4294966271
 light_bake_mode = 1
-omni_range = 150.0
-omni_attenuation = 0.0
+omni_range = 90.0
+omni_attenuation = 0.4
+
+[node name="Pole3" type="OmniLight3D" parent="Skylight/Pole"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 43, 0)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 2.5
+light_size = 3.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+omni_range = 90.0
+omni_attenuation = 0.4
+
+[node name="Pole4" type="OmniLight3D" parent="Skylight/Pole"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 34, 0)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 2.5
+light_size = 3.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+omni_range = 90.0
+omni_attenuation = 0.4
+
+[node name="Pole5" type="OmniLight3D" parent="Skylight/Pole"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25, 0)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 2.5
+light_size = 3.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+omni_range = 90.0
+omni_attenuation = 0.4
 
 [node name="MarbleLightmap" type="LightmapGI" parent="."]
-editor_description = "The oculus bounce and the dim lamps on the marble, tower and bars (Static Lightmaps imports): Key indirect only (Dynamic), AmbientFill and WellFill whole (Static), three bounces; its probes light anything not lightmapped. Rebake: tools/pc_bake_lightmap.sh <ref> res://maps/marble/marble.tscn."
+editor_description = "The oculus bounce and the dim lamps on the marble, tower and bars (Static Lightmaps imports): Key indirect only (Dynamic), AmbientFill and the Pole whole (Static), three bounces; its probes light anything not lightmapped. Rebake: tools/pc_bake_lightmap.sh <ref> res://maps/marble/marble.tscn."
 quality = 2
 bounces = 3
 bounce_indirect_energy = 1.5
