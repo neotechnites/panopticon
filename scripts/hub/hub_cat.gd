@@ -30,6 +30,8 @@ const KEY_TEXTURE: Texture2D = preload("res://hub/props/cat/fx/key_e.png")
 const PROMPT_KEY_SCALE: float = 3.0
 const PROMPT_BELOW_CROSSHAIR: float = 90.0
 const PROMPT_FONT_SIZE: int = 24
+## Extra drop below the crosshair, as a fraction of screen height.
+const PROMPT_SCREEN_DROP: float = 0.2
 
 ## Frames in the explosion sheet's horizontal strip.
 @export var explosion_frames: int = 17
@@ -172,6 +174,8 @@ static func make_pet_prompt() -> CanvasLayer:
 	row.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	row.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	row.grow_vertical = Control.GROW_DIRECTION_BOTH
+	row.anchor_top += PROMPT_SCREEN_DROP
+	row.anchor_bottom += PROMPT_SCREEN_DROP
 	row.offset_top += PROMPT_BELOW_CROSSHAIR
 	row.offset_bottom += PROMPT_BELOW_CROSSHAIR
 	layer.add_child(row)
