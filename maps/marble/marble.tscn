@@ -133,7 +133,7 @@ spot_angle_attenuation = 0.5
 editor_description = "The sun's lean on the tower alone (layer 11, unshadowed, not baked): a point light on the axis can only light the tower's roof, since the shaft stands in its own roof's shadow, so these parallel rays at 15 deg give the shaft its lit side, shaded side and dark underside, as the oculus key did before 2026-10-20."
 transform = Transform3D(0, 0.9659, 0.2588, 0, -0.2588, 0.9659, 1, 0, 0, 0, 60, 0)
 light_color = Color(1, 0.96, 0.88, 1)
-light_energy = 1.0
+light_energy = 0.5
 light_specular = 0.0
 light_cull_mask = 1024
 light_bake_mode = 0
@@ -153,7 +153,7 @@ spot_angle = 165.0
 spot_angle_attenuation = 0.1
 
 [node name="Pole" type="Node3D" parent="Skylight"]
-editor_description = "Ryan 2026-10-20: 'a bar, or like a pole, down the center, casting light out' (the ring's back corners were dark). Four warm static spots on the axis over the tower (y 70..43), each pointing UP with a cone wide enough to light everything but the tower under it: the bake ignores light_cull_mask, so the cone, not the mask, keeps the tower out of the pole. Below them, where the pole would run through the tower, Collar0..7 carry it on at the gallery's height (y 29, r 9): 85 deg spots facing out, near hemispheres that never see the tower behind them."
+editor_description = "Ryan 2026-10-20: 'a bar, or like a pole, down the center, casting light out' (the ring's back corners were dark). Four warm static spots on the axis over the tower (y 70..43), each pointing UP with a cone wide enough to light everything but the tower under it: the bake ignores light_cull_mask, so the cone, not the mask, keeps the tower out of the pole. Below them, where the pole would run through the tower, Collar0..7 carry it on at the gallery's height (y 29, r 9): 85 deg spots facing out, near hemispheres that never see the tower behind them; Under0..7, the same at y 16, light the gallery ceilings from below."
 
 [node name="Pole0" type="SpotLight3D" parent="Skylight/Pole"]
 transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 70, 0)
@@ -302,6 +302,110 @@ spot_angle_attenuation = 0.2
 transform = Transform3D(0.7071, 0, -0.7071, 0, 1, 0, 0.7071, 0, 0.7071, 6.3640, 29, -6.3640)
 light_color = Color(1, 0.94, 0.84, 1)
 light_energy = 8.0
+light_size = 2.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+spot_range = 80.0
+spot_attenuation = 0.4
+spot_angle = 85.0
+spot_angle_attenuation = 0.2
+
+[node name="Under0" type="SpotLight3D" parent="Skylight/Pole"]
+transform = Transform3D(-0.3827, 0, -0.9239, 0, 1, 0, 0.9239, 0, -0.3827, 8.3149, 16, 3.4442)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 10.0
+light_size = 2.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+spot_range = 80.0
+spot_attenuation = 0.4
+spot_angle = 85.0
+spot_angle_attenuation = 0.2
+
+[node name="Under1" type="SpotLight3D" parent="Skylight/Pole"]
+transform = Transform3D(-0.9239, 0, -0.3827, 0, 1, 0, 0.3827, 0, -0.9239, 3.4442, 16, 8.3149)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 10.0
+light_size = 2.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+spot_range = 80.0
+spot_attenuation = 0.4
+spot_angle = 85.0
+spot_angle_attenuation = 0.2
+
+[node name="Under2" type="SpotLight3D" parent="Skylight/Pole"]
+transform = Transform3D(-0.9239, 0, 0.3827, 0, 1, 0, -0.3827, 0, -0.9239, -3.4442, 16, 8.3149)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 10.0
+light_size = 2.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+spot_range = 80.0
+spot_attenuation = 0.4
+spot_angle = 85.0
+spot_angle_attenuation = 0.2
+
+[node name="Under3" type="SpotLight3D" parent="Skylight/Pole"]
+transform = Transform3D(-0.3827, 0, 0.9239, 0, 1, 0, -0.9239, 0, -0.3827, -8.3149, 16, 3.4442)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 10.0
+light_size = 2.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+spot_range = 80.0
+spot_attenuation = 0.4
+spot_angle = 85.0
+spot_angle_attenuation = 0.2
+
+[node name="Under4" type="SpotLight3D" parent="Skylight/Pole"]
+transform = Transform3D(0.3827, 0, 0.9239, 0, 1, 0, -0.9239, 0, 0.3827, -8.3149, 16, -3.4442)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 10.0
+light_size = 2.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+spot_range = 80.0
+spot_attenuation = 0.4
+spot_angle = 85.0
+spot_angle_attenuation = 0.2
+
+[node name="Under5" type="SpotLight3D" parent="Skylight/Pole"]
+transform = Transform3D(0.9239, 0, 0.3827, 0, 1, 0, -0.3827, 0, 0.9239, -3.4442, 16, -8.3149)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 10.0
+light_size = 2.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+spot_range = 80.0
+spot_attenuation = 0.4
+spot_angle = 85.0
+spot_angle_attenuation = 0.2
+
+[node name="Under6" type="SpotLight3D" parent="Skylight/Pole"]
+transform = Transform3D(0.9239, 0, -0.3827, 0, 1, 0, 0.3827, 0, 0.9239, 3.4442, 16, -8.3149)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 10.0
+light_size = 2.0
+light_specular = 0.0
+light_cull_mask = 4294966271
+light_bake_mode = 1
+spot_range = 80.0
+spot_attenuation = 0.4
+spot_angle = 85.0
+spot_angle_attenuation = 0.2
+
+[node name="Under7" type="SpotLight3D" parent="Skylight/Pole"]
+transform = Transform3D(0.3827, 0, -0.9239, 0, 1, 0, 0.9239, 0, 0.3827, 8.3149, 16, -3.4442)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 10.0
 light_size = 2.0
 light_specular = 0.0
 light_cull_mask = 4294966271
