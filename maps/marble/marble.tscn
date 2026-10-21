@@ -59,10 +59,10 @@ ambient_light_energy = 3.5
 tonemap_mode = 1
 tonemap_white = 2.0
 fog_enabled = true
-fog_light_color = Color(0.62, 0.6, 0.55, 1)
-fog_light_energy = 0.5
-fog_density = 0.0012
-fog_sky_affect = 0.0
+fog_light_color = Color(0.36, 0.3, 0.2, 1)
+fog_light_energy = 0.6
+fog_density = 0.025
+fog_sky_affect = 0.6
 
 [sub_resource type="StandardMaterial3D" id="SkyGlass"]
 shading_mode = 0
@@ -97,14 +97,14 @@ The light is the Oculus node's: daylight straight down through the glazed crown,
 environment = SubResource("Env")
 
 [node name="Oculus" type="Node3D" parent="."]
-editor_description = "Daylight through the glazed crown (marble.glb, r 11, y 79). Sun: straight down, shadowed, its cone the beam's; Beam: the visible light, additive.\nSpill: two shadowed omnis on the beam's axis above the tower throwing its light out onto the ring; negative attenuation so the far cells get as much as the tower top."
+editor_description = "Daylight through the glazed crown (marble.glb, r 11, y 79). Sun: straight down, unshadowed, its cone the beam's; Beam: the visible light, additive.\nSpill: two unshadowed omnis on the beam's axis above the tower throwing its light out onto the ring; negative attenuation so the far cells get as much as the tower top."
 
 [node name="Sun" type="SpotLight3D" parent="Oculus"]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 78.5, 0)
 light_color = Color(1, 0.95, 0.84, 1)
 light_energy = 0.15
 light_specular = 0.0
-shadow_enabled = true
+shadow_enabled = false
 shadow_bias = 0.08
 shadow_blur = 2.0
 spot_range = 95.0
@@ -156,7 +156,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 46, 0)
 light_color = Color(1, 0.94, 0.82, 1)
 light_energy = 0.9
 light_specular = 0.0
-shadow_enabled = true
+shadow_enabled = false
 shadow_bias = 0.1
 shadow_blur = 2.0
 omni_range = 110.0
@@ -168,7 +168,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 70, 0)
 light_color = Color(1, 0.94, 0.82, 1)
 light_energy = 0.18
 light_specular = 0.0
-shadow_enabled = true
+shadow_enabled = false
 shadow_bias = 0.1
 shadow_blur = 2.0
 omni_range = 110.0
