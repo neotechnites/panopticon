@@ -18,6 +18,9 @@
 [ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall_arc.tscn" id="Blk_wall"]
 [ext_resource type="PackedScene" path="res://maps/marble/models/marble_column.glb" id="Blk_column"]
 [ext_resource type="Texture2D" path="res://maps/marble/textures/marble_brick_albedo.png" id="Blk_brick"]
+[ext_resource type="Texture2D" path="res://maps/marble/textures/marble_tower_albedo.png" id="T_tower"]
+[ext_resource type="Texture2D" path="res://maps/marble/textures/marble_tower_column_albedo.png" id="T_tcol"]
+[ext_resource type="Texture2D" path="res://maps/marble/textures/marble_stone_albedo.png" id="T_stone"]
 [ext_resource type="LightmapGIData" path="res://maps/marble/marble.lmbake" id="26_marble_lightmap"]
 
 [sub_resource type="StandardMaterial3D" id="Blk_stone"]
@@ -90,6 +93,76 @@ height = 0.2
 radial_segments = 24
 rings = 1
 
+[sub_resource type="StandardMaterial3D" id="TowerTint0"]
+albedo_color = Color(0.3, 0.3, 0.3, 1)
+albedo_texture = ExtResource("T_tcol")
+metallic_specular = 0.5
+roughness = 1.0
+texture_filter = 4
+
+[sub_resource type="StandardMaterial3D" id="TowerTint1"]
+albedo_color = Color(0.3, 0.3, 0.3, 1)
+albedo_texture = ExtResource("T_tower")
+metallic_specular = 0.5
+roughness = 1.0
+texture_filter = 4
+
+[sub_resource type="StandardMaterial3D" id="TowerTint2"]
+albedo_color = Color(0.3, 0.3, 0.3, 1)
+albedo_texture = ExtResource("T_tcol")
+metallic_specular = 0.5
+roughness = 1.0
+texture_filter = 4
+
+[sub_resource type="StandardMaterial3D" id="TowerTint3"]
+albedo_color = Color(0.22, 0.22, 0.22, 1)
+albedo_texture = ExtResource("T_tower")
+metallic_specular = 0.5
+roughness = 1.0
+texture_filter = 4
+
+[sub_resource type="StandardMaterial3D" id="TowerTint5"]
+albedo_color = Color(0.3, 0.3, 0.3, 1)
+albedo_texture = ExtResource("T_stone")
+metallic_specular = 0.5
+roughness = 1.0
+texture_filter = 4
+
+[sub_resource type="StandardMaterial3D" id="TowerTint6"]
+albedo_color = Color(0.3, 0.3, 0.3, 1)
+albedo_texture = ExtResource("T_tower")
+metallic_specular = 0.5
+roughness = 1.0
+texture_filter = 4
+
+[sub_resource type="StandardMaterial3D" id="TowerTint7"]
+albedo_color = Color(0.3, 0.3, 0.3, 1)
+albedo_texture = ExtResource("T_tower")
+metallic_specular = 0.5
+roughness = 1.0
+texture_filter = 4
+
+[sub_resource type="StandardMaterial3D" id="TowerTint8"]
+albedo_color = Color(0.3, 0.3, 0.3, 1)
+albedo_texture = ExtResource("T_tower")
+metallic_specular = 0.5
+roughness = 1.0
+texture_filter = 4
+
+[sub_resource type="StandardMaterial3D" id="TowerTint9"]
+albedo_color = Color(0.3, 0.3, 0.3, 1)
+albedo_texture = ExtResource("T_tower")
+metallic_specular = 0.5
+roughness = 1.0
+texture_filter = 4
+
+[sub_resource type="StandardMaterial3D" id="TowerTint10"]
+albedo_color = Color(0.3, 0.3, 0.3, 1)
+albedo_texture = ExtResource("T_tower")
+metallic_specular = 0.5
+roughness = 1.0
+texture_filter = 4
+
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
 background_color = Color(0.20, 0.21, 0.19, 1)
@@ -124,7 +197,7 @@ editor_description = "The oculus: daylight through the dome's glazed crown (marb
 [node name="Key" type="SpotLight3D" parent="Skylight"]
 transform = Transform3D(0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 77.5, 0)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 1.2
+light_energy = 0.9
 light_indirect_energy = 30.0
 light_size = 1.0
 light_specular = 0.0
@@ -161,7 +234,7 @@ editor_description = "Ryan 2026-10-20: 'a bar, or like a pole, down the center, 
 [node name="Pole0" type="OmniLight3D" parent="Skylight/Pole"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 46, 0)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 2.4
+light_energy = 1.8
 light_indirect_energy = 30.0
 light_size = 0.4
 light_specular = 0.0
@@ -173,7 +246,7 @@ omni_attenuation = 0.0
 [node name="Pole1" type="OmniLight3D" parent="Skylight/Pole"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 54, 0)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 2.4
+light_energy = 1.8
 light_indirect_energy = 30.0
 light_size = 0.4
 light_specular = 0.0
@@ -185,7 +258,7 @@ omni_attenuation = 0.0
 [node name="Pole2" type="OmniLight3D" parent="Skylight/Pole"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 62, 0)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 2.4
+light_energy = 1.8
 light_indirect_energy = 30.0
 light_size = 0.4
 light_specular = 0.0
@@ -197,7 +270,7 @@ omni_attenuation = 0.0
 [node name="Pole3" type="OmniLight3D" parent="Skylight/Pole"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 70, 0)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 2.4
+light_energy = 1.8
 light_indirect_energy = 30.0
 light_size = 0.4
 light_specular = 0.0
@@ -209,13 +282,13 @@ omni_attenuation = 0.0
 [node name="MarbleLightmap" type="LightmapGI" parent="."]
 editor_description = "The oculus Key and the Pole, all Static and shadowed, baked direct with four bounces as the only fill; its probes light anything not lightmapped. Rebake: tools/pc_bake_lightmap.sh <ref> res://maps/marble/marble.tscn."
 quality = 2
-bounces = 4
-bounce_indirect_energy = 2.0
+bounces = 5
+bounce_indirect_energy = 8.0
 denoiser_strength = 0.2
 interior = false
 environment_mode = 3
 environment_custom_color = Color(0.62, 0.66, 0.6, 1)
-environment_custom_energy = 3.4
+environment_custom_energy = 12.0
 light_data = ExtResource("26_marble_lightmap")
 
 [node name="Shaft" type="MeshInstance3D" parent="Skylight"]
@@ -347,6 +420,16 @@ editor_description = "maps/marble/models/marble_tower.glb: the live tower. Carri
 [node name="MarbleTowerRock" parent="Tower/RockArches" index="0"]
 editor_description = "Visual layer 11 only (2026-10-08, Ryan: \"the lamps cast ugly shadows on it\"): the tower's lamps, fills and TowerLight leave layer 11 out of their light_cull_mask, so the ambient alone lights the tower, evenly, and its own tile (marble_tower) is set to read as the cells do."
 layers = 1024
+surface_material_override/0 = SubResource("TowerTint0")
+surface_material_override/1 = SubResource("TowerTint1")
+surface_material_override/2 = SubResource("TowerTint2")
+surface_material_override/3 = SubResource("TowerTint3")
+surface_material_override/5 = SubResource("TowerTint5")
+surface_material_override/6 = SubResource("TowerTint6")
+surface_material_override/7 = SubResource("TowerTint7")
+surface_material_override/8 = SubResource("TowerTint8")
+surface_material_override/9 = SubResource("TowerTint9")
+surface_material_override/10 = SubResource("TowerTint10")
 
 [node name="MarbleTowerRoom" parent="Tower/RockArches"]
 editor_description = "The guard room's floor (marble_tower.glb's second node) on visual layer 12, which no light here reaches: the skylight's Key (layer 11) stops at the tower roof, the lamps leave 11 and 12 out, so the floor is lit by the ambient alone."
