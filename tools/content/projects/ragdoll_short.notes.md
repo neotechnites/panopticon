@@ -47,3 +47,6 @@ still the compelte wrong clip. make it from scratch, all its supposed to be is a
 
 ## v29 | ragdoll_short_v29.mp4 | 2026-10-18 18:09
 still the compelte wrong clip. make it from scratch, all its supposed to be is a screen capture of me playing the animation in the godot editor, and then, that face slowly fading in, it should not fade in on top of the character. it should play out, exactly as it doesn in v14, but it should be the most recent model
+
+## v32 | ragdoll_short_final_ttig.mp4 | 2026-10-20 20:02
+Ryan (20:11, on ragdoll_short_final_ttig/youtube, task #630): "the yeah is cut into the first line. the audio mixing on the whole thing is actually just a joke. so go fix that". Ryan (19:52): "no, dont just fix that little thing, figure out why the fuck that happened and do the audio mixing properly". Ryan (19:56): "weve fucking done this before ... dont we have a full fucking short pipeline". Ryan (earlier): "i just got that voice clip, use it on short 4 and 13 and creat a youtube and tt/insta version." v33 (TikTok/IG) and v34 (YouTube): v32 plus the voiced end card row (beta_link.wav / beta_link_youtube.wav through vo.py --outro); voice re-run through vo.py with the energy-gated breath duck.

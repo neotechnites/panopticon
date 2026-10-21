@@ -30,3 +30,6 @@ Ryan on short 9 (v10, task #601): "that death animation you used is not the one 
 
 ## v11 | start_minigame_v11.mp4 | 2026-10-18 16:28
 Head 5 fps check of v11 (task #601, not Ryan's notes; v11 was not shown to him): the L4 insert's first ~3 s is an empty lane with the portal in the foreground and nothing moving; the runners appear tiny near the end. v12: the insert's in-point moves later in the same take so the pack is coming down the lane from its first frame.
+
+## v13 | start_minigame_final_ttig.mp4 | 2026-10-20 20:02
+Ryan (19:46, on start_minigame_final_ttig/youtube, task #601): "when i say everyone in minigame, its volume goes to fuckign zero." Ryan (19:52): "no, dont just fix that little thing, figure out why the fuck that happened and do the audio mixing properly". Ryan (19:56): "weve fucking done this before ... dont we have a full fucking short pipeline". Cause: vo.py duck_breaths gain-ducked by whisper word times, and whisper put "everyone" (~28.4 s) late. v14 (TikTok/IG) = v13; v15 (YouTube) = v13 with the YouTube end card line; voice re-run through vo.py with the energy-gated breath duck and --outro per platform.
