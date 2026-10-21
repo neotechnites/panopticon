@@ -2381,8 +2381,9 @@ func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 
 	var match_rules: MatchRules = get_rules()
 	if HubCat.claim_shove(shover.body, forward, match_rules.shove_range_metres):
-		# A cat took the swing: lifted, or hucked from the arms.
-		shover.shove_cooldown_remaining = maxf(match_rules.shove_cooldown_seconds, 0.0)
+		# A cat took the swing: a pickup is free so the throw is instant; a throw cools down.
+		if not HubCat.is_carrying(shover.body):
+			shover.shove_cooldown_remaining = maxf(match_rules.shove_cooldown_seconds, 0.0)
 		shover.body.shoved.emit()
 		return null
 	if shover == _finisher and _phase == Phase.ROUND:
