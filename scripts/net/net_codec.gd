@@ -125,6 +125,7 @@ const _FLAG_ABILITY_HELD: int = 1 << 7
 ## Second flag byte. The first is full; new intent bits start here.
 const _FLAG2_SHOVE_PRESSED: int = 1 << 0
 const _FLAG2_AIM_HELD: int = 1 << 1
+const _FLAG2_COOK_PRESSED: int = 1 << 2
 const _FLAG_ON_FLOOR: int = 1 << 0
 ## The rest of the snapshot flag byte: what a mirror cannot work out for itself
 ## because it runs no physics and takes no match decisions.
@@ -148,7 +149,7 @@ const _JUMP_BIT_POSITIONS: Array[int] = [3, 6, 7]
 const _FLAG_SEAT_READY: int = 1 << 0
 
 ## Highest [enum MatchRules.RunnerAbility] value the wire carries.
-const _MAX_ABILITY: int = 4
+const _MAX_ABILITY: int = 5
 
 ## Ceiling on a quantised timer, and on hit points: one byte each.
 const _ABILITY_TENTHS_MAX: int = 255
@@ -219,9 +220,11 @@ static func _put_intent(buffer: StreamPeerBuffer, intent: MoveIntent) -> void:
 	if intent.ability_held:
 		flags |= _FLAG_ABILITY_HELD
 	buffer.put_u8(flags)
-	buffer.put_u8(clampi(intent.ability_slot, 0, 4))
+	buffer.put_u8(clampi(intent.ability_slot, 0, _MAX_ABILITY))
 	buffer.put_u8(
-		(_FLAG2_SHOVE_PRESSED if intent.shove_pressed else 0) | (_FLAG2_AIM_HELD if intent.aim_held else 0)
+		(_FLAG2_SHOVE_PRESSED if intent.shove_pressed else 0)
+		| (_FLAG2_AIM_HELD if intent.aim_held else 0)
+		| (_FLAG2_COOK_PRESSED if intent.cook_pressed else 0)
 	)
 
 
@@ -289,9 +292,10 @@ static func unpack_intent_at(payload: PackedByteArray, index: int, out: MoveInte
 	out.fire_held = (flags & _FLAG_FIRE_HELD) != 0
 	out.ability_pressed = (flags & _FLAG_ABILITY_PRESSED) != 0
 	out.ability_held = (flags & _FLAG_ABILITY_HELD) != 0
-	out.ability_slot = clampi(slot, 0, 4)
+	out.ability_slot = clampi(slot, 0, _MAX_ABILITY)
 	out.shove_pressed = (flags2 & _FLAG2_SHOVE_PRESSED) != 0
 	out.aim_held = (flags2 & _FLAG2_AIM_HELD) != 0
+	out.cook_pressed = (flags2 & _FLAG2_COOK_PRESSED) != 0
 	# The dev keys are not on the wire and must not survive on a reused struct
 	# either. [param out] is owned by the caller and lives for the session, so a
 	# field this format does not carry has to be cleared here or it keeps

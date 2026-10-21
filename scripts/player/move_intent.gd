@@ -53,8 +53,10 @@ var fire_held: bool = false
 ## The runner's power. Edge on the press; the level lets Armor Lock end on release.
 var ability_pressed: bool = false
 var ability_held: bool = false
-## 1-4 picks that power directly this tick (test keys); 0 = none.
+## 1-5 picks that power directly this tick (test keys); 0 = none.
 var ability_slot: int = 0
+## True on the tick E was pressed: lights a held cat grenade.
+var cook_pressed: bool = false
 
 ## True on the tick shove was tapped. Resolved by the authority; see
 ## [method MatchController.apply_shove].
@@ -84,6 +86,7 @@ func clear() -> void:
 	ability_pressed = false
 	ability_held = false
 	ability_slot = 0
+	cook_pressed = false
 	shove_pressed = false
 	aim_held = false
 	turbo_held = false
@@ -112,6 +115,7 @@ func copy_from(other: MoveIntent) -> void:
 	ability_pressed = other.ability_pressed
 	ability_held = other.ability_held
 	ability_slot = other.ability_slot
+	cook_pressed = other.cook_pressed
 	shove_pressed = other.shove_pressed
 	aim_held = other.aim_held
 	turbo_held = other.turbo_held
