@@ -22,7 +22,7 @@ import brief as brief_mod  # noqa: E402
 
 KEY = 0.15          # decision 357 (1): the fixed window cut off both ends of every recorded clip (the key press)
 ROOM_DB = -45.0     # at or below this a 10 ms frame is room tone
-LEVEL = "acompressor=threshold=-8dB:ratio=2:attack=5:release=250"   # task #602: peak catcher only; loudnorm sets the level
+LEVEL = "dynaudnorm=f=150:g=15:p=0.9,acompressor=threshold=-24dB:ratio=3:attack=10:release=200"   # task #630: Ryan asked for an even voice, word to word
 LOUD = "loudnorm=I=-16:TP=-1.5:LRA=7"
 BREATH = 0.15       # decision 357 (3): an inter-word gap is ducked to this gain
 OUTRO_MATCH = 0.6   # a clip whose words match the outro line this well is the outro
