@@ -22,9 +22,11 @@ import brief as brief_mod  # noqa: E402
 
 KEY = 0.15          # decision 357 (1): the fixed window cut off both ends of every recorded clip (the key press)
 ROOM_DB = -45.0     # at or below this a 10 ms frame is room tone
-LEVEL = "dynaudnorm=f=150:g=15:p=0.9,acompressor=threshold=-24dB:ratio=3:attack=10:release=200"   # task #630: Ryan asked for an even voice, word to word
+LEVEL = "acompressor=threshold=-8dB:ratio=2:attack=5:release=250"   # task #602 (95ba9a7e): peak catcher only; loudnorm sets the level
 LOUD = "loudnorm=I=-16:TP=-1.5:LRA=7"
 BREATH = 0.15       # decision 357 (3): an inter-word gap is ducked to this gain
+GAP_DB = -30.0      # a 10 ms frame this far under the line's speech (its 95th percentile) is gap, not word
+GUARD = 0.05        # and only once it is this many seconds clear of any louder frame
 OUTRO_MATCH = 0.6   # a clip whose words match the outro line this well is the outro
 SPLIT = 0.3         # a take splits at the deepest dip within this many seconds of the words' gap
 MODEL = "small.en"
@@ -213,8 +215,19 @@ def quietest(x, r, a, b):
     return (fa + int(np.argmin(db[fa:fb]))) * w + w // 2
 
 
+def quiet_runs(x, r):
+    """(start, end) samples where the audio itself is a low-energy gap: GAP_DB under the line's speech, GUARD s clear of it."""
+    db, w = frames_db(np.atleast_2d(x).mean(axis=0), r)
+    loud = db > np.percentile(db, 95) + GAP_DB
+    k = int(round(GUARD * 100))
+    near = np.convolve(loud.astype(np.int32), np.ones(2 * k + 1, dtype=np.int32), "same") > 0
+    edges = np.flatnonzero(np.diff(np.concatenate([[0], (~near).astype(np.int8), [0]])))
+    return [(a * w, b * w) for a, b in zip(edges[::2], edges[1::2])]
+
+
 def duck_breaths(x, r, words):
-    """357 (3): the gaps between words (breaths) down to BREATH gain, 20 ms ramps, never into a word."""
+    """357 (3): a gap between words down to BREATH gain, 20 ms ramps, only where both the word times and the audio say gap.
+    Whisper's word times can land late (task #601: "everyone"); the energy test keeps a mistimed onset at full level."""
     n = x.shape[-1]
     g = np.ones(n, dtype=np.float32)
     edge, ramp = 0.04, int(0.02 * r)
@@ -222,13 +235,15 @@ def duck_breaths(x, r, words):
     spans += [(p["t"] + p["dur"], q["t"]) for p, q in zip(words, words[1:])]
     if words:
         spans.append((words[-1]["t"] + words[-1]["dur"], n / r))
+    quiet = quiet_runs(x, r)
     for a, b in spans:
-        i, j = int((a + edge) * r), int((b - edge) * r)
-        if j - i < 2 * ramp + int(0.06 * r):
-            continue
-        g[i:j] = BREATH
-        g[i:i + ramp] = np.linspace(1, BREATH, ramp)
-        g[j - ramp:j] = np.linspace(BREATH, 1, ramp)
+        for qa, qb in quiet:
+            i, j = max(int((a + edge) * r), qa), min(int((b - edge) * r), qb)
+            if j - i < 2 * ramp + int(0.06 * r):
+                continue
+            g[i:j] = BREATH
+            g[i:i + ramp] = np.linspace(1, BREATH, ramp)
+            g[j - ramp:j] = np.linspace(BREATH, 1, ramp)
     return x * g
 
 
@@ -272,6 +287,7 @@ def main(argv=None):
     ap.add_argument("--tag", default="")
     ap.add_argument("--out", required=True)
     ap.add_argument("--model", default=MODEL)
+    ap.add_argument("--outro", help="the end card line's voice from this wav, in place of the recording's own outro clip")
     a = ap.parse_args(argv)
     parsed = brief_mod.parse(a.brief)
     script = parsed["scripts"].get(a.tag) or parsed["script"]
@@ -310,14 +326,34 @@ def main(argv=None):
             body = [(k, v) for k, v in lines if k != outro]
             body_heard = [w for w in heard if w["take"] != outro_take]
             print("vo: clip %d (%s) is the outro, line %s" % (outro_take, takes[outro_take][0], outro))
+    if a.outro:                               # a separate card recording (one per platform) is the end card's line
+        if outro is None:
+            raise SystemExit("vo: --outro, but ## script %s has no voiced end card row" % a.tag)
+        if outro_take is None:                # the recording's own outro says another card line: the newest clip mostly off-script
+            spoken = [(k, v) for k, v in lines if k != outro]
+            no_line = [t for t in range(len(found)) if [w for w in heard if w["take"] == t] and np.mean([o is None for o in assign(
+                spoken, [w for w in heard if w["take"] == t], fill=False)]) > 0.5]
+            if no_line:
+                outro_take = no_line[-1]
+                body_heard = [w for w in heard if w["take"] != outro_take]
+                print("vo: clip %d (%s) is the recording's own outro, not a line" % (outro_take, takes[outro_take][0]))
+        xo, ro = sf.read(a.outro, dtype="float32", always_2d=True)
+        takes.append((os.path.basename(a.outro), cut_ends(xo.mean(axis=1), ro), ro))
+        ot = len(takes) - 1
+        p = os.path.join(tmp, "outro.wav")
+        sf.write(p, takes[ot][1], ro)
+        heard = heard + [dict(w, take=ot) for w in transcribe(model, p)[1]]
+        pieces[outro] = [(ot, 0, len(takes[ot][1]))]
+        body = [(k, v) for k, v in lines if k != outro]
+        print("vo: %s is the outro, line %s" % (takes[ot][0], outro))
     # The first track is the take; a later track is a retake of the lines it says, the newest track winning.
-    n_body = len(takes) - (outro_take is not None)
+    n_body = len(found) - (outro_take is not None)
     for tr in sorted(set(track)):
         mine = [w for w in body_heard if track[w["take"]] == tr]
         if not mine:
             continue
         first = tr == min(track)
-        got = split(body, takes, mine, base=len(set(track)) == 1 and n_body == len(body) and outro_take in (None, len(takes) - 1),
+        got = split(body, takes, mine, base=len(set(track)) == 1 and n_body == len(body) and outro_take in (None, len(found) - 1),
                     share=0.0 if first else 0.5)
         if not first:
             print("vo: track %d retakes %s" % (tr, ", ".join(k for k in got if got[k])))

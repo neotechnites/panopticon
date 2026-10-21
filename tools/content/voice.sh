@@ -2,6 +2,7 @@
 # The voice of a project: en-US-AndrewNeural +5% on the pinned edge-tts endpoint (pc/voice.py),
 # preflighted first, no other voice; or Ryan's own recording laid into a gap.
 # --ryan <aup4> (or an existing projects/<name>/voice/ryan/): his recorded lines (vo.py) replace the TTS.
+# --outro <wav> (with --ryan): the end card's line from that card recording (one per platform).
 #
 #   tools/content/voice.sh <project> [--tag T] [--force] [--ryan <aup4>]   # voice the tag's ## script lines
 #   tools/content/voice.sh <project> <wav> [n]             # a recording at shot n's gap
@@ -30,10 +31,10 @@ if [ $# -ge 2 ] && [ "${2}" != "--force" ] && [ "${2}" != "--tag" ] && [ "${2}" 
 fi
 
 grep -q '^## script' "${BRIEF}" || die "${NAME} has no ## script section to speak"
-FORCE=""; TAG=""; RYAN=""
+FORCE=""; TAG=""; RYAN=""; OUTRO=()
 shift
 while [ $# -gt 0 ]; do
-  case "$1" in --force) FORCE="--force" ;; --tag) TAG="$2"; shift ;; --ryan) RYAN="$2"; shift ;; *) die "unknown option $1" ;; esac
+  case "$1" in --force) FORCE="--force" ;; --tag) TAG="$2"; shift ;; --ryan) RYAN="$2"; shift ;; --outro) OUTRO=(--outro "$2"); shift ;; *) die "unknown option $1" ;; esac
   shift
 done
 T0=$(now_ms)
@@ -41,7 +42,7 @@ pc_layout "${DIR}"
 RYAN_DIR="${CONTENT_DIR}/projects/${NAME}/voice/ryan"
 if [ -n "${RYAN}" ]; then
   [ -f "${RYAN}" ] || die "no recording at ${RYAN}"
-  "${CONTENT_DIR}/.venv/bin/python" "${CONTENT_DIR}/vo.py" "${RYAN}" --brief "${BRIEF}" --tag "${TAG}" --out "${RYAN_DIR}" || die "vo.py failed on ${RYAN}"
+  "${CONTENT_DIR}/.venv/bin/python" "${CONTENT_DIR}/vo.py" "${RYAN}" --brief "${BRIEF}" --tag "${TAG}" --out "${RYAN_DIR}" ${OUTRO[@]+"${OUTRO[@]}"} || die "vo.py failed on ${RYAN}"
 fi
 if [ -f "${RYAN_DIR}/words.json" ]; then   # his voice: the wavs go to the PC voice folder, nothing is spoken
   python3 - "${RYAN_DIR}/words.json" "${DIR}\\voice" "${RYAN_DIR}/words.pc.json" <<'PY'
