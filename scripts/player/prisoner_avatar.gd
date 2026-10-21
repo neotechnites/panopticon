@@ -1756,8 +1756,8 @@ const EMOTE_FOOT_YAW: Array = [-30.0, 15.0]
 ## Object centre held per stance [right, left].
 const EMOTE_HOLD: Array = [[Vector3(-0.62, 0.42, 0.42), Vector3(0.54, 0.42, 0.26)], [Vector3(-0.58, 0.42, 0.70), Vector3(0.58, 0.42, 0.70)], [Vector3(-0.62, 0.42, 0.42), Vector3(0.54, 0.42, 0.26)]]
 const EMOTE_STEP_TIME: float = 0.18
-## Off hand's wrist and fingers, guarding in front of the chest, relative to the hips.
-const EMOTE_GUARD: Vector3 = Vector3(0.10, 0.34, 0.40)
+## Seconds a palm is on the object: catch, cushion, push.
+const EMOTE_TOUCH: float = 0.11
 ## The object's angles (turns) as it passes under the crotch on a tween: long side across, lying low.
 const EMOTE_TWEEN_TUMBLE: Vector3 = Vector3(0.0, 0.25, 0.0)
 ## Whole turns per loop about X, Y, Z: a loose tumble that still loops.
@@ -1880,41 +1880,41 @@ func _emote_timeline() -> void:
 	var feet: Array = (EMOTE_FEET[stance] as Array).duplicate()
 	for move: String in EMOTE_SEQUENCE:
 		var want: int = EMOTE_STANCE[move]
-		var lead: float = 0.0
 		if want != stance:
 			# Front foot first into the stagger, back foot first out of it.
 			var order: Array = [0, 1] if want == 1 else [1, 0]
 			for k: int in 2:
 				var side: int = order[k]
-				var t0: float = t + 0.04 + 0.12 * float(k)
+				var t0: float = maxf(t - 0.22, 0.0) + 0.1 * float(k)
 				_emote_steps.append([t0, t0 + EMOTE_STEP_TIME, side, feet[side], EMOTE_FEET[want][side]])
 				feet[side] = EMOTE_FEET[want][side]
-			lead = 0.32
 			stance = want
 		var other: int = 1 - hand
 		var s: float = 1.0 if hand == 1 else -1.0
 		var held: Vector3 = EMOTE_HOLD[stance][hand]
 		match move:
 			"pound":
-				t = _emote_throw(hand, hand, t + 0.22 + lead, 0.12, 0.16, held, Vector2(held.x, held.z + 0.08), held)
+				t = _emote_throw(hand, hand, t + EMOTE_TOUCH, 0.1, 0.14, held, Vector2(held.x, held.z + 0.08), held)
 			"cross":
-				t = _emote_throw(hand, other, t + 0.2 + lead, 0.12, 0.16, held, Vector2(0.0, 0.95), EMOTE_HOLD[stance][other])
+				t = _emote_throw(hand, other, t + EMOTE_TOUCH, 0.11, 0.15, held, Vector2(0.0, 0.95), EMOTE_HOLD[stance][other])
 				hand = other
 			"tween":
 				var gap: Vector3 = (feet[0] + feet[1]) * 0.5
-				t = _emote_throw(hand, other, t + 0.2 + lead, 0.1, 0.12, held, Vector2(gap.x + 0.04, gap.z + 0.05), EMOTE_HOLD[stance][other])
+				t = _emote_throw(hand, other, t + EMOTE_TOUCH, 0.1, 0.13, held, Vector2(gap.x + 0.04, gap.z + 0.05), EMOTE_HOLD[stance][other])
 				_emote_throws[-1]["tween"] = true
 				hand = other
 			"behind":
 				var back := Vector3(s * 0.46, 0.46, -0.14)
-				t = _emote_throw(hand, other, t + 0.26 + lead, 0.13, 0.17, back, Vector2(-s * 0.4, -0.55), Vector3(-s * 0.68, 0.42, 0.30))
+				# Caught low at the side so the touch can wrap it behind.
+				_emote_throws[-1]["catch"] = Vector3(s * 0.56, 0.42, 0.08)
+				t = _emote_throw(hand, other, t + EMOTE_TOUCH + 0.03, 0.12, 0.16, back, Vector2(-s * 0.4, -0.55), Vector3(-s * 0.68, 0.42, 0.30))
 				hand = other
 			"inout":
 				var inside := Vector3(s * 0.36, 0.46, 0.80)
-				t = _emote_throw(hand, hand, t + 0.3 + lead, 0.12, 0.16, inside, Vector2(s * 0.56, 0.58), held)
+				t = _emote_throw(hand, hand, t + EMOTE_TOUCH + 0.03, 0.1, 0.14, inside, Vector2(s * 0.56, 0.58), held)
 			"double":
-				t = _emote_throw(hand, other, t + 0.16 + lead, 0.1, 0.13, held, Vector2(0.0, 0.95), EMOTE_HOLD[stance][other])
-				t = _emote_throw(other, hand, t + 0.08, 0.1, 0.13, EMOTE_HOLD[stance][other], Vector2(0.0, 0.95), held)
+				t = _emote_throw(hand, other, t + EMOTE_TOUCH, 0.09, 0.12, held, Vector2(0.0, 0.95), EMOTE_HOLD[stance][other])
+				t = _emote_throw(other, hand, t + 0.08, 0.09, 0.12, EMOTE_HOLD[stance][other], Vector2(0.0, 0.95), held)
 	_emote_period = t
 	for i: int in _emote_throws.size():
 		_emote_solve_throw(i)
@@ -2024,31 +2024,42 @@ func _emote_holder(t: float) -> int:
 	return -1
 
 
-## Wrist target and finger direction on the object's top at [param t]; the push leans the fingers the way it is thrown.
+## Palm on the object at [param t] for [param side]: [wrist, finger direction, palm normal]. Catch: palm down, wrist cocked back;
+## push: wrist snaps down, or turns to the object's side on a cross or tween to push it across.
 func _emote_palm(side: int, t: float) -> Array:
 	var s: float = 1.0 if side == 1 else -1.0
-	var push := Vector3(-s * 0.15, -0.8, 0.5)
+	var x: float = 0.0
+	var across := Vector3.ZERO
+	var side_push: float = 0.0
 	var count: int = _emote_throws.size()
 	for i: int in count:
 		var th: Dictionary = _emote_throws[i]
-		var start: float = _emote_wrap(t, th["tc"]) - th["tc"]
 		var nx: Dictionary = _emote_throws[(i + 1) % count]
+		var tc: float = th["tc"]
 		var tr: float = nx["tr"] + (_emote_period if i == count - 1 else 0.0)
-		if th["to"] == side and th["tc"] + start <= tr:
-			var x: float = start / (tr - th["tc"])
+		var at: float = _emote_wrap(t, tc)
+		if th["to"] == side and at <= tr + 0.001:
+			x = clampf((at - tc) / maxf(tr - tc, 0.001), 0.0, 1.0)
 			var vr: Vector3 = nx["vr"]
-			var lean := Vector3(vr.x, 0.0, vr.z).normalized() * 0.6
-			push = push.normalized().lerp((Vector3(0.0, -0.8, 0.0) + lean).normalized(), smoothstep(0.3, 1.0, x))
+			across = Vector3(vr.x, 0.0, vr.z).normalized()
+			side_push = 0.8 if nx["from"] != nx["to"] else 0.3
 			break
-	var over: Vector3 = push.normalized()
-	var palm: Vector3 = _emote_object_at(t) + Vector3.UP * (_emote_reach(t, Vector3.UP) + 0.02)
-	return [palm - over * 0.1, over]
+	var push: float = smoothstep(0.25, 1.0, x)
+	var normal: Vector3 = Vector3.DOWN.lerp(across, side_push * push).normalized()
+	var cocked := Vector3(-s * 0.2, 0.3, 0.9)
+	var snapped: Vector3 = (Vector3.DOWN * 0.85 + across * 0.5 + Vector3(0.0, 0.0, 0.2)).normalized()
+	var fingers: Vector3 = cocked.lerp(snapped, push)
+	fingers = (fingers - normal * fingers.dot(normal)).normalized()
+	var centre: Vector3 = _emote_object_at(t)
+	var palm: Vector3 = centre - normal * (_emote_reach(t, -normal) + 0.02)
+	return [palm - fingers * 0.1, fingers, normal]
 
 
-## Wrist target and finger direction for [param side]: on the object while it holds it, swinging through ready between.
+## The hand for [param side] at [param t]: on the object for its brief touch; between touches it follows the push down, then
+## either rides back up to the next catch or, with time to spare, drops relaxed in front at the waist. Cubic through keys, never linear.
 func _emote_hand(side: int, t: float, hips: Vector3) -> Array:
 	if _emote_holder(t) == side:
-		return _emote_palm(side, t)
+		return _emote_palm(side, t) + [0.0]
 	var s: float = 1.0 if side == 1 else -1.0
 	var last_t: float = -INF
 	var next_t: float = INF
@@ -2058,14 +2069,48 @@ func _emote_hand(side: int, t: float, hips: Vector3) -> Array:
 				last_t = maxf(last_t, th["tr"] + wrap)
 			if th["to"] == side and th["tc"] + wrap >= t:
 				next_t = minf(next_t, th["tc"] + wrap)
-	var x: float = clampf((t - last_t) / maxf(next_t - last_t, 0.001), 0.0, 1.0)
 	var a: Array = _emote_palm(side, last_t)
 	var b: Array = _emote_palm(side, next_t)
-	var guard: Vector3 = hips + Vector3(s * EMOTE_GUARD.x, EMOTE_GUARD.y, EMOTE_GUARD.z)
-	var w: float = minf(smoothstep(0.0, 0.18, t - last_t), smoothstep(0.0, 0.18, next_t - t))
-	var line: Vector3 = (a[0] as Vector3).lerp(b[0], smoothstep(0.0, 1.0, x))
-	var dir: Vector3 = (a[1] as Vector3).lerp(b[1], x).lerp(Vector3(-s * 0.3, 0.75, 0.6), w)
-	return [line.lerp(guard, w), dir.normalized(), w]
+	var rest: Vector3 = hips + Vector3(s * 0.22, 0.02, 0.34)
+	var times: PackedFloat32Array = PackedFloat32Array([last_t - 0.03, last_t, last_t + 0.07])
+	var points: PackedVector3Array = PackedVector3Array([_emote_palm(side, last_t - 0.03)[0], a[0], (a[0] as Vector3) + Vector3(0.0, -0.06, 0.0) + (a[1] as Vector3) * 0.03])
+	var gap: float = next_t - last_t
+	var relax: float = 0.0
+	if gap > 0.45:
+		times.append(last_t + 0.2)
+		points.append(rest)
+		times.append(next_t - 0.2)
+		points.append(rest + Vector3(0.0, 0.03, 0.0))
+		relax = minf(smoothstep(0.07, 0.2, t - last_t), smoothstep(0.07, 0.2, next_t - t))
+	times.append(next_t - 0.07)
+	points.append((b[0] as Vector3) + Vector3.UP * 0.07)
+	times.append(next_t)
+	points.append(b[0])
+	times.append(next_t + 0.03)
+	points.append(_emote_palm(side, next_t + 0.03)[0])
+	var wrist: Vector3 = _emote_spline(times, points, t)
+	# The wrist trails the arm: its turn lags the path a little.
+	var u: float = clampf((t - 0.03 - last_t) / maxf(gap, 0.001), 0.0, 1.0)
+	var fingers: Vector3 = (a[1] as Vector3).slerp(b[1], smoothstep(0.0, 1.0, u)).lerp(Vector3(-s * 0.15, -0.45, 0.88).normalized(), relax)
+	var normal: Vector3 = (a[2] as Vector3).slerp(b[2], smoothstep(0.0, 1.0, u)).lerp(Vector3(-s, -0.3, 0.0).normalized(), relax)
+	return [wrist, fingers.normalized(), normal.normalized(), relax]
+
+
+## Catmull-Rom through timed keys.
+func _emote_spline(times: PackedFloat32Array, points: PackedVector3Array, t: float) -> Vector3:
+	var n: int = times.size()
+	var k: int = 0
+	while k < n - 2 and t > times[k + 1]:
+		k += 1
+	var t0: float = times[k]
+	var t1: float = times[k + 1]
+	var h: float = maxf(t1 - t0, 0.001)
+	var x: float = clampf((t - t0) / h, 0.0, 1.0)
+	var m0: Vector3 = (points[k + 1] - points[maxi(k - 1, 0)]) / maxf(times[k + 1] - times[maxi(k - 1, 0)], 0.001) * h
+	var m1: Vector3 = (points[mini(k + 2, n - 1)] - points[k]) / maxf(times[mini(k + 2, n - 1)] - times[k], 0.001) * h
+	var x2: float = x * x
+	var x3: float = x2 * x
+	return points[k] * (2.0 * x3 - 3.0 * x2 + 1.0) + m0 * (x3 - 2.0 * x2 + x) + points[k + 1] * (-2.0 * x3 + 3.0 * x2) + m1 * (x3 - x2)
 
 
 ## An ankle at [param t]: planted, or partway through a step with the foot lifted.
@@ -2148,8 +2193,7 @@ func _emote_pose(t: float) -> Dictionary:
 					pole = Vector3(s * 0.15, 0.0, 1.0)
 				else:
 					goal = hands[side][0]
-					var guarding: float = hands[side][2] if (hands[side] as Array).size() > 2 else 0.0
-					pole = Vector3(s * 0.8, -0.2, -0.5).lerp(Vector3(s * 0.6, -1.0, 0.0), guarding)
+					pole = Vector3(s * 0.8, -0.2, -0.5).lerp(Vector3(s * 0.7, -1.0, 0.0), hands[side][3])
 				var knee: Vector3 = _emote_two_bone(origin, goal, len_a, len_b, pole)
 				mids[side * 2 + (0 if leg else 1)] = goal
 				a = Quaternion(dir_now.normalized(), (knee - origin).normalized()) * a_parent
@@ -2157,7 +2201,14 @@ func _emote_pose(t: float) -> Dictionary:
 				var goal: Vector3 = mids[side * 2 + (0 if part == "Shin" else 1)]
 				a = Quaternion(dir_now.normalized(), (goal - origin).normalized()) * a_parent
 			"Hand":
-				a = Quaternion(dir_now.normalized(), (hands[side][1] as Vector3).normalized()) * a_parent
+				var fingers: Vector3 = (hands[side][1] as Vector3).normalized()
+				a = Quaternion(dir_now.normalized(), fingers) * a_parent
+				# Turn the flat of the mitten (it faces back at rest) onto the palm normal.
+				var flat: Vector3 = a * Vector3.BACK * -1.0
+				var want: Vector3 = hands[side][2]
+				flat = (flat - fingers * flat.dot(fingers)).normalized()
+				want = (want - fingers * want.dot(fingers)).normalized()
+				a = Quaternion(fingers, atan2(fingers.dot(flat.cross(want)), flat.dot(want))) * a
 		accum[bone] = a
 		var g_rot: Quaternion = a * rest_g.basis.get_rotation_quaternion()
 		glob[bone] = Transform3D(Basis(g_rot), origin)
