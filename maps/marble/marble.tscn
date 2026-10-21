@@ -210,7 +210,7 @@ spot_angle_attenuation = 0.1
 [node name="Collar0" type="SpotLight3D" parent="Skylight/Pole"]
 transform = Transform3D(0.0000, 0, -1.0000, 0, 1, 0, 1.0000, 0, 0.0000, 9.0000, 29, 0.0000)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 8.0
+light_energy = 14.5
 light_size = 2.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -223,7 +223,7 @@ spot_angle_attenuation = 0.2
 [node name="Collar1" type="SpotLight3D" parent="Skylight/Pole"]
 transform = Transform3D(-0.7071, 0, -0.7071, 0, 1, 0, 0.7071, 0, -0.7071, 6.3640, 29, 6.3640)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 8.0
+light_energy = 14.5
 light_size = 2.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -236,7 +236,7 @@ spot_angle_attenuation = 0.2
 [node name="Collar2" type="SpotLight3D" parent="Skylight/Pole"]
 transform = Transform3D(-1.0000, 0, 0.0000, 0, 1, 0, 0.0000, 0, -1.0000, 0.0000, 29, 9.0000)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 8.0
+light_energy = 14.5
 light_size = 2.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -249,7 +249,7 @@ spot_angle_attenuation = 0.2
 [node name="Collar3" type="SpotLight3D" parent="Skylight/Pole"]
 transform = Transform3D(-0.7071, 0, 0.7071, 0, 1, 0, -0.7071, 0, -0.7071, -6.3640, 29, 6.3640)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 8.0
+light_energy = 14.5
 light_size = 2.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -262,7 +262,7 @@ spot_angle_attenuation = 0.2
 [node name="Collar4" type="SpotLight3D" parent="Skylight/Pole"]
 transform = Transform3D(0.0000, 0, 1.0000, 0, 1, 0, -1.0000, 0, 0.0000, -9.0000, 29, 0.0000)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 8.0
+light_energy = 14.5
 light_size = 2.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -275,7 +275,7 @@ spot_angle_attenuation = 0.2
 [node name="Collar5" type="SpotLight3D" parent="Skylight/Pole"]
 transform = Transform3D(0.7071, 0, 0.7071, 0, 1, 0, -0.7071, 0, 0.7071, -6.3640, 29, -6.3640)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 8.0
+light_energy = 14.5
 light_size = 2.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -288,7 +288,7 @@ spot_angle_attenuation = 0.2
 [node name="Collar6" type="SpotLight3D" parent="Skylight/Pole"]
 transform = Transform3D(1.0000, 0, 0.0000, 0, 1, 0, 0.0000, 0, 1.0000, 0.0000, 29, -9.0000)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 8.0
+light_energy = 14.5
 light_size = 2.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -301,7 +301,7 @@ spot_angle_attenuation = 0.2
 [node name="Collar7" type="SpotLight3D" parent="Skylight/Pole"]
 transform = Transform3D(0.7071, 0, -0.7071, 0, 1, 0, 0.7071, 0, 0.7071, 6.3640, 29, -6.3640)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 8.0
+light_energy = 14.5
 light_size = 2.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -314,7 +314,7 @@ spot_angle_attenuation = 0.2
 [node name="Under0" type="SpotLight3D" parent="Skylight/Pole"]
 transform = Transform3D(-0.3827, 0, -0.9239, 0, 1, 0, 0.9239, 0, -0.3827, 8.3149, 16, 3.4442)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 10.0
+light_energy = 18.0
 light_size = 2.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -327,7 +327,7 @@ spot_angle_attenuation = 0.2
 [node name="Under1" type="SpotLight3D" parent="Skylight/Pole"]
 transform = Transform3D(-0.9239, 0, -0.3827, 0, 1, 0, 0.3827, 0, -0.9239, 3.4442, 16, 8.3149)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 10.0
+light_energy = 18.0
 light_size = 2.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -340,7 +340,7 @@ spot_angle_attenuation = 0.2
 [node name="Under2" type="SpotLight3D" parent="Skylight/Pole"]
 transform = Transform3D(-0.9239, 0, 0.3827, 0, 1, 0, -0.3827, 0, -0.9239, -3.4442, 16, 8.3149)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 10.0
+light_energy = 18.0
 light_size = 2.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -353,7 +353,7 @@ spot_angle_attenuation = 0.2
 [node name="Under3" type="SpotLight3D" parent="Skylight/Pole"]
 transform = Transform3D(-0.3827, 0, 0.9239, 0, 1, 0, -0.9239, 0, -0.3827, -8.3149, 16, 3.4442)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 10.0
+light_energy = 18.0
 light_size = 2.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -366,7 +366,7 @@ spot_angle_attenuation = 0.2
 [node name="Under4" type="SpotLight3D" parent="Skylight/Pole"]
 transform = Transform3D(0.3827, 0, 0.9239, 0, 1, 0, -0.9239, 0, 0.3827, -8.3149, 16, -3.4442)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 10.0
+light_energy = 18.0
 light_size = 2.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -379,7 +379,7 @@ spot_angle_attenuation = 0.2
 [node name="Under5" type="SpotLight3D" parent="Skylight/Pole"]
 transform = Transform3D(0.9239, 0, 0.3827, 0, 1, 0, -0.3827, 0, 0.9239, -3.4442, 16, -8.3149)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 10.0
+light_energy = 18.0
 light_size = 2.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -392,7 +392,7 @@ spot_angle_attenuation = 0.2
 [node name="Under6" type="SpotLight3D" parent="Skylight/Pole"]
 transform = Transform3D(0.9239, 0, -0.3827, 0, 1, 0, 0.3827, 0, 0.9239, 3.4442, 16, -8.3149)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 10.0
+light_energy = 18.0
 light_size = 2.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -405,7 +405,7 @@ spot_angle_attenuation = 0.2
 [node name="Under7" type="SpotLight3D" parent="Skylight/Pole"]
 transform = Transform3D(0.3827, 0, -0.9239, 0, 1, 0, 0.9239, 0, 0.3827, 8.3149, 16, -3.4442)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 10.0
+light_energy = 18.0
 light_size = 2.0
 light_specular = 0.0
 light_cull_mask = 4294966271
