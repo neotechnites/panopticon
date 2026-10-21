@@ -114,7 +114,7 @@ editor_description = "The oculus: daylight through the dome's glazed crown (marb
 [node name="Key" type="SpotLight3D" parent="Skylight"]
 transform = Transform3D(0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 77.5, 0)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 4.0
+light_energy = 6.0
 light_indirect_energy = 12.0
 light_size = 3.0
 light_specular = 0.0
@@ -140,10 +140,10 @@ light_bake_mode = 0
 shadow_enabled = false
 
 [node name="AmbientFill" type="OmniLight3D" parent="Skylight"]
-editor_description = "The old flat ambient (Ryan's olive 0.62/0.66/0.60), now one static omni under the oculus (y 76), flat falloff (4.0), baked with occlusion: every reveal, cell and underside shades itself, nothing crushes to black."
+editor_description = "The old flat ambient (Ryan's olive 0.62/0.66/0.60), now one static omni under the oculus (y 76), flat falloff (6.0), baked with occlusion: every reveal, cell and underside shades itself, nothing crushes to black."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 76, 0)
 light_color = Color(0.62, 0.66, 0.6, 1)
-light_energy = 4.0
+light_energy = 6.0
 light_size = 4.0
 light_specular = 0.0
 light_bake_mode = 1
@@ -156,7 +156,7 @@ editor_description = "Ryan 2026-10-20: 'a light source that is a bar, or like a 
 [node name="Pole0" type="OmniLight3D" parent="Skylight/Pole"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 70, 0)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 2.5
+light_energy = 9.0
 light_size = 3.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -167,7 +167,7 @@ omni_attenuation = 0.4
 [node name="Pole1" type="OmniLight3D" parent="Skylight/Pole"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 61, 0)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 2.5
+light_energy = 9.0
 light_size = 3.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -178,7 +178,7 @@ omni_attenuation = 0.4
 [node name="Pole2" type="OmniLight3D" parent="Skylight/Pole"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 52, 0)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 2.5
+light_energy = 9.0
 light_size = 3.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -189,7 +189,7 @@ omni_attenuation = 0.4
 [node name="Pole3" type="OmniLight3D" parent="Skylight/Pole"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 43, 0)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 2.5
+light_energy = 9.0
 light_size = 3.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -200,7 +200,7 @@ omni_attenuation = 0.4
 [node name="Pole4" type="OmniLight3D" parent="Skylight/Pole"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 34, 0)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 2.5
+light_energy = 9.0
 light_size = 3.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -211,7 +211,7 @@ omni_attenuation = 0.4
 [node name="Pole5" type="OmniLight3D" parent="Skylight/Pole"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25, 0)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 2.5
+light_energy = 9.0
 light_size = 3.0
 light_specular = 0.0
 light_cull_mask = 4294966271
