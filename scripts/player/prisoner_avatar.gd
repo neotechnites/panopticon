@@ -305,11 +305,11 @@ const SHOVE_PALM: Basis = Basis(Vector3(0.0, 0.34, 0.94), Vector3(0.0, 0.94, -0.
 ## The dribble emote's clip, built by [method _build_emote_animation].
 @export var emote_clip: StringName = &"Balling"
 ## What gets dribbled: any scene; its meshes' centre is the pivot. Swap it here, nothing else changes.
-@export var dribble_object: PackedScene = preload("res://hub/props/ball/basketball.tscn")
+@export var dribble_object: PackedScene = preload("res://hub/props/cat/dribble_cat.tscn")
 ## Contact radius for the floor and the palms; 0 measures the object's own mesh as it tumbles.
-@export var object_radius: float = 0.12
+@export var object_radius: float = 0.0
 ## Size of [member dribble_object] in the hands.
-@export var object_scale: float = 1.0
+@export var object_scale: float = 0.8
 ## Seconds the body takes to blend into the emote from whatever it was doing.
 @export var emote_enter_blend: float = 0.5
 ## Seconds the body takes to settle back into the idle when the emote ends.
