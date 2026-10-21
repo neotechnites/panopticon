@@ -153,7 +153,7 @@ mesh = SubResource("BeamVane")
 
 [node name="SpillLow" type="OmniLight3D" parent="Oculus"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 46, 0)
-light_color = Color(1, 0.74, 0.42, 1)
+light_color = Color(1, 0.66, 0.32, 1)
 light_energy = 1.2
 light_specular = 0.0
 shadow_enabled = true
@@ -165,7 +165,7 @@ omni_shadow_mode = 1
 
 [node name="SpillHigh" type="OmniLight3D" parent="Oculus"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 70, 0)
-light_color = Color(1, 0.74, 0.42, 1)
+light_color = Color(1, 0.66, 0.32, 1)
 light_energy = 0.24
 light_specular = 0.0
 shadow_enabled = true
