@@ -8,22 +8,22 @@ enum State { REST, HELD, FLYING }
 
 ## Where the cat sits relative to the carrier's head: just under and ahead of the face.
 const CARRY_OFFSET: Vector3 = Vector3(0.0, -0.3, -0.55)
-const THROW_SPEED: float = 20.0
-const THROW_LIFT: float = 4.0
+const THROW_SPEED: float = 10.0
+const THROW_LIFT: float = 2.0
 const THROW_SPIN: float = 12.0
 ## Height off the floor of the cone check: a cat on a ledge above you is out of reach.
 const REACH_HEIGHT: float = 2.0
 const FACING_DOT: float = 0.5
 const FALL_OUT_Y: float = -60.0
 const CAT_LAYER: int = 1 << 3
-const FUSE_SECONDS: float = 1.0
+const FUSE_SECONDS: float = 0.5
 const RESPAWN_SECONDS: float = 4.0
 const HEART_TEXTURE: Texture2D = preload("res://hub/props/cat/fx/heart.png")
 const EXPLOSION_SHEET: Texture2D = preload("res://hub/props/cat/fx/explosion_sheet.png")
 const EXPLOSION_SOUND: AudioStream = preload("res://hub/props/cat/fx/explosion.wav")
 
 ## Frames in the explosion sheet's horizontal strip.
-@export var explosion_frames: int = 8
+@export var explosion_frames: int = 17
 @export var explosion_fps: float = 16.0
 
 static var _all: Array[HubCat] = []
