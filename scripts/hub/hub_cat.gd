@@ -22,6 +22,9 @@ static var _all: Array[HubCat] = []
 var _state: State = State.REST
 var _carrier: PlayerController = null
 var _home: Transform3D = Transform3D.IDENTITY
+var _local_held: bool = false
+var _prompt_layer: CanvasLayer = null
+var _pet_tween: Tween = null
 
 
 func _ready() -> void:
@@ -37,6 +40,61 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	_all.erase(self)
+	_set_local_held(false)
+
+
+## E while this machine's player carries the cat: a quick squish on the mesh.
+func _unhandled_input(event: InputEvent) -> void:
+	if not _local_held or not event.is_action_pressed(&"interact"):
+		return
+	var mesh: Node3D = get_node_or_null("Mesh") as Node3D
+	if mesh == null:
+		return
+	if _pet_tween != null:
+		_pet_tween.kill()
+	mesh.scale = Vector3.ONE
+	_pet_tween = create_tween()
+	_pet_tween.tween_property(mesh, "scale", Vector3(1.2, 0.75, 1.2), 0.08)
+	_pet_tween.tween_property(mesh, "scale", Vector3(0.92, 1.1, 0.92), 0.1)
+	_pet_tween.tween_property(mesh, "scale", Vector3.ONE, 0.1)
+
+
+## Show or hide the pet prompt on this machine.
+func _set_local_held(held: bool) -> void:
+	_local_held = held
+	if held and _prompt_layer == null:
+		_prompt_layer = CanvasLayer.new()
+		var label: Label = Label.new()
+		label.text = tr("HUB_CAT_PET_PROMPT")
+		label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+		label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		label.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		label.offset_bottom = -90.0
+		_prompt_layer.add_child(label)
+		add_child(_prompt_layer)
+	elif not held and _prompt_layer != null:
+		_prompt_layer.queue_free()
+		_prompt_layer = null
+
+
+func _announce_held(held: bool) -> void:
+	var peer: int = 1
+	if held and is_instance_valid(_carrier):
+		for child: Node in _carrier.get_children():
+			if child is PlayerNetLink:
+				peer = (child as PlayerNetLink).owner_peer_id
+	if _networked():
+		rpc(&"_held_by", peer if held else 0)
+	_held_by(peer if held else 0)
+
+
+## Authority to everyone: which peer carries the cat now, 0 for none.
+@rpc("authority", "reliable", "call_remote", 1)
+func _held_by(peer: int) -> void:
+	var mine: int = 1
+	if _networked():
+		mine = multiplayer.get_unique_id()
+	_set_local_held(peer != 0 and peer == mine)
 
 
 ## Spend [param body]'s shove on a cat: throw the one it carries, else lift one in reach.
@@ -76,12 +134,14 @@ func _pick_up(body: PlayerController) -> void:
 	collision_layer = 0
 	collision_mask = 0
 	freeze = true
+	_announce_held(true)
 
 
 func _throw() -> void:
 	var look: Basis = _carry_basis()
 	global_transform = _carry_transform()
 	_carrier = null
+	_announce_held(false)
 	_state = State.FLYING
 	collision_layer = CAT_LAYER
 	collision_mask = 1
@@ -125,6 +185,7 @@ func _physics_process(_delta: float) -> void:
 
 func _drop() -> void:
 	_carrier = null
+	_announce_held(false)
 	_state = State.FLYING
 	collision_layer = CAT_LAYER
 	collision_mask = 1
