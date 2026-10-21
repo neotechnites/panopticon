@@ -31,7 +31,7 @@ emission_energy_multiplier = 0.35
 uv1_scale = Vector3(0.167, 0.167, 0.167)
 uv1_triplanar = true
 uv1_world_triplanar = true
-texture_filter = 0
+texture_filter = 5
 
 [sub_resource type="BoxMesh" id="Blk_0"]
 material = SubResource("Blk_stone")
@@ -98,70 +98,70 @@ albedo_color = Color(0.3, 0.3, 0.3, 1)
 albedo_texture = ExtResource("T_tcol")
 metallic_specular = 0.5
 roughness = 1.0
-texture_filter = 4
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="TowerTint1"]
 albedo_color = Color(0.3, 0.3, 0.3, 1)
 albedo_texture = ExtResource("T_tower")
 metallic_specular = 0.5
 roughness = 1.0
-texture_filter = 4
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="TowerTint2"]
 albedo_color = Color(0.3, 0.3, 0.3, 1)
 albedo_texture = ExtResource("T_tcol")
 metallic_specular = 0.5
 roughness = 1.0
-texture_filter = 4
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="TowerTint3"]
 albedo_color = Color(0.22, 0.22, 0.22, 1)
 albedo_texture = ExtResource("T_tower")
 metallic_specular = 0.5
 roughness = 1.0
-texture_filter = 4
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="TowerTint5"]
 albedo_color = Color(0.3, 0.3, 0.3, 1)
 albedo_texture = ExtResource("T_stone")
 metallic_specular = 0.5
 roughness = 1.0
-texture_filter = 4
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="TowerTint6"]
 albedo_color = Color(0.3, 0.3, 0.3, 1)
 albedo_texture = ExtResource("T_tower")
 metallic_specular = 0.5
 roughness = 1.0
-texture_filter = 4
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="TowerTint7"]
 albedo_color = Color(0.3, 0.3, 0.3, 1)
 albedo_texture = ExtResource("T_tower")
 metallic_specular = 0.5
 roughness = 1.0
-texture_filter = 4
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="TowerTint8"]
 albedo_color = Color(0.3, 0.3, 0.3, 1)
 albedo_texture = ExtResource("T_tower")
 metallic_specular = 0.5
 roughness = 1.0
-texture_filter = 4
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="TowerTint9"]
 albedo_color = Color(0.3, 0.3, 0.3, 1)
 albedo_texture = ExtResource("T_tower")
 metallic_specular = 0.5
 roughness = 1.0
-texture_filter = 4
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="TowerTint10"]
 albedo_color = Color(0.3, 0.3, 0.3, 1)
 albedo_texture = ExtResource("T_tower")
 metallic_specular = 0.5
 roughness = 1.0
-texture_filter = 4
+texture_filter = 5
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
