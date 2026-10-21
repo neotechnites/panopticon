@@ -31,7 +31,7 @@ emission_energy_multiplier = 0.35
 uv1_scale = Vector3(0.167, 0.167, 0.167)
 uv1_triplanar = true
 uv1_world_triplanar = true
-texture_filter = 0
+texture_filter = 5
 
 [sub_resource type="BoxMesh" id="Blk_0"]
 material = SubResource("Blk_stone")
@@ -98,70 +98,70 @@ albedo_color = Color(0.3, 0.3, 0.3, 1)
 albedo_texture = ExtResource("T_tcol")
 metallic_specular = 0.5
 roughness = 1.0
-texture_filter = 4
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="TowerTint1"]
 albedo_color = Color(0.3, 0.3, 0.3, 1)
 albedo_texture = ExtResource("T_tower")
 metallic_specular = 0.5
 roughness = 1.0
-texture_filter = 4
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="TowerTint2"]
 albedo_color = Color(0.3, 0.3, 0.3, 1)
 albedo_texture = ExtResource("T_tcol")
 metallic_specular = 0.5
 roughness = 1.0
-texture_filter = 4
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="TowerTint3"]
 albedo_color = Color(0.22, 0.22, 0.22, 1)
 albedo_texture = ExtResource("T_tower")
 metallic_specular = 0.5
 roughness = 1.0
-texture_filter = 4
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="TowerTint5"]
 albedo_color = Color(0.3, 0.3, 0.3, 1)
 albedo_texture = ExtResource("T_stone")
 metallic_specular = 0.5
 roughness = 1.0
-texture_filter = 4
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="TowerTint6"]
 albedo_color = Color(0.3, 0.3, 0.3, 1)
 albedo_texture = ExtResource("T_tower")
 metallic_specular = 0.5
 roughness = 1.0
-texture_filter = 4
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="TowerTint7"]
 albedo_color = Color(0.3, 0.3, 0.3, 1)
 albedo_texture = ExtResource("T_tower")
 metallic_specular = 0.5
 roughness = 1.0
-texture_filter = 4
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="TowerTint8"]
 albedo_color = Color(0.3, 0.3, 0.3, 1)
 albedo_texture = ExtResource("T_tower")
 metallic_specular = 0.5
 roughness = 1.0
-texture_filter = 4
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="TowerTint9"]
 albedo_color = Color(0.3, 0.3, 0.3, 1)
 albedo_texture = ExtResource("T_tower")
 metallic_specular = 0.5
 roughness = 1.0
-texture_filter = 4
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="TowerTint10"]
 albedo_color = Color(0.3, 0.3, 0.3, 1)
 albedo_texture = ExtResource("T_tower")
 metallic_specular = 0.5
 roughness = 1.0
-texture_filter = 4
+texture_filter = 5
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
@@ -169,7 +169,7 @@ background_color = Color(0.20, 0.21, 0.19, 1)
 ambient_light_source = 2
 ambient_light_color = Color(0.62, 0.66, 0.60, 1)
 ambient_light_energy = 3.4
-tonemap_mode = 2
+tonemap_mode = 1
 tonemap_white = 6.0
 adjustment_enabled = true
 adjustment_saturation = 0.7
@@ -199,7 +199,7 @@ transform = Transform3D(0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 77.5, 0)
 light_color = Color(1, 0.94, 0.84, 1)
 light_energy = 0.9
 light_indirect_energy = 30.0
-light_size = 1.0
+light_size = 6.0
 light_specular = 0.0
 light_cull_mask = 4294966271
 light_bake_mode = 1
@@ -236,7 +236,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 46, 0)
 light_color = Color(1, 0.94, 0.84, 1)
 light_energy = 1.8
 light_indirect_energy = 30.0
-light_size = 0.4
+light_size = 5.0
 light_specular = 0.0
 light_bake_mode = 1
 shadow_enabled = true
@@ -248,7 +248,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 54, 0)
 light_color = Color(1, 0.94, 0.84, 1)
 light_energy = 1.8
 light_indirect_energy = 30.0
-light_size = 0.4
+light_size = 5.0
 light_specular = 0.0
 light_bake_mode = 1
 shadow_enabled = true
@@ -260,7 +260,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 62, 0)
 light_color = Color(1, 0.94, 0.84, 1)
 light_energy = 1.8
 light_indirect_energy = 30.0
-light_size = 0.4
+light_size = 5.0
 light_specular = 0.0
 light_bake_mode = 1
 shadow_enabled = true
@@ -272,7 +272,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 70, 0)
 light_color = Color(1, 0.94, 0.84, 1)
 light_energy = 1.8
 light_indirect_energy = 30.0
-light_size = 0.4
+light_size = 5.0
 light_specular = 0.0
 light_bake_mode = 1
 shadow_enabled = true
@@ -283,8 +283,9 @@ omni_attenuation = 0.0
 editor_description = "The oculus Key and the Pole, all Static and shadowed, baked direct with four bounces as the only fill; its probes light anything not lightmapped. Rebake: tools/pc_bake_lightmap.sh <ref> res://maps/marble/marble.tscn."
 quality = 2
 bounces = 5
+texel_scale = 0.2
 bounce_indirect_energy = 8.0
-denoiser_strength = 0.2
+denoiser_strength = 0.5
 interior = false
 environment_mode = 3
 environment_custom_color = Color(0.62, 0.66, 0.6, 1)
