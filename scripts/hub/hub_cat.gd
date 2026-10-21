@@ -20,6 +20,10 @@ const FUSE_SECONDS: float = 0.5
 const RESPAWN_SECONDS: float = 4.0
 const HEART_TEXTURE: Texture2D = preload("res://hub/props/cat/fx/heart.png")
 const EXPLOSION_SHEET: Texture2D = preload("res://hub/props/cat/fx/explosion_sheet.png")
+const MEOW_SOUND: AudioStream = preload("res://hub/props/cat/fx/meow.wav")
+const PURR_SOUND: AudioStream = preload("res://hub/props/cat/fx/purr.wav")
+const MEOW_DB: float = 2.0
+const PURR_DB: float = 8.0
 const EXPLOSION_SOUND: AudioStream = preload("res://hub/props/cat/fx/explosion.wav")
 const KEY_TEXTURE: Texture2D = preload("res://hub/props/cat/fx/key_e.png")
 ## The pet prompt: the E keycap drawn this many times its pixels, this far below the crosshair.
@@ -41,6 +45,7 @@ var _prompt_layer: CanvasLayer = null
 var _pet_tween: Tween = null
 var _fuse: int = 0
 var _gone: bool = false
+var _purr: AudioStreamPlayer3D = null
 
 
 func _ready() -> void:
@@ -68,6 +73,8 @@ func _input(event: InputEvent) -> void:
 	if mesh == null:
 		return
 	_spawn_heart()
+	if _purr == null:
+		_become_happy()
 	if _pet_tween != null:
 		_pet_tween.kill()
 	mesh.scale = Vector3.ONE
@@ -75,6 +82,36 @@ func _input(event: InputEvent) -> void:
 	_pet_tween.tween_property(mesh, "scale", Vector3(1.2, 0.75, 1.2), 0.08)
 	_pet_tween.tween_property(mesh, "scale", Vector3(0.92, 1.1, 0.92), 0.1)
 	_pet_tween.tween_property(mesh, "scale", Vector3.ONE, 0.1)
+
+
+## First pet: meow, swap to the happy face (mesh surface 2) and purr until reset.
+func _become_happy() -> void:
+	var mesh: MeshInstance3D = get_node_or_null("Mesh") as MeshInstance3D
+	if mesh != null and mesh.mesh != null and mesh.mesh.get_surface_count() > 2:
+		mesh.set_surface_override_material(1, mesh.mesh.surface_get_material(2))
+		mesh.set_surface_override_material(2, mesh.mesh.surface_get_material(1))
+	var meow: AudioStreamPlayer3D = AudioStreamPlayer3D.new()
+	meow.stream = MEOW_SOUND
+	meow.volume_db = MEOW_DB
+	meow.finished.connect(meow.queue_free)
+	add_child(meow)
+	meow.play()
+	_purr = AudioStreamPlayer3D.new()
+	_purr.stream = PURR_SOUND
+	_purr.volume_db = PURR_DB
+	add_child(_purr)
+	_purr.play()
+
+
+## Back to the neutral face and silence.
+func _become_neutral() -> void:
+	var mesh: MeshInstance3D = get_node_or_null("Mesh") as MeshInstance3D
+	if mesh != null:
+		mesh.set_surface_override_material(1, null)
+		mesh.set_surface_override_material(2, null)
+	if _purr != null:
+		_purr.queue_free()
+		_purr = null
 
 
 ## A billboarded heart that drifts up and fades; rapid pets stack.
@@ -220,6 +257,7 @@ func _explode(fuse: int) -> void:
 	if fuse != _fuse or _gone or not is_inside_tree():
 		return
 	_gone = true
+	_become_neutral()
 	var scene: Node = get_tree().current_scene
 	var blast: AnimatedSprite3D = AnimatedSprite3D.new()
 	var frames: SpriteFrames = SpriteFrames.new()
