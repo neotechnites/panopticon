@@ -283,7 +283,7 @@ func _explode(fuse: int) -> void:
 		atlas.region = Rect2(i * width, 0, width, EXPLOSION_SHEET.get_height())
 		frames.add_frame(&"boom", atlas)
 	blast.sprite_frames = frames
-	blast.pixel_size = 0.02
+	blast.pixel_size = 0.06
 	blast.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	blast.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	blast.shaded = false

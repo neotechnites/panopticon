@@ -103,7 +103,7 @@ func _blast(cat_id: int, at: Vector3) -> void:
 		atlas.region = Rect2(i * width, 0, width, EXPLOSION_SHEET.get_height())
 		frames.add_frame(&"boom", atlas)
 	blast_sprite.sprite_frames = frames
-	blast_sprite.pixel_size = 0.02
+	blast_sprite.pixel_size = 0.06
 	blast_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	blast_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	blast_sprite.shaded = false
@@ -151,17 +151,19 @@ func _track_held(cat_id: int, holder: int, mesh: MeshInstance3D) -> void:
 		_held_mesh = mesh
 		_purr = null
 		_pet_tween = null
-		if _prompt == null:
-			_prompt = HubCat.make_pet_prompt()
-			add_child(_prompt)
+		if is_instance_valid(_prompt):
+			_prompt.queue_free()
+		# Under the cat, as the hub cat hangs its own: the same viewport, so the same size.
+		_prompt = HubCat.make_pet_prompt()
+		mesh.add_child(_prompt)
 	elif not mine and _held_id == cat_id:
 		_held_id = 0
 		_held_mesh = null
 		_purr = null
 		_pet_tween = null
-		if _prompt != null:
+		if is_instance_valid(_prompt):
 			_prompt.queue_free()
-			_prompt = null
+		_prompt = null
 
 
 func _networked() -> bool:
