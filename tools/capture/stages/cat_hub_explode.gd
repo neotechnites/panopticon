@@ -13,7 +13,9 @@ extends "res://tools/capture/stages/stage.gd"
 ## throw flag rises `wait` s after the 4th. Dials (--set=): spawn (Spawn1), cat (Cat6), stop (2.0), pace (1.0),
 ## lead (0.2), span (1.0), wait (0.45: the throw lands 0.5 s after the 4th pet), carry_down (-6: eyes 6 deg up while carrying, the throw's aim).
 ## With --map (forest, --pov=runner): a cat.tscn at cast, `ahead` m along the ring (`side`) at r `cat_r` (49.5) from the
-## runner's start; after the pets an eased turn of the eyes toward the axis (the pit), `throw_down` (-8) deg, then the throw.
+## runner's start; after the pets an eased turn toward the axis (the pit), stopping `pit_off` deg short, eyes `throw_down` deg.
+## Forest light (probed): twin suns 75 deg up from bearings 60 and 240; the held cat faces the eye, so an eye facing
+## bearing 240 (or 60) front-lights its face. Dials cat_deg, pet_yaw and throw_yaw (bearings) set that up.
 ## Events: pickup / pet <n> / throw / explode <cat> in_frame|off_frame / boom_end, for the brief's expect: lines.
 
 const PETS: int = 4
@@ -63,7 +65,8 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		body = runners[0].controller
 		start = body.global_position
 		var along: Vector3 = start + LIB.tangent_at(LIB.bearing_of(start)) * float(option("side", 1.0)) * float(option("ahead", 8.0))
-		at = _floor_at(LIB.ring_point(LIB.bearing_of(along), float(option("cat_r", 49.5)), start.y - LIB.DECK_Y))
+		var cat_deg: float = float(option("cat_deg", LIB.bearing_of(along)))
+		at = _floor_at(LIB.ring_point(cat_deg, float(option("cat_r", 49.5)), start.y - LIB.DECK_Y))
 		_cat = CAT_SCENE.instantiate() as RigidBody3D
 		_cat.name = "Cat1"
 		controller().get_parent().add_child(_cat)
@@ -77,6 +80,9 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		at = _cat.global_position
 		start = spawn.global_position
 	var toward: Vector3 = Vector3(at.x - start.x, 0.0, at.z - start.z).normalized()
+	# pet_yaw: the bearing the eyes face the cat along at the pickup (the walk ends there), "" = straight from the start.
+	if String(option("pet_yaw", "")) != "":
+		toward = LIB.radial_at(float(option("pet_yaw", "0")))
 	var stop: Vector3 = at - toward * float(option("stop", 2.0))
 	stop.y = start.y
 	var look: Vector3 = at + Vector3.UP * 0.2
@@ -129,6 +135,11 @@ func _probe(start: Vector3, at: Vector3) -> void:
 	for i: int in 11:
 		heights.append("%.2f" % _floor_at(start.lerp(at, i / 10.0)).y)
 	say("probe: walk floor y %s" % ", ".join(heights))
+	for sun_name: String in ["Sun", "Sun2"]:
+		var sun: Node3D = LIB.find_node(clip.root, sun_name) as Node3D
+		if sun != null:
+			var travel: Vector3 = -sun.global_transform.basis.z
+			say("probe: %s travels %v (from bearing %.1f, %.1f deg up)" % [sun_name, travel, LIB.bearing_of(-travel), rad_to_deg(asin(-travel.y))])
 	var space: PhysicsDirectSpaceState3D = clip.root.get_world_3d().direct_space_state
 	var eye: Vector3 = at + Vector3.UP * 1.5
 	var inward: Vector3 = Vector3(-at.x, 0.0, -at.z).normalized()
@@ -157,7 +168,10 @@ func tick(_delta: float) -> void:
 		_boom_at = elapsed()
 		_blast = _find_blast()
 		var where: Vector3 = _blast.global_position if _blast != null else _cat.global_position
-		print("[event] %6.2f  explode  %s %s at %v" % [elapsed(), _cat.name, "in_frame" if _in_frame(where) else "off_frame", where])
+		var space: PhysicsDirectSpaceState3D = clip.root.get_world_3d().direct_space_state
+		var under: Dictionary = space.intersect_ray(PhysicsRayQueryParameters3D.create(where, where + Vector3.DOWN * 12.0))
+		print("[event] %6.2f  explode  %s %s %s at %v r %.2f" % [elapsed(), _cat.name, "in_frame" if _in_frame(where) else "off_frame",
+				"over_floor" if not under.is_empty() else "over_pit", where, LIB.radius_of(where)])
 	else:
 		print("[event] %6.2f  %s  %s at %v" % [elapsed(), kind, _cat.name, _cat.global_position])
 	_state = now
@@ -205,8 +219,12 @@ func _aim_at_the_pit() -> void:
 		var facing: Vector3 = -body.global_transform.basis.z
 		facing = Vector3(facing.x, 0.0, facing.z).normalized()
 		var inward: Vector3 = Vector3(-body.global_position.x, 0.0, -body.global_position.z).normalized()
-		_after_pets[0]["right"] = -rad_to_deg(facing.signed_angle_to(inward, Vector3.UP))
-		say("turn %.1f deg to the pit" % float(_after_pets[0]["right"]))
+		if String(option("throw_yaw", "")) != "":
+			inward = LIB.radial_at(float(option("throw_yaw", "0")))
+		var to_pit: float = -rad_to_deg(facing.signed_angle_to(inward, Vector3.UP))
+		var short: float = minf(float(option("pit_off", 0.0)), absf(to_pit))
+		_after_pets[0]["right"] = to_pit - signf(to_pit) * short
+		say("turn %.1f deg to the pit, from facing bearing %.1f" % [float(_after_pets[0]["right"]), LIB.bearing_of(facing)])
 	for driver: Node in drivers:
 		driver.retarget(_after_pets)
 
