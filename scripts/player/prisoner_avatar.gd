@@ -1746,9 +1746,10 @@ func _build_crouch_animation() -> void:
 ## timings per move are below; the object's path, feet, hips and arms are all solved from them. Skeleton space, toes +Z, his left +X.
 const EMOTE_FPS: float = 30.0
 const EMOTE_GRAVITY: float = 9.8
-const EMOTE_SEQUENCE: Array = ["pound", "pound", "cross", "tween", "behind", "inout", "double", "tween"]
+## Starts in the right hand. Three cross-body moves cannot close a loop, so a second crossover brings it home.
+const EMOTE_SEQUENCE: Array = ["pound", "pound", "tween", "tween", "cross", "pound", "cross"]
 ## Stance per move: 0 staggered (Harden's size-up, left foot forward), 1 square, 2 the tween's longer step that opens the gap.
-const EMOTE_STANCE: Dictionary = {"pound": 0, "cross": 1, "tween": 2, "behind": 1, "inout": 1, "double": 1}
+const EMOTE_STANCE: Dictionary = {"pound": 0, "cross": 0, "tween": 2}
 ## Ankles per stance [right, left]: about 1.5 shoulder widths apart, knees deep.
 const EMOTE_FEET: Array = [[Vector3(-0.20, 0.0, -0.26), Vector3(0.14, 0.0, 0.32)], [Vector3(-0.27, 0.0, 0.04), Vector3(0.27, 0.0, 0.06)],
 	[Vector3(-0.22, 0.0, -0.46), Vector3(0.14, 0.0, 0.48)]]
@@ -1896,25 +1897,13 @@ func _emote_timeline() -> void:
 			"pound":
 				t = _emote_throw(hand, hand, t + EMOTE_TOUCH, 0.1, 0.14, held, Vector2(held.x, held.z + 0.08), held)
 			"cross":
-				t = _emote_throw(hand, other, t + EMOTE_TOUCH, 0.11, 0.15, held, Vector2(0.0, 0.95), EMOTE_HOLD[stance][other])
+				t = _emote_throw(hand, other, t + EMOTE_TOUCH, 0.11, 0.15, held, Vector2(0.0, 0.8), EMOTE_HOLD[stance][other])
 				hand = other
 			"tween":
 				var gap: Vector3 = (feet[0] + feet[1]) * 0.5
 				t = _emote_throw(hand, other, t + EMOTE_TOUCH, 0.1, 0.13, held, Vector2(gap.x + 0.04, gap.z + 0.05), EMOTE_HOLD[stance][other])
 				_emote_throws[-1]["tween"] = true
 				hand = other
-			"behind":
-				var back := Vector3(s * 0.46, 0.46, -0.14)
-				# Caught low at the side so the touch can wrap it behind.
-				_emote_throws[-1]["catch"] = Vector3(s * 0.56, 0.42, 0.08)
-				t = _emote_throw(hand, other, t + EMOTE_TOUCH + 0.03, 0.12, 0.16, back, Vector2(-s * 0.4, -0.55), Vector3(-s * 0.68, 0.42, 0.30))
-				hand = other
-			"inout":
-				var inside := Vector3(s * 0.36, 0.46, 0.80)
-				t = _emote_throw(hand, hand, t + EMOTE_TOUCH + 0.03, 0.1, 0.14, inside, Vector2(s * 0.56, 0.58), held)
-			"double":
-				t = _emote_throw(hand, other, t + EMOTE_TOUCH, 0.09, 0.12, held, Vector2(0.0, 0.95), EMOTE_HOLD[stance][other])
-				t = _emote_throw(other, hand, t + 0.08, 0.09, 0.12, EMOTE_HOLD[stance][other], Vector2(0.0, 0.95), held)
 	_emote_period = t
 	for i: int in _emote_throws.size():
 		_emote_solve_throw(i)
@@ -2071,19 +2060,26 @@ func _emote_hand(side: int, t: float, hips: Vector3) -> Array:
 				next_t = minf(next_t, th["tc"] + wrap)
 	var a: Array = _emote_palm(side, last_t)
 	var b: Array = _emote_palm(side, next_t)
+	var incoming: float = next_t - 0.25
+	for th: Dictionary in _emote_throws:
+		for wrap: float in [-_emote_period, 0.0, _emote_period]:
+			if is_equal_approx(th["tc"] + wrap, next_t):
+				incoming = th["tr"] + wrap
 	var rest: Vector3 = hips + Vector3(s * 0.22, 0.02, 0.34)
 	var times: PackedFloat32Array = PackedFloat32Array([last_t - 0.03, last_t, last_t + 0.07])
 	var points: PackedVector3Array = PackedVector3Array([_emote_palm(side, last_t - 0.03)[0], a[0], (a[0] as Vector3) + Vector3(0.0, -0.06, 0.0) + (a[1] as Vector3) * 0.03])
 	var gap: float = next_t - last_t
 	var relax: float = 0.0
-	if gap > 0.45:
+	# The receiving hand waits relaxed until the object leaves the other palm, then sets off to meet it.
+	if incoming - last_t > 0.3:
 		times.append(last_t + 0.2)
 		points.append(rest)
-		times.append(next_t - 0.2)
+		times.append(incoming)
 		points.append(rest + Vector3(0.0, 0.03, 0.0))
-		relax = minf(smoothstep(0.07, 0.2, t - last_t), smoothstep(0.07, 0.2, next_t - t))
-	times.append(next_t - 0.07)
-	points.append((b[0] as Vector3) + Vector3.UP * 0.07)
+		relax = minf(smoothstep(0.07, 0.2, t - last_t), 1.0 - smoothstep(incoming, next_t - 0.08, t))
+	# In place a few frames early, giving with the catch.
+	times.append(next_t - 0.08)
+	points.append((b[0] as Vector3) + Vector3.UP * 0.03)
 	times.append(next_t)
 	points.append(b[0])
 	times.append(next_t + 0.03)
@@ -2170,13 +2166,13 @@ func _emote_pose(t: float) -> Dictionary:
 		var a := Quaternion.IDENTITY
 		match part:
 			"Hips":
-				a = Quaternion(Vector3.UP, yaw + deg_to_rad(5.0 * shift)) * Quaternion(Vector3.RIGHT, deg_to_rad(28.0 + 5.0 * push))
+				a = Quaternion(Vector3.UP, yaw + deg_to_rad(5.0 * shift)) * Quaternion(Vector3.RIGHT, deg_to_rad(5.0 + 5.0 * push))
 			"Spine":
-				a = a_parent * Quaternion(Vector3.UP, -0.6 * yaw + deg_to_rad(14.0 * shift)) * Quaternion(Vector3.RIGHT, deg_to_rad(18.0))
+				a = a_parent * Quaternion(Vector3.UP, -0.6 * yaw + deg_to_rad(14.0 * shift)) * Quaternion(Vector3.RIGHT, deg_to_rad(0.0))
 			"Neck":
-				a = a_parent * Quaternion(Vector3.RIGHT, deg_to_rad(-24.0))
+				a = a_parent * Quaternion(Vector3.RIGHT, deg_to_rad(-15.0))
 			"Head":
-				a = a_parent * Quaternion(Vector3.UP, -0.4 * yaw) * Quaternion(Vector3.RIGHT, deg_to_rad(-20.0))
+				a = a_parent * Quaternion(Vector3.UP, -0.4 * yaw) * Quaternion(Vector3.RIGHT, deg_to_rad(-10.0))
 			"Foot":
 				a = Quaternion(Vector3.UP, deg_to_rad(EMOTE_FOOT_YAW[side]))
 			"Thigh", "UpperArm":
