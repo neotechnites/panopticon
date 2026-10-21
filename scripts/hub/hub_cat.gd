@@ -8,20 +8,34 @@ enum State { REST, HELD, FLYING }
 
 ## Where the cat sits relative to the carrier's head: just under and ahead of the face.
 const CARRY_OFFSET: Vector3 = Vector3(0.0, -0.3, -0.55)
-const THROW_SPEED: float = 20.0
-const THROW_LIFT: float = 4.0
+const THROW_SPEED: float = 10.0
+const THROW_LIFT: float = 2.0
 const THROW_SPIN: float = 12.0
 ## Height off the floor of the cone check: a cat on a ledge above you is out of reach.
 const REACH_HEIGHT: float = 2.0
 const FACING_DOT: float = 0.5
 const FALL_OUT_Y: float = -60.0
 const CAT_LAYER: int = 1 << 3
+const FUSE_SECONDS: float = 0.5
+const RESPAWN_SECONDS: float = 4.0
+const HEART_TEXTURE: Texture2D = preload("res://hub/props/cat/fx/heart.png")
+const EXPLOSION_SHEET: Texture2D = preload("res://hub/props/cat/fx/explosion_sheet.png")
+const EXPLOSION_SOUND: AudioStream = preload("res://hub/props/cat/fx/explosion.wav")
+
+## Frames in the explosion sheet's horizontal strip.
+@export var explosion_frames: int = 17
+@export var explosion_fps: float = 16.0
 
 static var _all: Array[HubCat] = []
 
 var _state: State = State.REST
 var _carrier: PlayerController = null
 var _home: Transform3D = Transform3D.IDENTITY
+var _local_held: bool = false
+var _prompt_layer: CanvasLayer = null
+var _pet_tween: Tween = null
+var _fuse: int = 0
+var _gone: bool = false
 
 
 func _ready() -> void:
@@ -37,6 +51,82 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	_all.erase(self)
+	_set_local_held(false)
+
+
+## E while this machine's player carries the cat: a squish; eaten before the lobby sees it.
+func _input(event: InputEvent) -> void:
+	if not _local_held or not event.is_action_pressed(&"interact"):
+		return
+	get_viewport().set_input_as_handled()
+	var mesh: Node3D = get_node_or_null("Mesh") as Node3D
+	if mesh == null:
+		return
+	_spawn_heart()
+	if _pet_tween != null:
+		_pet_tween.kill()
+	mesh.scale = Vector3.ONE
+	_pet_tween = create_tween()
+	_pet_tween.tween_property(mesh, "scale", Vector3(1.2, 0.75, 1.2), 0.08)
+	_pet_tween.tween_property(mesh, "scale", Vector3(0.92, 1.1, 0.92), 0.1)
+	_pet_tween.tween_property(mesh, "scale", Vector3.ONE, 0.1)
+
+
+## A billboarded heart that drifts up and fades; rapid pets stack.
+func _spawn_heart() -> void:
+	var heart: Sprite3D = Sprite3D.new()
+	heart.texture = HEART_TEXTURE
+	heart.pixel_size = 0.012
+	heart.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	heart.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	heart.shaded = false
+	heart.no_depth_test = true
+	get_tree().current_scene.add_child(heart)
+	var start: Vector3 = global_position + Vector3(randf_range(-0.2, 0.2), 0.6, 0.0)
+	heart.global_position = start
+	var drift: float = randf_range(-0.4, 0.4)
+	var tween: Tween = heart.create_tween().set_parallel(true)
+	tween.tween_property(heart, "global_position", start + Vector3(drift, 1.6, 0.0), 2.0)
+	tween.tween_property(heart, "modulate:a", 0.0, 2.0).set_delay(0.8)
+	tween.chain().tween_callback(heart.queue_free)
+
+
+## Show or hide the pet prompt on this machine.
+func _set_local_held(held: bool) -> void:
+	_local_held = held
+	if held and _prompt_layer == null:
+		_prompt_layer = CanvasLayer.new()
+		var label: Label = Label.new()
+		label.text = tr("HUB_CAT_PET_PROMPT")
+		label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+		label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		label.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		label.offset_bottom = -90.0
+		_prompt_layer.add_child(label)
+		add_child(_prompt_layer)
+	elif not held and _prompt_layer != null:
+		_prompt_layer.queue_free()
+		_prompt_layer = null
+
+
+func _announce_held(held: bool) -> void:
+	var peer: int = 1
+	if held and is_instance_valid(_carrier):
+		for child: Node in _carrier.get_children():
+			if child is PlayerNetLink:
+				peer = (child as PlayerNetLink).owner_peer_id
+	if _networked():
+		rpc(&"_held_by", peer if held else 0)
+	_held_by(peer if held else 0)
+
+
+## Authority to everyone: which peer carries the cat now, 0 for none.
+@rpc("authority", "reliable", "call_remote", 1)
+func _held_by(peer: int) -> void:
+	var mine: int = 1
+	if _networked():
+		mine = multiplayer.get_unique_id()
+	_set_local_held(peer != 0 and peer == mine)
 
 
 ## Spend [param body]'s shove on a cat: throw the one it carries, else lift one in reach.
@@ -52,7 +142,7 @@ static func claim_shove(body: PlayerController, forward: Vector3, reach: float) 
 			return true
 	var here: Vector3 = body.global_position
 	for cat: HubCat in _all:
-		if cat._state == State.HELD:
+		if cat._state == State.HELD or cat._gone:
 			continue
 		var offset: Vector3 = cat.global_position - here
 		if absf(offset.y) > REACH_HEIGHT:
@@ -71,17 +161,20 @@ static func claim_shove(body: PlayerController, forward: Vector3, reach: float) 
 
 
 func _pick_up(body: PlayerController) -> void:
+	_fuse += 1
 	_carrier = body
 	_state = State.HELD
 	collision_layer = 0
 	collision_mask = 0
 	freeze = true
+	_announce_held(true)
 
 
 func _throw() -> void:
 	var look: Basis = _carry_basis()
 	global_transform = _carry_transform()
 	_carrier = null
+	_announce_held(false)
 	_state = State.FLYING
 	collision_layer = CAT_LAYER
 	collision_mask = 1
@@ -89,6 +182,60 @@ func _throw() -> void:
 	sleeping = false
 	linear_velocity = -look.z * THROW_SPEED + Vector3.UP * THROW_LIFT
 	angular_velocity = Vector3.UP * THROW_SPIN
+	_fuse += 1
+	var mine: int = _fuse
+	get_tree().create_timer(FUSE_SECONDS).timeout.connect(func() -> void: _explode(mine))
+
+
+## Boom at the cat's spot, then the cat sits out a few seconds and returns home.
+func _explode(fuse: int) -> void:
+	if fuse != _fuse or _gone or not is_inside_tree():
+		return
+	_gone = true
+	var scene: Node = get_tree().current_scene
+	var blast: AnimatedSprite3D = AnimatedSprite3D.new()
+	var frames: SpriteFrames = SpriteFrames.new()
+	frames.add_animation(&"boom")
+	frames.set_animation_loop(&"boom", false)
+	frames.set_animation_speed(&"boom", explosion_fps)
+	var width: int = EXPLOSION_SHEET.get_width() / maxi(explosion_frames, 1)
+	for i: int in explosion_frames:
+		var atlas: AtlasTexture = AtlasTexture.new()
+		atlas.atlas = EXPLOSION_SHEET
+		atlas.region = Rect2(i * width, 0, width, EXPLOSION_SHEET.get_height())
+		frames.add_frame(&"boom", atlas)
+	blast.sprite_frames = frames
+	blast.pixel_size = 0.02
+	blast.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	blast.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	blast.shaded = false
+	blast.no_depth_test = true
+	scene.add_child(blast)
+	blast.global_position = global_position + Vector3.UP * 0.3
+	blast.animation_finished.connect(blast.queue_free)
+	blast.play(&"boom")
+	var sound: AudioStreamPlayer3D = AudioStreamPlayer3D.new()
+	sound.stream = EXPLOSION_SOUND
+	scene.add_child(sound)
+	sound.global_position = blast.global_position
+	sound.finished.connect(sound.queue_free)
+	sound.play()
+	visible = false
+	_state = State.REST
+	freeze = true
+	collision_layer = 0
+	collision_mask = 0
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	global_transform = _home
+	get_tree().create_timer(RESPAWN_SECONDS).timeout.connect(_respawn)
+
+
+func _respawn() -> void:
+	_gone = false
+	visible = true
+	collision_layer = CAT_LAYER
+	collision_mask = 1
 
 
 func _carry_basis() -> Basis:
@@ -125,6 +272,7 @@ func _physics_process(_delta: float) -> void:
 
 func _drop() -> void:
 	_carrier = null
+	_announce_held(false)
 	_state = State.FLYING
 	collision_layer = CAT_LAYER
 	collision_mask = 1
