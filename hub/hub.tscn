@@ -1,4 +1,4 @@
-[gd_scene load_steps=29 format=3]
+[gd_scene load_steps=30 format=3]
 
 [ext_resource type="PackedScene" path="res://hub/models/hub_base.glb" id="1_hub_base"]
 [ext_resource type="Script" uid="uid://gwfatmklmjcr" path="res://scripts/ring/tower_variant.gd" id="2_tower_variant"]
@@ -25,6 +25,7 @@
 [ext_resource type="PackedScene" path="res://maps/forest/forest.tscn" id="23_map3"]
 [ext_resource type="PackedScene" path="res://maps/ice/ice.tscn" id="24_ice"]
 [ext_resource type="PackedScene" path="res://maps/beach/beach.tscn" id="25_beach"]
+[ext_resource type="PackedScene" path="res://hub/props/cat/cat.tscn" id="41_cat"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.17, 0.22, 0.34, 1)
@@ -447,6 +448,26 @@ transform = Transform3D(-0.34202, 0, 0.939693, 0, 1, 0, -0.939693, 0, -0.34202, 
 
 [node name="Spawn8" type="Marker3D" parent="HubWorld/HubSpawns"]
 transform = Transform3D(-0.507538, 0, 0.861629, 0, 1, 0, -0.861629, 0, -0.507538, 33.6035, 0.25, -19.794)
+
+[node name="Cats" type="Node3D" parent="HubWorld"]
+
+[node name="Cat1" parent="HubWorld/Cats" instance=ExtResource("41_cat")]
+transform = Transform3D(-0.75377, 0, -0.65713, 0, 1, 0, 0.65713, 0, -0.75377, -26.96382, 0, 13.15113)
+
+[node name="Cat2" parent="HubWorld/Cats" instance=ExtResource("41_cat")]
+transform = Transform3D(-0.47904, 0, -0.87779, 0, 1, 0, 0.87779, 0, -0.47904, -19.97558, 0, 39.20429)
+
+[node name="Cat3" parent="HubWorld/Cats" instance=ExtResource("41_cat")]
+transform = Transform3D(-0.72458, 0, 0.68919, 0, 1, 0, -0.68919, 0, -0.72458, -4.31437, 0, 30.69831)
+
+[node name="Cat4" parent="HubWorld/Cats" instance=ExtResource("41_cat")]
+transform = Transform3D(-0.97511, 0, 0.22174, 0, 1, 0, -0.22174, 0, -0.97511, 21.5, 0, 37.23909)
+
+[node name="Cat5" parent="HubWorld/Cats" instance=ExtResource("41_cat")]
+transform = Transform3D(0.21896, 0, 0.97573, 0, 1, 0, -0.97573, 0, 0.21896, 28.83785, 0, 8.26912)
+
+[node name="Cat6" parent="HubWorld/Cats" instance=ExtResource("41_cat")]
+transform = Transform3D(-0.58548, 0, 0.81069, 0, 1, 0, -0.81069, 0, -0.58548, 19.69616, 0.35, -3.47296)
 
 [node name="Player" parent="." instance=ExtResource("7_player")]
 editor_description = "The local body. In the hub it is a prisoner with nothing to run: full movement, a harmless shove, no rifle and no powers."
