@@ -21,6 +21,10 @@ const RESPAWN_SECONDS: float = 4.0
 const HEART_TEXTURE: Texture2D = preload("res://hub/props/cat/fx/heart.png")
 const EXPLOSION_SHEET: Texture2D = preload("res://hub/props/cat/fx/explosion_sheet.png")
 const EXPLOSION_SOUND: AudioStream = preload("res://hub/props/cat/fx/explosion.wav")
+const KEY_TEXTURE: Texture2D = preload("res://hub/props/cat/fx/key_e.png")
+## The pet prompt: the E keycap drawn this many times its pixels, this far below the crosshair.
+const PROMPT_KEY_SCALE: float = 2.0
+const PROMPT_BELOW_CROSSHAIR: float = 56.0
 
 ## Frames in the explosion sheet's horizontal strip.
 @export var explosion_frames: int = 17
@@ -96,13 +100,27 @@ func _set_local_held(held: bool) -> void:
 	_local_held = held
 	if held and _prompt_layer == null:
 		_prompt_layer = CanvasLayer.new()
+		var row: HBoxContainer = HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override(&"separation", 10)
+		var key: TextureRect = TextureRect.new()
+		key.texture = KEY_TEXTURE
+		key.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		key.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		key.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		key.custom_minimum_size = Vector2(KEY_TEXTURE.get_width(), KEY_TEXTURE.get_height()) * PROMPT_KEY_SCALE
+		row.add_child(key)
 		var label: Label = Label.new()
 		label.text = tr("HUB_CAT_PET_PROMPT")
-		label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-		label.grow_horizontal = Control.GROW_DIRECTION_BOTH
-		label.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		label.offset_bottom = -90.0
-		_prompt_layer.add_child(label)
+		label.add_theme_color_override(&"font_outline_color", Color.BLACK)
+		label.add_theme_constant_override(&"outline_size", 6)
+		row.add_child(label)
+		row.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+		row.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		row.grow_vertical = Control.GROW_DIRECTION_BOTH
+		row.offset_top += PROMPT_BELOW_CROSSHAIR
+		row.offset_bottom += PROMPT_BELOW_CROSSHAIR
+		_prompt_layer.add_child(row)
 		add_child(_prompt_layer)
 	elif not held and _prompt_layer != null:
 		_prompt_layer.queue_free()
