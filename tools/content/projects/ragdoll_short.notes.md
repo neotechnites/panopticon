@@ -50,3 +50,9 @@ still the compelte wrong clip. make it from scratch, all its supposed to be is a
 
 ## v32 | ragdoll_short_final_ttig.mp4 | 2026-10-20 20:02
 Ryan (20:11, on ragdoll_short_final_ttig/youtube, task #630): "the yeah is cut into the first line. the audio mixing on the whole thing is actually just a joke. so go fix that". Ryan (19:52): "no, dont just fix that little thing, figure out why the fuck that happened and do the audio mixing properly". Ryan (19:56): "weve fucking done this before ... dont we have a full fucking short pipeline". Ryan (earlier): "i just got that voice clip, use it on short 4 and 13 and creat a youtube and tt/insta version." v33 (TikTok/IG) and v34 (YouTube): v32 plus the voiced end card row (beta_link.wav / beta_link_youtube.wav through vo.py --outro); voice re-run through vo.py with the energy-gated breath duck.
+
+## v33 | ragdoll_short_final_ttig.mp4 | 2026-10-20 21:07
+Ryan (20:50, on v33/v34 and v14/v15, tasks #630/#601): "ok, ragdolls audio is good. on the "once i had this" clip, it needs to be reshot because it has sone lag. also remove all sound effects, only my voice and future music. minigame is good, just al ittle more space between "sniper" and "this" say add half a second. once those are done we can pick music"
+
+## v34 | ragdoll_short_final_youtube.mp4 | 2026-10-20 21:07
+Ryan (20:50, on v33/v34 and v14/v15, tasks #630/#601): "ok, ragdolls audio is good. on the "once i had this" clip, it needs to be reshot because it has sone lag. also remove all sound effects, only my voice and future music. minigame is good, just al ittle more space between "sniper" and "this" say add half a second. once those are done we can pick music"

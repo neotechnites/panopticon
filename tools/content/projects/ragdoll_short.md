@@ -915,6 +915,7 @@ seconds: 6.4
 in: 1.0
 frames: 0.0-2.9 running down the rim lane behind him, the pit on the right; 2.95 the POV's arms shove him; 3.0-3.4 he flies limp off the rim over the pit; 3.4-3.8 falls past the tower base into the lava; 3.8-6.4 the POV holds on the pit, tower and eye.
 cut: content\ragdoll_short\cuts\06b_v24.mp4 (6.4 s, PC take 166_t1, motion 0.0473, freeze 0)
+refilm: v35 (Ryan 20:50: "it has sone lag"): two rough takes still froze 4-23 frames mid-run; filmed --movie as cuts\06b_v35m.mp4 (Movie Maker, 1080x1920, motion 0.0464, no frozen frame in 0-4.7 s)
 
 joined: content\ragdoll_short\cuts\06_v24.mp4 (4.85 s, 291 frames, lossless libx264rgb; Mac copy sv3/cuts/06_v24.mp4) = 06a_v23 (## 63, the third-person shove-and-flop) [0.0167-1.8167] + 06b_v24 [2.75-5.80]: 0-1.8 the side shove and flop (shove 0.55, limp in the air, lands), 1.8 cut to the POV on the lane, 3.0 the shove on "shove", 3.0-4.0 he flies off the rim and falls into the pit through "someone, they also", 4.0-4.85 the pit, tower and eye on "ragdoll".
 
@@ -1308,3 +1309,71 @@ game: 2
 | L6 | cuts/06b_v24.mp4 | 1.05 | 5.3 | line | | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. | | | |
 | L7 | cuts/07_v24.mp4 | 0 | | line | | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. | | | |
 | end | title | | | line | | beta sign up on my channel | beta signup on my channel | | |
+
+## script v35
+from: v34
+notes: Ryan (20:50, on v33/v34 and v14/v15, tasks #630/#601): "ok, ragdolls audio is good. on the "once i had this" clip, it needs to be reshot because it has sone lag. also remove all sound effects, only my voice and future music. minigame is good, just al ittle more space between "sniper" and "this" say add half a second. once those are done we can pick music"
+notes: Ryan (20:11, on ragdoll_short_final_ttig/youtube, task #630): "the yeah is cut into the first line. the audio mixing on the whole thing is actually just a joke. so go fix that". Ryan (19:52): "no, dont just fix that little thing, figure out why the fuck that happened and do the audio mixing properly". Ryan (19:56): "weve fucking done this before ... dont we have a full fucking short pipeline". Ryan (earlier): "i just got that voice clip, use it on short 4 and 13 and creat a youtube and tt/insta version." v33 (TikTok/IG) and v34 (YouTube): v32 plus the voiced end card row (beta_link.wav / beta_link_youtube.wav through vo.py --outro); voice re-run through vo.py with the energy-gated breath duck.
+notes: Ryan's own recorded voice (short_13.aup4, ragdoll lines) replaces the TTS; the closing comments line is gone; the 0.98 s beta card is appended after assembly (task #630).
+# v29 = v28 with M2 only: 02_v29, a real Godot-editor screen capture (scrubbed copy, decision 362; editor/take.sh) of today's prisoner2.glb
+# playing its Death clip, cut as v14's M2 beat for beat: 3.2 s, the fall at 0.95 s, scared.gif 900 wide at y 0.379 (above him, never on him)
+# fading in from 2.25 s over 0.95 s, the beat ending with the fade (task #630).
+# was: v28 = v27 with M2 only: v8's own M2 (rough_v8/lines/M2.mkv, the authored Death clip, scared.gif already on it, no gif_fade row), 2.45 s (task #630).
+# was: v27 = v26 with M2 only: 02_v27, the void prisoner in his own colours, the map's fit undone (task #630).
+# was: v26 = v25 with M2 only: 02_v26, today's prisoner and its Death clip, crisp textures (task #630).
+# was: v25 = v24 with L6 only: the POV pit shove alone (06b_v24, shove on "shove", the fall and the empty pit under the rest); the generic deck shove cut (task #630).
+# was: v24 = v23 with Ryan's notes: M2 = 02_v24 (3a8cefd3: the modelled prisoner and its Death clip, no box); L4 = 04_v24 (the lead visibly shot and
+# thrown on S2, the report and impact in the take's sound, game: 2 = the take's own level under the voice); L6 = 06_v24 (the flop, then the POV shove into the pit); L7 = 07_v24 (fixed ragdoll, one tumble).
+# was: v23 = v22 with Ryan's notes: L1 = 57 (## 43 retaped on the current build); M2 = 02_v23, L3 = 03_v23 (the 0fe0c9ec old build:
+# old runner, old Death clip, old hell ring); L4 = 04_v23 (scope misses, then the back runner as the lead is shot on S2);
+# L5 = 05_v23 (forest, three visible ragdolls, no shoves); L6 = 06_v23 (two shove-and-flop halves); L7 = 07_v23 (clean throw, ends on the beat).
+# was: v22 = v21 with L5's haters part ending before the guard's re-seat (the HUD's tower banner showed for 0.15 s at v21's 28.85 s); v21 = v20 after its frame check (never shown to Ryan): L3, L4's runner half and L5 refilmed; v20's table, rows composed by hand where a line needs more than one shot (task #630, short 4 from scratch):
+# L1 the second miss and the hit with the old Death clip just after "bad", held 1.75 s past the hit; M2 the grey void
+# death, scared.gif fading in from 1.2 s over 2.0 s (the beat ends with the fade); L3 the crane-out; L4 the scope's two
+# misses (46), then the back runner (50) as the lead ahead drops on "Ragdolls", the placeholder comment card at "this guy";
+# L5 forest: the flung lead and the middle man (54), the haters scope's drop, ravine throw and drop (55); frame check: L3 = 53 (45 read as a push in), L4 runner = 56 (50's lead left the frame); L6 the 3-runner scrap (48), then the
+# POV's pit shove on "shove" (52); L7 the portal, the shove and the 2.0 s kill-beat cinematic (49). "htis" spoken "this".
+pad: 0.2
+| line | clip | in | len | fit | speed | text | card | grade | gif_fade |
+| L1 | cuts/57_v23.mp4 | 0.3 | 4.5 | wait | | The death animation in my game was really bad. | | | |
+| M2 | cuts/02_v29.mp4 | 0.95 | 2.25 | beat 2.25 | | | | | external/scared.gif 1.30 0.95 end w=900 y=0.379 |
+| L3 | cuts/03_v23.mp4 | 1.5 | 6.7 | line | | Yeaeeeeeeeh I needed something better, but if my art didnt make it clear, I'm a programmer, not an animator | | | |
+| L4 | cuts/04_v24.mp4 | 0 | 9.5 | wait | | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem? Ragdolls | cards/L4_card0.png w=940 y=0.2 in=0.05 out=0.2 from=this to=Ragdolls+0.6 | | |
+| L5 | cuts/05_v23.mp4@1.0:6.45 | | | line | | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining | | | |
+| L6 | cuts/06b_v35m.mp4 | 1.05 | 5.3 | line | | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. | | | |
+| L7 | cuts/07_v24.mp4 | 0 | | line | | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. | | | |
+| end | title | | | line | | beta sign up on my channel | beta signup on my channel | | |
+
+## script v36
+from: v34
+notes: Ryan (20:50, on v33/v34 and v14/v15, tasks #630/#601): "ok, ragdolls audio is good. on the "once i had this" clip, it needs to be reshot because it has sone lag. also remove all sound effects, only my voice and future music. minigame is good, just al ittle more space between "sniper" and "this" say add half a second. once those are done we can pick music"
+notes: Ryan (20:11, on ragdoll_short_final_ttig/youtube, task #630): "the yeah is cut into the first line. the audio mixing on the whole thing is actually just a joke. so go fix that". Ryan (19:52): "no, dont just fix that little thing, figure out why the fuck that happened and do the audio mixing properly". Ryan (19:56): "weve fucking done this before ... dont we have a full fucking short pipeline". Ryan (earlier): "i just got that voice clip, use it on short 4 and 13 and creat a youtube and tt/insta version." v33 (TikTok/IG) and v34 (YouTube): v32 plus the voiced end card row (beta_link.wav / beta_link_youtube.wav through vo.py --outro); voice re-run through vo.py with the energy-gated breath duck.
+notes: Ryan's own recorded voice (short_13.aup4, ragdoll lines) replaces the TTS; the closing comments line is gone; the 0.98 s beta card is appended after assembly (task #630).
+# v29 = v28 with M2 only: 02_v29, a real Godot-editor screen capture (scrubbed copy, decision 362; editor/take.sh) of today's prisoner2.glb
+# playing its Death clip, cut as v14's M2 beat for beat: 3.2 s, the fall at 0.95 s, scared.gif 900 wide at y 0.379 (above him, never on him)
+# fading in from 2.25 s over 0.95 s, the beat ending with the fade (task #630).
+# was: v28 = v27 with M2 only: v8's own M2 (rough_v8/lines/M2.mkv, the authored Death clip, scared.gif already on it, no gif_fade row), 2.45 s (task #630).
+# was: v27 = v26 with M2 only: 02_v27, the void prisoner in his own colours, the map's fit undone (task #630).
+# was: v26 = v25 with M2 only: 02_v26, today's prisoner and its Death clip, crisp textures (task #630).
+# was: v25 = v24 with L6 only: the POV pit shove alone (06b_v24, shove on "shove", the fall and the empty pit under the rest); the generic deck shove cut (task #630).
+# was: v24 = v23 with Ryan's notes: M2 = 02_v24 (3a8cefd3: the modelled prisoner and its Death clip, no box); L4 = 04_v24 (the lead visibly shot and
+# thrown on S2, the report and impact in the take's sound, game: 2 = the take's own level under the voice); L6 = 06_v24 (the flop, then the POV shove into the pit); L7 = 07_v24 (fixed ragdoll, one tumble).
+# was: v23 = v22 with Ryan's notes: L1 = 57 (## 43 retaped on the current build); M2 = 02_v23, L3 = 03_v23 (the 0fe0c9ec old build:
+# old runner, old Death clip, old hell ring); L4 = 04_v23 (scope misses, then the back runner as the lead is shot on S2);
+# L5 = 05_v23 (forest, three visible ragdolls, no shoves); L6 = 06_v23 (two shove-and-flop halves); L7 = 07_v23 (clean throw, ends on the beat).
+# was: v22 = v21 with L5's haters part ending before the guard's re-seat (the HUD's tower banner showed for 0.15 s at v21's 28.85 s); v21 = v20 after its frame check (never shown to Ryan): L3, L4's runner half and L5 refilmed; v20's table, rows composed by hand where a line needs more than one shot (task #630, short 4 from scratch):
+# L1 the second miss and the hit with the old Death clip just after "bad", held 1.75 s past the hit; M2 the grey void
+# death, scared.gif fading in from 1.2 s over 2.0 s (the beat ends with the fade); L3 the crane-out; L4 the scope's two
+# misses (46), then the back runner (50) as the lead ahead drops on "Ragdolls", the placeholder comment card at "this guy";
+# L5 forest: the flung lead and the middle man (54), the haters scope's drop, ravine throw and drop (55); frame check: L3 = 53 (45 read as a push in), L4 runner = 56 (50's lead left the frame); L6 the 3-runner scrap (48), then the
+# POV's pit shove on "shove" (52); L7 the portal, the shove and the 2.0 s kill-beat cinematic (49). "htis" spoken "this".
+pad: 0.2
+| line | clip | in | len | fit | speed | text | card | grade | gif_fade |
+| L1 | cuts/57_v23.mp4 | 0.3 | 4.5 | wait | | The death animation in my game was really bad. | | | |
+| M2 | cuts/02_v29.mp4 | 0.95 | 2.25 | beat 2.25 | | | | | external/scared.gif 1.30 0.95 end w=900 y=0.379 |
+| L3 | cuts/03_v23.mp4 | 1.5 | 6.7 | line | | Yeaeeeeeeeh I needed something better, but if my art didnt make it clear, I'm a programmer, not an animator | | | |
+| L4 | cuts/04_v24.mp4 | 0 | 9.5 | wait | | Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem? Ragdolls | cards/L4_card0.png w=940 y=0.2 in=0.05 out=0.2 from=this to=Ragdolls+0.6 | | |
+| L5 | cuts/05_v23.mp4@1.0:6.45 | | | line | | these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining | | | |
+| L6 | cuts/06b_v35m.mp4 | 1.05 | 5.3 | line | | Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll. | | | |
+| L7 | cuts/07_v24.mp4 | 0 | | line | | And when you reach the tower, you can shove the guard out, and watch them go flying into the pit. | | | |
+| end | title | | | line | | beta link in bio | beta signup in bio | | |
