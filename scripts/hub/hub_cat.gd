@@ -43,10 +43,11 @@ func _exit_tree() -> void:
 	_set_local_held(false)
 
 
-## E while this machine's player carries the cat: a quick squish on the mesh.
-func _unhandled_input(event: InputEvent) -> void:
+## E while this machine's player carries the cat: a squish; eaten before the lobby sees it.
+func _input(event: InputEvent) -> void:
 	if not _local_held or not event.is_action_pressed(&"interact"):
 		return
+	get_viewport().set_input_as_handled()
 	var mesh: Node3D = get_node_or_null("Mesh") as Node3D
 	if mesh == null:
 		return
