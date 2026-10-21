@@ -91,6 +91,8 @@ var jump_counter: int = 0
 ## physics, so the poses have nowhere else to come from.
 var sliding: bool = false
 var crouching: bool = false
+## Whether the authority had this body in its emote.
+var emoting: bool = false
 
 
 func clear() -> void:
@@ -112,6 +114,7 @@ func clear() -> void:
 	jump_counter = 0
 	sliding = false
 	crouching = false
+	emoting = false
 
 
 func copy_from(other: PlayerState) -> void:
@@ -133,6 +136,7 @@ func copy_from(other: PlayerState) -> void:
 	jump_counter = other.jump_counter
 	sliding = other.sliding
 	crouching = other.crouching
+	emoting = other.emoting
 
 
 ## Blend towards [param other] by [param weight], writing into this state.
@@ -160,6 +164,7 @@ func interpolate_from(from: PlayerState, to: PlayerState, weight: float) -> void
 	jump_counter = to.jump_counter
 	sliding = to.sliding
 	crouching = to.crouching
+	emoting = to.emoting
 	view_base = to.view_base
 	position = from.position.lerp(to.position, t)
 	velocity = from.velocity.lerp(to.velocity, t)

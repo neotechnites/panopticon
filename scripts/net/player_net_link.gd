@@ -364,6 +364,7 @@ func _take_own_footing() -> void:
 	controller.net_floor = -1
 	controller.net_slide = -1
 	controller.net_crouch = -1
+	controller.net_emote = -1
 
 
 ## Forget every unacknowledged tick and finish the view where the body is.
@@ -403,6 +404,7 @@ func sample_state(out: PlayerState) -> void:
 	out.is_armed = controller.is_armed
 	out.sliding = controller.is_sliding()
 	out.crouching = controller.is_crouching()
+	out.emoting = controller.is_emoting()
 	out.jump_counter = _jump_counter
 	# What the owner of this seat may rewind to: the last intent of theirs this
 	# body has actually simulated, not merely received. Nothing to say for a
@@ -437,6 +439,7 @@ func apply_state(state: PlayerState) -> void:
 	controller.net_floor = 1 if state.on_floor else 0
 	controller.net_slide = 1 if state.sliding else 0
 	controller.net_crouch = 1 if state.crouching else 0
+	controller.net_emote = 1 if state.emoting else 0
 	if controller.head != null:
 		controller.head.rotation.x = state.pitch
 	_present_events(state)

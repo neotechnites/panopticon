@@ -302,6 +302,10 @@ const SHOVE_PALM: Basis = Basis(Vector3(0.0, 0.34, 0.94), Vector3(0.0, 0.94, -0.
 ## eases in is a shove that has already missed.
 @export var shove_blend_time: float = 0.06
 
+## The dribble emote's clip, built by [method _build_emote_animation]; the hub cat is the ball.
+@export var emote_clip: StringName = &"Balling"
+@export var emote_cat_scale: float = 0.7
+
 ## Which visual layer the mesh draws on, authored per body.
 ##
 ## Layer 2 is the owner-hidden layer: every [Camera3D] in the game inherits the
@@ -457,6 +461,13 @@ var _has_shove: bool = false
 ## body and every other pose waits, which is the whole of its state.
 var _shove_remaining: float = 0.0
 var _shove_length: float = 0.0
+
+var _has_emote: bool = false
+var _in_emote: bool = false
+var _emote_rig: Skeleton3D = null
+var _emote_cat: Node3D = null
+var _emote_cat_mesh: MeshInstance3D = null
+var _emote_hands: PackedInt32Array = PackedInt32Array([-1, -1])
 
 ## This body's own camera, or null. Current, with no claim standing, means the
 ## view is out of this body and it must be shown its own legs.
@@ -747,6 +758,9 @@ func _ready() -> void:
 	if not _has_shove:
 		push_error("PrisonerAvatar cannot find \"%s\"; a shove will not be visible on the body making it." % shove_clip)
 
+	_build_emote_animation()
+	_has_emote = animation.has_animation(emote_clip) and _emote_cat != null
+
 	if body != null:
 		_camera = body.get_node_or_null(^"Head/Camera") as Camera3D
 	_build_head_hider()
@@ -838,6 +852,7 @@ func _process(delta: float) -> void:
 				_try_ragdoll()
 			if not _in_death:
 				_in_death = true
+				_end_emote()
 				_in_slide = false
 				_in_crouch = false
 				_in_air = false
@@ -859,6 +874,22 @@ func _process(delta: float) -> void:
 		_shove_remaining -= delta
 		if _shove_remaining > 0.0:
 			return
+
+	if _has_emote and body.is_emoting():
+		if not _in_emote:
+			_in_emote = true
+			_in_slide = false
+			_in_crouch = false
+			_in_air = false
+			_in_aim = false
+			_running = false
+			_emote_cat_mesh.layers = mesh.layers
+			_emote_cat.visible = true
+			animation.speed_scale = 1.0
+			animation.play(emote_clip, blend_time)
+		return
+	var leaving_emote: bool = _in_emote
+	_end_emote()
 
 	if _has_aim and body.is_guard:
 		if not _in_aim:
@@ -932,7 +963,7 @@ func _process(delta: float) -> void:
 	# if nothing picks a clip up: a prisoner standing up out of a crouch is
 	# usually below run_resume_speed, which is exactly the case that would leave
 	# them frozen mid-squat.
-	var leaving_pose: bool = leaving_slide or _in_crouch or leaving_aim
+	var leaving_pose: bool = leaving_slide or _in_crouch or leaving_aim or leaving_emote
 	_in_crouch = false
 
 	# Airborne sits directly above the speed clips and below both stances. See
@@ -1109,6 +1140,7 @@ func _on_body_shoved() -> void:
 		return
 	_shove_remaining = animation.get_animation(shove_clip).length / maxf(shove_rate, 0.01)
 	_shove_length = _shove_remaining
+	_end_emote()
 	_in_slide = false
 	_in_crouch = false
 	_in_air = false
@@ -1706,6 +1738,126 @@ func _build_crouch_animation() -> void:
 		library = AnimationLibrary.new()
 		animation.add_animation_library(&"", library)
 	library.add_animation(crouch_clip, crouch_anim)
+
+
+## Half-squat dribble, degrees about model X (pitch) and Z (roll, +X outward): a leg, then each arm low at its bounce and raised between.
+const EMOTE_LEG: Dictionary = {"Thigh": Vector2(-55.0, 14.0), "Shin": Vector2(80.0, 0.0), "Foot": Vector2(-25.0, -14.0)}
+const EMOTE_ARM_LOW: Dictionary = {"UpperArm": Vector2(-55.0, 30.0), "LowerArm": Vector2(-35.0, 0.0), "Hand": Vector2(-10.0, 0.0)}
+const EMOTE_ARM_HIGH: Dictionary = {"UpperArm": Vector2(-65.0, 20.0), "LowerArm": Vector2(-60.0, 0.0), "Hand": Vector2(-25.0, 0.0)}
+const EMOTE_TORSO: Dictionary = {"Hips": 10.0, "Spine": 20.0, "Neck": -15.0, "Head": -12.0}
+const EMOTE_PERIOD: float = 1.0
+const EMOTE_STEPS: int = 16
+const EMOTE_HIP_DROP: float = 0.23
+const EMOTE_BOB: float = 0.03
+const EMOTE_TWIST: float = 8.0
+const CAT_MESH: ArrayMesh = preload("res://hub/props/cat/cat_mesh.tres")
+const CAT_HALF_HEIGHT: float = 0.19
+
+
+## Keyframes [member emote_clip]: two bounces a cycle, right hand down at 0, left at half, and hangs the cat on the rig.
+func _build_emote_animation() -> void:
+	var found: Array = _resolve_skeleton()
+	if found.is_empty():
+		return
+	var path: String = found[0]
+	var skeleton: Skeleton3D = found[1]
+	var clip := Animation.new()
+	clip.length = EMOTE_PERIOD
+	clip.loop_mode = Animation.LOOP_LINEAR
+	for bone: int in skeleton.get_bone_count():
+		var bone_name: String = skeleton.get_bone_name(bone)
+		var track_path := NodePath(path + ":" + bone_name)
+		var rot: int = clip.add_track(Animation.TYPE_ROTATION_3D)
+		clip.track_set_path(rot, track_path)
+		var pos: int = -1
+		if bone_name == "Hips":
+			pos = clip.add_track(Animation.TYPE_POSITION_3D)
+			clip.track_set_path(pos, track_path)
+		for step: int in EMOTE_STEPS + 1:
+			var t: float = EMOTE_PERIOD * float(step) / float(EMOTE_STEPS)
+			var phase: float = TAU * t / EMOTE_PERIOD
+			clip.rotation_track_insert_key(rot, t, _pose_bone(skeleton, bone, _emote_rotation(bone_name, phase)))
+			if pos >= 0:
+				var rest: Vector3 = skeleton.get_bone_rest(bone).origin
+				var bob: float = EMOTE_BOB * (0.5 + 0.5 * cos(2.0 * phase))
+				clip.position_track_insert_key(pos, t, Vector3(rest.x, rest.y - EMOTE_HIP_DROP - bob, rest.z))
+	var library: AnimationLibrary
+	if animation.has_animation_library(&""):
+		library = animation.get_animation_library(&"")
+	else:
+		library = AnimationLibrary.new()
+		animation.add_animation_library(&"", library)
+	library.add_animation(emote_clip, clip)
+
+	_emote_rig = skeleton
+	_emote_hands[0] = skeleton.find_bone("Hand.R")
+	_emote_hands[1] = skeleton.find_bone("Hand.L")
+	if _emote_hands[0] < 0 or _emote_hands[1] < 0:
+		return
+	_emote_cat = Node3D.new()
+	_emote_cat.name = &"EmoteCat"
+	_emote_cat.scale = Vector3.ONE * emote_cat_scale
+	_emote_cat.visible = false
+	_emote_cat_mesh = MeshInstance3D.new()
+	_emote_cat_mesh.mesh = CAT_MESH
+	_emote_cat_mesh.position = Vector3(0.0, -CAT_HALF_HEIGHT, 0.0)
+	_emote_cat.add_child(_emote_cat_mesh)
+	skeleton.add_child(_emote_cat)
+	skeleton.skeleton_updated.connect(_follow_emote_cat)
+
+
+## One bone's model-space rotation at [param phase] of the dribble.
+func _emote_rotation(bone_name: String, phase: float) -> Quaternion:
+	if EMOTE_TORSO.has(bone_name):
+		var twist: float = EMOTE_TWIST * sin(phase) if bone_name == "Spine" else 0.0
+		return Quaternion(Vector3.UP, deg_to_rad(twist)) * Quaternion(Vector3.RIGHT, deg_to_rad(float(EMOTE_TORSO[bone_name])))
+	var dot: int = bone_name.find(".")
+	if dot < 0:
+		return Quaternion.IDENTITY
+	var part: String = bone_name.substr(0, dot)
+	var side: float = 1.0 if bone_name.ends_with(".L") else -1.0
+	var angles := Vector2.ZERO
+	if EMOTE_LEG.has(part):
+		angles = EMOTE_LEG[part]
+	elif EMOTE_ARM_LOW.has(part):
+		# Right hand lowest at phase 0, left at half a cycle.
+		var low: float = 0.5 + 0.5 * cos(phase) * -side
+		angles = (EMOTE_ARM_HIGH[part] as Vector2).lerp(EMOTE_ARM_LOW[part], low)
+	return Quaternion(Vector3.BACK, deg_to_rad(angles.y * side)) * Quaternion(Vector3.RIGHT, deg_to_rad(angles.x))
+
+
+## Hand to floor between the feet to the other hand, twice a cycle, from the live hand poses.
+func _follow_emote_cat() -> void:
+	if not _in_emote or animation.current_animation != emote_clip:
+		return
+	var t: float = fposmod(animation.current_animation_position / EMOTE_PERIOD, 1.0)
+	var half: int = 0 if t < 0.5 else 1
+	var s: float = (t - 0.5 * float(half)) * 2.0
+	var from: Vector3 = _emote_ball_at(_emote_hands[half])
+	var to: Vector3 = _emote_ball_at(_emote_hands[1 - half])
+	var floor_point := Vector3(0.0, CAT_HALF_HEIGHT * emote_cat_scale, (from.z + to.z) * 0.25)
+	var at: Vector3
+	if s < 0.5:
+		var u: float = s * 2.0
+		at = from.lerp(floor_point, u)
+		at.y = lerpf(from.y, floor_point.y, u * u)
+	else:
+		var u: float = (s - 0.5) * 2.0
+		at = floor_point.lerp(to, u)
+		at.y = lerpf(floor_point.y, to.y, 1.0 - (1.0 - u) * (1.0 - u))
+	_emote_cat.transform = Transform3D(Basis(Vector3.UP, TAU * t).scaled(Vector3.ONE * emote_cat_scale), at)
+
+
+## Where the cat sits under [param hand]'s palm, in skeleton space.
+func _emote_ball_at(hand: int) -> Vector3:
+	var pose: Transform3D = _emote_rig.get_bone_global_pose(hand)
+	return pose.origin + pose.basis.y.normalized() * 0.1 - Vector3(0.0, CAT_HALF_HEIGHT * emote_cat_scale + 0.02, 0.0)
+
+
+func _end_emote() -> void:
+	_in_emote = false
+	if _emote_cat != null:
+		_emote_cat.visible = false
 
 
 ## Skin and trousers draw unlit, at their painted colour, in every map. Set on the

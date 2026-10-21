@@ -93,6 +93,7 @@ func poll(_delta: float) -> MoveIntent:
 	_intent.ability_pressed = Input.is_action_just_pressed(PlayerActions.ABILITY)
 	_intent.shove_pressed = Input.is_action_just_pressed(PlayerActions.SHOVE)
 	_intent.cook_pressed = Input.is_action_just_pressed(PlayerActions.INTERACT)
+	_intent.emote_pressed = Input.is_action_just_pressed(PlayerActions.EMOTE)
 	_intent.aim_held = optic != null and optic.is_zoom_requested()
 	if Input.is_action_just_pressed(PlayerActions.TURBO):
 		_turbo = not _turbo

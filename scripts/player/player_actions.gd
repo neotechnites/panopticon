@@ -60,6 +60,8 @@ const INTERACT: StringName = &"interact"
 
 ## Prisoner on prisoner: F, or the B button on a pad. Tapped, never held.
 const SHOVE: StringName = &"shove"
+## The dribble emote: B toggles it; moving ends it.
+const EMOTE: StringName = &"emote"
 ## Dev turbo: T held = 300% speed.
 const TURBO: StringName = &"debug_turbo"
 ## Dev godmode: Y toggles rifle immunity.
@@ -101,6 +103,7 @@ static func ensure_registered() -> void:
 		shove_pad.button_index = SHOVE_PAD_BUTTON
 		InputMap.action_add_event(SHOVE, shove_pad)
 	_ensure(INTERACT, [KEY_E])
+	_ensure(EMOTE, [KEY_B])
 	_ensure(TURBO, [KEY_T])
 	_ensure(GODMODE, [KEY_Y])
 	_ensure(HUD_TOGGLE, [KEY_H])

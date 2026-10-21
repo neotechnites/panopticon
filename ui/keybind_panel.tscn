@@ -235,6 +235,25 @@ text = "KEYBIND_UNBOUND"
 [node name="Ability4Reset" type="Button" parent="Layout/Scroll/Table"]
 text = "KEYBIND_RESET"
 
+[node name="EmoteName" type="Label" parent="Layout/Scroll/Table"]
+size_flags_horizontal = 3
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "KEYBIND_ACTION_EMOTE"
+
+[node name="EmoteSlot1" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+text = "KEYBIND_UNBOUND"
+
+[node name="EmoteSlot2" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+text = "KEYBIND_UNBOUND"
+
+[node name="EmoteReset" type="Button" parent="Layout/Scroll/Table"]
+text = "KEYBIND_RESET"
+
 [node name="FireName" type="Label" parent="Layout/Scroll/Table"]
 size_flags_horizontal = 3
 size_flags_vertical = 1
