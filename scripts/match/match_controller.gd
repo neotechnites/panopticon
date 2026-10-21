@@ -306,6 +306,9 @@ signal kill_beat_started(guard: MatchParticipant, seconds: float, throw: Vector3
 ## no traps and no bots. [method start_hub] is the whole of the difference.
 @export var hub_mode: bool = false
 
+## In the hub, arm the runner powers (keys 1-5) with this controller's rules, for testing.
+@export var hub_powers: bool = true
+
 ## Where the hub stands its players, under [member arena]. Every [Marker3D]
 ## child is one spawn, dealt out in participant order so nobody lands inside
 ## anybody.
@@ -953,10 +956,11 @@ func _place_in_hub(participant: MatchParticipant, index: int, spawns: Array[Mark
 	participant.health = 1
 	body.is_guard = false
 	body.is_armed = false
-	# Null: the hub is nobody's round, so the prisoner pace levers come off. The
-	# powers are off by the same silence -- [method RunnerPower.activate] wants
-	# a rule set and only [method _place_on_track] ever hands one over.
+	# Null: the hub is nobody's round, so the prisoner pace levers come off.
 	_apply_runner_multipliers(body, null)
+	var ability: RunnerPower = RunnerPower.of(body)
+	if ability != null:
+		ability.arm(get_rules() if hub_powers else null, self)
 	_tint_body(participant, participant.home_body_material)
 	_hold_body(participant)
 	if not spawns.is_empty():

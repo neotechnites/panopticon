@@ -2,7 +2,7 @@ class_name CatGrenade
 extends RigidBody3D
 
 ## Power 5's cat: carried, cooked with E, thrown by shove; its blast throws every player in
-## reach and hurts nobody. Exists on the authority only; [CatGrenadeRelay] draws it elsewhere.
+## reach, guard and hub mannequins too, and hurts nobody. Exists on the authority only; [CatGrenadeRelay] draws it elsewhere.
 
 signal exploded
 
@@ -121,9 +121,9 @@ func _explode() -> void:
 ## Launch one player away from [param at], harder the closer it stands. Never damage.
 func _push(participant: MatchParticipant, at: Vector3) -> void:
 	var target: PlayerController = participant.body
-	if target == null or participant.is_shooter or not target.is_inside_tree():
+	if target == null or not target.is_inside_tree():
 		return
-	if not participant.is_running and not participant.is_ghost:
+	if not participant.is_running and not participant.is_ghost and not participant.is_shooter:
 		return
 	var offset: Vector3 = target.global_position + Vector3.UP * BODY_CENTRE - at
 	var distance: float = offset.length()
