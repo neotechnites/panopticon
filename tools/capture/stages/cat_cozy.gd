@@ -10,10 +10,11 @@ extends "res://tools/capture/stages/stage.gd"
 ## every way; at 1.2 m up clear 20.0 m toward 150 deg (the walk in) and 28.8-30 m toward 300-30 deg (the throw, at
 ## the tower). The W05 ice dais (162 deg r 36) is 5.1 m off the start, behind the eye; HubLobby is off for the take.
 ## The body starts `back` m out from the cat on the line from the tower, faces it, walks to `stop` m (shove reach
-## 3.0 m, facing cone 60 deg), shoves (HubCat lifts it to the face), holds `hold` s looking at it, turns `turn` deg
-## right while lifting the eyes to `lift` deg up, and shoves again (HubCat: 20 m/s along the look + 4 up).
+## 3.0 m, facing cone 60 deg), shoves (HubCat lifts it to the face), holds `hold` s shuffling, eases `look_around` deg
+## (left) over it, turns `turn` deg right while lifting the eyes to `lift` deg up, and shoves again (HubCat: 20 m/s along the look + 4 up).
 ##
-## Dials (--set=): cat (Cat1), back (7.0), stop (1.2), pace (0.4), hold (1.7), turn (18), lift (6).
+## Dials (--set=): cat (Cat1), back (7.0), stop (1.2), pace (0.4), hold (0.5), look_around (-12), turn (30), lift (6).
+## Take 1 (hold 1.7 s, still) froze the gate for 1.0 s: the held look keeps moving.
 ## Events: [event] pickup / throw / land <cat>, for the brief's expect: lines.
 
 var _cat: RigidBody3D = null
@@ -51,8 +52,9 @@ func cast(_runners: Array[RunnerBrain]) -> bool:
 		{"do": "run", "to": stop, "speed": float(option("pace", 0.4)), "within": 0.25, "timeout": 6.0, "look_at": look},
 		{"do": "hesitate", "seconds": 0.25, "look_at": look},
 		{"do": "shove"},
-		{"do": "hold", "seconds": float(option("hold", 1.7)), "look_down": 14.0},
-		{"do": "glance", "right": float(option("turn", 18.0)), "seconds": 0.55, "smooth": true, "look_down": lift},
+		{"do": "hold", "seconds": float(option("hold", 0.5)), "look_down": 14.0, "fidget": true},
+		{"do": "glance", "right": float(option("look_around", -12.0)), "seconds": 0.7, "smooth": true, "look_down": 8.0},
+		{"do": "glance", "right": float(option("turn", 30.0)), "seconds": 0.55, "smooth": true, "look_down": lift},
 		{"do": "hold", "seconds": 0.2, "look_down": lift},
 		{"do": "shove"},
 		{"do": "hold", "seconds": 3.0, "look_down": lift},
