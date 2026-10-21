@@ -33,3 +33,9 @@ Head 5 fps check of v11 (task #601, not Ryan's notes; v11 was not shown to him):
 
 ## v13 | start_minigame_final_ttig.mp4 | 2026-10-20 20:02
 Ryan (19:46, on start_minigame_final_ttig/youtube, task #601): "when i say everyone in minigame, its volume goes to fuckign zero." Ryan (19:52): "no, dont just fix that little thing, figure out why the fuck that happened and do the audio mixing properly". Ryan (19:56): "weve fucking done this before ... dont we have a full fucking short pipeline". Cause: vo.py duck_breaths gain-ducked by whisper word times, and whisper put "everyone" (~28.4 s) late. v14 (TikTok/IG) = v13; v15 (YouTube) = v13 with the YouTube end card line; voice re-run through vo.py with the energy-gated breath duck and --outro per platform.
+
+## v14 | start_minigame_final_ttig.mp4 | 2026-10-20 21:07
+Ryan (20:50, on v33/v34 and v14/v15, tasks #630/#601): "ok, ragdolls audio is good. on the "once i had this" clip, it needs to be reshot because it has sone lag. also remove all sound effects, only my voice and future music. minigame is good, just al ittle more space between "sniper" and "this" say add half a second. once those are done we can pick music"
+
+## v15 | start_minigame_final_youtube.mp4 | 2026-10-20 21:07
+Ryan (20:50, on v33/v34 and v14/v15, tasks #630/#601): "ok, ragdolls audio is good. on the "once i had this" clip, it needs to be reshot because it has sone lag. also remove all sound effects, only my voice and future music. minigame is good, just al ittle more space between "sniper" and "this" say add half a second. once those are done we can pick music"
