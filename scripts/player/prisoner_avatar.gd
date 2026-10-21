@@ -304,7 +304,7 @@ const SHOVE_PALM: Basis = Basis(Vector3(0.0, 0.34, 0.94), Vector3(0.0, 0.94, -0.
 
 ## The dribble emote's clip, built by [method _build_emote_animation]; the hub cat is the ball.
 @export var emote_clip: StringName = &"Balling"
-@export var emote_cat_scale: float = 0.7
+@export var emote_cat_scale: float = 0.5
 
 ## Which visual layer the mesh draws on, authored per body.
 ##
@@ -1742,8 +1742,8 @@ func _build_crouch_animation() -> void:
 
 ## Half-squat dribble, degrees about model X (pitch) and Z (roll, +X outward); each arm is low at its bounce, raised between. Feet are solved flat.
 const EMOTE_LEG: Dictionary = {"Thigh": Vector2(-55.0, 14.0), "Shin": Vector2(80.0, 0.0)}
-const EMOTE_ARM_LOW: Dictionary = {"UpperArm": Vector2(-25.0, 40.0), "LowerArm": Vector2(-65.0, 0.0), "Hand": Vector2(-10.0, 0.0)}
-const EMOTE_ARM_HIGH: Dictionary = {"UpperArm": Vector2(-40.0, 25.0), "LowerArm": Vector2(-105.0, 0.0), "Hand": Vector2(-25.0, 0.0)}
+const EMOTE_ARM_LOW: Dictionary = {"UpperArm": Vector2(-10.0, 30.0), "LowerArm": Vector2(-40.0, 0.0), "Hand": Vector2(-10.0, 0.0)}
+const EMOTE_ARM_HIGH: Dictionary = {"UpperArm": Vector2(-35.0, 20.0), "LowerArm": Vector2(-90.0, 0.0), "Hand": Vector2(-25.0, 0.0)}
 const EMOTE_TORSO: Dictionary = {"Hips": 10.0, "Spine": 20.0, "Neck": -15.0, "Head": -12.0}
 const EMOTE_PERIOD: float = 1.0
 const EMOTE_STEPS: int = 16
