@@ -23,8 +23,9 @@ const EXPLOSION_SHEET: Texture2D = preload("res://hub/props/cat/fx/explosion_she
 const EXPLOSION_SOUND: AudioStream = preload("res://hub/props/cat/fx/explosion.wav")
 const KEY_TEXTURE: Texture2D = preload("res://hub/props/cat/fx/key_e.png")
 ## The pet prompt: the E keycap drawn this many times its pixels, this far below the crosshair.
-const PROMPT_KEY_SCALE: float = 2.0
-const PROMPT_BELOW_CROSSHAIR: float = 56.0
+const PROMPT_KEY_SCALE: float = 6.0
+const PROMPT_BELOW_CROSSHAIR: float = 90.0
+const PROMPT_FONT_SIZE: int = 48
 
 ## Frames in the explosion sheet's horizontal strip.
 @export var explosion_frames: int = 17
@@ -102,7 +103,7 @@ func _set_local_held(held: bool) -> void:
 		_prompt_layer = CanvasLayer.new()
 		var row: HBoxContainer = HBoxContainer.new()
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override(&"separation", 10)
+		row.add_theme_constant_override(&"separation", 24)
 		var key: TextureRect = TextureRect.new()
 		key.texture = KEY_TEXTURE
 		key.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -113,7 +114,8 @@ func _set_local_held(held: bool) -> void:
 		var label: Label = Label.new()
 		label.text = tr("HUB_CAT_PET_PROMPT")
 		label.add_theme_color_override(&"font_outline_color", Color.BLACK)
-		label.add_theme_constant_override(&"outline_size", 6)
+		label.add_theme_constant_override(&"outline_size", 14)
+		label.add_theme_font_size_override(&"font_size", PROMPT_FONT_SIZE)
 		row.add_child(label)
 		row.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 		row.grow_horizontal = Control.GROW_DIRECTION_BOTH
