@@ -45,7 +45,7 @@ const SHOT_TARGET_LAYER: int = 1 << 17
 const LEAF_DROP_RADIANS: float = PI * 0.5
 ## Each leaf's body reaches this far past its slab on every side, over the beams and the frame's rim.
 const LEAF_SEAM_METRES: float = 0.3
-const LEAF_RATTLE_RADIANS: float = 0.03
+const LEAF_RATTLE_RADIANS: float = 0.004   # 2 cm at a 5.5 m flap's free edge, the old leaves' rattle
 const LEAF_RATTLE_HZ: float = 38.0
 ## The plate tips back about its local Z, away from the tower, and stands again on re-arm.
 const PLATE_THROWN_RADIANS: float = -1.25
@@ -389,8 +389,10 @@ func _make_leaf_body(leaf: Node3D, rest: Transform3D) -> AnimatableBody3D:
 	holder.shape = box
 	holder.position = bounds.get_center()
 	body.add_child(holder)
-	add_child(body)
+	# Posed before it enters the tree: a synced body that spawns at the origin and is then moved sweeps
+	# whoever stands in its path (a 5.5 m flap shoved a body clear of the hole in the first tick).
 	body.transform = rest
+	add_child(body)
 	return body
 
 
