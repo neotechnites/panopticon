@@ -238,7 +238,7 @@ def build():
         mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
     tx.finish(ob, m.zones, mats)
     _shift(ob, -arc.R)                                                       # ... then stood on the lane
-    vertex_ao.apply(ob, vertex_ao.bake(ob, dist=0.6))
+    vertex_ao.apply(ob, {})   # tints in COLOR_0, no AO bake
     c = collider(arc).object("MarbleWallArcCollision-colonly")
     _shift(c, -arc.R)
     c.hide_render = True
