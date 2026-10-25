@@ -266,7 +266,8 @@ SHEETS = {
     "shade": mb.shade_sheet("shade", mode="box", phase=(U0, V0)),              # ledge, reveals, soffits, sill
     "plinth": _shared("plinth", V0_PLINTH, mb.TINT_PLINTH),                    # the socle
     "band": mb.band_sheet(),                                                   # the cornice's mouldings
-    "column": mb.tile("column", "marble_column", "fit_u", mb.COL_W, mb.COL_H, mpt=PW / mb.COL_W),  # one square tile across a pilaster, repeated up it
+    "column": mb.tile("column", "marble_column", "fit_u", mb.COL_W, mb.COL_H, mpt=PW / mb.COL_W,
+                      tint=mb.TINT_TRIM_COL),   # one square tile across a pilaster, repeated up it; the trim value (it had no tint: white)
     "iron": mb.iron_sheet(),                                                   # the portcullis
 }
 

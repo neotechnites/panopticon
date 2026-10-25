@@ -453,7 +453,10 @@ def build():
     coll = _collider()
     ob = stone.object(OBJECT_NAME)
     _unwrap(ob, stone, seed=11)
-    mb.prop_finish(ob, stone.zones, "Marble")
+    # The frame is structure, the room's DARK trim value on every brick zone (marble-final2: it shipped
+    # untinted, the raw tile, white); the reveals its crease. The swirl is its own shader.
+    mb.prop_finish(ob, stone.zones, "Marble", bricks={"marble": mb.TINT_TRIM, "marble2": mb.TINT_TRIM,
+                                                      "shade": mb.TINT_SHADE_TRIM, "plinth": mb.TINT_TRIM})
     glow = [mt for mt in ob.data.materials if mt.name.split(".")[0] == "MarbleGlow"][0]
     pd.see_through(glow)
     pd.wave_uv(ob, "MarbleGlow", stone.rim_xz)

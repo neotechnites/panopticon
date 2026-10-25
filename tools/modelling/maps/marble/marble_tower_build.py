@@ -226,7 +226,7 @@ def _shared(name, px=SHAFT_PX, ref_r=SHAFT_R, u0=U0_SHAFT, tint=None, stem=mb.TO
 
 
 PAVING_K = (0.811, 0.753, 0.569)   # lane deck / tower paving, per channel, linear (tot_fix proof, iter2)
-SHEETS = {   # every stone class on the tower's own tile, at the ROOM'S VALUES (mb.TINT_*: wall, trim on the columns and cornices, floor): the lamps do not light the tower (marble.tscn)
+SHEETS = {   # every stone class on the tower's own tile, at the ROOM'S THREE VALUES (mb.TINT_*): shaft and spandrels WALL; columns, ring beam, plinth, foot and steps DARK; cap and paving BRIGHT
     "stone": _shared("stone", tint=mb.TINT_WALL),                              # the spandrels: the room's wall value
     "shaft": _shared("shaft", tint=mb.TINT_WALL),                              # the shaft's outside: the wall value
     "plinth": _shared("plinth", tint=mb.TINT_PLINTH),                          # foot, steps, room floor band, dais: the trim value
@@ -248,7 +248,7 @@ SHEETS = {   # every stone class on the tower's own tile, at the ROOM'S VALUES (
     "plain": mb.tile("plain", mb.TOWER_PLAIN_STEM, "box", mb.STONE_PX, mb.STONE_PX, mb.WALL_MPT,
                      tint=tuple(c * k for c, k in zip(mb.TINT_FLOOR_STONE, PAVING_K))),   # the floor's centre, under the same lamps
     "coffer": mb.brick("coffer", stem=mb.TOWER_STEM, mode="custom", tint=mb.TINT_WALL),   # the dome inside: the wall value
-    "dome": mb.brick("dome", stem=mb.TOWER_STEM, mode="custom", tint=mb.TINT_WALL),      # ... and outside
+    "dome": mb.brick("dome", stem=mb.TOWER_STEM, mode="custom", tint=mb.TINT_FLOOR),     # ... and outside: the cap takes the oculus light, the BRIGHT value (its tile's ceiling)
 }
 # Faces that wear a class their zone does not name, because their PROJECTION
 # differs, not their stone: the dome's skin (zone "shade") is "dome", and the

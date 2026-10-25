@@ -281,27 +281,35 @@ def stone(name, mode="cyl", mpt=WALL_MPT, **kw):
 
 
 
-# THE THREE VALUES (Ryan 2026-10-25, the Temple of Time: DARK TRIM, BRIGHT FLOOR, MUTED WALLS).
+# THE THREE VALUES (Ryan 2026-10-25, the Temple of Time: DARK TRIM, BRIGHT FLOOR, MUTED WALLS), in
+# EVERY view (marble-final2 -- Ryan: "the map is really only two values", the bright value showed on
+# the lane floor alone, and the trim was "a dark yellow mustard").
 # Linear multipliers over his tiles (COLOR_0, or baseColorFactor for a mesh's first surface, which
 # Godot 4.7 renders without COLOR_0), set so each class's linear albedo luminance is one of three:
-#   WALL   0.078  fields, the brick lane tier, cells, vault, dome    (near-neutral, HSV sat 0.04)
-#   FLOOR  0.148  the deck, the tower's paving: 1.9 x the wall       (cream, sat 0.04)
-#   TRIM   0.045  pilasters, cornices, bands, plinths, frieze, ribs: 0.58 x the wall (olive-brown, sat 0.18)
-#   DARK   0.018  the pit floor and the spikes, 24 m down
-# Measured on images-5: trim/wall 0.70 and floor/wall 2.2 on screen, hue 55-65 everywhere -- the
-# colour is the light's, so the tints stay near neutral and the key / sky carry the warmth.
+#   WALL   0.078  fields, the brick lane tier, the tower's shaft and spandrels    (near-neutral, sat 0.04)
+#   BRIGHT 0.148  the deck and the tower's paving; the dome's panels and the tower's cap at their
+#                 tiles' ceiling (stone 0.126, tower brick 0.106): the oculus light lands on them
+#   DARK   0.038  pilasters, cornices, bands, plinths, frieze, ribs, the cell interiors, the gate and
+#                 the portal frame: 0.49 x the wall, an OLIVE-GREY (hue 67, HSV sat 0.09 in linear,
+#                 near-neutral on screen under the warm key -- NOT the mustard (0.450,0.420,0.287) was;
+#                 0.022 was tried first and went black in a pilaster's shade, the reference's trim is 35-69)
+#   PIT    0.018  the pit floor and the spikes, 24 m down; the iron the same
+# Measured on images-5: trim/wall 0.70 and floor/wall 2.0 on screen, hue 55-70 everywhere, the trim's
+# sat 0.21-0.26 and the trim an olive-GREY -- the colour is the light's, so every tint stays near
+# neutral and the key / sky carry the warmth.
 # Tile linear means: brick 0.108, stone 0.130, column 0.148, floor 0.153, pit 0.119, triangles 0.097.
-TINT_WALL = (0.733, 0.724, 0.668)          # the brick: WALL 0.065 (the fields, the lane tier, the cells)
-TINT_TRIM = (0.450, 0.420, 0.287)          # the brick: TRIM 0.026, 0.4 x the wall (plinth bands, dome ribs)
-TINT_TRIM_COL = (0.328, 0.306, 0.210)      # the column tile: TRIM 0.026 (pilasters, cornices, collar, band)
-TINT_TRIM_STONE = (0.374, 0.349, 0.239)    # the stone: TRIM 0.026 (the frieze)
-TINT_FLOOR = (0.984, 0.969, 0.897)         # the floor tile: FLOOR 0.148, 2.3 x the wall (the deck, the tower's paving)
-TINT_FIELD = (0.155, 0.152, 0.134)         # the pit tile: 0.018 (the pit floor)
+TINT_WALL = (0.733, 0.724, 0.668)          # the brick: WALL 0.078 (the fields, the lane tier)
+TINT_TRIM = (0.351, 0.355, 0.322)          # the brick: DARK 0.038 (plinth bands, dome ribs, cells, the gate)
+TINT_TRIM_COL = (0.258, 0.261, 0.237)      # the column tile: DARK 0.038 (pilasters, cornices, collar, band)
+TINT_TRIM_STONE = (0.292, 0.295, 0.268)    # the stone: DARK 0.038 (the frieze)
+TINT_FLOOR = (0.984, 0.969, 0.897)         # the floor tile: BRIGHT 0.148, 1.9 x the wall (the deck, the tower's paving)
+TINT_FIELD = (0.155, 0.152, 0.134)         # the pit tile: PIT 0.018 (the pit floor)
 TINT_FLOOR_STONE = (0.984, 0.969, 0.897)   # the stone: the floor's tint (the tower's centre; the stone cannot reach 0.148)
-TINT_SPIKE = (0.142, 0.139, 0.123)         # the stone: 0.018 (the spikes)
-TINT_VAULT = (0.609, 0.602, 0.555)         # the stone: WALL (the dome's plain panels)
-TINT_DOME = (0.816, 0.807, 0.744)          # the triangle row: WALL (the dome's flute band)
+TINT_SPIKE = (0.142, 0.139, 0.123)         # the stone: PIT 0.018 (the spikes)
+TINT_VAULT = (0.984, 0.969, 0.897)         # the stone: BRIGHT, the stone's ceiling 0.126 (the dome's plain panels)
+TINT_DOME = (0.984, 0.969, 0.897)          # the triangle row: BRIGHT, its ceiling 0.094 (the dome's flute band)
 TINT_SHADE = (0.623, 0.616, 0.568)         # the brick: WALL x 0.85, a crease in reveals and soffits
+TINT_SHADE_TRIM = (0.298, 0.302, 0.274)    # the brick: DARK x 0.85, the crease in a dark frame's reveals (the portal)
 TINT_PLINTH_WALL = TINT_TRIM                # the names the prop builds import
 TINT_PLINTH = TINT_TRIM
 TINT_MARBLE2 = TINT_WALL
@@ -309,8 +317,8 @@ TOWER_STEM = "marble_tower"           # the tower's own tile: his brick pixels, 
 TOWER_FLOOR_STEM = "marble_tower_floor"   # the guard room's paving: his floor pixels
 TOWER_PLAIN_STEM = "marble_tower_stone"   # the guard room's centre: his stone pixels
 TOWER_COLUMN_STEM = "marble_tower_column"   # the arcade's columns: his column pixels, lit by the ambient alone
-TINT_BARS = None
-TINT_CELL = TINT_WALL                 # the cell interiors at the wall's value; the contact bake recesses them
+TINT_BARS = TINT_TRIM                 # the gate's field: the frame is structure, the dark value (it was None: raw tile, white)
+TINT_CELL = TINT_TRIM                 # the cell interiors: the dark value, and the contact bake recesses them further
 TINT_IRON = (0.1557, 0.1445, 0.1382)       # the plain stone darkened to the drawing's dark bars
 
 
@@ -403,14 +411,15 @@ TILE_OF = {                              # zone: (material key, stem, tint, glow
 TURNED = ("band", "collar")              # the column's window turned: flutes along the band
 
 
-def prop_finish(ob, zones, name, atlas_index=None):
+def prop_finish(ob, zones, name, atlas_index=None, bricks=None):
     """A window-unwrapped model's materials, after unwrap(): brick zones re-projected onto the
     brick (world box, PROP_MPT, tinted), every other zone on its own tile (TILE_OF, else the
     plain stone), its window already in it. zones[pi] None leaves that face alone; atlas_index
-    is the slot the model already has for the untinted brick (the hub)."""
+    is the slot the model already has for the untinted brick (the hub); bricks overrides
+    PROP_BRICKS' zone tints (the portal: a dark frame)."""
     me = ob.data
     uvl = me.uv_layers["UVMap"]
-    sheets = {z: brick(z, PROP_MPT, PROP_MPT, t, mode="box") for z, t in PROP_BRICKS.items()}
+    sheets = {z: brick(z, PROP_MPT, PROP_MPT, t, mode="box") for z, t in (bricks or PROP_BRICKS).items()}
     faces, kind = {}, {}
     for pi, poly in enumerate(me.polygons):
         z = zones[pi]
