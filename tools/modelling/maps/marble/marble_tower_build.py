@@ -225,19 +225,19 @@ def _shared(name, px=SHAFT_PX, ref_r=SHAFT_R, u0=U0_SHAFT, tint=None, stem=mb.TO
     return mb.ashlar_sheet(name, px * MPT, tint, ref_r=ref_r, phase=(u0, V0), stem=stem)
 
 
-SHEETS = {   # every stone class on the tower's own tile: the lamps do not light the tower (marble.tscn)
-    "stone": _shared("stone"),                                                 # the spandrels
-    "shaft": _shared("shaft"),                                                 # the shaft's outside
-    "plinth": _shared("plinth", tint=mb.TINT_PLINTH),                          # foot, steps, room floor band, dais
-    "shade": mb.brick("shade", ref_r=SHAFT_R, phase=(U0_SHAFT, V0), stem=mb.TOWER_STEM),   # reveals, soffits, undersides: untinted, the ambient is even
-    "marble2": _shared("marble2", BAL_PX, BALCONY_R, U0_BAL, mb.TINT_MARBLE2),  # the ledge
+SHEETS = {   # every stone class on the tower's own tile, at the ROOM'S VALUES (mb.TINT_*: wall, trim on the columns and cornices, floor): the lamps do not light the tower (marble.tscn)
+    "stone": _shared("stone", tint=mb.TINT_WALL),                              # the spandrels: the room's wall value
+    "shaft": _shared("shaft", tint=mb.TINT_WALL),                              # the shaft's outside: the wall value
+    "plinth": _shared("plinth", tint=mb.TINT_PLINTH),                          # foot, steps, room floor band, dais: the trim value
+    "shade": mb.brick("shade", ref_r=SHAFT_R, phase=(U0_SHAFT, V0), stem=mb.TOWER_STEM, tint=mb.TINT_SHADE),   # reveals, soffits, undersides: the wall's crease
+    "marble2": _shared("marble2", BAL_PX, BALCONY_R, U0_BAL, mb.TINT_MARBLE2),  # the ledge: the wall value
     "band": mb.band_sheet(mb.TOWER_COLUMN_STEM),                              # ring beam, slab edge: his column tile turned
     "column": mb.column_sheet(mb.TOWER_COLUMN_STEM),                          # his column tile, at the tower's light
     "iron": mb.iron_sheet(),
-    "floor": mb.tile("floor", mb.TOWER_FLOOR_STEM, "custom", 64, 64, mpt=2.7 / 64.0),   # one paving cell a ring band
-    "plain": mb.tile("plain", mb.TOWER_PLAIN_STEM, "box", mb.STONE_PX, mb.STONE_PX, mb.WALL_MPT),   # the floor's centre
-    "coffer": mb.brick("coffer", stem=mb.TOWER_STEM, mode="custom"),           # the dome inside
-    "dome": mb.brick("dome", stem=mb.TOWER_STEM, mode="custom"),              # ... and outside
+    "floor": mb.tile("floor", mb.TOWER_FLOOR_STEM, "custom", 64, 64, mpt=2.7 / 64.0, tint=mb.TINT_FLOOR),   # one paving cell a ring band: the floor value
+    "plain": mb.tile("plain", mb.TOWER_PLAIN_STEM, "box", mb.STONE_PX, mb.STONE_PX, mb.WALL_MPT, tint=mb.TINT_FLOOR_STONE),   # the floor's centre
+    "coffer": mb.brick("coffer", stem=mb.TOWER_STEM, mode="custom", tint=mb.TINT_WALL),   # the dome inside: the wall value
+    "dome": mb.brick("dome", stem=mb.TOWER_STEM, mode="custom", tint=mb.TINT_WALL),      # ... and outside
 }
 # Faces that wear a class their zone does not name, because their PROJECTION
 # differs, not their stone: the dome's skin (zone "shade") is "dome", and the

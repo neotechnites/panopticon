@@ -78,11 +78,11 @@ def sheets(R):
     """The brick at the map's density, phased so the body's foot and top land on strong joints."""
     v0 = SOCLE_H - BRICK_JOINT_V * mb.COURSES
     return {
-        "marble": mb.brick("marble", ref_r=R, phase=(0.0, v0)),
+        "marble": mb.brick("marble", tint=mb.TINT_WALL, ref_r=R, phase=(0.0, v0)),            # the faces: the wall value
         "plinth": mb.brick("plinth", mpt_v=mb.COURSE_MPT / 2.0, tint=mb.TINT_PLINTH_WALL, ref_r=R,
                            phase=(0.0, SOCLE_H - 0.582 * mb.COURSES / 2.0)),
         "shade": mb.brick("shade", tint=mb.TINT_SHADE, ref_r=R, phase=(0.0, v0)),
-        "band": mb.tile("band", "marble_column", "custom", mb.COL_W, mb.COL_H),
+        "band": mb.tile("band", "marble_column", "custom", mb.COL_W, mb.COL_H, tint=mb.TINT_TRIM_COL),   # the cap: the trim value
     }
 
 

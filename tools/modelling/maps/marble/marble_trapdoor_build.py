@@ -76,14 +76,14 @@ SPIKE_PITCH = 0.9                       # the floor grid, radial and along the l
 SPIKE_MARGIN = 0.45                     # the grid stops this short of the rim: the hanging flaps clear it
 SPIKE_HW = 0.09
 SPIKE_H = (0.85, 1.1)                   # pale stone, tips PIT_D-1.1 .. PIT_D-0.85 under the deck
-LEAF_TINT = (0.62, 0.58, 0.53)          # the leaves' flags darker and worn against the deck's
+LEAF_TINT = tuple(0.85 * c for c in mb.TINT_FLOOR)   # the deck's floor value, the leaves' flags a little darker and worn against it
 SPIKE_PLATE = 0.04
 
 UP, DOWN = mb.UP, mb.DOWN
 
 SHEETS = {
     "floor": mb.tile("floor", "marble_floor", "box", 64, 64, mpt=2.7 / 64.0, tint=LEAF_TINT),
-    "spike": mb.stone("spike", mode="box", mpt=tx.MPT),
+    "spike": mb.stone("spike", mode="box", mpt=tx.MPT, tint=mb.TINT_SPIKE),
     "iron": mb.iron_sheet(),
 }
 

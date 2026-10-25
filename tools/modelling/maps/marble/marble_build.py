@@ -279,27 +279,54 @@ def stone(name, mode="cyl", mpt=WALL_MPT, **kw):
     return tile(name, "marble_stone", mode, STONE_PX, STONE_PX, mpt, **kw)
 
 
-def band_sheet(stem="marble_column"):
-    """The column tile turned 90 deg: the flutes run along the band, the band's height fits across them."""
-    return tile("band", stem, "fit_v", COL_H, COL_W, turn=True)
 
 
-def column_sheet(stem="marble_column"):
-    return tile("column", stem, "fit_u", COL_W, COL_H)        # his column tile again (Ryan, 2026-10-08)
-
-
-# Linear multipliers over the brick: each class's old mean colour.
-TINT_SHADE = (0.85, 0.85, 0.85)        # a crease, not a shadow: the olive ambient does the rest
-TINT_PLINTH_WALL = (0.8106, 0.8086, 0.8369)
-TINT_PLINTH = (0.8285, 0.8293, 0.8617)
-TINT_MARBLE2 = (0.7939, 0.7923, 0.8147)
+# THE VALUE STRUCTURE (Ryan 2026-10-24, "give the values a go"): hell is dark rock on
+# bright lava, forest dark bark on bright leaves, and the marble was ONE mid-grey for
+# floor, walls, columns and dome, so nothing separated. The Temple of Time's palette:
+# a DARK floor, WHITE walls, LIGHT trim -- three values, warm-white, not cold grey.
+# Linear multipliers over his tiles (COLOR_0 per class, the tiles untouched), set so
+# each class's ALBEDO LUMINANCE lands on one of three values:
+#   WALL   0.068  the tier fields, the brick lane tier, the cell interiors, the dome field
+#   TRIM   0.102  = 1.5 x wall: pilasters, cornices, collar, plinth bands, frieze, dome ribs
+#   FLOOR  0.018  = 0.27 x wall: the lane deck, the pit floor, the spikes
+# Godot reads COLOR_0 as sRGB (the glTF importer's SRGB_VERTEX_COLOR), so every triple
+# below is an sRGB value and its linear luminance is the one that multiplies the tile:
+# measured in-engine the three values read as 1.0 : 1.2 : 0.5 (trim : wall : floor) on
+# screen, which is what the Temple of Time's three values look like. Every tint is warm:
+# red 7.5 % over blue (a cream shift). The brick tile's linear mean is 0.108, the column
+# tile 0.148, the stone 0.130, the floor 0.153, the pit 0.119, the triangle row 0.097;
+# each class's tint is its value over its tile. No noise, no variation.
+TINT_WALL = (0.837, 0.810, 0.778)          # lin 0.627 on the brick: 0.068
+TINT_TRIM = (1.0, 0.968, 0.931)            # lin 0.938 on the brick: 0.102 (plinth bands, dome ribs)
+TINT_TRIM_COL = (0.871, 0.843, 0.810)      # lin 0.686 on the column tile: 0.102 (pilasters, cornices, collar)
+TINT_TRIM_STONE = (0.922, 0.893, 0.858)    # lin 0.781 on the stone: 0.102 (the frieze)
+TINT_FLOOR = (0.393, 0.380, 0.365)         # lin 0.120 on the floor tile: 0.018 (the deck)
+TINT_FIELD = (0.442, 0.428, 0.411)         # lin 0.155 on the pit tile: 0.018 (the pit floor)
+TINT_FLOOR_STONE = (0.424, 0.411, 0.395)   # lin 0.142 on the stone: 0.018 (spikes, the tower's floor centre)
+TINT_VAULT = (0.770, 0.746, 0.717)         # lin 0.521 on the stone: 0.068 (the dome's plain panels)
+TINT_DOME = (0.877, 0.850, 0.817)          # lin 0.699 on the triangle row: 0.068 (the dome's flute band)
+TINT_SHADE = (0.778, 0.753, 0.724)         # lin 0.533, the wall x 0.85: a crease, not a shadow, in reveals and soffits
+TINT_SPIKE = TINT_FLOOR_STONE
+TINT_PLINTH_WALL = TINT_TRIM                # the names the prop builds import
+TINT_PLINTH = TINT_TRIM
+TINT_MARBLE2 = TINT_WALL
 TOWER_STEM = "marble_tower"           # the tower's own tile: his brick pixels, lit by the ambient alone
 TOWER_FLOOR_STEM = "marble_tower_floor"   # the guard room's paving: his floor pixels
 TOWER_PLAIN_STEM = "marble_tower_stone"   # the guard room's centre: his stone pixels
 TOWER_COLUMN_STEM = "marble_tower_column"   # the arcade's columns: his column pixels, lit by the ambient alone
 TINT_BARS = None
-TINT_CELL = (0.85, 0.85, 0.85)        # the back walls near black, as before the colour passes (Ryan, 2026-10-08)
+TINT_CELL = TINT_WALL                 # the cell interiors at the wall's value; the contact bake recesses them
 TINT_IRON = (0.1557, 0.1445, 0.1382)       # the plain stone darkened to the drawing's dark bars
+
+
+def band_sheet(stem="marble_column"):
+    """The column tile turned 90 deg: the flutes run along the band, the band's height fits across them."""
+    return tile("band", stem, "fit_v", COL_H, COL_W, turn=True, tint=TINT_TRIM_COL)
+
+
+def column_sheet(stem="marble_column"):
+    return tile("column", stem, "fit_u", COL_W, COL_H, tint=TINT_TRIM_COL)   # his column tile again (Ryan, 2026-10-08)
 
 
 OCULUS_RGB = (0.86, 0.88, 0.90)   # the skylight's glass: daylight, the brightest thing in the room
@@ -346,20 +373,21 @@ def _wall_ref(c):
 
 _WALL = dict(ref_r=_wall_ref, phase=(0.0, FLOOR_Z))
 SHEETS = {
-    "marble": brick("marble", **_WALL),
+    "marble": brick("marble", tint=TINT_WALL, **_WALL),
     "shade": brick("shade", tint=TINT_SHADE, **_WALL),
     "plinth": brick("plinth", mpt_v=COURSE_MPT / 2.0, tint=TINT_PLINTH_WALL, **_WALL),   # 0.5 m courses
+    "rib": brick("rib", tint=TINT_TRIM, **_WALL),                        # the dome's ribs: the wall's brick at the trim's value
     "cellin": brick("cellin", tint=TINT_CELL, **_WALL),
     "field": tx.Sheet("field", mpt=COURSE_MPT, mpt_u=WALL_MPT, size=BRICK_H, width=BRICK_W,
-                      roughness=ROUGHNESS, stem="marble_pit", mode="box"),   # the pit floor: its own tile, brick density
-    "spike": stone("spike", mode="box", mpt=tx.MPT),
-    "floor": tile("floor", "marble_floor", "fit", 64, 64, mpt=2.7 / 64.0),
-    "frieze": stone("frieze", ref_r=WALL_IN_R),   # unruled; the Greek key was tile("frieze", <its file>, "fit", 256, 64)
+                      roughness=ROUGHNESS, stem="marble_pit", mode="box", tint=TINT_FIELD),   # the pit floor: its own tile, brick density
+    "spike": stone("spike", mode="box", mpt=tx.MPT, tint=TINT_SPIKE),
+    "floor": tile("floor", "marble_floor", "fit", 64, 64, mpt=2.7 / 64.0, tint=TINT_FLOOR),
+    "frieze": stone("frieze", ref_r=WALL_IN_R, tint=TINT_TRIM_STONE),   # unruled; the Greek key was tile("frieze", <its file>, "fit", 256, 64)
     "column": column_sheet(),
     "band": band_sheet(),
     "iron": iron_sheet(),
-    "dome": tile("dome", "marble_triangle", "custom", 128, 20),          # the triangle row round the dome's foot
-    "vault": stone("vault", mode="custom"),                              # ... and plain stone above it
+    "dome": tile("dome", "marble_triangle", "custom", 128, 20, tint=TINT_DOME),   # the triangle row round the dome's foot
+    "vault": stone("vault", mode="custom", tint=TINT_VAULT),                      # ... and plain stone above it
 }
 _CLASS = {"marble2": "marble", "collar": "band"}
 
@@ -368,13 +396,13 @@ _CLASS = {"marble2": "marble", "collar": "band"}
 # A prop's cell drew 16 px courses at UV_SCALE: 3.97 m. Its bricks keep that.
 PROP_COURSE_M = 16.0 / (UV_SCALE * CELL_PX * (1.0 - 2.0 * UV_PAD))
 PROP_MPT = PROP_COURSE_M / (WALL_H / float(COURSES))
-PROP_BRICKS = {"marble": None, "marble2": TINT_MARBLE2, "shade": TINT_SHADE, "plinth": TINT_PLINTH}
+PROP_BRICKS = {"marble": TINT_WALL, "marble2": TINT_MARBLE2, "shade": TINT_SHADE, "plinth": TINT_PLINTH}
 TILE_OF = {                              # zone: (material key, stem, tint, glows)
-    "floor": ("floor", "marble_floor", None, False),
+    "floor": ("floor", "marble_floor", TINT_FLOOR, False),
     "portal": ("glow", "marble_portal_swirl", None, True),
-    "column": ("column", "marble_column", None, False),
-    "band": ("column", "marble_column", None, False),
-    "collar": ("column", "marble_column", None, False),
+    "column": ("column", "marble_column", TINT_TRIM_COL, False),
+    "band": ("column", "marble_column", TINT_TRIM_COL, False),
+    "collar": ("column", "marble_column", TINT_TRIM_COL, False),
     "cellin": ("cellin", "marble_brick", TINT_CELL, False),
     "iron": ("iron", "marble_stone", TINT_IRON, False),
 }
