@@ -159,7 +159,7 @@ spot_angle = 55.0
 spot_angle_attenuation = 1.0
 
 [node name="TowerFill" type="OmniLight3D" parent="Skylight"]
-editor_description = "Hell's TowerLight pattern: one warm shadowed omni beside the tower's room so the shaft has a lit side and a shaded side."
+editor_description = "Hell's TowerLight pattern: one warm shadowed omni beside the tower's room so the room and the balcony have a lit side and a shaded side."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 36, 6)
 light_color = Color(1, 0.93, 0.84, 1)
 light_energy = 1.2
@@ -168,6 +168,19 @@ shadow_enabled = true
 shadow_blur = 2.0
 omni_range = 26.0
 omni_attenuation = 1.0
+
+[node name="TowerKey" type="SpotLight3D" parent="Skylight"]
+editor_description = "The tower's own key, and it lights NOTHING but the tower's rock (light_cull_mask = layer 11 alone; MarbleTowerRock sits on layers 1 + 11, the guard room's floor does not): an unshadowed spot 45 deg to the right of the lane-150 sightline and only 7 m above the lane, so it RAKES the shaft (a light square to that sightline only grazed the silhouette, and one 40 deg up lit the cap more than the shaft: at energy 10 the shaft's middle did not move by one step, measured), no distance falloff like the Key, 28 deg wide so it covers the shaft from the pit to the cap. Why: the shaft read as a flat grey cylinder (Ryan, marble-final2) because nothing in the room rakes it -- the Key is ON the axis, the eight lamps hang almost straight over the shaft's face (cos 0.07), so the shaft was the sky ambient alone, the same from every side. This gives it a lit side and a shaded side (x1.5 on screen) and leaves the lane, the cells, the cone and their shadows exactly as they were. UNSHADOWED on purpose: a second shadowed spot re-divides the positional shadow atlas and the Key's shadows on the lane floor lost resolution (wall200 floor -15 luma, measured)."
+transform = Transform3D(0.9655, 0.0794, -0.248, 0, 0.9524, 0.305, 0.2604, -0.2945, 0.9195, -6.5, 32, 24.1)
+light_color = Color(1, 0.965, 0.9, 1)
+light_energy = 5.5
+light_specular = 0.0
+light_cull_mask = 1024
+shadow_enabled = false
+spot_range = 90.0
+spot_attenuation = 0.0
+spot_angle = 28.0
+spot_angle_attenuation = 1.0
 
 [node name="PoolBounce" type="SpotLight3D" parent="Skylight"]
 editor_description = "The lit pool's bounce: an unshadowed spot from the pit floor straight up, lighting the dome and the undersides the Key never faces."
@@ -260,6 +273,7 @@ omni_attenuation = 0.25
 editor_description = "Shadows-only disc over the tower dome (y 41.5, r 7.4): the pale dome would take the Key at full strength and read stark white."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 41.5, 0)
 cast_shadow = 3
+visible = false
 mesh = SubResource("DomeShadeMesh")
 
 [node name="Shaft" type="MeshInstance3D" parent="Skylight"]
@@ -389,8 +403,14 @@ script = ExtResource("8c_tower_variant")
 editor_description = "maps/marble/models/marble_tower.glb, the carved slot: the same marble tower, so a match run with tower_variant 0 has a tower."
 visible = false
 
+[node name="MarbleTowerRock" parent="Tower/Rock"]
+layers = 1025
+
 [node name="RockArches" parent="Tower" instance=ExtResource("8_tower_model")]
-editor_description = "maps/marble/models/marble_tower.glb: the live tower. Carries its own collision (MarbleTowerCollision-colonly): foot, steps, shaft, balcony slab and ledge, an invisible band in the railing's place, room floor, columns, ring beam closed with a flat ceiling."
+editor_description = "maps/marble/models/marble_tower.glb: the live tower. Carries its own collision (MarbleTowerCollision-colonly): foot, steps, shaft, balcony slab and ledge, an invisible band in the railing's place, room floor, columns, ring beam closed with a flat ceiling. Its rock sits on layers 1 + 11 (layers = 1025) so Skylight/TowerKey, whose mask is layer 11 alone, lights the shaft, the arcade and the cap and nothing else (the room's floor stays on layer 1: the key would lay a sun patch on the paving)."
+
+[node name="MarbleTowerRock" parent="Tower/RockArches"]
+layers = 1025
 
 [node name="TowerSpawn" type="Marker3D" parent="Tower"]
 editor_description = "On the room floor's centre (1.70 over the origin), 0.25 m up so the capsule never starts inside the collision plane."
