@@ -281,54 +281,27 @@ def stone(name, mode="cyl", mpt=WALL_MPT, **kw):
 
 
 
-# THE VALUE STRUCTURE (Ryan 2026-10-24, "give the values a go"): hell is dark rock on
-# bright lava, forest dark bark on bright leaves, and the marble was ONE mid-grey for
-# floor, walls, columns and dome, so nothing separated. The Temple of Time's palette:
-# a DARK floor, WHITE walls, LIGHT trim -- three values, warm-white, not cold grey.
-# Linear multipliers over his tiles (COLOR_0 per class, the tiles untouched), set so
-# each class's ALBEDO LUMINANCE lands on one of three values:
-#   WALL   0.068  the tier fields, the brick lane tier, the cell interiors, the dome field
-#   FLOOR  0.102  = 1.5 x wall: the lane deck, the trapdoor leaves, the tower's paving
-#   TRIM   0.042  = 0.61 x wall: pilasters, cornices, collar, plinth bands, frieze, dome ribs
-#   DARK   0.018  = 0.27 x wall: the pit floor and the spikes, 24 m down (not a ToT class)
-# Godot reads COLOR_0 as sRGB (the glTF importer's SRGB_VERTEX_COLOR), so every triple
-# below is an sRGB value and its linear luminance is the one that multiplies the tile;
-# a linear ratio r reads as r^(1/2.2) on screen, so floor : wall : trim is 1.2 : 1.0 : 0.8.
-# THE PALETTE (Ryan 2026-10-24, "base the colours on Twilight Princess's Temple of Time"):
-# sampled by region from his two references (refs/Map 2/images-5.jpg, the main hall, and
-# images-6.jpg, the bell room; Desktop proofs/marble/tot_palette/ref_samples.json):
-#   wall   hue 62 / 44 deg, sat 0.22 / 0.31, R/B 1.27 / 1.46   pale olive-cream
-#   floor  hue 54 / 44,     sat 0.22 / 0.32, R/B 1.29 / 1.47   the olive tile, 1.36x / 1.08x the wall
-#   trim   hue 62 / 48,     sat 0.22 / 0.30, R/B 1.27 / 1.44   gold-olive, 0.97x / 0.61x the wall
-# -- the floor is LIGHTER than the wall and the trim DARKER, the reverse of the first
-# values pass (0.5x / 1.2x), so the ratios are the images'. Each tint is a chroma
-# direction (wall R/B 1.43, floor 1.20, trim 1.45 in the tint, which the lights show as ~1.36 /
-# 1.38 / 1.35 on screen, hue 48-52 deg, derived in
-# derive_tints.py) scaled to its value over its tile. The brick tile's linear mean is
-# 0.108, the column tile 0.148, the stone 0.130, the floor 0.153, the pit 0.119, the
-# triangle row 0.097. No noise, no variation.
-# SATURATION (Ryan 2026-10-24, "it looks like we painted everything with an ugly yellow"): the
-# references' walls measure sat 0.22-0.31 but their stone is full of dark carved detail; ours is
-# flat, so the same saturation reads louder. The big flat fields -- WALL, FLOOR, VAULT, DOME,
-# SHADE (and the tower floor's centre) -- sit at 0.4x the first pass's HSV saturation, hue and
-# value kept (B and G rise toward R): wall (0.852, 0.822, 0.595) sat 0.30 -> (0.852, 0.840, 0.749)
-# sat 0.12; floor (0.864, 0.836, 0.720) 0.17 -> (0.864, 0.853, 0.806) 0.07. The trim keeps its
-# gold-olive. Why 0.4x for a ~35 % drop ON SCREEN: the lights carry olive of their own (the sky
-# ambient, the warm key), so a tint's saturation moves the screen by about half of itself --
-# 0.65x measured -0.05 on a wall field that reads 0.25-0.33, 0.4x lands it at ~0.18. Godot 4.7 imports COLOR_0 as LINEAR here (vertex_color_is_srgb=false), so a tint
-# multiplies the tile as written; it also IGNORES COLOR_0 on a mesh's FIRST surface (the first
-# class in sorted order, "band"), see build(): that class carries its tint as baseColorFactor.
-TINT_WALL = (0.852, 0.840, 0.749)          # the brick: the wall value (was (0.852, 0.822, 0.595))
-TINT_TRIM = (0.693, 0.657, 0.478)          # lin 0.385 on the brick: 0.042 (plinth bands, dome ribs)
-TINT_TRIM_COL = (0.601, 0.569, 0.414)      # lin 0.281 on the column tile: 0.042 (pilasters, cornices, collar)
-TINT_TRIM_STONE = (0.637, 0.604, 0.440)    # lin 0.320 on the stone: 0.042 (the frieze)
-TINT_FLOOR = (0.864, 0.853, 0.806)         # the floor tile: the deck, the tower's paving (was (0.864, 0.836, 0.720))
-TINT_FIELD = (0.441, 0.426, 0.367)         # lin 0.151 on the pit tile: 0.018 (the pit floor)
-TINT_FLOOR_STONE = (0.929, 0.917, 0.867)   # the stone: the tower's floor centre, the floor's saturation (was (0.929, 0.898, 0.774))
-TINT_SPIKE = (0.423, 0.409, 0.352)         # lin 0.139 on the stone: 0.018 (the spikes)
-TINT_VAULT = (0.784, 0.773, 0.690)         # the stone: the dome's plain panels (was (0.784, 0.757, 0.548))
-TINT_DOME = (0.894, 0.881, 0.786)          # the triangle row: the dome's flute band (was (0.894, 0.862, 0.625))
-TINT_SHADE = (0.792, 0.781, 0.697)         # the wall x 0.85: a crease, not a shadow, in reveals and soffits (was (0.792, 0.765, 0.554))
+# THE THREE VALUES (Ryan 2026-10-25, the Temple of Time: DARK TRIM, BRIGHT FLOOR, MUTED WALLS).
+# Linear multipliers over his tiles (COLOR_0, or baseColorFactor for a mesh's first surface, which
+# Godot 4.7 renders without COLOR_0), set so each class's linear albedo luminance is one of three:
+#   WALL   0.078  fields, the brick lane tier, cells, vault, dome    (near-neutral, HSV sat 0.04)
+#   FLOOR  0.148  the deck, the tower's paving: 1.9 x the wall       (cream, sat 0.04)
+#   TRIM   0.045  pilasters, cornices, bands, plinths, frieze, ribs: 0.58 x the wall (olive-brown, sat 0.18)
+#   DARK   0.018  the pit floor and the spikes, 24 m down
+# Measured on images-5: trim/wall 0.70 and floor/wall 2.2 on screen, hue 55-65 everywhere -- the
+# colour is the light's, so the tints stay near neutral and the key / sky carry the warmth.
+# Tile linear means: brick 0.108, stone 0.130, column 0.148, floor 0.153, pit 0.119, triangles 0.097.
+TINT_WALL = (0.733, 0.724, 0.668)          # the brick: WALL 0.065 (the fields, the lane tier, the cells)
+TINT_TRIM = (0.450, 0.420, 0.287)          # the brick: TRIM 0.026, 0.4 x the wall (plinth bands, dome ribs)
+TINT_TRIM_COL = (0.328, 0.306, 0.210)      # the column tile: TRIM 0.026 (pilasters, cornices, collar, band)
+TINT_TRIM_STONE = (0.374, 0.349, 0.239)    # the stone: TRIM 0.026 (the frieze)
+TINT_FLOOR = (0.984, 0.969, 0.897)         # the floor tile: FLOOR 0.148, 2.3 x the wall (the deck, the tower's paving)
+TINT_FIELD = (0.155, 0.152, 0.134)         # the pit tile: 0.018 (the pit floor)
+TINT_FLOOR_STONE = (0.984, 0.969, 0.897)   # the stone: the floor's tint (the tower's centre; the stone cannot reach 0.148)
+TINT_SPIKE = (0.142, 0.139, 0.123)         # the stone: 0.018 (the spikes)
+TINT_VAULT = (0.609, 0.602, 0.555)         # the stone: WALL (the dome's plain panels)
+TINT_DOME = (0.816, 0.807, 0.744)          # the triangle row: WALL (the dome's flute band)
+TINT_SHADE = (0.623, 0.616, 0.568)         # the brick: WALL x 0.85, a crease in reveals and soffits
 TINT_PLINTH_WALL = TINT_TRIM                # the names the prop builds import
 TINT_PLINTH = TINT_TRIM
 TINT_MARBLE2 = TINT_WALL
