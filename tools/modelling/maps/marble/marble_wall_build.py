@@ -652,7 +652,7 @@ def build(m):
         band = _tier_band(t)
         z1, z2 = B + band[0], B + band[1]
         rad, n = mb.tier_ring(t)
-        walled = mb.walled_cells() if t == mb.SLAB_TIER else set()
+        walled = set(range(n)) if t in mb.BRICK_TIERS else mb.walled_cells() if t == mb.SLAB_TIER else set()
         for i in range(n):
             (_walled if i in walled else _cell)(m, i, t, "marble" if (i + t) % 2 == 0 else "marble2")
         take("tris_cells")
