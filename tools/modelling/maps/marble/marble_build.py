@@ -288,26 +288,36 @@ def stone(name, mode="cyl", mpt=WALL_MPT, **kw):
 # Linear multipliers over his tiles (COLOR_0 per class, the tiles untouched), set so
 # each class's ALBEDO LUMINANCE lands on one of three values:
 #   WALL   0.068  the tier fields, the brick lane tier, the cell interiors, the dome field
-#   TRIM   0.102  = 1.5 x wall: pilasters, cornices, collar, plinth bands, frieze, dome ribs
-#   FLOOR  0.018  = 0.27 x wall: the lane deck, the pit floor, the spikes
+#   FLOOR  0.102  = 1.5 x wall: the lane deck, the trapdoor leaves, the tower's paving
+#   TRIM   0.042  = 0.61 x wall: pilasters, cornices, collar, plinth bands, frieze, dome ribs
+#   DARK   0.018  = 0.27 x wall: the pit floor and the spikes, 24 m down (not a ToT class)
 # Godot reads COLOR_0 as sRGB (the glTF importer's SRGB_VERTEX_COLOR), so every triple
-# below is an sRGB value and its linear luminance is the one that multiplies the tile:
-# measured in-engine the three values read as 1.0 : 1.2 : 0.5 (trim : wall : floor) on
-# screen, which is what the Temple of Time's three values look like. Every tint is warm:
-# red 7.5 % over blue (a cream shift). The brick tile's linear mean is 0.108, the column
-# tile 0.148, the stone 0.130, the floor 0.153, the pit 0.119, the triangle row 0.097;
-# each class's tint is its value over its tile. No noise, no variation.
-TINT_WALL = (0.837, 0.810, 0.778)          # lin 0.627 on the brick: 0.068
-TINT_TRIM = (1.0, 0.968, 0.931)            # lin 0.938 on the brick: 0.102 (plinth bands, dome ribs)
-TINT_TRIM_COL = (0.871, 0.843, 0.810)      # lin 0.686 on the column tile: 0.102 (pilasters, cornices, collar)
-TINT_TRIM_STONE = (0.922, 0.893, 0.858)    # lin 0.781 on the stone: 0.102 (the frieze)
-TINT_FLOOR = (0.393, 0.380, 0.365)         # lin 0.120 on the floor tile: 0.018 (the deck)
-TINT_FIELD = (0.442, 0.428, 0.411)         # lin 0.155 on the pit tile: 0.018 (the pit floor)
-TINT_FLOOR_STONE = (0.424, 0.411, 0.395)   # lin 0.142 on the stone: 0.018 (spikes, the tower's floor centre)
-TINT_VAULT = (0.770, 0.746, 0.717)         # lin 0.521 on the stone: 0.068 (the dome's plain panels)
-TINT_DOME = (0.877, 0.850, 0.817)          # lin 0.699 on the triangle row: 0.068 (the dome's flute band)
-TINT_SHADE = (0.778, 0.753, 0.724)         # lin 0.533, the wall x 0.85: a crease, not a shadow, in reveals and soffits
-TINT_SPIKE = TINT_FLOOR_STONE
+# below is an sRGB value and its linear luminance is the one that multiplies the tile;
+# a linear ratio r reads as r^(1/2.2) on screen, so floor : wall : trim is 1.2 : 1.0 : 0.8.
+# THE PALETTE (Ryan 2026-10-24, "base the colours on Twilight Princess's Temple of Time"):
+# sampled by region from his two references (refs/Map 2/images-5.jpg, the main hall, and
+# images-6.jpg, the bell room; Desktop proofs/marble/tot_palette/ref_samples.json):
+#   wall   hue 62 / 44 deg, sat 0.22 / 0.31, R/B 1.27 / 1.46   pale olive-cream
+#   floor  hue 54 / 44,     sat 0.22 / 0.32, R/B 1.29 / 1.47   the olive tile, 1.36x / 1.08x the wall
+#   trim   hue 62 / 48,     sat 0.22 / 0.30, R/B 1.27 / 1.44   gold-olive, 0.97x / 0.61x the wall
+# -- the floor is LIGHTER than the wall and the trim DARKER, the reverse of the first
+# values pass (0.5x / 1.2x), so the ratios are the images'. Each tint is a chroma
+# direction (wall R/B 1.43, floor 1.20, trim 1.45 in the tint, which the lights show as ~1.36 /
+# 1.38 / 1.35 on screen, hue 48-52 deg, derived in
+# derive_tints.py) scaled to its value over its tile. The brick tile's linear mean is
+# 0.108, the column tile 0.148, the stone 0.130, the floor 0.153, the pit 0.119, the
+# triangle row 0.097. No noise, no variation.
+TINT_WALL = (0.852, 0.822, 0.595)          # lin 0.630 on the brick: 0.068
+TINT_TRIM = (0.693, 0.657, 0.478)          # lin 0.385 on the brick: 0.042 (plinth bands, dome ribs)
+TINT_TRIM_COL = (0.601, 0.569, 0.414)      # lin 0.281 on the column tile: 0.042 (pilasters, cornices, collar)
+TINT_TRIM_STONE = (0.637, 0.604, 0.440)    # lin 0.320 on the stone: 0.042 (the frieze)
+TINT_FLOOR = (0.864, 0.836, 0.720)         # lin 0.664 on the floor tile: 0.102 (the deck)
+TINT_FIELD = (0.441, 0.426, 0.367)         # lin 0.151 on the pit tile: 0.018 (the pit floor)
+TINT_FLOOR_STONE = (0.929, 0.898, 0.774)   # lin 0.781 on the stone: 0.102 (the tower's floor centre)
+TINT_SPIKE = (0.423, 0.409, 0.352)         # lin 0.139 on the stone: 0.018 (the spikes)
+TINT_VAULT = (0.784, 0.757, 0.548)         # lin 0.523 on the stone: 0.068 (the dome's plain panels)
+TINT_DOME = (0.894, 0.862, 0.625)          # lin 0.701 on the triangle row: 0.068 (the dome's flute band)
+TINT_SHADE = (0.792, 0.765, 0.554)         # lin 0.535, the wall x 0.85: a crease, not a shadow, in reveals and soffits
 TINT_PLINTH_WALL = TINT_TRIM                # the names the prop builds import
 TINT_PLINTH = TINT_TRIM
 TINT_MARBLE2 = TINT_WALL
