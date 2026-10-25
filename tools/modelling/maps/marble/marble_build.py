@@ -150,6 +150,13 @@ WALL_IN_R = INNER_R + BAND_PROUD    # 47.15: the inner tiers' wall face
 NSIDE_IN = 50
 CEIL_Z = TIER_BASE[LANE_TIER + 1]   # 31.0: the corridor's ceiling, the upper tiers' underside
 
+# ---- weight: the room's gravity (Ryan 2026-10-24, the Shrine of Worship) -------------
+# One linear ramp in height multiplied into COLOR_0 over every stone surface: the stone
+# is darkest at the pit floor and lightens to the lane tier's cornice, white from there to
+# the dome's crown. Nothing else: no noise, no per-corner darkening, no variation.
+WEIGHT_LO = 0.72            # the multiplier at FLOOR_Z (-1.0) ...
+WEIGHT_Z1 = CEIL_Z          # ... 1.0 from here (31.0) up; the deck at 23.0 keeps 0.93
+
 
 def tier_ring(tier):
     """(face radius, bays) of a tier's wall."""
@@ -1229,6 +1236,36 @@ def _collider():
     return c
 
 
+def weight(z):
+    """COLOR_0's multiplier at height z: WEIGHT_LO at FLOOR_Z, linear to 1.0 at WEIGHT_Z1, 1.0 above."""
+    t = min(1.0, max(0.0, (z - FLOOR_Z) / (WEIGHT_Z1 - FLOOR_Z)))
+    return WEIGHT_LO + (1.0 - WEIGHT_LO) * t
+
+
+def _weigh(ob, keep=("glass",)):
+    """Multiply every face corner's COLOR_0 (the class tints, already there) by weight(height):
+    the same ramp over every class, so the recolour's hue is untouched; keep: left alone."""
+    me = ob.data
+    attr = me.color_attributes["Col"]
+    flat = [0.0] * (4 * len(me.loops))
+    attr.data.foreach_get("color", flat)
+    skip = {i for i, mat in enumerate(me.materials)
+            if mat is None or any(mat.name.endswith("_" + k) or mat.name == k for k in keep)}
+    mw = ob.matrix_world
+    lo = hi = None
+    for p in me.polygons:
+        if p.material_index in skip:
+            continue
+        for li in p.loop_indices:
+            w = weight((mw @ me.vertices[me.loops[li].vertex_index].co).z)
+            lo = w if lo is None else min(lo, w)
+            hi = w if hi is None else max(hi, w)
+            flat[4 * li:4 * li + 3] = [c * w for c in flat[4 * li:4 * li + 3]]
+    attr.data.foreach_set("color", flat)
+    print("MDL STATS weight %s lo=%.3f at z=%.1f hi=%.3f from z=%.1f deck=%.3f min=%.3f max=%.3f"
+          % (ob.name, WEIGHT_LO, FLOOR_Z, 1.0, WEIGHT_Z1, weight(DECK_Z), lo or 1.0, hi or 1.0))
+
+
 def build():
     stone, info = _stone()
     coll = _collider()
@@ -1244,6 +1281,7 @@ def build():
     order = tx.finish(ob, classes, mats)
     vertex_ao.apply(ob, vertex_ao.bake(ob, dist=1.5, floor=0.6), keep=("glass",),
                     only=("shade", "cellin", "iron", "field", "floor", "spike"))   # the cell fronts keep their grey
+    _weigh(ob)                                                                      # then the room's gravity
     tx.report(SHEETS)
     print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))
     coll_ob = coll.object(COLLIDER_NAME)
