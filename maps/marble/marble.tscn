@@ -99,6 +99,11 @@ The light is the Oculus node's, built as hell's: one unshadowed key from above, 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="Environment"]
 environment = SubResource("Env")
 
+[node name="NoSun" type="DirectionalLight3D" parent="Environment"]
+editor_description = "Energy 0: its presence stops the editor's preview sun so the editor matches the game."
+light_energy = 0.0
+shadow_enabled = false
+
 [node name="Oculus" type="Node3D" parent="."]
 editor_description = "The oculus cone is the light: Sun, one shadowed spot at the oculus lighting the whole room; Beam, the visible vanes with dust in them."
 
