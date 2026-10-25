@@ -55,7 +55,7 @@ background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 2
 ambient_light_color = Color(0.44, 0.47, 0.54, 1)
-ambient_light_energy = 2.0
+ambient_light_energy = 0.7
 tonemap_mode = 1
 tonemap_white = 2.0
 
@@ -130,7 +130,7 @@ editor_description = "The oculus: Key, a shadowed spot 1.45 m under the glass po
 [node name="Key" type="SpotLight3D" parent="Skylight"]
 transform = Transform3D(0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 77.5, 0)
 light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 3.2
+light_energy = 2.0
 light_size = 1.0
 light_specular = 0.0
 light_cull_mask = 4294966271
@@ -139,9 +139,9 @@ shadow_bias = 0.1
 shadow_normal_bias = 2.5
 shadow_blur = 3.0
 spot_range = 120.0
-spot_attenuation = 0.3
-spot_angle = 42.0
-spot_angle_attenuation = 0.5
+spot_attenuation = 0.0
+spot_angle = 55.0
+spot_angle_attenuation = 1.0
 
 [node name="DomeShade" type="MeshInstance3D" parent="Skylight"]
 editor_description = "Shadows-only disc over the tower dome (y 41.5, r 7.4): the pale dome would take the Key at full strength and read stark white."
