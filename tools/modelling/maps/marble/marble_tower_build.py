@@ -225,6 +225,7 @@ def _shared(name, px=SHAFT_PX, ref_r=SHAFT_R, u0=U0_SHAFT, tint=None, stem=mb.TO
     return mb.ashlar_sheet(name, px * MPT, tint, ref_r=ref_r, phase=(u0, V0), stem=stem)
 
 
+PAVING_K = (0.811, 0.753, 0.569)   # lane deck / tower paving, per channel, linear (tot_fix proof, iter2)
 SHEETS = {   # every stone class on the tower's own tile, at the ROOM'S VALUES (mb.TINT_*: wall, trim on the columns and cornices, floor): the lamps do not light the tower (marble.tscn)
     "stone": _shared("stone", tint=mb.TINT_WALL),                              # the spandrels: the room's wall value
     "shaft": _shared("shaft", tint=mb.TINT_WALL),                              # the shaft's outside: the wall value
@@ -234,8 +235,18 @@ SHEETS = {   # every stone class on the tower's own tile, at the ROOM'S VALUES (
     "band": mb.band_sheet(mb.TOWER_COLUMN_STEM),                              # ring beam, slab edge: his column tile turned
     "column": mb.column_sheet(mb.TOWER_COLUMN_STEM),                          # his column tile, at the tower's light
     "iron": mb.iron_sheet(),
-    "floor": mb.tile("floor", mb.TOWER_FLOOR_STEM, "custom", 64, 64, mpt=2.7 / 64.0, tint=mb.TINT_FLOOR),   # one paving cell a ring band: the floor value
-    "plain": mb.tile("plain", mb.TOWER_PLAIN_STEM, "box", mb.STONE_PX, mb.STONE_PX, mb.WALL_MPT, tint=mb.TINT_FLOOR_STONE),   # the floor's centre
+    # The paving wears the LANE'S floor tile, tinted so it reads AS THE LANE DECK ON SCREEN (Ryan
+    # 2026-10-24: "the tower floor is a different colour than the ring floor" -- it was
+    # marble_tower_floor untinted: Godot 4.7 ignores COLOR_0 on a mesh's first surface and "floor"
+    # is MarbleTowerRoom's first; see build()). The deck's COLOR_0 is TINT_FLOOR x the room's weight
+    # at DECK_Z (0.93); the deck is lit by the warm key and the olive sky, the paving by the eight
+    # near-neutral lamps at point blank, so the same tint read paler and greyer here (tower eye:
+    # paving sRGB 119,117,110 against the deck's 108,104,86). PAVING_K is that gap, measured on
+    # screen and applied in linear: tint = TINT_FLOOR x 0.93 x PAVING_K.
+    "floor": mb.tile("floor", "marble_floor", "custom", 64, 64, mpt=2.7 / 64.0,
+                     tint=tuple(mb.weight(mb.DECK_Z) * c * k for c, k in zip(mb.TINT_FLOOR, PAVING_K))),   # one paving cell a ring band
+    "plain": mb.tile("plain", mb.TOWER_PLAIN_STEM, "box", mb.STONE_PX, mb.STONE_PX, mb.WALL_MPT,
+                     tint=tuple(c * k for c, k in zip(mb.TINT_FLOOR_STONE, PAVING_K))),   # the floor's centre, under the same lamps
     "coffer": mb.brick("coffer", stem=mb.TOWER_STEM, mode="custom", tint=mb.TINT_WALL),   # the dome inside: the wall value
     "dome": mb.brick("dome", stem=mb.TOWER_STEM, mode="custom", tint=mb.TINT_WALL),      # ... and outside
 }
@@ -894,7 +905,11 @@ def build():
         mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
     mats["flame"] = _flame_material()
     order = tx.finish(ob, classes, mats)
-    vertex_ao.apply(ob, vertex_ao.bake(ob), keep=("lamp_glow",))
+    # keep "band" and "floor": the first surface of MarbleTowerRock and of MarbleTowerRoom. Godot
+    # 4.7's glTF import drops vertex_color_use_as_albedo on a mesh's first surface, so those two
+    # rendered untinted (the ring beam white, the paving the raw tile under the lamps); kept out
+    # of COLOR_0 their tint stays a constant Multiply, exported as baseColorFactor.
+    vertex_ao.apply(ob, vertex_ao.bake(ob), keep=("lamp_glow", "band", "floor"))
     room = _split_room(ob, ROOM_CLASSES)
     tx.report(SHEETS)
     print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))

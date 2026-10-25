@@ -307,17 +307,28 @@ def stone(name, mode="cyl", mpt=WALL_MPT, **kw):
 # derive_tints.py) scaled to its value over its tile. The brick tile's linear mean is
 # 0.108, the column tile 0.148, the stone 0.130, the floor 0.153, the pit 0.119, the
 # triangle row 0.097. No noise, no variation.
-TINT_WALL = (0.852, 0.822, 0.595)          # lin 0.630 on the brick: 0.068
+# SATURATION (Ryan 2026-10-24, "it looks like we painted everything with an ugly yellow"): the
+# references' walls measure sat 0.22-0.31 but their stone is full of dark carved detail; ours is
+# flat, so the same saturation reads louder. The big flat fields -- WALL, FLOOR, VAULT, DOME,
+# SHADE (and the tower floor's centre) -- sit at 0.4x the first pass's HSV saturation, hue and
+# value kept (B and G rise toward R): wall (0.852, 0.822, 0.595) sat 0.30 -> (0.852, 0.840, 0.749)
+# sat 0.12; floor (0.864, 0.836, 0.720) 0.17 -> (0.864, 0.853, 0.806) 0.07. The trim keeps its
+# gold-olive. Why 0.4x for a ~35 % drop ON SCREEN: the lights carry olive of their own (the sky
+# ambient, the warm key), so a tint's saturation moves the screen by about half of itself --
+# 0.65x measured -0.05 on a wall field that reads 0.25-0.33, 0.4x lands it at ~0.18. Godot 4.7 imports COLOR_0 as LINEAR here (vertex_color_is_srgb=false), so a tint
+# multiplies the tile as written; it also IGNORES COLOR_0 on a mesh's FIRST surface (the first
+# class in sorted order, "band"), see build(): that class carries its tint as baseColorFactor.
+TINT_WALL = (0.852, 0.840, 0.749)          # the brick: the wall value (was (0.852, 0.822, 0.595))
 TINT_TRIM = (0.693, 0.657, 0.478)          # lin 0.385 on the brick: 0.042 (plinth bands, dome ribs)
 TINT_TRIM_COL = (0.601, 0.569, 0.414)      # lin 0.281 on the column tile: 0.042 (pilasters, cornices, collar)
 TINT_TRIM_STONE = (0.637, 0.604, 0.440)    # lin 0.320 on the stone: 0.042 (the frieze)
-TINT_FLOOR = (0.864, 0.836, 0.720)         # lin 0.664 on the floor tile: 0.102 (the deck)
+TINT_FLOOR = (0.864, 0.853, 0.806)         # the floor tile: the deck, the tower's paving (was (0.864, 0.836, 0.720))
 TINT_FIELD = (0.441, 0.426, 0.367)         # lin 0.151 on the pit tile: 0.018 (the pit floor)
-TINT_FLOOR_STONE = (0.929, 0.898, 0.774)   # lin 0.781 on the stone: 0.102 (the tower's floor centre)
+TINT_FLOOR_STONE = (0.929, 0.917, 0.867)   # the stone: the tower's floor centre, the floor's saturation (was (0.929, 0.898, 0.774))
 TINT_SPIKE = (0.423, 0.409, 0.352)         # lin 0.139 on the stone: 0.018 (the spikes)
-TINT_VAULT = (0.784, 0.757, 0.548)         # lin 0.523 on the stone: 0.068 (the dome's plain panels)
-TINT_DOME = (0.894, 0.862, 0.625)          # lin 0.701 on the triangle row: 0.068 (the dome's flute band)
-TINT_SHADE = (0.792, 0.765, 0.554)         # lin 0.535, the wall x 0.85: a crease, not a shadow, in reveals and soffits
+TINT_VAULT = (0.784, 0.773, 0.690)         # the stone: the dome's plain panels (was (0.784, 0.757, 0.548))
+TINT_DOME = (0.894, 0.881, 0.786)          # the triangle row: the dome's flute band (was (0.894, 0.862, 0.625))
+TINT_SHADE = (0.792, 0.781, 0.697)         # the wall x 0.85: a crease, not a shadow, in reveals and soffits (was (0.792, 0.765, 0.554))
 TINT_PLINTH_WALL = TINT_TRIM                # the names the prop builds import
 TINT_PLINTH = TINT_TRIM
 TINT_MARBLE2 = TINT_WALL
@@ -1317,7 +1328,12 @@ def build():
         mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
     mats["glass"] = glass_material(NAME + "_glass")
     order = tx.finish(ob, classes, mats)
-    vertex_ao.apply(ob, vertex_ao.bake(ob, dist=1.5, floor=0.6), keep=("glass",),
+    # keep "band": Godot 4.7's glTF import drops vertex_color_use_as_albedo on a mesh's FIRST
+    # surface (dump: surf 0 vcol=false, every other surf true), and the slots are sorted by class,
+    # so "band" -- the cornices and string courses -- rendered its tile UNTINTED, near-white
+    # (Ryan 2026-10-24). Kept out of COLOR_0 its Multiply stays constant and the exporter writes
+    # it as baseColorFactor, which Godot applies whatever it does with COLOR_0.
+    vertex_ao.apply(ob, vertex_ao.bake(ob, dist=1.5, floor=0.6), keep=("glass", "band"),
                     only=("shade", "cellin", "iron", "field", "floor", "spike"))   # the cell fronts keep their grey
     _weigh(ob)                                                                      # then the room's gravity
     tx.report(SHEETS)

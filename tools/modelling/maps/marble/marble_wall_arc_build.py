@@ -238,7 +238,9 @@ def build():
         mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
     tx.finish(ob, m.zones, mats)
     _shift(ob, -arc.R)                                                       # ... then stood on the lane
-    vertex_ao.apply(ob, vertex_ao.bake(ob, dist=0.6))
+    # keep "band": the cap is the first surface, where Godot 4.7's glTF import drops
+    # vertex_color_use_as_albedo (it rendered untinted, white); its tint rides as baseColorFactor.
+    vertex_ao.apply(ob, vertex_ao.bake(ob, dist=0.6), keep=("band",))
     c = collider(arc).object("MarbleWallArcCollision-colonly")
     _shift(c, -arc.R)
     c.hide_render = True
