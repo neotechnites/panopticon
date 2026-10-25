@@ -289,7 +289,7 @@ TOWER_FLOOR_STEM = "marble_tower_floor"   # the guard room's paving: his floor p
 TOWER_PLAIN_STEM = "marble_tower_stone"   # the guard room's centre: his stone pixels
 TOWER_COLUMN_STEM = "marble_tower_column"   # the arcade's columns: his column pixels, lit by the ambient alone
 TINT_BARS = None
-TINT_CELL = (0.021, 0.026, 0.023)        # the back walls near black, as before the colour passes (Ryan, 2026-10-08)
+TINT_CELL = (0.85, 0.85, 0.85)        # the back walls near black, as before the colour passes (Ryan, 2026-10-08)
 TINT_IRON = (0.1557, 0.1445, 0.1382)       # the plain stone darkened to the drawing's dark bars
 
 
