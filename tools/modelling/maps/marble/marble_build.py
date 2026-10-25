@@ -128,6 +128,8 @@ N_TIERS = N_BELOW + N_ABOVE
 TIER_BASE = tuple(FLOOR_Z + k * TIER_H for k in range(N_TIERS))   # -1 7 15 23 31 39 47; top 55
 SLAB_TIER = N_BELOW - 1     # the tier whose cornice is the walkway's lip (the deck closes onto it)
 LANE_TIER = N_BELOW         # the tier whose base is the walkway (TIER_BASE[LANE_TIER] == DECK_Z)
+BRICK_TIERS = (LANE_TIER,)  # tiers built as plain brick wall, every bay _walled, no cells or bars
+                            # (Ryan 2026-10-24: "get rid of the cells on the ring wall")
 SILL_UP = 1.0               # arch sill over the tier base (a socle under every sill)
 ARCH_W = 4.0                # cell mouth width
 ARCH_JAMB = 3.5             # jamb height, sill to springing; head r 2.0: 5.5 m mouths, Map 1's tallest
