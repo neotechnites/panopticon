@@ -54,10 +54,15 @@ sky_material = SubResource("SkyMat")
 background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 2
-ambient_light_color = Color(0.44, 0.47, 0.54, 1)
-ambient_light_energy = 0.42
+ambient_light_color = Color(0.52, 0.5, 0.46, 1)
+ambient_light_energy = 3.5
 tonemap_mode = 1
 tonemap_white = 2.0
+fog_enabled = true
+fog_light_color = Color(0.62, 0.6, 0.55, 1)
+fog_light_energy = 0.5
+fog_density = 0.0012
+fog_sky_affect = 0.0
 
 [sub_resource type="StandardMaterial3D" id="SkyGlass"]
 shading_mode = 0
@@ -75,7 +80,8 @@ size = Vector2(22, 39)
 albedo_color = Color(0.78, 0.78, 0.78, 1)
 albedo_texture = ExtResource("Tw_albedo")
 vertex_color_use_as_albedo = true
-roughness = 0.95
+roughness = 1.0
+metallic_specular = 0.0
 texture_filter = 5
 
 [node name="Marble" type="Node3D"]
@@ -83,7 +89,7 @@ editor_description = "MAP 2, MARBLE: the Bentham drawing in white marble, one cl
 
 A prisoner runs one 340 deg lap at r 52 from 5 deg to the portal at 345 deg. THE LANE IS BARE (Ryan, 2026-09-22: \"for the marble level, can you just get rid of all the elements on the ring? just so it looks good for screenshots and trailers and stuff\"): the obstacle course -- 71 placed instances, columns, broken columns, arches, spike patches and strips, pads, the orbs -- came off, and nothing stands on the 340 deg run now but the portal at the finish. The bars at 353 deg stayed, behind the finish and out of every shot of the lane, because the bake and the harness proved them structural rather than scenery: see the Bars node. The models the course used are still in maps/marble/models/; only this scene changed. Off the walkway there is nothing to stand on until the spikes, and SpikeFloor kills before a body reaches them; KillBox below the ground floor catches anything that fell through the world.
 
-The light is the Oculus node's, built as hell's: one unshadowed key from above, the oculus spot as the one shadowed light, a visible beam over the tower."
+The light is the Oculus node's: daylight straight down through the glazed crown, a visible beam over the tower, and light thrown out of that beam onto the ring."
 
 [node name="Environment" type="Node3D" parent="."]
 
@@ -91,25 +97,19 @@ The light is the Oculus node's, built as hell's: one unshadowed key from above, 
 environment = SubResource("Env")
 
 [node name="Oculus" type="Node3D" parent="."]
-editor_description = "Lit as hell is: Key, one unshadowed DirectionalLight3D 32 deg off vertical so floors read brighter than walls by Lambert alone; Sun, the one shadowed light, a soft spot at the oculus for the tower's pool and shadow; Beam, the visible vanes."
-
-[node name="Key" type="DirectionalLight3D" parent="Oculus"]
-transform = Transform3D(0.866025, 0.424024, -0.264960, -0.000000, 0.529919, 0.848048, 0.500000, -0.734431, 0.458924, 0, 60, 0)
-light_color = Color(1, 0.9, 0.72, 1)
-light_energy = 0.6
-light_bake_mode = 0
+editor_description = "Daylight through the glazed crown (marble.glb, r 11, y 79). Sun: straight down, shadowed, its cone the beam's; Beam: the visible light, additive.\nSpill: two shadowed omnis on the beam's axis above the tower throwing its light out onto the ring; negative attenuation so the far cells get as much as the tower top."
 
 [node name="Sun" type="SpotLight3D" parent="Oculus"]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 78.5, 0)
 light_color = Color(1, 0.95, 0.84, 1)
-light_energy = 1.2
+light_energy = 0.15
 light_specular = 0.0
 shadow_enabled = true
 shadow_bias = 0.08
-shadow_blur = 3.0
+shadow_blur = 2.0
 spot_range = 95.0
 spot_attenuation = 0.3
-spot_angle = 22.0
+spot_angle = 15.5
 spot_angle_attenuation = 0.6
 
 [node name="Beam" type="Node3D" parent="Oculus"]
@@ -150,6 +150,30 @@ transform = Transform3D(-0.866025, 0, 0.500000, 0, 1, 0, -0.500000, 0, -0.866025
 cast_shadow = 0
 gi_mode = 0
 mesh = SubResource("BeamVane")
+
+[node name="SpillLow" type="OmniLight3D" parent="Oculus"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 46, 0)
+light_color = Color(1, 0.94, 0.82, 1)
+light_energy = 0.9
+light_specular = 0.0
+shadow_enabled = true
+shadow_bias = 0.1
+shadow_blur = 2.0
+omni_range = 110.0
+omni_attenuation = -0.45
+omni_shadow_mode = 1
+
+[node name="SpillHigh" type="OmniLight3D" parent="Oculus"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 70, 0)
+light_color = Color(1, 0.94, 0.82, 1)
+light_energy = 0.18
+light_specular = 0.0
+shadow_enabled = true
+shadow_bias = 0.1
+shadow_blur = 2.0
+omni_range = 110.0
+omni_attenuation = -0.45
+omni_shadow_mode = 1
 
 [node name="MapBase" parent="." instance=ExtResource("10_map_model")]
 editor_description = "maps/marble/models/marble.glb: the whole rotunda, one contiguous mesh -- the spiked ground floor at y -1.0, the gallery walkway r 46.7..59.55 at y 23.0 with its open inner lip, the seven tiers of barred cells (bases -1/7/15/23/31/39/47), the wall top at 55, the dome from 57.8 to the apex at 84.8. Ships its own collision (MarbleCollision-colonly); the spikes are not in it, the volumes kill first."

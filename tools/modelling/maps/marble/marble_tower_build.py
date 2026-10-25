@@ -894,7 +894,7 @@ def build():
         mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
     mats["flame"] = _flame_material()
     order = tx.finish(ob, classes, mats)
-    vertex_ao.apply(ob, {}, keep=("lamp_glow",))   # tints in COLOR_0, no AO bake
+    vertex_ao.apply(ob, vertex_ao.bake(ob), keep=("lamp_glow",))
     room = _split_room(ob, ROOM_CLASSES)
     tx.report(SHEETS)
     print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))

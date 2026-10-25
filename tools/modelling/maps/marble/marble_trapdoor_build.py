@@ -426,7 +426,7 @@ def build():
         for mat in mats.values():
             mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
         tx.finish(ob, m.zones, {z: mats[z] for z in set(m.zones)})
-        vertex_ao.apply(ob, {})   # tints in COLOR_0, no AO bake
+        vertex_ao.apply(ob, vertex_ao.bake(ob, dist=0.6))
         print("MDL STATS %s tris=%d surfaces=%d origin=(%.4f,%.4f,%.4f) rot_z=%.4f"
               % (name, len(ob.data.polygons), len(ob.data.materials), origin[0], origin[1], origin[2],
                  math.degrees(rot)))

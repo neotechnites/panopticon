@@ -191,7 +191,7 @@ PIT_Z = 17.0                # the pit floor, 6 m down: the two flaps hang into i
 
 # ---- texture ------------------------------------------------------------------
 TEX_SEED = 9021131          # the window unwrap's random stream
-ROUGHNESS = 0.95                # as texel.py gives forest and hell
+ROUGHNESS = 1.0
 METALLIC = 0.0
 UV_SCALE = 0.066            # window unwrap: cell units a metre (a cell is a 64 px window)
 UV_PAD = 1.5 / 64.0         # ... kept this far inside its window, as a fraction of it
@@ -1240,7 +1240,8 @@ def build():
         mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
     mats["glass"] = glass_material(NAME + "_glass")
     order = tx.finish(ob, classes, mats)
-    vertex_ao.apply(ob, {}, keep=("glass",))   # class tints in COLOR_0, no AO bake: lit as forest and hell are
+    vertex_ao.apply(ob, vertex_ao.bake(ob, dist=1.5, floor=0.6), keep=("glass",),
+                    only=("shade", "cellin", "iron", "field", "floor", "spike"))   # the cell fronts keep their grey
     tx.report(SHEETS)
     print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))
     coll_ob = coll.object(COLLIDER_NAME)

@@ -17,6 +17,8 @@ const SEE_THROUGH_WAVE := {&"PortalGlow": PORTAL_WAVE_SHADER, &"ForestPortalSwir
 const SWIRL_GLOW := {&"ForestPortalSwirl": 0.25, &"IcePortalSwirl": 0.5, &"BeachPortalSwirl": 0.5}
 ## No torches on the ring any more: the lava itself carries that light, boosted here.
 const LAVA_EMISSION_BOOST := 1.4
+## Marble's stone is fully matte: no sheen, whatever roughness the .glb carries.
+const MATTE_PREFIX := "res://maps/marble/"
 ## Forest, hell (with its tower), the characters and the rifle filter bilinear with mips; every other home stays nearest.
 const BILINEAR_PREFIXES := ["res://maps/", "res://tower/", "res://characters/", "res://weapons/models/rifle_n64"]
 
@@ -32,6 +34,7 @@ var _seen_materials: Dictionary = {}
 var _wave_cache: Dictionary = {}
 var _textures_mipped: int = 0
 var _materials_refiltered: int = 0
+var _matte: bool = false
 var _filter: BaseMaterial3D.TextureFilter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS_ANISOTROPIC
 
 
@@ -41,6 +44,7 @@ func _post_import(scene: Node) -> Object:
 	_wave_cache.clear()
 	_textures_mipped = 0
 	_materials_refiltered = 0
+	_matte = get_source_file().begins_with(MATTE_PREFIX)
 	_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS_ANISOTROPIC
 	for prefix: String in BILINEAR_PREFIXES:
 		if get_source_file().begins_with(prefix):
@@ -90,6 +94,10 @@ func _fix_material(material: Material) -> void:
 			base.set(property, replacement)
 
 	base.texture_filter = _filter
+	if _matte:
+		base.roughness = 1.0
+		base.metallic = 0.0
+		base.metallic_specular = 0.0
 	_materials_refiltered += 1
 
 
