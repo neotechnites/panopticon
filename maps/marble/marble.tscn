@@ -18,7 +18,7 @@
 [ext_resource type="Shader" path="res://maps/marble/materials/skylight_pool.gdshader" id="22_pool_shader"]
 
 [sub_resource type="StandardMaterial3D" id="Blk_stone"]
-albedo_color = Color(0.632, 0.634, 0.554, 1)
+albedo_color = Color(0.633, 0.635, 0.544, 1)
 albedo_texture = ExtResource("Blk_brick")
 uv1_scale = Vector3(0.167, 0.167, 0.167)
 uv1_triplanar = true
@@ -185,7 +185,7 @@ spot_angle_attenuation = 1.0
 [node name="PoolBounce" type="SpotLight3D" parent="Skylight"]
 editor_description = "The lit pool's bounce: an unshadowed spot from the pit floor straight up, lighting the dome and the undersides the Key never faces."
 transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0.5, 0)
-light_color = Color(0.987, 0.947, 0.831, 1)
+light_color = Color(0.989, 0.949, 0.806, 1)
 light_energy = 0.917
 light_specular = 0.0
 shadow_enabled = false

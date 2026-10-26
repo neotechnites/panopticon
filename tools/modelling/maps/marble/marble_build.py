@@ -307,14 +307,26 @@ def bcf(tint):
     read HSV sat 0.22 beside the pilaster's 0.30 on the same nominal tint (tot_colour iter1). The chroma is raised
     to the 2.2 and the tint's own luminance kept, so the surface's VALUE is what it was (the cornice stays 47 luma)
     and its colour is its COLOR_0 sibling's."""
-    e = tuple(c ** 2.2 for c in tint)
+    e = tuple(c ** BCF_GAMMA for c in tint)
     y, ye = (0.2126 * tint[0] + 0.7152 * tint[1] + 0.0722 * tint[2]), (0.2126 * e[0] + 0.7152 * e[1] + 0.0722 * e[2])
     return tuple(round(c * y / ye, 4) for c in e)
 
-TINT_WALL = (0.742, 0.726, 0.620)          # the brick: WALL 0.078 (the fields, the lane tier)
-TINT_TRIM = (0.345, 0.356, 0.331)          # the brick: DARK 0.038 (plinth bands, dome ribs, cells, the gate)
-TINT_TRIM_COL = (0.253, 0.261, 0.243)      # the column tile: DARK 0.038 (pilasters, cornices, collar, band)
-TINT_TRIM_STONE = (0.287, 0.296, 0.275)    # the stone: DARK 0.038 (the frieze)
+
+BCF_GAMMA = 2.8   # measured, not the 2.2 of the sRGB curve: at 2.2 the cornice still read 0.22 beside the pilaster's
+#                   0.25 and the lane's column props 0.19 (tot_colour iter3); the constant path loses a little more chroma
+
+
+def chroma(tint, k_g, k_b):
+    """`tint` with its green and blue scaled against its red by k_g / k_b, its luminance held: a hue / saturation
+    move that leaves the class's VALUE alone (the tower's greyer tiles take the room's tints through this)."""
+    n = (tint[0], tint[1] * k_g, tint[2] * k_b)
+    y, yn = (0.2126 * tint[0] + 0.7152 * tint[1] + 0.0722 * tint[2]), (0.2126 * n[0] + 0.7152 * n[1] + 0.0722 * n[2])
+    return tuple(round(c * y / yn, 4) for c in n)
+
+TINT_WALL = (0.738, 0.728, 0.616)          # the brick: WALL 0.078 (the fields, the lane tier)
+TINT_TRIM = (0.349, 0.355, 0.327)          # the brick: DARK 0.038 (plinth bands, dome ribs, cells, the gate)
+TINT_TRIM_COL = (0.256, 0.260, 0.240)      # the column tile: DARK 0.038 (pilasters, cornices, collar, band)
+TINT_TRIM_STONE = (0.291, 0.295, 0.272)    # the stone: DARK 0.038 (the frieze)
 TINT_BAND = bcf(TINT_TRIM_COL)                # the column tile as baseColorFactor ("band": cornices, string courses, the collar, the ring beam)
 TINT_FLOOR = (0.996, 0.971, 0.850)         # the floor tile: BRIGHT 0.148, 1.9 x the wall (the deck, the tower's paving)
 TINT_FIELD = (0.157, 0.153, 0.126)         # the pit tile: PIT 0.018 (the pit floor)
@@ -322,8 +334,8 @@ TINT_FLOOR_STONE = (0.996, 0.971, 0.850)   # the stone: the floor's tint (the to
 TINT_SPIKE = (0.144, 0.140, 0.116)         # the stone: PIT 0.018 (the spikes)
 TINT_VAULT = (0.996, 0.971, 0.850)         # the stone: BRIGHT, the stone's ceiling 0.126 (the dome's plain panels)
 TINT_DOME = (0.996, 0.971, 0.850)          # the triangle row: BRIGHT, its ceiling 0.094 (the dome's flute band)
-TINT_SHADE = (0.631, 0.618, 0.528)         # the brick: WALL x 0.85, a crease in reveals and soffits
-TINT_SHADE_TRIM = (0.293, 0.303, 0.282)    # the brick: DARK x 0.85, the crease in a dark frame's reveals (the portal)
+TINT_SHADE = (0.627, 0.619, 0.525)         # the brick: WALL x 0.85, a crease in reveals and soffits
+TINT_SHADE_TRIM = (0.297, 0.302, 0.278)    # the brick: DARK x 0.85, the crease in a dark frame's reveals (the portal)
 TINT_PLINTH_WALL = TINT_TRIM                # the names the prop builds import
 TINT_PLINTH = TINT_TRIM
 TINT_MARBLE2 = TINT_WALL
@@ -336,13 +348,14 @@ TINT_CELL = TINT_TRIM                 # the cell interiors: the dark value, and 
 TINT_IRON = (0.1557, 0.1445, 0.1382)       # the plain stone darkened to the drawing's dark bars
 
 
-def band_sheet(stem="marble_column"):
-    """The column tile turned 90 deg: the flutes run along the band, the band's height fits across them."""
-    return tile("band", stem, "fit_v", COL_H, COL_W, turn=True, tint=TINT_BAND)
+def band_sheet(stem="marble_column", tint=None):
+    """The column tile turned 90 deg: the flutes run along the band, the band's height fits across them.
+    The band is a first surface everywhere it appears: its tint is a baseColorFactor, so bcf()'d."""
+    return tile("band", stem, "fit_v", COL_H, COL_W, turn=True, tint=TINT_BAND if tint is None else bcf(tint))
 
 
-def column_sheet(stem="marble_column"):
-    return tile("column", stem, "fit_u", COL_W, COL_H, tint=TINT_TRIM_COL)   # his column tile again (Ryan, 2026-10-08)
+def column_sheet(stem="marble_column", tint=None):
+    return tile("column", stem, "fit_u", COL_W, COL_H, tint=TINT_TRIM_COL if tint is None else tint)   # his column tile again (Ryan, 2026-10-08)
 
 
 OCULUS_RGB = (0.86, 0.88, 0.90)   # the skylight's glass: daylight, the brightest thing in the room
