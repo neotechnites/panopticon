@@ -13,7 +13,7 @@ radius = 0.6
 radius = 1.8
 
 [node name="MarbleTrapdoor" type="Node3D"]
-editor_description = "Target and trapdoor, an arc sector of the lane: origin the deck at r 53.989 (mid-hole) on a pier (+X out, +Z the way the lap runs); the hole is four lane cells, pilaster to pilaster, r 48.05 to the wall, cut into marble.glb from where these stand (place it, run python3 tools/modelling/maps/marble/marble_build.py --sync-trapdoors, then tools/modelling/model build marble); shove beside the target or shoot its plate and the two flaps part at the seam arc and hang into the 6 m spiked pit."
+editor_description = "Target and trapdoor, an arc sector of the lane: origin the deck at r 53.989 (mid-hole) on a pier (+X out, +Z the way the lap runs); the hole is four lane cells, pilaster to pilaster, r 48.05 to the wall, cut into marble.glb from where these stand (place it, run python3 tools/modelling/maps/marble/marble_build.py --sync-trapdoors, then tools/modelling/model build marble); shove beside the target or shoot its plate and the two flaps part at the seam arc and hang into the 6 m spiked pit. Closed, the rim and both flaps wear the deck's own flags on the deck's own tint and path, no iron showing (Ryan 2026-10-25: no hard black lines, the colour the floor's); the seam sits on a tile joint."
 script = ExtResource("1_trap_door")
 hole_size_metres = Vector3(12.1, 6, 11.8)
 

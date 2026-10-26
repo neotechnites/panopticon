@@ -170,10 +170,10 @@ omni_range = 26.0
 omni_attenuation = 1.0
 
 [node name="TowerKey" type="SpotLight3D" parent="Skylight"]
-editor_description = "The tower's key, for the tower's rock alone (light_cull_mask = layer 11; MarbleTowerRock sits on layers 1 + 11): an unshadowed spot at r 48, y 32, bearing 105 (45 deg right of the lane-150 sightline), half-angle 20 aimed at y 15 on the axis, so the whole shaft takes it at full strength, the arcade a graded share, and its top edge (0.5 deg over level, y 32.4 at the shaft) stays under the cap; from r 48 it wraps 163 deg of the shaft, TowerCounter the rest."
+editor_description = "The tower's key, for the tower's rock alone (light_cull_mask = layer 11; MarbleTowerRock sits on layers 1 + 11): an unshadowed spot at r 48, y 32, bearing 105 (45 deg right of the lane-150 sightline), half-angle 20 aimed at y 15 on the axis, so the whole shaft takes it at full strength, the arcade a graded share, and its top edge (0.5 deg over level, y 32.4 at the shaft) stays under the cap. ONE OF A RING OF SIX (Ryan 2026-10-25: \"the tower is still unevenly lit\"): TowerCounter and TowerRing045/165/225/345 are the same spot from every 60 deg at the same energy. From r 48 a facet at r 7 takes 0.93 of a spot it faces and 0.52 of one 50 deg off, so two opposed spots left the terminators to the ambient and three at 120 deg still ran 0.70..0.93 round the shaft (a 14-luma spread); six at 60 deg run 1.55..1.65, within 3 percent, and the shaft reads one value from every bearing. Energy 1.10 each puts the shaft's mean from the lane where 3.5 + 1.4 had it."
 transform = Transform3D(0.9659, 0.0864, -0.2440, -0.0000, 0.9426, 0.3338, 0.2588, -0.3225, 0.9105, -12.4233, 32.0000, 46.3644)
 light_color = Color(1.0, 0.959, 0.807, 1)
-light_energy = 3.5
+light_energy = 1.10
 light_specular = 0.0
 light_cull_mask = 1024
 shadow_enabled = false
@@ -183,10 +183,62 @@ spot_angle = 20.0
 spot_angle_attenuation = 2.0
 
 [node name="TowerCounter" type="SpotLight3D" parent="Skylight"]
-editor_description = "The key's counter: the same spot from the opposite bearing (285) at 40% of its energy, a touch cooler, so the shaft's far side is shaded, not black, and no facet is left to the ambient alone."
+editor_description = "The key's counter: the same spot from the opposite bearing (285), the same energy, a touch cooler, so the facets facing away from the key carry a cooler cast rather than a shade."
 transform = Transform3D(-0.9659, -0.0864, 0.2440, 0.0000, 0.9426, 0.3338, -0.2588, 0.3225, -0.9105, 12.4233, 32.0000, -46.3644)
 light_color = Color(0.93, 0.95, 0.98, 1)
-light_energy = 1.4
+light_energy = 1.10
+light_specular = 0.0
+light_cull_mask = 1024
+shadow_enabled = false
+spot_range = 90.0
+spot_attenuation = 0.0
+spot_angle = 20.0
+spot_angle_attenuation = 2.0
+
+[node name="TowerRing045" type="SpotLight3D" parent="Skylight"]
+editor_description = "The ring of six: the same spot from bearing 45 at the same energy, the key's colour; with TowerKey (105) and TowerCounter (285) every facet of the shaft takes within 3 percent of the same light."
+transform = Transform3D(0.7071, -0.2361, 0.6665, 0.0000, 0.9426, 0.3338, -0.7071, -0.2361, 0.6665, 33.9411, 32.0000, 33.9411)
+light_color = Color(1.0, 0.959, 0.807, 1)
+light_energy = 1.10
+light_specular = 0.0
+light_cull_mask = 1024
+shadow_enabled = false
+spot_range = 90.0
+spot_attenuation = 0.0
+spot_angle = 20.0
+spot_angle_attenuation = 2.0
+
+[node name="TowerRing165" type="SpotLight3D" parent="Skylight"]
+editor_description = "The ring of six: the same spot from bearing 165 at the same energy, the key's colour; with TowerKey (105) and TowerCounter (285) every facet of the shaft takes within 3 percent of the same light."
+transform = Transform3D(0.2588, 0.3225, -0.9105, -0.0000, 0.9426, 0.3338, 0.9659, -0.0864, 0.2440, -46.3644, 32.0000, 12.4233)
+light_color = Color(1.0, 0.959, 0.807, 1)
+light_energy = 1.10
+light_specular = 0.0
+light_cull_mask = 1024
+shadow_enabled = false
+spot_range = 90.0
+spot_attenuation = 0.0
+spot_angle = 20.0
+spot_angle_attenuation = 2.0
+
+[node name="TowerRing225" type="SpotLight3D" parent="Skylight"]
+editor_description = "The ring of six: the same spot from bearing 225 at the same energy, the key's colour; with TowerKey (105) and TowerCounter (285) every facet of the shaft takes within 3 percent of the same light."
+transform = Transform3D(-0.7071, 0.2361, -0.6665, 0.0000, 0.9426, 0.3338, 0.7071, 0.2361, -0.6665, -33.9411, 32.0000, -33.9411)
+light_color = Color(1.0, 0.959, 0.807, 1)
+light_energy = 1.10
+light_specular = 0.0
+light_cull_mask = 1024
+shadow_enabled = false
+spot_range = 90.0
+spot_attenuation = 0.0
+spot_angle = 20.0
+spot_angle_attenuation = 2.0
+
+[node name="TowerRing345" type="SpotLight3D" parent="Skylight"]
+editor_description = "The ring of six: the same spot from bearing 345 at the same energy, the key's colour; with TowerKey (105) and TowerCounter (285) every facet of the shaft takes within 3 percent of the same light."
+transform = Transform3D(-0.2588, -0.3225, 0.9105, 0.0000, 0.9426, 0.3338, -0.9659, 0.0864, -0.2440, 46.3644, 32.0000, -12.4233)
+light_color = Color(1.0, 0.959, 0.807, 1)
+light_energy = 1.10
 light_specular = 0.0
 light_cull_mask = 1024
 shadow_enabled = false

@@ -1,15 +1,28 @@
 """
-marble_trapdoor -- the walkway's trapdoor, an ARC SECTOR of the ring: an iron frame lining the hole
-marble_build cuts (TRAPDOOR_CELLS lane cells round a pier in TRAPDOOR_BEARINGS, DECK_RS[TRAPDOOR_IN_K] to the
-wall foot), its inner and outer edges concentric with the lane and its sides radial; TWO stone flaps hinged on
-the lane-side arcs that part at a seam arc and hang into the pit; spikes on the pit floor PIT_D down
+marble_trapdoor -- the walkway's trapdoor, an ARC SECTOR of the ring: a rim lining the hole marble_build
+cuts (TRAPDOOR_CELLS lane cells round a pier in TRAPDOOR_BEARINGS, DECK_RS[TRAPDOOR_IN_K] to the wall foot),
+its inner and outer edges concentric with the lane and its sides radial; TWO stone flaps hinged on the
+lane-side arcs that part at a seam arc and hang into the pit; spikes on the pit floor PIT_D down
 (Ryan 2026-10-20: "only two flaps ... make the pit much deeper"; 2026-10-25: "they don't fit on the ring
 because they are rectangles").
+
+CLOSED, THE TRAPDOOR IS A PIECE OF THE FLOOR (Ryan 2026-10-25: "the trap doors have hard black lines
+through them, get rid of that"; "the color on the trap doors does not match the rest of the floor"): the
+rim's top and both flaps wear the deck's own flags -- the floor tile on the lane's cell grid, the deck's
+COLOR_0 (TINT_FLOOR x marble_build.weight(DECK_Z), the value the deck carries at y 23) on the same
+COLOR_0 path, so there is no tint, no path and no AO between a flap and the cell beside it; from OUTER_R
+(57.3) to the wall the deck is its margin, the brick at the wall's value, and the outer flap's last band
+and the wall rim continue that ("margin", the deck's own cyl mapping). No iron shows
+from above: the straps, the knuckles and the iron seam lips are gone; the seam between the flaps sits ON
+the tile's own joint row (SEAM_V), so the two flaps draw one joint of the lane's weight with the 1 cm gap
+in its dark core; the rim's top is the first texels of the deck's flags, its joints the lane's. The iron
+("edge", near-black) is the rim's skin and the flaps' undersides and edges: it shows only when the pit is
+open.
 
 ORIGIN: the deck point at r PIVOT_R (mid-hole) on the hole's centre bearing, z 0 the deck.
 Godot +X radial outward, +Z toward INCREASING bearing (Blender -Y).
 
-    TrapdoorFrame   iron rim inside the hole: its outer edge the cut itself, its inner edge two arcs and two radial sides
+    TrapdoorFrame   the rim inside the hole, its top the deck's flags, its skin iron: its outer edge the cut itself, its inner edge two arcs and two radial sides
     TrapdoorLeaf00  the inner flap, hinged on the lip arc;  TrapdoorLeaf01  the outer, on the wall arc
     TrapdoorSpikes  pale spikes on the pit floor, clear of the hanging flaps
 
@@ -65,36 +78,45 @@ STEP = math.radians(360.0 / (mb.NSIDE * mb.DECK_SUB))   # one lane cell: 2.8125 
 HALF_CELLS = mb.TRAPDOOR_CELLS // 2
 HALF = HALF_CELLS * STEP                # the hole's half-span, 5.625 deg
 PIT_D = mb.DECK_Z - mb.PIT_Z            # 6.0: the pit floor under the deck, room for a flap to hang
-FRAME_W = 0.28                          # the iron rim, inside the hole, at its narrowest: reads from 15 m
-FRAME_D = 0.35                          # ... this deep
+FRAME_W = 0.28                          # the rim inside the hole at the lip and the radial sides
+FRAME_W_WALL = 0.40                     # ... and at the wall: wider, so the outer flap hinged on it clears the pit floor
+#                                         with the seam on the lane's joint (0.28 left it 4 cm into the floor)
+FRAME_D = 0.35                          # the rim this deep
 FRAME_SKIN = 0.002                      # its outer faces lean in by this from the top edge to the bottom
 LEAF_T = 0.15                           # the stone leaves' thickness
 GAP = 0.005                             # each flap this far off the seam (1 cm between)
-STRAP_AT = (0.1, 0.3, 0.5, 0.7, 0.9)    # heavy strap hinges across each flap, fractions along the hinge arc
-STRAP_W = 0.30
-SEAM_W = 0.07                           # an iron lip on each free edge: the seam reads dark
-KNUCKLE_R = 0.07                        # hinge knuckles on the rim at the hinge arc: proud by their radius
-KNUCKLE_L = 0.50
-KNUCKLE_AT = STRAP_AT
-KNUCKLE_SIDES = 6
+SEAM_V = 43.0 / 64.0                    # the seam arc on the floor tile's second joint row (rows 42-43 of 64 are its
+#                                         dark core): the flaps' free edges meet in the deck's own joint
 SPIKE_PITCH = 0.9                       # the floor grid, radial and along the lane
 SPIKE_MARGIN = 0.45                     # the grid stops this short of the hinge axes: the hanging flaps clear it
 SPIKE_HW = 0.09
 SPIKE_H = (0.85, 1.1)                   # pale stone, tips PIT_D-1.1 .. PIT_D-0.85 under the deck
-LEAF_TINT = tuple(0.85 * c for c in mb.TINT_FLOOR)   # the deck's floor value, the leaves' flags a little darker and worn against it
+LEAF_TINT = tuple(c * mb.weight(mb.DECK_Z) for c in mb.TINT_FLOOR)   # the deck's COLOR_0 at y 23: TINT_FLOOR x 0.93 (0.9263, 0.9030, 0.7905)
 
 R_HINGE_IN = R_IN + FRAME_W             # 48.33: the inner flap's hinge arc
-R_HINGE_OUT = R_WALL_MID - FRAME_W      # 59.648: the outer flap's hinge arc (the rim 0.28 at a bay's middle, 0.35 at its corners)
+R_HINGE_OUT = R_WALL_MID - FRAME_W_WALL # 59.528: the outer flap's hinge arc (the rim 0.40 at a bay's middle, 0.47 at its corners)
 RINGS = tuple(mb.DECK_RS[mb.TRAPDOOR_IN_K:]) + (R_WALL_MID,)   # the lane's paving rings over the hole; the margin one more
 CENTRE = (-PIVOT_R, 0.0)                # the ring's axis in the prop's frame
 
 UP, DOWN = mb.UP, mb.DOWN
 
+# "edge" sorts before "floor": Godot 4.7 drops vertex_color_use_as_albedo on a mesh's FIRST surface (its tint
+# rides as baseColorFactor instead), so the iron takes that slot and the flags ride COLOR_0 exactly as the deck's.
+MARGIN_TINT = tuple(c * mb.weight(mb.DECK_Z) for c in mb.TINT_WALL)   # the deck's margin Col at y 23: TINT_WALL x 0.93 (0.6863, 0.6770, 0.5729)
+MARGIN_R = mb.OUTER_R                   # 57.3: from here to the wall the deck is its MARGIN, the brick at the wall's value
+#                                         (marble_lane_build._margin, class marble2), not the paving -- the trapdoor continues it
+MARGIN_REF_R = mb.WALL_R                # the margin's bricks are measured on the wall ring (marble_build._wall_ref)
+MARGIN_BEARING_REF = 90.0               # the brick's world phase is stated for a Section A door (67.5 + 22.5 k all share it:
+#                                         22.5 deg is two of its 2-bay repeats); Section B's doors sit one bay off, one of the
+#                                         tile's two alike bays
 SHEETS = {
+    "edge": mb.stone("edge", mode="box", tint=mb.TINT_IRON),
     "floor": mb.tile("floor", "marble_floor", "custom", 64, 64, mpt=2.7 / 64.0, tint=LEAF_TINT),
+    "margin": tx.Sheet("margin", mode="custom", mpt=mb.COURSE_MPT, mpt_u=mb.WALL_MPT, size=mb.BRICK_H, width=mb.BRICK_W,
+                       ref_r=MARGIN_REF_R, phase=(0.0, mb.FLOOR_Z), roughness=mb.ROUGHNESS, stem="marble_brick", tint=MARGIN_TINT),
     "spike": mb.stone("spike", mode="box", mpt=tx.MPT, tint=mb.TINT_SPIKE),
-    "iron": mb.iron_sheet(),
 }
+RING_MIDS = tuple(r for r in RINGS if R_IN < r < R_WALL_MID)   # 52.0, 54.6, 57.3: where the rim's side strips break
 
 
 # =============================================================================
@@ -208,17 +230,20 @@ def _shrink(poly, w):
 
 def hole():
     """The cut, CCW: lane stations on the lip at R_IN, the wall's chords (corners at R_WALL, bay middles on
-    the chord at R_WALL_MID), radial sides."""
+    the chord at R_WALL_MID), radial sides broken at the lane's rings (the rim's top is a strip of the
+    deck's flags, one quad per cell and ring)."""
     lip = [C(R_IN, k * STEP) for k in range(-HALF_CELLS, HALF_CELLS + 1)]
     wall = [C(R_WALL if k % 2 == 0 else R_WALL_MID, k * STEP) for k in range(-HALF_CELLS, HALF_CELLS + 1)]
-    poly = lip + list(reversed(wall))
+    side_hi = [C(r, HALF) for r in RING_MIDS]
+    side_lo = [C(r, -HALF) for r in reversed(RING_MIDS)]
+    poly = lip + side_hi + list(reversed(wall)) + side_lo
     assert _area(poly) > 0.0
     return poly
 
 
 def inner_polyline():
     """The rim's inner boundary, one vertex per hole() vertex: the lip arc at R_HINGE_IN, the wall arc at
-    R_HINGE_OUT, both on the station polyline, their ends on the moved-in sides."""
+    R_HINGE_OUT, both on the station polyline, their ends on the moved-in sides, which break at the rings."""
     lo, hi = end_lines()
 
     def arc(r):
@@ -232,7 +257,9 @@ def inner_polyline():
                 pts.append(C(r, k * STEP))
         return pts
 
-    return arc(R_HINGE_IN) + list(reversed(arc(R_HINGE_OUT)))
+    side_hi = [arc_pt(hi, r) for r in RING_MIDS]
+    side_lo = [arc_pt(lo, r) for r in reversed(RING_MIDS)]
+    return arc(R_HINGE_IN) + side_hi + list(reversed(arc(R_HINGE_OUT))) + side_lo
 
 
 def _reach(r_h, r_f):
@@ -244,16 +271,12 @@ def _reach(r_h, r_f):
 
 
 def seam_r():
-    """The seam arc's radius: where both flaps reach the same depth hanging (every arc bows one way, so
-    the outer flap's free corners stand farther from its axis than the inner flap's middle does)."""
-    a, b = R_HINGE_IN, R_HINGE_OUT
-    for _ in range(60):
-        r = 0.5 * (a + b)
-        if _reach(R_HINGE_IN, r - GAP) < _reach(R_HINGE_OUT, r + GAP):
-            a = r
-        else:
-            b = r
-    return 0.5 * (a + b)
+    """The seam arc's radius: the floor tile's joint row SEAM_V up the paving ring the hole's middle sits in,
+    so the flaps' free edges meet in a joint of the deck's own grid."""
+    for a, b in zip(RINGS, RINGS[1:]):
+        if a <= PIVOT_R < b:
+            return a + SEAM_V * (b - a)
+    raise ValueError("the hole's middle is off the lane's rings")
 
 
 def leaves():
@@ -263,10 +286,57 @@ def leaves():
 
 
 # =============================================================================
-# THE FRAME
+# THE FLAGS -- the deck's own tile windows, stated per vertex
 # =============================================================================
 
-def _ring(m, outer_top, outer_bot, inner, z_top, z_bot, zone):
+def _ring_of(r):
+    for a, b in zip(RINGS, RINGS[1:]):
+        if a - 1e-9 <= r <= b + 1e-9:
+            return a, b
+    raise ValueError("r %.3f is off the lane's rings" % r)
+
+
+def _radius(p):
+    return math.hypot(p[0] - CENTRE[0], p[1] - CENTRE[1])
+
+
+def _flag_uv(p, r_nom, cell, ring):
+    """The deck's own 'fit' window: u across the lane cell by bearing, v up the ring by radius."""
+    th = -bearing(p)                                   # Blender angle, the deck's u direction
+    return ((th - cell * STEP) / STEP, (r_nom - ring[0]) / (ring[1] - ring[0]))
+
+
+def _margin_uv(p, r_nom):
+    """The deck's margin: texel.cyl_uv for a floor face on the wall ring -- u the arc at MARGIN_REF_R in whole
+    repeats round the ring (the sheet's own closure), v the radius from FLOOR_Z in courses."""
+    sheet = SHEETS["margin"]
+    ref, period_u, _n = sheet.ring((MARGIN_REF_R, 0.0, 0.0))     # (60, 11.781 m, 32 repeats), as the deck's
+    th = math.radians(-MARGIN_BEARING_REF) - bearing(p)      # the point's Blender angle in the world (a Section A door)
+    return ((th * ref - sheet.phase[0]) / period_u, (r_nom - sheet.phase[1]) / sheet.metres)
+
+
+def _flag_quad(m, V, A, B, Cc, D, rA, rB, rC, rD):
+    """One quad of the deck's top, its UVs stated per vertex: the paving's flags on the cell and ring the quad's
+    middle falls in, or the margin's bricks from MARGIN_R out. V maps a 2D point to a top vertex; rA..rD are
+    the corners' nominal radii."""
+    mid = _lerp(_lerp(A, B, 0.5), _lerp(D, Cc, 0.5), 0.5)
+    if _radius(mid) >= MARGIN_R:
+        uv = {V(A): _margin_uv(A, rA), V(B): _margin_uv(B, rB), V(Cc): _margin_uv(Cc, rC), V(D): _margin_uv(D, rD)}
+        m.quad(V(A), V(B), V(Cc), V(D), UP, "margin", uv=uv)
+        return
+    cell = int(math.floor(-bearing(mid) / STEP))
+    ring = _ring_of(min(max(_radius(mid), RINGS[0]), RINGS[-1]))
+    uv = {V(A): _flag_uv(A, rA, cell, ring), V(B): _flag_uv(B, rB, cell, ring),
+          V(Cc): _flag_uv(Cc, rC, cell, ring), V(D): _flag_uv(D, rD, cell, ring)}
+    m.quad(V(A), V(B), V(Cc), V(D), UP, "floor", uv=uv)
+
+
+# =============================================================================
+# THE FRAME -- a rim whose top is the deck's flags and whose skin is iron
+# =============================================================================
+
+def _ring(m, outer_top, outer_bot, inner, z_top, z_bot):
+    """The rim between two closed polylines: its top the deck's flags, its skin, inner faces and underside iron."""
     n = len(outer_top)
     o0 = [m.v((p[0], p[1], z_top)) for p in outer_top]
     i0 = [m.v((p[0], p[1], z_top)) for p in inner]
@@ -274,51 +344,20 @@ def _ring(m, outer_top, outer_bot, inner, z_top, z_bot, zone):
     i1 = [m.v((p[0], p[1], z_bot)) for p in inner]
     for k in range(n):
         j = (k + 1) % n
-        m.quad(o0[k], o0[j], i0[j], i0[k], UP, zone)
-        m.quad(o1[k], o1[j], i1[j], i1[k], DOWN, zone)
+        A, B, Cc, D = outer_top[k], outer_top[j], inner[j], inner[k]
+        _flag_quad(m, lambda p: m.v((p[0], p[1], z_top)), A, B, Cc, D,
+                   _radius(A), _radius(B), _radius(Cc), _radius(D))
+        m.quad(o1[k], o1[j], i1[j], i1[k], DOWN, "edge")
         e = (outer_top[j][0] - outer_top[k][0], outer_top[j][1] - outer_top[k][1])
         out = (e[1], -e[0], 0.0)                     # outward of a CCW edge
-        m.quad(o0[k], o0[j], o1[j], o1[k], out, zone)
-        m.quad(i0[k], i0[j], i1[j], i1[k], (-out[0], -out[1], 0.0), zone)
-
-
-def _knuckle(m, a, b, zone):
-    """A closed n-gon prism along a..b (3D points), radius KNUCKLE_R."""
-    d = [b[i] - a[i] for i in range(3)]
-    L = math.sqrt(sum(x * x for x in d))
-    d = [x / L for x in d]
-    u = (-d[1], d[0], 0.0)
-    w = (0.0, 0.0, 1.0)
-    n = KNUCKLE_SIDES
-    ra, rb = [], []
-    for k in range(n):
-        t = 2.0 * math.pi * k / n
-        off = [KNUCKLE_R * (math.cos(t) * u[i] + math.sin(t) * w[i]) for i in range(3)]
-        ra.append(m.v(tuple(a[i] + off[i] for i in range(3))))
-        rb.append(m.v(tuple(b[i] + off[i] for i in range(3))))
-    for k in range(n):
-        j = (k + 1) % n
-        t = 2.0 * math.pi * (k + 0.5) / n
-        out = tuple(math.cos(t) * u[i] + math.sin(t) * w[i] for i in range(3))
-        m.quad(ra[k], ra[j], rb[j], rb[k], out, zone)
-    m.poly(ra, tuple(-x for x in d), zone)
-    m.poly(rb, tuple(d), zone)
+        m.quad(o0[k], o0[j], o1[j], o1[k], out, "edge")
+        m.quad(i0[k], i0[j], i1[j], i1[k], (-out[0], -out[1], 0.0), "edge")
 
 
 def frame():
     m = mb._Mesh()
     outer = hole()
-    _ring(m, outer, _shrink(outer, FRAME_SKIN), inner_polyline(), 0.0, -FRAME_D, "iron")
-    for _name, r_h, r_f in leaves():
-        lo, hi = hinge_span(r_h)
-        r_c = r_h - 0.03 if r_f > r_h else r_h + 0.03      # a hair back onto the rim
-        for k in KNUCKLE_AT:
-            phi = lo + (hi - lo) * k
-            c = C(r_c, phi)
-            t = tangent(phi)
-            a = (c[0] - t[0] * KNUCKLE_L / 2, c[1] - t[1] * KNUCKLE_L / 2, 0.0)
-            b = (c[0] + t[0] * KNUCKLE_L / 2, c[1] + t[1] * KNUCKLE_L / 2, 0.0)
-            _knuckle(m, a, b, "iron")
+    _ring(m, outer, _shrink(outer, FRAME_SKIN), inner_polyline(), 0.0, -FRAME_D)
     return m
 
 
@@ -346,55 +385,20 @@ def _to_local(pt, origin, rot):
 
 
 def side_lines(r_h):
-    """The flap's side lines in bearing order with the class of the strip after each: the moved-in ends,
-    the straps' edges and the lane's stations (the flags break there, as the deck's do)."""
+    """The flap's side lines in bearing order: the moved-in ends and the lane's stations (the flags break
+    there, as the deck's do)."""
     lo_e, hi_e = end_lines()
-    lo, hi = hinge_span(r_h)
-    lines = [(lo_e, "end"), (hi_e, "end")]
-    for t in STRAP_AT:
-        phi = lo + (hi - lo) * t
-        lines.append((offset_line(phi, -STRAP_W / 2.0), "strap_in"))
-        lines.append((offset_line(phi, STRAP_W / 2.0), "strap_out"))
-    for k in range(-HALF_CELLS + 1, HALF_CELLS):
-        lines.append((radial(k * STEP), "station"))
+    lines = [lo_e, hi_e] + [radial(k * STEP) for k in range(-HALF_CELLS + 1, HALF_CELLS)]
     r_mid = 0.5 * (R_HINGE_IN + R_HINGE_OUT)
-    lines.sort(key=lambda lk: bearing(on_circle(lk[0], r_mid)))
-    out, strap = [], False
-    for line, kind in lines:
-        if out and abs(bearing(on_circle(line, r_mid)) - bearing(on_circle(out[-1][0], r_mid))) < 1e-5:
-            continue
-        if kind == "strap_in":
-            strap = True
-        elif kind == "strap_out":
-            strap = False
-        out.append((line, "iron" if strap else "floor"))
-    return out
+    lines.sort(key=lambda ln: bearing(on_circle(ln, r_mid)))
+    return lines
 
 
 def bands(r_h, r_f):
-    """Radii across the flap from the hinge to the free edge, with the class of each band: the lane's rings
-    break the flags, the last SEAM_W at the free edge is the iron lip."""
-    seam = r_f - SEAM_W if r_f > r_h else r_f + SEAM_W
-    rs = {r_h, r_f, seam} | {r for r in RINGS if min(r_h, r_f) < r < max(r_h, r_f)}
+    """Radii across the flap from the hinge to the free edge: the lane's rings break the flags."""
+    rs = {r_h, r_f} | {r for r in RINGS if min(r_h, r_f) < r < max(r_h, r_f)}
     rs = sorted(rs, reverse=r_f < r_h)
-    out = []
-    for a, b in zip(rs, rs[1:]):
-        lip = min(a, b) >= min(seam, r_f) - 1e-9 and max(a, b) <= max(seam, r_f) + 1e-9
-        out.append((a, b, "iron" if lip else "floor"))
-    return out
-
-
-def _ring_of(r):
-    for a, b in zip(RINGS, RINGS[1:]):
-        if a - 1e-9 <= r <= b + 1e-9:
-            return a, b
-    raise ValueError("r %.3f is off the lane's rings" % r)
-
-
-def _flag_uv(p, r_nom, cell, ring):
-    """The deck's own 'fit' window: u across the lane cell by bearing, v up the ring by radius."""
-    th = -bearing(p)                                   # Blender angle, the deck's u direction
-    return ((th - cell * STEP) / STEP, (r_nom - ring[0]) / (ring[1] - ring[0]))
+    return list(zip(rs, rs[1:]))
 
 
 def leaf(r_h, r_f):
@@ -413,31 +417,23 @@ def leaf(r_h, r_f):
     lines = side_lines(r_h)
     bds = bands(r_h, r_f)
     outward = 1.0 if r_f > r_h else -1.0                # +1: the free edge is outboard of the hinge
-    for (la, cls_a), (lb, _cls_b) in zip(lines, lines[1:]):
-        # the top, one quad per band
-        for (ra, rb, cls_r) in bds:
+    for la, lb in zip(lines, lines[1:]):
+        # the top, one flag quad per band
+        for (ra, rb) in bds:
             A, B, Cc, D = arc_pt(la, ra), arc_pt(lb, ra), arc_pt(lb, rb), arc_pt(la, rb)
-            zone = "iron" if cls_a == "iron" or cls_r == "iron" else "floor"
-            uv = None
-            if zone == "floor":
-                mid = _lerp(_lerp(A, B, 0.5), _lerp(D, Cc, 0.5), 0.5)
-                cell = int(math.floor(-bearing(mid) / STEP))
-                ring = _ring_of(0.5 * (ra + rb))
-                uv = {V(A, top): _flag_uv(A, ra, cell, ring), V(B, top): _flag_uv(B, ra, cell, ring),
-                      V(Cc, top): _flag_uv(Cc, rb, cell, ring), V(D, top): _flag_uv(D, rb, cell, ring)}
-            m.quad(V(A, top), V(B, top), V(Cc, top), V(D, top), UP, zone, uv=uv)
+            _flag_quad(m, lambda p: V(p, top), A, B, Cc, D, ra, ra, rb, rb)
         # the underside, the hinge face and the free face, one quad each per strip
         H0, H1, F0, F1 = arc_pt(la, r_h), arc_pt(lb, r_h), arc_pt(la, r_f), arc_pt(lb, r_f)
-        m.quad(V(H0, bot), V(H1, bot), V(F1, bot), V(F0, bot), DOWN, "iron")
+        m.quad(V(H0, bot), V(H1, bot), V(F1, bot), V(F0, bot), DOWN, "edge")
         phi = bearing(_lerp(H0, H1, 0.5))
         rad = (math.cos(phi), -math.sin(phi), 0.0)
-        m.quad(V(H0, top), V(H1, top), V(H1, bot), V(H0, bot), W(tuple(-outward * c for c in rad)), "iron")
-        m.quad(V(F0, top), V(F1, top), V(F1, bot), V(F0, bot), W(tuple(outward * c for c in rad)), "iron")
+        m.quad(V(H0, top), V(H1, top), V(H1, bot), V(H0, bot), W(tuple(-outward * c for c in rad)), "edge")
+        m.quad(V(F0, top), V(F1, top), V(F1, bot), V(F0, bot), W(tuple(outward * c for c in rad)), "edge")
     # the two ends: the top edge carries every band's vertex
-    for line, want in ((lines[0][0], (0.0, 1.0, 0.0)), (lines[-1][0], (0.0, -1.0, 0.0))):
+    for line, want in ((lines[0], (0.0, 1.0, 0.0)), (lines[-1], (0.0, -1.0, 0.0))):
         ring = [V(arc_pt(line, r_f), bot), V(arc_pt(line, r_h), bot), V(arc_pt(line, r_h), top)]
-        ring += [V(arc_pt(line, rb), top) for (_ra, rb, _c) in bds]
-        m.poly(ring, W(want), "iron")
+        ring += [V(arc_pt(line, rb), top) for (_ra, rb) in bds]
+        m.poly(ring, W(want), "edge")
     return m, origin, rot, _reach(r_h, r_f)
 
 
@@ -498,8 +494,9 @@ def _check():
         ok = ok and not bad
         print("%s origin=(%.4f, %.4f, %.4f) rot_z=%.4f deg" % (name, origin[0], origin[1], origin[2],
                                                                 math.degrees(rot)))
-    print("hole: lip r %.3f, wall r %.3f (%.3f at a bay's middle), sides +-%.4f deg; rim %.2f; seam r %.4f"
-          % (R_IN, R_WALL, R_WALL_MID, math.degrees(HALF), FRAME_W, seam_r()))
+    print("hole: lip r %.3f, wall r %.3f (%.3f at a bay's middle), sides +-%.4f deg; rim %.2f (%.2f at the wall); "
+          "seam r %.4f (tile row %.1f of 64 up ring %s)"
+          % (R_IN, R_WALL, R_WALL_MID, math.degrees(HALF), FRAME_W, FRAME_W_WALL, seam_r(), SEAM_V * 64.0, _ring_of(seam_r())))
     for name, r_h, r_f in leaves():
         _m, o, _r, w = leaf(r_h, r_f)
         hang = LEAF_T + w
@@ -523,9 +520,11 @@ def build():
         for mat in mats.values():
             mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
         tx.finish(ob, m.zones, {z: mats[z] for z in set(m.zones)})
-        # keep the first surface's class: Godot 4.7 drops vertex_color_use_as_albedo on a mesh's first
-        # surface, so its tint rides as baseColorFactor (it rendered untinted: raw tile, iron as stone).
-        vertex_ao.apply(ob, vertex_ao.bake(ob, dist=0.6), keep=(ob.data.materials[0].name,))
+        # keep the first surface's class ("edge" where there is one, the spikes' own): Godot 4.7 drops
+        # vertex_color_use_as_albedo on a mesh's first surface, so its tint rides as baseColorFactor. The
+        # flags take COLOR_0 = LEAF_TINT x 1.0 -- the deck's own Col, no contact shade (the deck's flags
+        # carry none either): only the iron darkens in its corners.
+        vertex_ao.apply(ob, vertex_ao.bake(ob, dist=0.6), keep=(ob.data.materials[0].name,), only=("edge",))
         print("MDL STATS %s tris=%d surfaces=%d origin=(%.4f,%.4f,%.4f) rot_z=%.4f"
               % (name, len(ob.data.polygons), len(ob.data.materials), origin[0], origin[1], origin[2],
                  math.degrees(rot)))
