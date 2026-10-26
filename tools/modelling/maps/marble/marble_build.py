@@ -298,18 +298,18 @@ def stone(name, mode="cyl", mpt=WALL_MPT, **kw):
 # sat 0.21-0.26 and the trim an olive-GREY -- the colour is the light's, so every tint stays near
 # neutral and the key / sky carry the warmth.
 # Tile linear means: brick 0.108, stone 0.130, column 0.148, floor 0.153, pit 0.119, triangles 0.097.
-TINT_WALL = (0.733, 0.724, 0.668)          # the brick: WALL 0.078 (the fields, the lane tier)
-TINT_TRIM = (0.351, 0.355, 0.322)          # the brick: DARK 0.038 (plinth bands, dome ribs, cells, the gate)
-TINT_TRIM_COL = (0.258, 0.261, 0.237)      # the column tile: DARK 0.038 (pilasters, cornices, collar, band)
-TINT_TRIM_STONE = (0.292, 0.295, 0.268)    # the stone: DARK 0.038 (the frieze)
-TINT_FLOOR = (0.984, 0.969, 0.897)         # the floor tile: BRIGHT 0.148, 1.9 x the wall (the deck, the tower's paving)
-TINT_FIELD = (0.155, 0.152, 0.134)         # the pit tile: PIT 0.018 (the pit floor)
-TINT_FLOOR_STONE = (0.984, 0.969, 0.897)   # the stone: the floor's tint (the tower's centre; the stone cannot reach 0.148)
-TINT_SPIKE = (0.142, 0.139, 0.123)         # the stone: PIT 0.018 (the spikes)
-TINT_VAULT = (0.984, 0.969, 0.897)         # the stone: BRIGHT, the stone's ceiling 0.126 (the dome's plain panels)
-TINT_DOME = (0.984, 0.969, 0.897)          # the triangle row: BRIGHT, its ceiling 0.094 (the dome's flute band)
-TINT_SHADE = (0.623, 0.616, 0.568)         # the brick: WALL x 0.85, a crease in reveals and soffits
-TINT_SHADE_TRIM = (0.298, 0.302, 0.274)    # the brick: DARK x 0.85, the crease in a dark frame's reveals (the portal)
+TINT_WALL = (0.754, 0.726, 0.584)          # the brick: WALL 0.078 (the fields, the lane tier)
+TINT_TRIM = (0.355, 0.356, 0.303)          # the brick: DARK 0.038 (plinth bands, dome ribs, cells, the gate)
+TINT_TRIM_COL = (0.261, 0.261, 0.223)      # the column tile: DARK 0.038 (pilasters, cornices, collar, band)
+TINT_TRIM_STONE = (0.296, 0.296, 0.252)    # the stone: DARK 0.038 (the frieze)
+TINT_FLOOR = (0.998, 0.973, 0.819)         # the floor tile: BRIGHT 0.148, 1.9 x the wall (the deck, the tower's paving)
+TINT_FIELD = (0.157, 0.153, 0.122)         # the pit tile: PIT 0.018 (the pit floor)
+TINT_FLOOR_STONE = (0.998, 0.973, 0.819)   # the stone: the floor's tint (the tower's centre; the stone cannot reach 0.148)
+TINT_SPIKE = (0.144, 0.140, 0.112)         # the stone: PIT 0.018 (the spikes)
+TINT_VAULT = (0.998, 0.973, 0.819)         # the stone: BRIGHT, the stone's ceiling 0.126 (the dome's plain panels)
+TINT_DOME = (0.998, 0.973, 0.819)          # the triangle row: BRIGHT, its ceiling 0.094 (the dome's flute band)
+TINT_SHADE = (0.641, 0.618, 0.497)         # the brick: WALL x 0.85, a crease in reveals and soffits
+TINT_SHADE_TRIM = (0.302, 0.303, 0.258)    # the brick: DARK x 0.85, the crease in a dark frame's reveals (the portal)
 TINT_PLINTH_WALL = TINT_TRIM                # the names the prop builds import
 TINT_PLINTH = TINT_TRIM
 TINT_MARBLE2 = TINT_WALL
