@@ -12,17 +12,19 @@ rim's top and both flaps wear the deck's own flags -- the floor tile on the lane
 COLOR_0 (TINT_FLOOR x marble_build.weight(DECK_Z), the value the deck carries at y 23) on the same
 COLOR_0 path, so there is no tint, no path and no AO between a flap and the cell beside it; from OUTER_R
 (57.3) to the wall the deck is its margin, the brick at the wall's value, and the outer flap's last band
-and the wall rim continue that ("margin", the deck's own cyl mapping). No iron shows
-from above: the straps, the knuckles and the iron seam lips are gone; the seam between the flaps sits ON
-the tile's own joint row (SEAM_V), so the two flaps draw one joint of the lane's weight with the 1 cm gap
-in its dark core; the rim's top is the first texels of the deck's flags, its joints the lane's. The iron
-("edge", near-black) is the rim's skin and the flaps' undersides and edges: it shows only when the pit is
-open.
+and the wall rim continue that ("margin", the deck's own cyl mapping). The straps, the knuckles and the
+iron seam lips are gone. ONE LINE ROUND IT, NONE THROUGH IT (Ryan 2026-10-26: "the trapdoor should still
+have outlines, just not slits in the middle"): the rim's top wears the iron ("edge") on its outermost
+OUTLINE_W -- a clean dark line the width of the floor tile's own joint, the cut's whole perimeter, the
+lip, the sides and the wall -- and the deck's flags inside that; the seam between the flaps sits ON the
+tile's own joint row (SEAM_V) with NO gap (the flaps' free edges touch, their flags one tile across it),
+so closed the seam is one of the lane's joints and nothing else. The iron is otherwise the rim's skin and
+the flaps' undersides and edges: it shows only when the pit is open.
 
 ORIGIN: the deck point at r PIVOT_R (mid-hole) on the hole's centre bearing, z 0 the deck.
 Godot +X radial outward, +Z toward INCREASING bearing (Blender -Y).
 
-    TrapdoorFrame   the rim inside the hole, its top the deck's flags, its skin iron: its outer edge the cut itself, its inner edge two arcs and two radial sides
+    TrapdoorFrame   the rim inside the hole, its top the outline then the deck's flags, its skin iron: its outer edge the cut itself, its inner edge two arcs and two radial sides
     TrapdoorLeaf00  the inner flap, hinged on the lip arc;  TrapdoorLeaf01  the outer, on the wall arc
     TrapdoorSpikes  pale spikes on the pit floor, clear of the hanging flaps
 
@@ -84,9 +86,14 @@ FRAME_W_WALL = 0.40                     # ... and at the wall: wider, so the out
 FRAME_D = 0.35                          # the rim this deep
 FRAME_SKIN = 0.002                      # its outer faces lean in by this from the top edge to the bottom
 LEAF_T = 0.15                           # the stone leaves' thickness
-GAP = 0.005                             # each flap this far off the seam (1 cm between)
+GAP = 0.0                               # each flap this far off the seam: NONE, the free edges touch (0.005 left a 1 cm
+#                                         slit of pit between them -- Ryan: "not slits in the middle")
 SEAM_V = 43.0 / 64.0                    # the seam arc on the floor tile's second joint row (rows 42-43 of 64 are its
 #                                         dark core): the flaps' free edges meet in the deck's own joint
+FLOOR_MPT = 2.7 / 64.0                  # the floor tile's texel, 4.2 cm
+OUTLINE_W = 3.0 * FLOOR_MPT             # 0.127: the outline round the cut, the rim's top in iron this wide -- the tile
+#                                         joint's dark core (2 texels) and its shoulders' inner halves, the width the
+#                                         joint reads at; the rim's flags run from here to the flap
 SPIKE_PITCH = 0.9                       # the floor grid, radial and along the lane
 SPIKE_MARGIN = 0.45                     # the grid stops this short of the hinge axes: the hanging flaps clear it
 SPIKE_HW = 0.09
@@ -336,15 +343,19 @@ def _flag_quad(m, V, A, B, Cc, D, rA, rB, rC, rD):
 # =============================================================================
 
 def _ring(m, outer_top, outer_bot, inner, z_top, z_bot):
-    """The rim between two closed polylines: its top the deck's flags, its skin, inner faces and underside iron."""
+    """The rim between two closed polylines: its top the outline (iron, OUTLINE_W in from the cut) and then the
+    deck's flags; its skin, inner faces and underside iron."""
     n = len(outer_top)
+    line = _shrink(outer_top, OUTLINE_W)                 # the outline's inner edge, parallel to the cut
     o0 = [m.v((p[0], p[1], z_top)) for p in outer_top]
+    l0 = [m.v((p[0], p[1], z_top)) for p in line]
     i0 = [m.v((p[0], p[1], z_top)) for p in inner]
     o1 = [m.v((p[0], p[1], z_bot)) for p in outer_bot]
     i1 = [m.v((p[0], p[1], z_bot)) for p in inner]
     for k in range(n):
         j = (k + 1) % n
-        A, B, Cc, D = outer_top[k], outer_top[j], inner[j], inner[k]
+        m.quad(o0[k], o0[j], l0[j], l0[k], UP, "edge")
+        A, B, Cc, D = line[k], line[j], inner[j], inner[k]
         _flag_quad(m, lambda p: m.v((p[0], p[1], z_top)), A, B, Cc, D,
                    _radius(A), _radius(B), _radius(Cc), _radius(D))
         m.quad(o1[k], o1[j], i1[j], i1[k], DOWN, "edge")
@@ -494,9 +505,10 @@ def _check():
         ok = ok and not bad
         print("%s origin=(%.4f, %.4f, %.4f) rot_z=%.4f deg" % (name, origin[0], origin[1], origin[2],
                                                                 math.degrees(rot)))
-    print("hole: lip r %.3f, wall r %.3f (%.3f at a bay's middle), sides +-%.4f deg; rim %.2f (%.2f at the wall); "
-          "seam r %.4f (tile row %.1f of 64 up ring %s)"
-          % (R_IN, R_WALL, R_WALL_MID, math.degrees(HALF), FRAME_W, FRAME_W_WALL, seam_r(), SEAM_V * 64.0, _ring_of(seam_r())))
+    print("hole: lip r %.3f, wall r %.3f (%.3f at a bay's middle), sides +-%.4f deg; rim %.2f (%.2f at the wall), "
+          "its outline %.3f; seam r %.4f (tile row %.1f of 64 up ring %s), gap %.3f"
+          % (R_IN, R_WALL, R_WALL_MID, math.degrees(HALF), FRAME_W, FRAME_W_WALL, OUTLINE_W, seam_r(), SEAM_V * 64.0,
+             _ring_of(seam_r()), 2.0 * GAP))
     for name, r_h, r_f in leaves():
         _m, o, _r, w = leaf(r_h, r_f)
         hang = LEAF_T + w
