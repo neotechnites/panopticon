@@ -170,17 +170,30 @@ omni_range = 26.0
 omni_attenuation = 1.0
 
 [node name="TowerKey" type="SpotLight3D" parent="Skylight"]
-editor_description = "The tower's own key, and it lights NOTHING but the tower's rock (light_cull_mask = layer 11 alone; MarbleTowerRock sits on layers 1 + 11, the guard room's floor does not): an unshadowed spot 45 deg to the right of the lane-150 sightline and only 7 m above the lane, so it RAKES the shaft (a light square to that sightline only grazed the silhouette, and one 40 deg up lit the cap more than the shaft: at energy 10 the shaft's middle did not move by one step, measured), no distance falloff like the Key, 28 deg wide so it covers the shaft from the pit to the cap. Why: the shaft read as a flat grey cylinder (Ryan, marble-final2) because nothing in the room rakes it -- the Key is ON the axis, the eight lamps hang almost straight over the shaft's face (cos 0.07), so the shaft was the sky ambient alone, the same from every side. This gives it a lit side and a shaded side (x1.5 on screen) and leaves the lane, the cells, the cone and their shadows exactly as they were. UNSHADOWED on purpose: a second shadowed spot re-divides the positional shadow atlas and the Key's shadows on the lane floor lost resolution (wall200 floor -15 luma, measured)."
-transform = Transform3D(0.9655, 0.0794, -0.248, 0, 0.9524, 0.305, 0.2604, -0.2945, 0.9195, -6.5, 32, 24.1)
+editor_description = "The tower's key, for the tower's rock alone (light_cull_mask = layer 11; MarbleTowerRock sits on layers 1 + 11): an unshadowed spot at r 48, y 32, bearing 105 (45 deg right of the lane-150 sightline), half-angle 20 aimed at y 15 on the axis, so the whole shaft takes it at full strength, the arcade a graded share, and its top edge (0.5 deg over level, y 32.4 at the shaft) stays under the cap; from r 48 it wraps 163 deg of the shaft, TowerCounter the rest."
+transform = Transform3D(0.9659, 0.0864, -0.2440, -0.0000, 0.9426, 0.3338, 0.2588, -0.3225, 0.9105, -12.4233, 32.0000, 46.3644)
 light_color = Color(1.0, 0.959, 0.807, 1)
-light_energy = 5.638
+light_energy = 3.5
 light_specular = 0.0
 light_cull_mask = 1024
 shadow_enabled = false
 spot_range = 90.0
 spot_attenuation = 0.0
-spot_angle = 28.0
-spot_angle_attenuation = 1.0
+spot_angle = 20.0
+spot_angle_attenuation = 2.0
+
+[node name="TowerCounter" type="SpotLight3D" parent="Skylight"]
+editor_description = "The key's counter: the same spot from the opposite bearing (285) at 40% of its energy, a touch cooler, so the shaft's far side is shaded, not black, and no facet is left to the ambient alone."
+transform = Transform3D(-0.9659, -0.0864, 0.2440, 0.0000, 0.9426, 0.3338, -0.2588, 0.3225, -0.9105, 12.4233, 32.0000, -46.3644)
+light_color = Color(0.93, 0.95, 0.98, 1)
+light_energy = 1.4
+light_specular = 0.0
+light_cull_mask = 1024
+shadow_enabled = false
+spot_range = 90.0
+spot_attenuation = 0.0
+spot_angle = 20.0
+spot_angle_attenuation = 2.0
 
 [node name="PoolBounce" type="SpotLight3D" parent="Skylight"]
 editor_description = "The lit pool's bounce: an unshadowed spot from the pit floor straight up, lighting the dome and the undersides the Key never faces."
