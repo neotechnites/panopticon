@@ -18,7 +18,7 @@
 [ext_resource type="Shader" path="res://maps/marble/materials/skylight_pool.gdshader" id="22_pool_shader"]
 
 [sub_resource type="StandardMaterial3D" id="Blk_stone"]
-albedo_color = Color(0.633, 0.635, 0.544, 1)
+albedo_color = Color(0.823, 0.826, 0.707, 1)
 albedo_texture = ExtResource("Blk_brick")
 uv1_scale = Vector3(0.167, 0.167, 0.167)
 uv1_triplanar = true

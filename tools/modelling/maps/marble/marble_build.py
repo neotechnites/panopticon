@@ -289,8 +289,8 @@ def stone(name, mode="cyl", mpt=WALL_MPT, **kw):
 #   WALL   0.078  fields, the brick lane tier, the tower's shaft and spandrels    (near-neutral, sat 0.04)
 #   BRIGHT 0.148  the deck and the tower's paving; the dome's panels and the tower's cap at their
 #                 tiles' ceiling (stone 0.126, tower brick 0.106): the oculus light lands on them
-#   DARK   0.038  pilasters, cornices, bands, plinths, frieze, ribs, the cell interiors, the gate and
-#                 the portal frame: 0.49 x the wall, an OLIVE-GREY (hue 67, HSV sat 0.09 in linear,
+#   DARK   0.049  pilasters, cornices, bands, plinths, frieze, ribs, the cell interiors, the gate and
+#                 the portal frame: 0.63 x the wall, an OLIVE-GREY (hue 67, HSV sat 0.09 in linear,
 #                 near-neutral on screen under the warm key -- NOT the mustard (0.450,0.420,0.287) was;
 #                 0.022 was tried first and went black in a pilaster's shade, the reference's trim is 35-69)
 #   PIT    0.018  the pit floor and the spikes, 24 m down; the iron the same
@@ -305,6 +305,16 @@ def stone(name, mode="cyl", mpt=WALL_MPT, **kw):
 # tint that rides as baseColorFactor instead goes through bcf() below. Measured (tot_colour iter6,
 # lane150): wall 52 / 0.28, floor 50 / 0.27, trim 56 / 0.25.
 # Tile linear means: brick 0.108, stone 0.130, column 0.148, floor 0.153, pit 0.119, triangles 0.097.
+# VALUE (marble-trim070, Ryan on tot_colour: "does the black match the dark trim in ToT? it looks darker in our
+# scene"): the DARK class x1.30 (0.038 -> 0.049, 0.63 x the wall), hue and sat held -- TINT_TRIM, TINT_TRIM_COL,
+# TINT_TRIM_STONE, TINT_SHADE_TRIM (DARK x 0.85) and the scene's buttress albedo (Blk_stone) by the one factor;
+# TINT_CELL and TINT_BARS are aliases of TINT_TRIM so the cell interiors and the gate screen moved with it; the pit,
+# the spikes and the iron did not. The screen's response, measured (trim070 probe at x1.25): a COLOR_0 surface
+# (pilasters, plinths, ribs, the tower's columns, the buttress) moves ~f^1.0-1.1, a baseColorFactor surface (the
+# cornices, the column props, the gate, the portal frame) ~f^0.45, a T10_ row (cells, colonnade from across the
+# room) hardly at all, so one factor cannot put every pose in 0.66-0.74: lane150 0.56 -> 0.66, lane070 0.66 -> 0.74
+# (the cap on the factor), tower_from_lane 0.66 -> 0.68, wall200 0.46 -> 0.57 (its darks sit in the field's own
+# shade; the reference's pilaster bases are 0.45 of its wall too). images-5's trim/wall is 0.70.
 
 
 def bcf(tint):
@@ -331,9 +341,9 @@ def chroma(tint, k_g, k_b):
     return tuple(round(c * y / yn, 4) for c in n)
 
 TINT_WALL = (0.738, 0.728, 0.616)          # the brick: WALL 0.078 (the fields, the lane tier)
-TINT_TRIM = (0.349, 0.355, 0.327)          # the brick: DARK 0.038 (plinth bands, dome ribs, cells, the gate)
-TINT_TRIM_COL = (0.256, 0.260, 0.240)      # the column tile: DARK 0.038 (pilasters, cornices, collar, band)
-TINT_TRIM_STONE = (0.291, 0.295, 0.272)    # the stone: DARK 0.038 (the frieze)
+TINT_TRIM = (0.454, 0.461, 0.425)          # the brick: DARK 0.049 (plinth bands, dome ribs, cells, the gate)
+TINT_TRIM_COL = (0.333, 0.338, 0.312)      # the column tile: DARK 0.049 (pilasters, cornices, collar, band)
+TINT_TRIM_STONE = (0.378, 0.384, 0.354)    # the stone: DARK 0.049 (the frieze)
 TINT_BAND = bcf(TINT_TRIM_COL)                # the column tile as baseColorFactor ("band": cornices, string courses, the collar, the ring beam)
 TINT_FLOOR = (0.996, 0.971, 0.850)         # the floor tile: BRIGHT 0.148, 1.9 x the wall (the deck, the tower's paving)
 TINT_FIELD = (0.157, 0.153, 0.126)         # the pit tile: PIT 0.018 (the pit floor)
@@ -342,7 +352,7 @@ TINT_SPIKE = (0.144, 0.140, 0.116)         # the stone: PIT 0.018 (the spikes)
 TINT_VAULT = (0.996, 0.971, 0.850)         # the stone: BRIGHT, the stone's ceiling 0.126 (the dome's plain panels)
 TINT_DOME = (0.996, 0.971, 0.850)          # the triangle row: BRIGHT, its ceiling 0.094 (the dome's flute band)
 TINT_SHADE = (0.627, 0.619, 0.525)         # the brick: WALL x 0.85, a crease in reveals and soffits
-TINT_SHADE_TRIM = (0.297, 0.302, 0.278)    # the brick: DARK x 0.85, the crease in a dark frame's reveals (the portal)
+TINT_SHADE_TRIM = (0.386, 0.393, 0.361)    # the brick: DARK x 0.85, the crease in a dark frame's reveals (the portal)
 TINT_PLINTH_WALL = TINT_TRIM                # the names the prop builds import
 TINT_PLINTH = TINT_TRIM
 TINT_MARBLE2 = TINT_WALL
