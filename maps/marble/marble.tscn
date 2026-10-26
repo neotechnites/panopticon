@@ -18,7 +18,7 @@
 [ext_resource type="Shader" path="res://maps/marble/materials/skylight_pool.gdshader" id="22_pool_shader"]
 
 [sub_resource type="StandardMaterial3D" id="Blk_stone"]
-albedo_color = Color(0.631, 0.633, 0.565, 1)
+albedo_color = Color(0.632, 0.634, 0.554, 1)
 albedo_texture = ExtResource("Blk_brick")
 uv1_scale = Vector3(0.167, 0.167, 0.167)
 uv1_triplanar = true
@@ -172,8 +172,8 @@ omni_attenuation = 1.0
 [node name="TowerKey" type="SpotLight3D" parent="Skylight"]
 editor_description = "The tower's own key, and it lights NOTHING but the tower's rock (light_cull_mask = layer 11 alone; MarbleTowerRock sits on layers 1 + 11, the guard room's floor does not): an unshadowed spot 45 deg to the right of the lane-150 sightline and only 7 m above the lane, so it RAKES the shaft (a light square to that sightline only grazed the silhouette, and one 40 deg up lit the cap more than the shaft: at energy 10 the shaft's middle did not move by one step, measured), no distance falloff like the Key, 28 deg wide so it covers the shaft from the pit to the cap. Why: the shaft read as a flat grey cylinder (Ryan, marble-final2) because nothing in the room rakes it -- the Key is ON the axis, the eight lamps hang almost straight over the shaft's face (cos 0.07), so the shaft was the sky ambient alone, the same from every side. This gives it a lit side and a shaded side (x1.5 on screen) and leaves the lane, the cells, the cone and their shadows exactly as they were. UNSHADOWED on purpose: a second shadowed spot re-divides the positional shadow atlas and the Key's shadows on the lane floor lost resolution (wall200 floor -15 luma, measured)."
 transform = Transform3D(0.9655, 0.0794, -0.248, 0, 0.9524, 0.305, 0.2604, -0.2945, 0.9195, -6.5, 32, 24.1)
-light_color = Color(1, 0.959, 0.842, 1)
-light_energy = 5.61
+light_color = Color(1.0, 0.959, 0.807, 1)
+light_energy = 5.638
 light_specular = 0.0
 light_cull_mask = 1024
 shadow_enabled = false

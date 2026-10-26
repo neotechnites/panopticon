@@ -298,22 +298,32 @@ def stone(name, mode="cyl", mpt=WALL_MPT, **kw):
 # sat 0.21-0.26 and the trim an olive-GREY -- the colour is the light's, so every tint stays near
 # neutral and the key / sky carry the warmth.
 # Tile linear means: brick 0.108, stone 0.130, column 0.148, floor 0.153, pit 0.119, triangles 0.097.
-TINT_WALL = (0.752, 0.724, 0.606)          # the brick: WALL 0.078 (the fields, the lane tier)
-TINT_TRIM = (0.354, 0.355, 0.317)          # the brick: DARK 0.038 (plinth bands, dome ribs, cells, the gate)
-TINT_TRIM_COL = (0.260, 0.260, 0.233)      # the column tile: DARK 0.038 (pilasters, cornices, collar, band)
-TINT_TRIM_STONE = (0.295, 0.295, 0.264)    # the stone: DARK 0.038 (the frieze)
-TINT_BAND = (0.262, 0.262, 0.206)          # the column tile as baseColorFactor ("band": cornices, string courses, the collar, the ring beam):
-#   TINT_TRIM_COL's chroma raised to the 2.2 and its luminance held. Godot reads COLOR_0 as sRGB (its chroma lands on
-#   screen expanded), the first surface's baseColorFactor as linear: the cornice read 0.22 beside the pilaster's 0.30
-#   (tot_colour iter1) on the same nominal tint. The expansion holds the value: lane150 cornice 47 either way.
-TINT_FLOOR = (0.997, 0.972, 0.834)         # the floor tile: BRIGHT 0.148, 1.9 x the wall (the deck, the tower's paving)
-TINT_FIELD = (0.157, 0.153, 0.124)         # the pit tile: PIT 0.018 (the pit floor)
-TINT_FLOOR_STONE = (0.997, 0.972, 0.834)   # the stone: the floor's tint (the tower's centre; the stone cannot reach 0.148)
-TINT_SPIKE = (0.144, 0.140, 0.114)         # the stone: PIT 0.018 (the spikes)
-TINT_VAULT = (0.997, 0.972, 0.834)         # the stone: BRIGHT, the stone's ceiling 0.126 (the dome's plain panels)
-TINT_DOME = (0.997, 0.972, 0.834)          # the triangle row: BRIGHT, its ceiling 0.094 (the dome's flute band)
-TINT_SHADE = (0.640, 0.617, 0.516)         # the brick: WALL x 0.85, a crease in reveals and soffits
-TINT_SHADE_TRIM = (0.301, 0.302, 0.270)    # the brick: DARK x 0.85, the crease in a dark frame's reveals (the portal)
+
+
+def bcf(tint):
+    """`tint` for a surface whose tint rides as glTF baseColorFactor instead of COLOR_0 (a mesh's first surface,
+    which Godot 4.7 renders without COLOR_0; every prop_finish prop; the gate): Godot reads COLOR_0 as sRGB, so a
+    COLOR_0 tint's chroma lands on screen raised to the 2.2 while baseColorFactor is taken as linear -- the cornice
+    read HSV sat 0.22 beside the pilaster's 0.30 on the same nominal tint (tot_colour iter1). The chroma is raised
+    to the 2.2 and the tint's own luminance kept, so the surface's VALUE is what it was (the cornice stays 47 luma)
+    and its colour is its COLOR_0 sibling's."""
+    e = tuple(c ** 2.2 for c in tint)
+    y, ye = (0.2126 * tint[0] + 0.7152 * tint[1] + 0.0722 * tint[2]), (0.2126 * e[0] + 0.7152 * e[1] + 0.0722 * e[2])
+    return tuple(round(c * y / ye, 4) for c in e)
+
+TINT_WALL = (0.742, 0.726, 0.620)          # the brick: WALL 0.078 (the fields, the lane tier)
+TINT_TRIM = (0.345, 0.356, 0.331)          # the brick: DARK 0.038 (plinth bands, dome ribs, cells, the gate)
+TINT_TRIM_COL = (0.253, 0.261, 0.243)      # the column tile: DARK 0.038 (pilasters, cornices, collar, band)
+TINT_TRIM_STONE = (0.287, 0.296, 0.275)    # the stone: DARK 0.038 (the frieze)
+TINT_BAND = bcf(TINT_TRIM_COL)                # the column tile as baseColorFactor ("band": cornices, string courses, the collar, the ring beam)
+TINT_FLOOR = (0.996, 0.971, 0.850)         # the floor tile: BRIGHT 0.148, 1.9 x the wall (the deck, the tower's paving)
+TINT_FIELD = (0.157, 0.153, 0.126)         # the pit tile: PIT 0.018 (the pit floor)
+TINT_FLOOR_STONE = (0.996, 0.971, 0.850)   # the stone: the floor's tint (the tower's centre; the stone cannot reach 0.148)
+TINT_SPIKE = (0.144, 0.140, 0.116)         # the stone: PIT 0.018 (the spikes)
+TINT_VAULT = (0.996, 0.971, 0.850)         # the stone: BRIGHT, the stone's ceiling 0.126 (the dome's plain panels)
+TINT_DOME = (0.996, 0.971, 0.850)          # the triangle row: BRIGHT, its ceiling 0.094 (the dome's flute band)
+TINT_SHADE = (0.631, 0.618, 0.528)         # the brick: WALL x 0.85, a crease in reveals and soffits
+TINT_SHADE_TRIM = (0.293, 0.303, 0.282)    # the brick: DARK x 0.85, the crease in a dark frame's reveals (the portal)
 TINT_PLINTH_WALL = TINT_TRIM                # the names the prop builds import
 TINT_PLINTH = TINT_TRIM
 TINT_MARBLE2 = TINT_WALL
@@ -420,10 +430,11 @@ def prop_finish(ob, zones, name, atlas_index=None, bricks=None):
     brick (world box, PROP_MPT, tinted), every other zone on its own tile (TILE_OF, else the
     plain stone), its window already in it. zones[pi] None leaves that face alone; atlas_index
     is the slot the model already has for the untinted brick (the hub); bricks overrides
-    PROP_BRICKS' zone tints (the portal: a dark frame)."""
+    PROP_BRICKS' zone tints (the portal: a dark frame). No COLOR_0 here: every tint is a material
+    constant (baseColorFactor), so each goes through bcf()."""
     me = ob.data
     uvl = me.uv_layers["UVMap"]
-    sheets = {z: brick(z, PROP_MPT, PROP_MPT, t, mode="box") for z, t in (bricks or PROP_BRICKS).items()}
+    sheets = {z: brick(z, PROP_MPT, PROP_MPT, bcf(t), mode="box") for z, t in (bricks or PROP_BRICKS).items()}   # constants: bcf
     faces, kind = {}, {}
     for pi, poly in enumerate(me.polygons):
         z = zones[pi]
@@ -457,7 +468,7 @@ def prop_finish(ob, zones, name, atlas_index=None, bricks=None):
                 if glows:
                     mat = stone_material(name + "Glow", img, img)
                 else:
-                    mat = tx.material("%s_%s" % (name, key), img, None, ROUGHNESS, METALLIC, False, tint)
+                    mat = tx.material("%s_%s" % (name, key), img, None, ROUGHNESS, METALLIC, False, bcf(tint) if tint else None)
             else:
                 alb = tx.images("marble", sheets[cls])[0]
                 mat = tx.material("%s_%s" % (name, cls), alb, None, ROUGHNESS, METALLIC, False, sheets[cls].tint)

@@ -82,7 +82,7 @@ def sheets(R):
         "plinth": mb.brick("plinth", mpt_v=mb.COURSE_MPT / 2.0, tint=mb.TINT_PLINTH_WALL, ref_r=R,
                            phase=(0.0, SOCLE_H - 0.582 * mb.COURSES / 2.0)),
         "shade": mb.brick("shade", tint=mb.TINT_SHADE, ref_r=R, phase=(0.0, v0)),
-        "band": mb.tile("band", "marble_column", "custom", mb.COL_W, mb.COL_H, tint=mb.TINT_TRIM_COL),   # the cap: the trim value
+        "band": mb.tile("band", "marble_column", "custom", mb.COL_W, mb.COL_H, tint=mb.TINT_BAND),   # the cap: the trim value, as baseColorFactor (kept out of COLOR_0 below)
     }
 
 
