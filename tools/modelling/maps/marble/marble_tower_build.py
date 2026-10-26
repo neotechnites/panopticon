@@ -226,23 +226,31 @@ def _shared(name, px=SHAFT_PX, ref_r=SHAFT_R, u0=U0_SHAFT, tint=None, stem=mb.TO
 
 
 PAVING_K = (0.811, 0.753, 0.569)   # lane deck / tower paving, per channel, linear (tot_fix proof, iter2)
-TOWER_K = (1.01, 0.955)   # the room's tints on the tower's own tiles, which are greyer: green / blue against red, luminance held
+TOWER_K = (1.01, 0.90)    # the room's WALL and BRIGHT tints on the tower's own tiles, which are greyer: green / blue against red, luminance held
 #                           (tot_colour iter3: the shaft 49/0.22 and the colonnade 0.19 beside the lane wall's 50/0.28 and
 #                           pilasters' 0.25 on the same tints; the references' trim 56/0.26, wall 53/0.27)
+
+
+TOWER_K_TRIM = (1.0, 0.97)   # ... and its DARK tints (columns, ring beam, plinth), which read saturated enough on the column
+#                              tile (tot_colour iter5: the tower columns 0.29 beside the room's pilasters 0.27 at 0.93)
 
 
 def _k(tint):
     return mb.chroma(tint, *TOWER_K)
 
 
+def _kt(tint):
+    return mb.chroma(tint, *TOWER_K_TRIM)
+
+
 SHEETS = {   # every stone class on the tower's own tile, at the ROOM'S THREE VALUES (mb.TINT_*): shaft and spandrels WALL; columns, ring beam, plinth, foot and steps DARK; cap and paving BRIGHT
     "stone": _shared("stone", tint=_k(mb.TINT_WALL)),                              # the spandrels: the room's wall value
     "shaft": _shared("shaft", tint=_k(mb.TINT_WALL)),                              # the shaft's outside: the wall value
-    "plinth": _shared("plinth", tint=_k(mb.TINT_PLINTH)),                          # foot, steps, room floor band, dais: the trim value
+    "plinth": _shared("plinth", tint=_kt(mb.TINT_PLINTH)),                          # foot, steps, room floor band, dais: the trim value
     "shade": mb.brick("shade", ref_r=SHAFT_R, phase=(U0_SHAFT, V0), stem=mb.TOWER_STEM, tint=_k(mb.TINT_SHADE)),   # reveals, soffits, undersides: the wall's crease
     "marble2": _shared("marble2", BAL_PX, BALCONY_R, U0_BAL, _k(mb.TINT_MARBLE2)),  # the ledge: the wall value
-    "band": mb.band_sheet(mb.TOWER_COLUMN_STEM, _k(mb.TINT_TRIM_COL)),                              # ring beam, slab edge: his column tile turned
-    "column": mb.column_sheet(mb.TOWER_COLUMN_STEM, _k(mb.TINT_TRIM_COL)),                          # his column tile, at the tower's light
+    "band": mb.band_sheet(mb.TOWER_COLUMN_STEM, _kt(mb.TINT_TRIM_COL)),                              # ring beam, slab edge: his column tile turned
+    "column": mb.column_sheet(mb.TOWER_COLUMN_STEM, _kt(mb.TINT_TRIM_COL)),                          # his column tile, at the tower's light
     "iron": mb.iron_sheet(),
     # The paving wears the LANE'S floor tile, tinted so it reads AS THE LANE DECK ON SCREEN (Ryan
     # 2026-10-24: "the tower floor is a different colour than the ring floor" -- it was

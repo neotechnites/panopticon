@@ -295,8 +295,15 @@ def stone(name, mode="cyl", mpt=WALL_MPT, **kw):
 #                 0.022 was tried first and went black in a pilaster's shade, the reference's trim is 35-69)
 #   PIT    0.018  the pit floor and the spikes, 24 m down; the iron the same
 # Measured on images-5: trim/wall 0.70 and floor/wall 2.0 on screen, hue 55-70 everywhere, the trim's
-# sat 0.21-0.26 and the trim an olive-GREY -- the colour is the light's, so every tint stays near
-# neutral and the key / sky carry the warmth.
+# sat 0.21-0.26 and the trim an olive-GREY.
+# COLOUR (marble-tot-colour, Ryan on final2: "we've lost the olive hue ... colour matched to ToT"): the
+# values above stand (every tint's luminance held), the OLIVE is in the tints AND the light. Targets
+# are the two references' average, HSV of the mean sRGB on screen: wall hue 53 / sat 0.27, floor 49 /
+# 0.26, trim 56 / 0.26, the trim never more saturated than the wall. The sky, fog, Key, TowerKey,
+# TowerFill, PoolBounce and the lamps sit in the same family (the scene). Godot reads COLOR_0 as sRGB,
+# so a tint's chroma lands on screen raised to the 2.2: these tints are set by measurement, and a
+# tint that rides as baseColorFactor instead goes through bcf() below. Measured (tot_colour iter6,
+# lane150): wall 52 / 0.28, floor 50 / 0.27, trim 56 / 0.25.
 # Tile linear means: brick 0.108, stone 0.130, column 0.148, floor 0.153, pit 0.119, triangles 0.097.
 
 
