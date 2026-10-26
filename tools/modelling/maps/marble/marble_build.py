@@ -298,18 +298,22 @@ def stone(name, mode="cyl", mpt=WALL_MPT, **kw):
 # sat 0.21-0.26 and the trim an olive-GREY -- the colour is the light's, so every tint stays near
 # neutral and the key / sky carry the warmth.
 # Tile linear means: brick 0.108, stone 0.130, column 0.148, floor 0.153, pit 0.119, triangles 0.097.
-TINT_WALL = (0.754, 0.726, 0.584)          # the brick: WALL 0.078 (the fields, the lane tier)
-TINT_TRIM = (0.355, 0.356, 0.303)          # the brick: DARK 0.038 (plinth bands, dome ribs, cells, the gate)
-TINT_TRIM_COL = (0.261, 0.261, 0.223)      # the column tile: DARK 0.038 (pilasters, cornices, collar, band)
-TINT_TRIM_STONE = (0.296, 0.296, 0.252)    # the stone: DARK 0.038 (the frieze)
-TINT_FLOOR = (0.998, 0.973, 0.819)         # the floor tile: BRIGHT 0.148, 1.9 x the wall (the deck, the tower's paving)
-TINT_FIELD = (0.157, 0.153, 0.122)         # the pit tile: PIT 0.018 (the pit floor)
-TINT_FLOOR_STONE = (0.998, 0.973, 0.819)   # the stone: the floor's tint (the tower's centre; the stone cannot reach 0.148)
-TINT_SPIKE = (0.144, 0.140, 0.112)         # the stone: PIT 0.018 (the spikes)
-TINT_VAULT = (0.998, 0.973, 0.819)         # the stone: BRIGHT, the stone's ceiling 0.126 (the dome's plain panels)
-TINT_DOME = (0.998, 0.973, 0.819)          # the triangle row: BRIGHT, its ceiling 0.094 (the dome's flute band)
-TINT_SHADE = (0.641, 0.618, 0.497)         # the brick: WALL x 0.85, a crease in reveals and soffits
-TINT_SHADE_TRIM = (0.302, 0.303, 0.258)    # the brick: DARK x 0.85, the crease in a dark frame's reveals (the portal)
+TINT_WALL = (0.752, 0.724, 0.606)          # the brick: WALL 0.078 (the fields, the lane tier)
+TINT_TRIM = (0.354, 0.355, 0.317)          # the brick: DARK 0.038 (plinth bands, dome ribs, cells, the gate)
+TINT_TRIM_COL = (0.260, 0.260, 0.233)      # the column tile: DARK 0.038 (pilasters, cornices, collar, band)
+TINT_TRIM_STONE = (0.295, 0.295, 0.264)    # the stone: DARK 0.038 (the frieze)
+TINT_BAND = (0.262, 0.262, 0.206)          # the column tile as baseColorFactor ("band": cornices, string courses, the collar, the ring beam):
+#   TINT_TRIM_COL's chroma raised to the 2.2 and its luminance held. Godot reads COLOR_0 as sRGB (its chroma lands on
+#   screen expanded), the first surface's baseColorFactor as linear: the cornice read 0.22 beside the pilaster's 0.30
+#   (tot_colour iter1) on the same nominal tint. The expansion holds the value: lane150 cornice 47 either way.
+TINT_FLOOR = (0.997, 0.972, 0.834)         # the floor tile: BRIGHT 0.148, 1.9 x the wall (the deck, the tower's paving)
+TINT_FIELD = (0.157, 0.153, 0.124)         # the pit tile: PIT 0.018 (the pit floor)
+TINT_FLOOR_STONE = (0.997, 0.972, 0.834)   # the stone: the floor's tint (the tower's centre; the stone cannot reach 0.148)
+TINT_SPIKE = (0.144, 0.140, 0.114)         # the stone: PIT 0.018 (the spikes)
+TINT_VAULT = (0.997, 0.972, 0.834)         # the stone: BRIGHT, the stone's ceiling 0.126 (the dome's plain panels)
+TINT_DOME = (0.997, 0.972, 0.834)          # the triangle row: BRIGHT, its ceiling 0.094 (the dome's flute band)
+TINT_SHADE = (0.640, 0.617, 0.516)         # the brick: WALL x 0.85, a crease in reveals and soffits
+TINT_SHADE_TRIM = (0.301, 0.302, 0.270)    # the brick: DARK x 0.85, the crease in a dark frame's reveals (the portal)
 TINT_PLINTH_WALL = TINT_TRIM                # the names the prop builds import
 TINT_PLINTH = TINT_TRIM
 TINT_MARBLE2 = TINT_WALL
@@ -324,7 +328,7 @@ TINT_IRON = (0.1557, 0.1445, 0.1382)       # the plain stone darkened to the dra
 
 def band_sheet(stem="marble_column"):
     """The column tile turned 90 deg: the flutes run along the band, the band's height fits across them."""
-    return tile("band", stem, "fit_v", COL_H, COL_W, turn=True, tint=TINT_TRIM_COL)
+    return tile("band", stem, "fit_v", COL_H, COL_W, turn=True, tint=TINT_BAND)
 
 
 def column_sheet(stem="marble_column"):
