@@ -86,8 +86,8 @@ shader = ExtResource("21_shaft_shader")
 
 [sub_resource type="CylinderMesh" id="ShaftMesh"]
 material = SubResource("ShaftMat")
-top_radius = 11.0
-bottom_radius = 20.0
+top_radius = 9.0
+bottom_radius = 14.0
 height = 79.95
 radial_segments = 32
 rings = 1
@@ -364,7 +364,7 @@ mesh = SubResource("MoteMesh")
 emission_shape = 6
 emission_ring_axis = Vector3(0, 1, 0)
 emission_ring_height = 38.0
-emission_ring_radius = 10.0
+emission_ring_radius = 8.0
 emission_ring_inner_radius = 0.0
 direction = Vector3(0, -1, 0)
 spread = 180.0
