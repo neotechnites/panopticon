@@ -585,7 +585,7 @@ def _dome(m, coll=False):
                        (math.sin(a_s), -math.cos(a_s), 0.0), "shade")
                 m.quad(P(k, s), P(k, t), P(k + 1, t), P(k + 1, s),
                        want(m.verts[P(k, s)], m.verts[P(k, t)], m.verts[P(k + 1, t)], m.verts[P(k + 1, s)]),
-                       "marble")
+                       "rib")                                    # the rib's face: the trim's value
                 m.quad(P(k, t), S(k, t), S(k + 1, t), P(k + 1, t),
                        (-math.sin(a_t), math.cos(a_t), 0.0), "shade")
             else:
@@ -652,7 +652,7 @@ def build(m):
         band = _tier_band(t)
         z1, z2 = B + band[0], B + band[1]
         rad, n = mb.tier_ring(t)
-        walled = mb.walled_cells() if t == mb.SLAB_TIER else set()
+        walled = set(range(n)) if t in mb.BRICK_TIERS else mb.walled_cells() if t == mb.SLAB_TIER else set()
         for i in range(n):
             (_walled if i in walled else _cell)(m, i, t, "marble" if (i + t) % 2 == 0 else "marble2")
         take("tris_cells")

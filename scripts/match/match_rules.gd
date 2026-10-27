@@ -148,6 +148,8 @@ enum RunnerAbility {
 	ARMOR_LOCK,
 	## The body goes near-transparent; the AI guard sees it only within 25 m.
 	ACTIVE_CAMO,
+	## A cat grenade: E cooks it, shove throws it; its blast throws players and hurts nobody.
+	CAT_GRENADE,
 }
 
 # --- The map ------------------------------------------------------------------
@@ -886,6 +888,8 @@ static func runner_ability_title(value: int) -> String:
 			return TranslationServer.translate("SETUP_ABILITY_ARMOR_LOCK")
 		RunnerAbility.ACTIVE_CAMO:
 			return TranslationServer.translate("SETUP_ABILITY_ACTIVE_CAMO")
+		RunnerAbility.CAT_GRENADE:
+			return TranslationServer.translate("SETUP_ABILITY_CAT_GRENADE")
 	return String(RunnerAbility.keys()[value])
 
 

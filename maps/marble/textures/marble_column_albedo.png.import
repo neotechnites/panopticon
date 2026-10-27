@@ -2,20 +2,22 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://y2andb3iekrr"
-path="res://.godot/imported/marble_column_albedo.png-1f49c6ede51dc8b051f833605711811e.ctex"
+uid="uid://ddqxpti7mu5aq"
+path.s3tc="res://.godot/imported/marble_column_albedo.png-1f49c6ede51dc8b051f833605711811e.s3tc.ctex"
+path.etc2="res://.godot/imported/marble_column_albedo.png-1f49c6ede51dc8b051f833605711811e.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://maps/marble/textures/marble_column_albedo.png"
-dest_files=["res://.godot/imported/marble_column_albedo.png-1f49c6ede51dc8b051f833605711811e.ctex"]
+dest_files=["res://.godot/imported/marble_column_albedo.png-1f49c6ede51dc8b051f833605711811e.s3tc.ctex", "res://.godot/imported/marble_column_albedo.png-1f49c6ede51dc8b051f833605711811e.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

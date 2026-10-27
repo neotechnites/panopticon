@@ -72,7 +72,7 @@ const MAX_INTENT_REDUNDANCY: int = 4
 const SNAPSHOT_HEADER_SIZE: int = 9
 
 ## Bytes per body inside a snapshot: u8 seat, 3 i16 of position, 3 i16 of
-## velocity, u16 yaw, i16 pitch, u16 view base, 1 flag byte, u8 running ability, u8 tenths left
+## velocity, u16 yaw, i16 pitch, u16 view base, 2 flag bytes, u8 running ability, u8 tenths left
 ## on it, u8 tenths of its cooldown, u8 hit points and u32 acknowledged intent
 ## tick. The seat is a byte and not a peer id because seats are what bodies are
 ## named by -- see [PlayerState].
@@ -80,7 +80,7 @@ const SNAPSHOT_HEADER_SIZE: int = 9
 ## The size IS the version: [method unpack_snapshot] refuses any payload that is
 ## not a header plus a whole number of bodies this wide, so a build that grew a
 ## field cannot half-read one that did not.
-const SNAPSHOT_BODY_SIZE: int = 28
+const SNAPSHOT_BODY_SIZE: int = 29
 
 ## Centimetres to the metre: the unit position and velocity are sent in.
 ##
@@ -125,6 +125,8 @@ const _FLAG_ABILITY_HELD: int = 1 << 7
 ## Second flag byte. The first is full; new intent bits start here.
 const _FLAG2_SHOVE_PRESSED: int = 1 << 0
 const _FLAG2_AIM_HELD: int = 1 << 1
+const _FLAG2_COOK_PRESSED: int = 1 << 2
+const _FLAG2_EMOTE_PRESSED: int = 1 << 3
 const _FLAG_ON_FLOOR: int = 1 << 0
 ## The rest of the snapshot flag byte: what a mirror cannot work out for itself
 ## because it runs no physics and takes no match decisions.
@@ -134,6 +136,8 @@ const _FLAG_IS_ARMED: int = 1 << 2
 # which is the same thing plus the ability to survive a dropped snapshot.
 const _FLAG_SLIDING: int = 1 << 4
 const _FLAG_CROUCHING: int = 1 << 5
+## Second snapshot flag byte; the first is full.
+const _FLAG2_EMOTING: int = 1 << 0
 
 ## Where the jump counter sits in the flag byte: bits 3, 6 and 7.
 ##
@@ -148,7 +152,7 @@ const _JUMP_BIT_POSITIONS: Array[int] = [3, 6, 7]
 const _FLAG_SEAT_READY: int = 1 << 0
 
 ## Highest [enum MatchRules.RunnerAbility] value the wire carries.
-const _MAX_ABILITY: int = 4
+const _MAX_ABILITY: int = 5
 
 ## Ceiling on a quantised timer, and on hit points: one byte each.
 const _ABILITY_TENTHS_MAX: int = 255
@@ -219,9 +223,12 @@ static func _put_intent(buffer: StreamPeerBuffer, intent: MoveIntent) -> void:
 	if intent.ability_held:
 		flags |= _FLAG_ABILITY_HELD
 	buffer.put_u8(flags)
-	buffer.put_u8(clampi(intent.ability_slot, 0, 4))
+	buffer.put_u8(clampi(intent.ability_slot, 0, _MAX_ABILITY))
 	buffer.put_u8(
-		(_FLAG2_SHOVE_PRESSED if intent.shove_pressed else 0) | (_FLAG2_AIM_HELD if intent.aim_held else 0)
+		(_FLAG2_SHOVE_PRESSED if intent.shove_pressed else 0)
+		| (_FLAG2_AIM_HELD if intent.aim_held else 0)
+		| (_FLAG2_COOK_PRESSED if intent.cook_pressed else 0)
+		| (_FLAG2_EMOTE_PRESSED if intent.emote_pressed else 0)
 	)
 
 
@@ -289,9 +296,11 @@ static func unpack_intent_at(payload: PackedByteArray, index: int, out: MoveInte
 	out.fire_held = (flags & _FLAG_FIRE_HELD) != 0
 	out.ability_pressed = (flags & _FLAG_ABILITY_PRESSED) != 0
 	out.ability_held = (flags & _FLAG_ABILITY_HELD) != 0
-	out.ability_slot = clampi(slot, 0, 4)
+	out.ability_slot = clampi(slot, 0, _MAX_ABILITY)
 	out.shove_pressed = (flags2 & _FLAG2_SHOVE_PRESSED) != 0
 	out.aim_held = (flags2 & _FLAG2_AIM_HELD) != 0
+	out.cook_pressed = (flags2 & _FLAG2_COOK_PRESSED) != 0
+	out.emote_pressed = (flags2 & _FLAG2_EMOTE_PRESSED) != 0
 	# The dev keys are not on the wire and must not survive on a reused struct
 	# either. [param out] is owned by the caller and lives for the session, so a
 	# field this format does not carry has to be cleared here or it keeps
@@ -329,6 +338,7 @@ static func pack_snapshot(snapshot: WorldSnapshot) -> PackedByteArray:
 		if state.crouching:
 			flags |= _FLAG_CROUCHING
 		buffer.put_u8(flags)
+		buffer.put_u8(_FLAG2_EMOTING if state.emoting else 0)
 		buffer.put_u8(clampi(state.ability, 0, _MAX_ABILITY))
 		buffer.put_u8(clampi(
 			int(state.ability_remaining * 10.0), 0, _ABILITY_TENTHS_MAX
@@ -374,6 +384,7 @@ static func unpack_snapshot(payload: PackedByteArray, out: WorldSnapshot) -> boo
 		var pitch: float = float(buffer.get_16()) / _PITCH_SCALE
 		var view_base: float = wrapf(float(buffer.get_u16()) / float(_YAW_STEPS) * TAU, -PI, PI)
 		var flags: int = buffer.get_u8()
+		var flags2: int = buffer.get_u8()
 		# An ability byte from a build with more powers than this one is clamped
 		# rather than refused: it costs one body's effect, not the whole world's
 		# positions.
@@ -400,6 +411,7 @@ static func unpack_snapshot(payload: PackedByteArray, out: WorldSnapshot) -> boo
 		state.jump_counter = _unpack_jump_counter(flags)
 		state.sliding = (flags & _FLAG_SLIDING) != 0
 		state.crouching = (flags & _FLAG_CROUCHING) != 0
+		state.emoting = (flags2 & _FLAG2_EMOTING) != 0
 		out.commit()
 	return true
 

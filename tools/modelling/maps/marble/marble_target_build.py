@@ -167,7 +167,9 @@ def _finish(ob, m):
     for mat in mats.values():
         mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
     tx.finish(ob, m.zones, {z: mats[z] for z in set(m.zones)})
-    vertex_ao.apply(ob, vertex_ao.bake(ob, dist=0.5))
+    # keep the first surface's class: Godot 4.7 drops vertex_color_use_as_albedo on a mesh's first
+    # surface, so its tint rides as baseColorFactor (the post's ashlar rendered the raw tile, white).
+    vertex_ao.apply(ob, vertex_ao.bake(ob, dist=0.5), keep=(ob.data.materials[0].name,))
 
 
 def build():

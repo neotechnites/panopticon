@@ -4,7 +4,7 @@ extends BotIntentSource
 ## A debug body's scripted routine, written into the same struct a bot writes. Nothing here draws:
 ## what the body shows is the real controller and avatar answering this intent.
 
-enum Routine { STAND, LOOK, WALK, SPRINT, JUMP, LEDGE, SLOPE, GUARD, FOLLOW, SHOVE, NUDGE }
+enum Routine { STAND, LOOK, WALK, SPRINT, JUMP, LEDGE, SLOPE, GUARD, FOLLOW, SHOVE, NUDGE, BALL }
 
 ## Stick lengths: a walk, a careful walk over uneven ground, a hop's carry.
 const WALK: float = 0.25
@@ -53,6 +53,7 @@ func run(next: Routine, points: PackedVector3Array = PackedVector3Array()) -> vo
 	command.clear()
 	var body: PlayerController = get_parent() as PlayerController
 	_yaw = body.rotation.y if body != null else 0.0
+	command.emote_pressed = body != null and body.is_emoting() != (next == Routine.BALL)
 
 
 func poll(delta: float) -> MoveIntent:
@@ -62,7 +63,9 @@ func poll(delta: float) -> MoveIntent:
 		command.look_delta = Vector2.ZERO
 		_clock += delta
 		_step(body, delta)
-	return super.poll(delta)
+	var out: MoveIntent = super.poll(delta)
+	command.emote_pressed = false
+	return out
 
 
 func _step(body: PlayerController, delta: float) -> void:

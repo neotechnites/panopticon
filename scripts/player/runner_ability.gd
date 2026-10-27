@@ -30,6 +30,7 @@ var _decoy: PlayerController = null
 var _shell: MeshInstance3D = null
 var _camo_mesh: MeshInstance3D = null
 var _camo_saved: Material = null
+var _cat: CatGrenade = null
 ## What a client is DRAWING, off the snapshot. Never set on the authority, where
 ## [member _active] is the truth.
 var _presented: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE
@@ -80,12 +81,25 @@ static func decoy_of(collider: Node) -> PlayerController:
 	return null
 
 
+func _ready() -> void:
+	CatGrenadeRelay.ensure(get_tree())
+
+
 func _physics_process(delta: float) -> void:
 	if _cooldown > 0.0:
 		_cooldown = maxf(_cooldown - delta, 0.0)
 	if body == null or not body.is_physics_processing():
 		return
 	var intent: MoveIntent = body.get_intent()
+	if _active == MatchRules.RunnerAbility.CAT_GRENADE:
+		# The cat's own fuse is the clock; a predicting client waits on the authority.
+		if is_instance_valid(_cat):
+			if intent.cook_pressed:
+				_cat.cook()
+			_remaining = _cat.fuse_left
+		elif not body.net_predicted:
+			_end()
+		return
 	if _active != MatchRules.RunnerAbility.NONE:
 		_remaining -= delta
 		var released: bool = _active == MatchRules.RunnerAbility.ARMOR_LOCK and not intent.ability_held
@@ -129,6 +143,10 @@ func activate(which: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE) -
 			_lock()
 		MatchRules.RunnerAbility.ACTIVE_CAMO:
 			_cloak()
+		MatchRules.RunnerAbility.CAT_GRENADE:
+			_remaining = CatGrenade.FUSE_SECONDS
+			if not body.net_predicted:
+				_spawn_cat()
 	return true
 
 
@@ -258,6 +276,10 @@ func _teardown(keep_decoy: bool = false) -> void:
 	_presented = MatchRules.RunnerAbility.NONE
 	if body != null:
 		body.movement_locked = false
+	if is_instance_valid(_cat):
+		_cat.exploded.disconnect(_on_cat_exploded)
+		_cat.discard()
+	_cat = null
 	if _camo_mesh != null:
 		_camo_mesh.material_override = _camo_saved
 		_camo_mesh = null
@@ -396,6 +418,28 @@ func _raise_shell() -> void:
 	body.add_child(shell)
 	shell.position = Vector3.UP * 0.9
 	_shell = shell
+
+
+# --- Cat grenade --------------------------------------------------------------
+
+func _spawn_cat() -> void:
+	var cat: CatGrenade = CatGrenade.new()
+	cat.carrier = body
+	cat.match_controller = match_controller
+	cat.exploded.connect(_on_cat_exploded)
+	body.get_parent().add_child(cat)
+	_cat = cat
+
+
+func _on_cat_exploded() -> void:
+	_cat = null
+	if _active == MatchRules.RunnerAbility.CAT_GRENADE:
+		_end()
+
+
+## Shove while carrying the cat: throw it. True when a cat took the shove. Authority only.
+func throw_cat() -> bool:
+	return is_instance_valid(_cat) and _cat.throw()
 
 
 # --- Active camo --------------------------------------------------------------

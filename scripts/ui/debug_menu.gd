@@ -393,6 +393,7 @@ func _build_mannequins(hub: MatchController) -> void:
 	_button(more, "DEBUG_MQ_SLOPE", _act.bind(stage.run.bind(MannequinIntent.Routine.SLOPE)))
 	_button(more, "DEBUG_MQ_GUARD", _act.bind(stage.run.bind(MannequinIntent.Routine.GUARD)))
 	_button(more, "DEBUG_MQ_FOLLOW", _act.bind(stage.run.bind(MannequinIntent.Routine.FOLLOW)))
+	_button(more, "DEBUG_MQ_BALL", _act.bind(stage.run.bind(MannequinIntent.Routine.BALL)))
 	_button(more, "DEBUG_MQ_STOP", _act.bind(stage.run.bind(MannequinIntent.Routine.STAND)))
 
 	_heading("DEBUG_MQ_DONE_TO")

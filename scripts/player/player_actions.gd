@@ -51,11 +51,17 @@ const SLIDE: StringName = &"slide"
 ## The runner's power: Q, or the left shoulder button on a pad.
 const ABILITY: StringName = &"ability"
 const ABILITY_PAD_BUTTON: JoyButton = JOY_BUTTON_LEFT_SHOULDER
-## Direct picks: 1 shield, 2 hologram, 3 armor lock, 4 camo.
-const ABILITY_SLOTS: Array[StringName] = [&"ability_1", &"ability_2", &"ability_3", &"ability_4"]
+## Direct picks: 1 shield, 2 hologram, 3 armor lock, 4 camo, 5 cat grenade.
+const ABILITY_SLOTS: Array[StringName] = [
+	&"ability_1", &"ability_2", &"ability_3", &"ability_4", &"ability_5"
+]
+## E: pet, use, and cook a held cat grenade.
+const INTERACT: StringName = &"interact"
 
 ## Prisoner on prisoner: F, or the B button on a pad. Tapped, never held.
 const SHOVE: StringName = &"shove"
+## The dribble emote: B toggles it; moving ends it.
+const EMOTE: StringName = &"emote"
 ## Dev turbo: T held = 300% speed.
 const TURBO: StringName = &"debug_turbo"
 ## Dev godmode: Y toggles rifle immunity.
@@ -96,13 +102,15 @@ static func ensure_registered() -> void:
 		var shove_pad: InputEventJoypadButton = InputEventJoypadButton.new()
 		shove_pad.button_index = SHOVE_PAD_BUTTON
 		InputMap.action_add_event(SHOVE, shove_pad)
+	_ensure(INTERACT, [KEY_E])
+	_ensure(EMOTE, [KEY_B])
 	_ensure(TURBO, [KEY_T])
 	_ensure(GODMODE, [KEY_Y])
 	_ensure(HUD_TOGGLE, [KEY_H])
 	_ensure(FREE_CAMERA, [KEY_C])
 	_ensure(FREECAM_UP, [KEY_E])
 	_ensure(FREECAM_DOWN, [KEY_Q])
-	var slot_keys: Array[int] = [KEY_1, KEY_2, KEY_3, KEY_4]
+	var slot_keys: Array[int] = [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5]
 	for i: int in ABILITY_SLOTS.size():
 		_ensure(ABILITY_SLOTS[i], [slot_keys[i]])
 
