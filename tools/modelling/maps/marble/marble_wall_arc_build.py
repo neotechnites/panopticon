@@ -50,7 +50,7 @@ FACING_YAW = 0.0
 VARIANTS = {
     "": dict(radius=47.3, arc_deg=11.4, height=7.6, thickness=0.75),       # the lip wall: a 9.4 m slab
     "long": dict(radius=47.3, arc_deg=19.7, height=7.6, thickness=0.75),   # ... the 16.2 m one
-    "low": dict(radius=47.3, arc_deg=11.4, height=3.0, thickness=0.75),    # Section B's: over a runner and his jump
+    "low": dict(radius=47.3, arc_deg=11.4, height=3.9, thickness=0.75),    # Section B's: over a runner and his jump
 }
 # Every variant wears the SAME brick: U by arc length at mb.WALL_MPT, V by world height at mb.COURSE_MPT, the
 # phase below independent of the height. A shorter wall is fewer courses, never smaller bricks (Ryan: "a brick
