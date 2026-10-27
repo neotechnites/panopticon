@@ -7,8 +7,8 @@ rules: 16:9 1920x1080 (SIZE=1920x1080 shot.sh), no HUD except the guard's scope,
 v2 notes (Ryan on rough_v1): the guard stands at the tower's window, not deep inside; all runners run the course direction; the runner shot is the SAME event as the guard shot (same stage, same seed, two POVs), cut back ~1 s to the man directly behind the victim; clear line of sight when he looks up at the tower; title drops in HARD on the music's drop; music https://www.youtube.com/watch?v=OBPV0lsorwU; real-looking gameplay only (walkable deck and real cover, nobody on lava, nobody looking backwards); max 4 players a shot (1 guard + 3); spread across hell, forest and marble. Added: "EVERY shot is first-person POV -- either the guard's scope/tower view or a prisoner's first-person view. No third-person ... Title/end cards are the only non-POV frames."
 music: external\src\music_v2_OBPV0lsorwU.mp4 -> voice\sr20det.ogg (SOURCES.md). The drop: 0.35 s of silence from 5.36 s, the hit at 5.703 s (sample onset); 170 bpm after it (v3 measured).
 cards: cuts/title_hard.mp4 is v1's title frame looped from frame 0 (v1's title.mp4 opened on two black frames); cuts/end.mp4 is v1's.
-delivery: content\trailer_reveal\final\rough_v52_cutA.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
-tag: rough_v60_beats
+delivery: content\trailer_reveal\final\rough_v75_nobeach.mp4 (and C:\Users\ddd\Desktop\panopticon-renders\trailer\final_options\75_marble_refilm.mp4)
+tag: rough_v75_nobeach
 alt: rough_v24 (the SR20DET cut before Ryan's seven notes; ## script rough_v24)
 alt: rough_v26_vivaldi (rough_v25_vivaldi with the seven notes, every cut and event on the same beats; ## script rough_v26_vivaldi)
 kept: cuts\_v25\NN.mp4 are the shot files rough_v24 and rough_v25_vivaldi were cut from (every shot was refilmed for v26 on main 6547970).
@@ -1526,3 +1526,51 @@ in: 0.9
 freeze: waive
 expect: hit PlateHitbox 2.24-2.32; stage dropped 2.80-2.94; out Runner_2 3.30-3.44; stage rim 4.42-5.2
 
+# v75 begin: v74's five marble slots refilmed as they are (same entries, tapes, in/seconds, take frames and edit) with Movie Maker on main a7cc4164's marble
+# (lighting from scratch, Ryan's brick, the trapdoors as floor sectors, Section B's 5.07 m low wall, the oculus god-ray cone); geometry and lanes unchanged. refilm_v75_nobeach.py
+
+## 5hw_75
+said: v75 (Ryan 2026-10-26: "re-film all the marble scenes and create v75. Nothing about the geometry has changed so just rerun the shots with the new map and make the new trailer. You can use Movie Maker for this, not screen capture"): 5hw as it is on main a7cc4164's marble
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_track --bots=3 --pov=guard --hud=crosshair --rifle=projectile --set=fire=2.6;turn=85.35 --seed=20261001
+tape: marble_hit_c
+seconds: 3.15
+in: 1.8666
+freeze: waive
+expect: hit Runner_1 2.94-3.00
+
+## 23alt_75
+said: v75 (Ryan 2026-10-26: "re-film all the marble scenes and create v75. Nothing about the geometry has changed so just rerun the shots with the new map and make the new trailer. You can use Movie Maker for this, not screen capture"): 23alt as it is on main a7cc4164's marble
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_far_lever --bots=3 --pov=runner --rifle=projectile --seed=20261001
+seconds: 3.5
+in: 0.9
+freeze: waive
+expect: hit PlateHitbox 2.24-2.32; stage dropped 2.80-2.94; out Runner_2 3.30-3.44; stage rim 4.42-5.2
+
+## 10aw_75
+said: v75 (Ryan 2026-10-26: "re-film all the marble scenes and create v75. Nothing about the geometry has changed so just rerun the shots with the new map and make the new trailer. You can use Movie Maker for this, not screen capture"): 10aw as it is on main a7cc4164's marble
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=runner --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;kick=0.1;back_pace=0.5;follow=0.4;run_after=0.9;settle_omega=45;max_rate=55;turn=-180.4 --seed=20261001
+tape: marble_column_a
+seconds: 4.0
+in: 0.75
+freeze: waive
+expect: shove Runner_2 2.97-3.03
+
+## 10bw_75
+said: v75 (Ryan 2026-10-26: "re-film all the marble scenes and create v75. Nothing about the geometry has changed so just rerun the shots with the new map and make the new trailer. You can use Movie Maker for this, not screen capture"): 10bw as it is on main a7cc4164's marble
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1;kick=0.1;back_pace=0.5;follow=0.4;run_after=0.9;settle_omega=45;max_rate=55;turn=-180.4 --seed=20261001
+tape: marble_column_a
+seconds: 4.4
+in: 1.75
+freeze: waive
+expect: shove Runner_2 2.97-3.03; hit Runner_1 4.94-5.00
+
+## 12sv_75
+said: v75 (Ryan 2026-10-26: "re-film all the marble scenes and create v75. Nothing about the geometry has changed so just rerun the shots with the new map and make the new trailer. You can use Movie Maker for this, not screen capture"): 12sv as it is on main a7cc4164's marble
+capture: --map=marble --shot=portal --stage=trailer_finale_marble --bots=2 --pov=runner --rifle=projectile --set=wait=0.25;from=311,52.4 --seed=20261001
+tape: finale_fp
+seconds: 5.55
+in: 1.1666
+freeze: waive
+expect: stage arrived 3.57-3.63; stage kill 4.45-4.51
+
+# v75 end

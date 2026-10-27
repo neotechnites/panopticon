@@ -266,3 +266,44 @@ EOF
 # Windows path helpers.
 win() { echo "$1" | sed 's#/#\\#g'; }
 ff() { echo "$1" | sed 's#\\#/#g'; }
+
+# --- The same pipeline run on the PC itself (PC_LOCAL=1; the trailer-v75 marble refilm) ----
+# The PowerShell that ssh carried runs here directly, push and pull are copies, and Godot
+# runs in this session at below-normal priority, in the foreground (Ryan's editor may be open).
+#   PC_LOCAL=1 PC_PROJECT='C:\dev\worktrees\trailer-v75' PC_BRANCH=trailer-v75 tools/content/shot.sh trailer_reveal 5hw_75 --movie
+if [ "${PC_LOCAL:-0}" = 1 ]; then
+  pc() {
+    local encoded
+    encoded=$(python3 -c 'import sys,base64; print(base64.b64encode(sys.stdin.read().encode("utf-16-le")).decode())')
+    powershell -NoProfile -EncodedCommand "${encoded}" 2> >(grep -v '^#< CLIXML\|^<Objs' >&2)
+  }
+  pc_pull() { cp -f "$(ff "$1")" "$2"; }
+  pc_push() { cp -f "$1" "$(ff "$2")"; }
+  # godot_bn <args...> : godot.exe in the foreground at below-normal priority; its output is the caller's.
+  godot_bn() {
+    "$(ff "${PC_GODOT}")" "$@" & local pid=$! winpid
+    winpid=$(ps -p "${pid}" | awk 'NR==2{print $4}')
+    powershell -NoProfile -Command "try { (Get-Process -Id ${winpid}).PriorityClass = 'BelowNormal' } catch {}" > /dev/null
+    wait "${pid}"
+  }
+  MAC_GODOT=godot_bn   # the expect: smoke runs here too, headless, before the take
+  # pc_godot <args-after-godot> <log-path> : the movie take, same override.cfg, no scheduled task.
+  pc_godot() {
+    local args="$1" log="$2"
+    local width="${SIZE%%x*}" height="${SIZE##*x}"
+    pc <<EOF
+\$ErrorActionPreference = 'Stop'
+Set-Content -Path '${PC_PROJECT}\\override.cfg' -Value @('[display]','window/size/viewport_width=${width}','window/size/viewport_height=${height}','[editor]','movie_writer/mjpeg_quality=${MJPEG_QUALITY}')
+try {
+  \$p = Start-Process -FilePath 'cmd.exe' -ArgumentList '/c ${PC_GODOT} --path ${PC_PROJECT} ${args} > ${log} 2>&1' -WindowStyle Hidden -PassThru
+  Start-Sleep -Seconds 2
+  Get-CimInstance Win32_Process -Filter "ParentProcessId=\$(\$p.Id)" | ForEach-Object { try { (Get-Process -Id \$_.ProcessId).PriorityClass = 'BelowNormal' } catch {} }
+  \$p.WaitForExit()
+  Get-Content '${log}' -ErrorAction SilentlyContinue | Where-Object { \$_ -match '^(shot |look |\\[stage\\]|\\[event\\]|\\[pov\\]|SCRIPT ERROR|SHOT )' } | Select-Object -Last 14
+  if (\$p.ExitCode -ne 0) { Write-Output "godot exit \$(\$p.ExitCode)" }
+} finally {
+  Remove-Item '${PC_PROJECT}\\override.cfg' -ErrorAction SilentlyContinue
+}
+EOF
+  }
+fi

@@ -98,7 +98,7 @@ echo "shot ${NN} (${MODE}): ${SAID}"
 # expect: lines (expect.py): the same capture headless on the Mac first, fixed fps, same seed; a miss never reaches the PC.
 EXPECT=$(awk -v n="${N}" '/^## / { inside = ($2 == n); next } inside && /^expect:/ { sub("^expect:[ \t]*", ""); print }' "${BRIEF}")
 if [ -n "${EXPECT}" ] && [ -n "${CAPTURE}" ]; then
-  SMOKE_LOG=$(mktemp -t "smoke_${NAME}_${NN}")
+  SMOKE_LOG=$(mktemp -t "smoke_${NAME}_${NN}.XXXXXX")
   SMOKE_ARGS="${CAPTURE}"; [[ "${SMOKE_ARGS}" == *--seed=* ]] || SMOKE_ARGS="${SMOKE_ARGS} --seed=${SEED:-20260930}"
   T0=$(now_ms)
   STAGE_DEBUG=1 "${MAC_GODOT:-godot}" --headless --path "${REPO_DIR}" --fixed-fps "${FPS}" --script res://tools/capture/run_clip.gd -- \

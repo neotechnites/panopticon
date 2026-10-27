@@ -166,6 +166,22 @@ opens on white frames; the last white frame is the take's t=0. Page: http://100.
 `tools/content/shot.sh <project> <n> --movie`: Godot's Movie Maker writing PNG frames, packed into a
 lossless take; frame by frame, exact to the frame, about 80 s for a 5 s shot (30 s in rough mode). Use it for the final trailer only (Ryan, 2026-10-04). Real-time takes run about 0.1 s behind it.
 
+### On the PC itself (measured 2026-10-26, v75: the five marble shots refilmed on main's marble)
+
+The same commands run on the PC with no Mac: `PC_LOCAL=1` in `lib.sh` runs the PowerShell here, copies
+instead of scp, and starts Godot in this session at below-normal priority (the editor may stay open). The
+checkout is any worktree of the game (`git worktree add C:\dev\worktrees\trailer-v75 ...`, `git merge origin/main`,
+`godot --headless --import --path <it>`), named in `PC_PROJECT`. In Git Bash, with a `python3` on PATH:
+
+```
+cd /c/dev/worktrees/trailer-v75
+export PC_LOCAL=1 PC_BRANCH=trailer-v75 PC_PROJECT='C:\dev\worktrees\trailer-v75'
+bash tools/content/shot.sh trailer_reveal 5hw_75 --movie        # 3-7 min a shot: the expect: smoke, then Movie Maker
+python3 tools/content/refilm_v75_nobeach.py edit                  # v74's graph with the five new cuts, v74's audio
+```
+
+v75: 5hw_75 171 s, 23alt_75 321 s, 10aw_75 230 s, 10bw_75 198 s, 12sv_75 414 s of Godot; the edit 76 s.
+
 ### Nothing is compressed twice
 
 Take (lossless RGB) -> cut `cuts\NN.mp4` (lossless RGB H.264) -> edit segments (lossless RGB) ->
