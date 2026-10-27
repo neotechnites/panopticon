@@ -265,7 +265,7 @@ SHEETS = {   # every stone class on the tower's own tile, at the ROOM'S THREE VA
     "plain": mb.tile("plain", mb.TOWER_PLAIN_STEM, "box", mb.STONE_PX, mb.STONE_PX, mb.WALL_MPT,
                      tint=tuple(c * k for c, k in zip(mb.TINT_FLOOR_STONE, PAVING_K))),   # the floor's centre, under the same lamps
     "coffer": mb.brick("coffer", stem=mb.TOWER_STEM, mode="custom", tint=_k(mb.TINT_WALL)),   # the dome inside: the wall value
-    "dome": mb.brick("dome", stem=mb.TOWER_STEM, mode="custom", tint=_k(mb.TINT_FLOOR)),     # ... and outside: the cap takes the oculus light, the BRIGHT value (its tile's ceiling)
+    "dome": mb.brick("dome", stem=mb.TOWER_STEM, mode="custom", tint=_kt(mb.TINT_TRIM)),     # ... and outside: the cap takes the oculus light, the BRIGHT value (its tile's ceiling)
 }
 # Faces that wear a class their zone does not name, because their PROJECTION
 # differs, not their stone: the dome's skin (zone "shade") is "dome", and the
