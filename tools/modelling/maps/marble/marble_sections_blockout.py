@@ -38,7 +38,7 @@ STRIP = (46.8, 49.4)            # DECK_RS[0]..[1]: kept as deck over every hole;
 TRAP_R = 0.5 * (48.05 + 60.0 * math.cos(math.pi / 64.0))   # marble_build.TRAPDOOR_R
 TRAP_CELLS = 4                  # marble_build.TRAPDOOR_CELLS
 
-B_WALL_H = 3.9               # B's lip wall (the marble_wall_arc "low" variant, built at this height): a 1.8 m runner's head at the outer wall needs 2.87 m to hide; the activator on it stays under the 8 m ceiling
+B_WALL_H = 5.07               # B's lip wall (the marble_wall_arc "low" variant, built at this height): a 1.8 m runner's head at the outer wall needs 2.87 m to hide; the activator on it stays under the 8 m ceiling
 WALL_H = 7.6                 # marble_wall_arc as authored: 11.4 deg, 7.6 m, over a 11.25 deg trapdoor                    # A and B: over a 1.8 m runner and his 1.1 m jump; hides the 29.3 m eye from the lane
 ACT_BEFORE_DEG = 1.4            # the activator this far before its trapdoor's first pier
 ACT_R_LANE = 50.4               # A: on the lane, 1 m outside the wall's face
