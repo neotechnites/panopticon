@@ -12,6 +12,7 @@
 [ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall_arc_long.tscn" id="25_wall_arc_long"]
 [ext_resource type="PackedScene" path="res://maps/marble/props/marble_trapdoor.tscn" id="Blk_trapdoor"]
 [ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall_arc.tscn" id="Blk_wall"]
+[ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall_arc_low.tscn" id="Blk_wall_low"]
 [ext_resource type="PackedScene" path="res://maps/marble/models/marble_column.glb" id="Blk_column"]
 [ext_resource type="Texture2D" path="res://maps/marble/textures/marble_brick_albedo.png" id="Blk_brick"]
 [ext_resource type="Shader" path="res://maps/marble/materials/skylight_shaft.gdshader" id="21_shaft_shader"]
@@ -482,7 +483,7 @@ editor_description = "On the room floor's centre (1.70 over the origin), 0.25 m 
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
 [node name="Elements" type="Node3D" parent="."]
-editor_description = "Placed lane elements: six curved walls on the lip at Ryan's six bearings, and the four sections as a grey blockout (tools/modelling/maps/marble/marble_sections_blockout.py writes them): A trapdoors under cover 70-118 deg, B wall with activators on top 259-295, C buttresses 197-242, D column forest 16-57."
+editor_description = "Placed lane elements: six curved walls on the lip at Ryan's six bearings, and the four sections as a grey blockout (tools/modelling/maps/marble/marble_sections_blockout.py writes them): A trapdoors under cover 70-118 deg, B low wall with activators on top 259-295, C buttresses 197-242, D column forest 16-57."
 
 [node name="ArcWall003" parent="Elements" instance=ExtResource("25_wall_arc_long")]
 editor_description = "A curved ashlar wall on the lip at 3.6 deg (clear of the bars at 353), r 47.3, 16.3 m along the lane, 7.6 m tall: cover from the tower."
@@ -540,9 +541,9 @@ target_yaw_degrees = 7.025
 [node name="SectionB" type="Node3D" parent="Elements"]
 editor_description = "B, Ryan 2026-10-19: a wall slightly higher than a runner along the inner edge, every metre of it over trapdoor floor; the activators stand on its top, too high to shove. The runner cannot see the sniper, only where he shoots. 258.75..303.75 deg."
 
-[node name="Wall1" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "The lip wall over trapdoor 1 at 3.0 m (Y only): over a runner and his jump, and a runner anywhere behind it is out of the tower's sight."
-transform = Transform3D(-0.098017, 0, 0.995185, 0, 0.394737, 0, -0.995185, 0, -0.098017, -4.6362, 23.0000, -47.0722)
+[node name="Wall1" parent="Elements/SectionB" instance=ExtResource("Blk_wall_low")]
+editor_description = "The lip wall over trapdoor 1 at 3.0 m (the low variant, the same brick as the 7.6 m walls): over a runner and his jump, and a runner anywhere behind it is out of the tower's sight."
+transform = Transform3D(-0.098017, 0, 0.995185, 0, 1.000000, 0, -0.995185, 0, -0.098017, -4.6362, 23.0000, -47.0722)
 
 [node name="Trapdoor1" parent="Elements/SectionB" instance=ExtResource("Blk_trapdoor")]
 editor_description = "Trapdoor 1, 258.7500..270.0000 deg; its activator on the wall top 1.0 deg into it: the rifle's only."
@@ -550,9 +551,9 @@ transform = Transform3D(-0.098017, 0, 0.995185, 0, 1, 0, -0.995185, 0, -0.098017
 target_offset = Vector3(-6.8429, 3.0000, -3.8140)
 target_yaw_degrees = 4.625
 
-[node name="Wall2" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "The lip wall over trapdoor 2 at 3.0 m (Y only): over a runner and his jump, and a runner anywhere behind it is out of the tower's sight."
-transform = Transform3D(0.098017, 0, 0.995185, 0, 0.394737, 0, -0.995185, 0, 0.098017, 4.6362, 23.0000, -47.0722)
+[node name="Wall2" parent="Elements/SectionB" instance=ExtResource("Blk_wall_low")]
+editor_description = "The lip wall over trapdoor 2 at 3.0 m (the low variant, the same brick as the 7.6 m walls): over a runner and his jump, and a runner anywhere behind it is out of the tower's sight."
+transform = Transform3D(0.098017, 0, 0.995185, 0, 1.000000, 0, -0.995185, 0, 0.098017, 4.6362, 23.0000, -47.0722)
 
 [node name="Trapdoor2" parent="Elements/SectionB" instance=ExtResource("Blk_trapdoor")]
 editor_description = "Trapdoor 2, 270.0000..281.2500 deg; its activator on the wall top 1.0 deg into it: the rifle's only."
@@ -560,9 +561,9 @@ transform = Transform3D(0.098017, 0, 0.995185, 0, 1, 0, -0.995185, 0, 0.098017, 
 target_offset = Vector3(-6.8429, 3.0000, -3.8140)
 target_yaw_degrees = 4.625
 
-[node name="Wall3" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "The lip wall over trapdoor 3 at 3.0 m (Y only): over a runner and his jump, and a runner anywhere behind it is out of the tower's sight."
-transform = Transform3D(0.290285, 0, 0.956940, 0, 0.394737, 0, -0.956940, 0, 0.290285, 13.7305, 23.0000, -45.2633)
+[node name="Wall3" parent="Elements/SectionB" instance=ExtResource("Blk_wall_low")]
+editor_description = "The lip wall over trapdoor 3 at 3.0 m (the low variant, the same brick as the 7.6 m walls): over a runner and his jump, and a runner anywhere behind it is out of the tower's sight."
+transform = Transform3D(0.290285, 0, 0.956940, 0, 1.000000, 0, -0.956940, 0, 0.290285, 13.7305, 23.0000, -45.2633)
 
 [node name="Trapdoor3" parent="Elements/SectionB" instance=ExtResource("Blk_trapdoor")]
 editor_description = "Trapdoor 3, 281.2500..292.5000 deg; its activator on the wall top 1.0 deg into it: the rifle's only."
@@ -570,9 +571,9 @@ transform = Transform3D(0.290285, 0, 0.956940, 0, 1, 0, -0.956940, 0, 0.290285, 
 target_offset = Vector3(-6.8429, 3.0000, -3.8140)
 target_yaw_degrees = 4.625
 
-[node name="Wall4" parent="Elements/SectionB" instance=ExtResource("Blk_wall")]
-editor_description = "The lip wall over trapdoor 4 at 3.0 m (Y only): over a runner and his jump, and a runner anywhere behind it is out of the tower's sight."
-transform = Transform3D(0.471397, 0, 0.881921, 0, 0.394737, 0, -0.881921, 0, 0.471397, 22.2971, 23.0000, -41.7149)
+[node name="Wall4" parent="Elements/SectionB" instance=ExtResource("Blk_wall_low")]
+editor_description = "The lip wall over trapdoor 4 at 3.0 m (the low variant, the same brick as the 7.6 m walls): over a runner and his jump, and a runner anywhere behind it is out of the tower's sight."
+transform = Transform3D(0.471397, 0, 0.881921, 0, 1.000000, 0, -0.881921, 0, 0.471397, 22.2971, 23.0000, -41.7149)
 
 [node name="Trapdoor4" parent="Elements/SectionB" instance=ExtResource("Blk_trapdoor")]
 editor_description = "Trapdoor 4, 292.5000..303.7500 deg; its activator on the wall top 1.0 deg into it: the rifle's only."

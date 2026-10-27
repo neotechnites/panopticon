@@ -38,7 +38,7 @@ STRIP = (46.8, 49.4)            # DECK_RS[0]..[1]: kept as deck over every hole;
 TRAP_R = 0.5 * (48.05 + 60.0 * math.cos(math.pi / 64.0))   # marble_build.TRAPDOOR_R
 TRAP_CELLS = 4                  # marble_build.TRAPDOOR_CELLS
 
-B_WALL_H = 3.0               # B's lip wall in Y only: a 1.8 m runner's head at the outer wall needs 2.87 m to hide; the activator on it stays under the 8 m ceiling
+B_WALL_H = 3.0               # B's lip wall (the marble_wall_arc "low" variant, built at this height): a 1.8 m runner's head at the outer wall needs 2.87 m to hide; the activator on it stays under the 8 m ceiling
 WALL_H = 7.6                 # marble_wall_arc as authored: 11.4 deg, 7.6 m, over a 11.25 deg trapdoor                    # A and B: over a 1.8 m runner and his 1.1 m jump; hides the 29.3 m eye from the lane
 ACT_BEFORE_DEG = 1.4            # the activator this far before its trapdoor's first pier
 ACT_R_LANE = 50.4               # A: on the lane, 1 m outside the wall's face
@@ -128,14 +128,16 @@ def trapdoor(sc, parent, name, start, act_r, act_y, desc, act_deg=None):
 
 
 def wall_over(sc, parent, name, start, desc, height=7.6):
-    """The ring's own cover wall (marble_wall_arc.tscn) on the lip over one trapdoor, placed as ArcWall064 is; [param height]
-    scales it in Y only (B)."""
+    """The ring's own cover wall on the lip over one trapdoor, placed as ArcWall064 is: marble_wall_arc.tscn at 7.6 m,
+    marble_wall_arc_low.tscn at B_WALL_H -- a variant built at that height, never the 7.6 m glb scaled in Y (that
+    squashed its bricks; Ryan: "a brick is a brick")."""
     mid = start + TRAP_CELLS / 2.0 * CELL
-    c, sn, ky = math.cos(rad(mid)), math.sin(rad(mid)), height / 7.6
+    c, sn = math.cos(rad(mid)), math.sin(rad(mid))
     o = at(mid, ARC_R)
-    sc.node('[node name="%s" parent="%s" instance=ExtResource("Blk_wall")]\neditor_description = "%s"\n'
-            'transform = Transform3D(%.6f, 0, %.6f, 0, %.6f, 0, %.6f, 0, %.6f, %.4f, %.4f, %.4f)\n'
-            % (name, parent, desc, c, -sn, ky, sn, c, o[0], o[1], o[2]))
+    prop = {7.6: "Blk_wall", B_WALL_H: "Blk_wall_low"}[height]
+    sc.node('[node name="%s" parent="%s" instance=ExtResource("%s")]\neditor_description = "%s"\n'
+            'transform = Transform3D(%.6f, 0, %.6f, 0, 1.000000, 0, %.6f, 0, %.6f, %.4f, %.4f, %.4f)\n'
+            % (name, parent, prop, desc, c, -sn, sn, c, o[0], o[1], o[2]))
 
 
 def section_a(sc):
@@ -159,7 +161,7 @@ def section_b(sc):
             'activators stand on its top, too high to shove. The runner cannot see the sniper, only where he shoots. '
             '%.2f..%.2f deg."\n' % B_WALL)
     for j, s in enumerate(B_STARTS):
-        wall_over(sc, p, "Wall%d" % (j + 1), s, "The lip wall over trapdoor %d at %.1f m (Y only): over a runner and his jump, "
+        wall_over(sc, p, "Wall%d" % (j + 1), s, "The lip wall over trapdoor %d at %.1f m (the low variant, the same brick as the 7.6 m walls): over a runner and his jump, "
                   "and a runner anywhere behind it is out of the tower's sight." % (j + 1, B_WALL_H), height=B_WALL_H)
         trapdoor(sc, p, "Trapdoor%d" % (j + 1), s, ACT_R_TOP, B_WALL_H,
                  "Trapdoor %d, %.4f..%.4f deg; its activator on the wall top %.1f deg into it: the rifle's only."
@@ -282,6 +284,7 @@ def write():
                       % (c, -sn, sn, c, ARC_R * c, ARC_R * sn), text)
     ext = ('[ext_resource type="PackedScene" path="res://maps/marble/props/marble_trapdoor.tscn" id="Blk_trapdoor"]\n'
            '[ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall_arc.tscn" id="Blk_wall"]\n'
+           '[ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall_arc_low.tscn" id="Blk_wall_low"]\n'
            '[ext_resource type="PackedScene" path="res://maps/marble/models/marble_column.glb" id="Blk_column"]\n'
            '[ext_resource type="Texture2D" path="res://maps/marble/textures/marble_brick_albedo.png" id="Blk_brick"]\n')
     first_sub = text.index("\n[sub_resource ") + 1

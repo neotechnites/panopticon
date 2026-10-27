@@ -2,11 +2,12 @@
 marble_wall_arc -- a placeable ashlar wall CURVED with the lane: both faces concentric with the
 ring at RADIUS, ARC_DEG wide, HEIGHT tall, THICKNESS thick. A plain-ashlar socle and end piers
 (proud PROUD) hide the cut blocks, the brick between them runs in whole courses at the map's own
-density, and a fluted cap (the tier cornices' band) closes the top.
+density (the same brick on every variant, however tall), and a fluted cap (the tier cornices' band)
+closes the top.
 
 ORIGIN: the base centre on the arc's mid bearing at RADIUS, z 0 the deck; Godot +X radial out,
 +Z toward increasing bearing (Blender -Y). In the scene: rows (cos b, 0, -sin b | 0 1 0 | sin b,
-0, cos b), origin (R cos b, 23, R sin b). VARIANTS name the sizes; `--variant long` builds one.
+0, cos b), origin (R cos b, 23, R sin b). VARIANTS name the sizes; `--variant long` / `--variant low` builds one.
 
     python3 tools/modelling/maps/marble/marble_wall_arc_build.py --check [--variant long]
     tools/modelling/model build marble_wall_arc --pc [--variant long]
@@ -49,7 +50,12 @@ FACING_YAW = 0.0
 VARIANTS = {
     "": dict(radius=47.3, arc_deg=11.4, height=7.6, thickness=0.75),       # the lip wall: a 9.4 m slab
     "long": dict(radius=47.3, arc_deg=19.7, height=7.6, thickness=0.75),   # ... the 16.2 m one
+    "low": dict(radius=47.3, arc_deg=11.4, height=3.0, thickness=0.75),    # Section B's: over a runner and his jump
 }
+# Every variant wears the SAME brick: U by arc length at mb.WALL_MPT, V by world height at mb.COURSE_MPT, the
+# phase below independent of the height. A shorter wall is fewer courses, never smaller bricks (Ryan: "a brick
+# is a brick; a half-sized wall doesn't mean it gets half-sized bricks") -- Section B's 3 m wall was the 7.6 m
+# glb scaled 0.39 in Y in the scene, its bricks squashed with it; it is the "low" variant now, scaled 1.
 SOCLE_H = 1.0               # plain ashlar, proud PROUD, the foot of the brick
 PROUD = 0.10                # socle and end piers, both faces
 PIER_W = 0.60               # each end pier, along the arc
@@ -221,7 +227,7 @@ def _check():
     print("%s: r %.2f arc %.2f deg (%.2f m) h %.2f t %.2f body %.1f m = %.2f brick units stations %d"
           % (full_name(var), arc.R, math.degrees(arc.A), arc.R * arc.A, arc.H, arc.T, arc.body_m(), units,
              len(arc.ang)))
-    ok = ok and abs(units - round(units)) < 1e-6
+    ok = ok and (units < 1.0 or abs(units - round(units)) < 1e-6)   # a body under one unit (low) ends where its cap takes it
     print("CONTIGUOUS %s" % ("YES" if ok else "NO"))
     return ok
 
