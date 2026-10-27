@@ -58,3 +58,11 @@ under the hell lighting system (key 0.55, ambient 0.45) the map averaged luma 79
 forest 26 / 72 and hell 20 / 38: too bright. Hell met the same problem and answered it with value
 x0.6 (texture_log 101); the same number puts marble's frames at luma ~48 / p95 ~88, V mean 52
 between forest's 29 and hell's 90. Proof sheets: C:\Users\ddd\Desktop\panopticon-renders\_work\proofs\marble\process.
+
+## 2026-10-26: Ryan's new brick
+
+Ryan repainted the brick (saved in the old 650x780 sheet layout at (300,300) 256x256; that file is kept as
+`raw/marble_ryan_sheet_2026-10-26.ase`). The tile is the new `raw/marble_brick_albedo.png`; the previous raw
+(the recolour) is `raw/archive/marble_brick_albedo_recolour_2026-10-24.png`. The chain was re-run on the whole
+set with the same arguments (the 32-colour palette is shared, so every live tile re-quantised), and
+`marble.ase` repacked from the live PNGs.
