@@ -306,6 +306,8 @@ const SHOVE_PALM: Basis = Basis(Vector3(0.0, 0.34, 0.94), Vector3(0.0, 0.94, -0.
 @export var emote_clip: StringName = &"Balling"
 ## What gets dribbled: any scene; its meshes' centre is the pivot. Swap it here, nothing else changes.
 @export var dribble_object: PackedScene = preload("res://hub/props/cat/dribble_cat.tscn")
+## What the alternate emote key (N) dribbles: the fully scrunched REPO bot.
+@export var dribble_object_alt: PackedScene = preload("res://characters/dribble_semibot.tscn")
 ## Contact radius for the floor and the palms; 0 measures the object's own mesh as it tumbles.
 @export var object_radius: float = 0.0
 ## Size of [member dribble_object] in the hands.
@@ -473,6 +475,9 @@ var _shove_length: float = 0.0
 
 var _has_emote: bool = false
 var _in_emote: bool = false
+## Whether the emote on show uses [member dribble_object_alt]; the main object, kept to swap back to.
+var _emote_alt_on: bool = false
+var _dribble_main: PackedScene = null
 var _emote_rig: Skeleton3D = null
 var _emote_cat: Node3D = null
 
@@ -765,6 +770,7 @@ func _ready() -> void:
 	if not _has_shove:
 		push_error("PrisonerAvatar cannot find \"%s\"; a shove will not be visible on the body making it." % shove_clip)
 
+	_dribble_main = dribble_object
 	_build_emote_animation()
 	_has_emote = animation.has_animation(emote_clip) and _emote_cat != null
 
@@ -883,7 +889,11 @@ func _process(delta: float) -> void:
 			return
 
 	if _has_emote and body.is_emoting():
+		if _in_emote and body.is_emote_alt() != _emote_alt_on:
+			_end_emote()
 		if not _in_emote:
+			_emote_alt_on = body.is_emote_alt()
+			_use_dribble(dribble_object_alt if _emote_alt_on else _dribble_main)
 			_in_emote = true
 			_in_slide = false
 			_in_crouch = false
@@ -2454,6 +2464,20 @@ func _place_pivot_at_start() -> void:
 			_emote_cat.position = clip.position_track_interpolate(track, 0.0)
 		elif clip.track_get_type(track) == Animation.TYPE_ROTATION_3D:
 			_emote_cat.quaternion = clip.rotation_track_interpolate(track, 0.0)
+
+
+## Rebuilds the emote around [param scene] when it is not the object hung now (clips are cached per object).
+func _use_dribble(scene: PackedScene) -> void:
+	if scene == null or scene == dribble_object:
+		return
+	dribble_object = scene
+	if _emote_cat != null:
+		_emote_cat.get_parent().remove_child(_emote_cat)
+		_emote_cat.free()
+		_emote_cat = null
+	_emote_objects.clear()
+	_build_emote_animation()
+	_has_emote = animation.has_animation(emote_clip) and _emote_cat != null
 
 
 func _end_emote() -> void:

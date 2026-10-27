@@ -405,6 +405,7 @@ func sample_state(out: PlayerState) -> void:
 	out.sliding = controller.is_sliding()
 	out.crouching = controller.is_crouching()
 	out.emoting = controller.is_emoting()
+	out.emote_alt = controller.is_emote_alt()
 	out.jump_counter = _jump_counter
 	# What the owner of this seat may rewind to: the last intent of theirs this
 	# body has actually simulated, not merely received. Nothing to say for a
@@ -439,7 +440,7 @@ func apply_state(state: PlayerState) -> void:
 	controller.net_floor = 1 if state.on_floor else 0
 	controller.net_slide = 1 if state.sliding else 0
 	controller.net_crouch = 1 if state.crouching else 0
-	controller.net_emote = 1 if state.emoting else 0
+	controller.net_emote = (2 if state.emote_alt else 1) if state.emoting else 0
 	if controller.head != null:
 		controller.head.rotation.x = state.pitch
 	_present_events(state)

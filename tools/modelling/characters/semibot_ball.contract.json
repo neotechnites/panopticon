@@ -1,0 +1,5 @@
+{
+  "_comment": "semibot_ball: the R.E.P.O. Semibot rip fully scrunched, one mesh (content branch, dribble object). No collision.",
+  "node_paths": ["SemibotBall"],
+  "max_tris": 2400
+}

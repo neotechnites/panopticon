@@ -127,6 +127,7 @@ const _FLAG2_SHOVE_PRESSED: int = 1 << 0
 const _FLAG2_AIM_HELD: int = 1 << 1
 const _FLAG2_COOK_PRESSED: int = 1 << 2
 const _FLAG2_EMOTE_PRESSED: int = 1 << 3
+const _FLAG2_EMOTE_ALT_PRESSED: int = 1 << 4
 const _FLAG_ON_FLOOR: int = 1 << 0
 ## The rest of the snapshot flag byte: what a mirror cannot work out for itself
 ## because it runs no physics and takes no match decisions.
@@ -138,6 +139,7 @@ const _FLAG_SLIDING: int = 1 << 4
 const _FLAG_CROUCHING: int = 1 << 5
 ## Second snapshot flag byte; the first is full.
 const _FLAG2_EMOTING: int = 1 << 0
+const _FLAG2_EMOTE_ALT: int = 1 << 1
 
 ## Where the jump counter sits in the flag byte: bits 3, 6 and 7.
 ##
@@ -229,6 +231,7 @@ static func _put_intent(buffer: StreamPeerBuffer, intent: MoveIntent) -> void:
 		| (_FLAG2_AIM_HELD if intent.aim_held else 0)
 		| (_FLAG2_COOK_PRESSED if intent.cook_pressed else 0)
 		| (_FLAG2_EMOTE_PRESSED if intent.emote_pressed else 0)
+		| (_FLAG2_EMOTE_ALT_PRESSED if intent.emote_alt_pressed else 0)
 	)
 
 
@@ -301,6 +304,7 @@ static func unpack_intent_at(payload: PackedByteArray, index: int, out: MoveInte
 	out.aim_held = (flags2 & _FLAG2_AIM_HELD) != 0
 	out.cook_pressed = (flags2 & _FLAG2_COOK_PRESSED) != 0
 	out.emote_pressed = (flags2 & _FLAG2_EMOTE_PRESSED) != 0
+	out.emote_alt_pressed = (flags2 & _FLAG2_EMOTE_ALT_PRESSED) != 0
 	# The dev keys are not on the wire and must not survive on a reused struct
 	# either. [param out] is owned by the caller and lives for the session, so a
 	# field this format does not carry has to be cleared here or it keeps
@@ -338,7 +342,7 @@ static func pack_snapshot(snapshot: WorldSnapshot) -> PackedByteArray:
 		if state.crouching:
 			flags |= _FLAG_CROUCHING
 		buffer.put_u8(flags)
-		buffer.put_u8(_FLAG2_EMOTING if state.emoting else 0)
+		buffer.put_u8((_FLAG2_EMOTING if state.emoting else 0) | (_FLAG2_EMOTE_ALT if state.emote_alt else 0))
 		buffer.put_u8(clampi(state.ability, 0, _MAX_ABILITY))
 		buffer.put_u8(clampi(
 			int(state.ability_remaining * 10.0), 0, _ABILITY_TENTHS_MAX
@@ -412,6 +416,7 @@ static func unpack_snapshot(payload: PackedByteArray, out: WorldSnapshot) -> boo
 		state.sliding = (flags & _FLAG_SLIDING) != 0
 		state.crouching = (flags & _FLAG_CROUCHING) != 0
 		state.emoting = (flags2 & _FLAG2_EMOTING) != 0
+		state.emote_alt = (flags2 & _FLAG2_EMOTE_ALT) != 0
 		out.commit()
 	return true
 

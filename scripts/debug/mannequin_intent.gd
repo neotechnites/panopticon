@@ -4,7 +4,7 @@ extends BotIntentSource
 ## A debug body's scripted routine, written into the same struct a bot writes. Nothing here draws:
 ## what the body shows is the real controller and avatar answering this intent.
 
-enum Routine { STAND, LOOK, WALK, SPRINT, JUMP, LEDGE, SLOPE, GUARD, FOLLOW, SHOVE, NUDGE, BALL }
+enum Routine { STAND, LOOK, WALK, SPRINT, JUMP, LEDGE, SLOPE, GUARD, FOLLOW, SHOVE, NUDGE, BALL, BALL_REPO }
 
 ## Stick lengths: a walk, a careful walk over uneven ground, a hop's carry.
 const WALK: float = 0.25
@@ -53,7 +53,12 @@ func run(next: Routine, points: PackedVector3Array = PackedVector3Array()) -> vo
 	command.clear()
 	var body: PlayerController = get_parent() as PlayerController
 	_yaw = body.rotation.y if body != null else 0.0
-	command.emote_pressed = body != null and body.is_emoting() != (next == Routine.BALL)
+	# Emote kinds: 0 none, 1 the dribble (B), 2 the REPO dribble (N); press the key that reaches the one wanted.
+	var showing: int = 0 if body == null or not body.is_emoting() else (2 if body.is_emote_alt() else 1)
+	var want: int = 1 if next == Routine.BALL else (2 if next == Routine.BALL_REPO else 0)
+	var press: int = showing if want == 0 else (want if want != showing else 0)
+	command.emote_pressed = press == 1
+	command.emote_alt_pressed = press == 2
 
 
 func poll(delta: float) -> MoveIntent:
@@ -65,6 +70,7 @@ func poll(delta: float) -> MoveIntent:
 		_step(body, delta)
 	var out: MoveIntent = super.poll(delta)
 	command.emote_pressed = false
+	command.emote_alt_pressed = false
 	return out
 
 

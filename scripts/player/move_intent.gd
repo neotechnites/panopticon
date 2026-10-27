@@ -63,6 +63,8 @@ var cook_pressed: bool = false
 var shove_pressed: bool = false
 ## True on the tick the emote key was tapped; toggles the emote.
 var emote_pressed: bool = false
+## True on the tick the alternate emote key was tapped; toggles the emote with the alternate object.
+var emote_alt_pressed: bool = false
 ## True while the scope is asked up. Ignored by movement; the host drives the seat's optic with it.
 var aim_held: bool = false
 ## Dev: hold for 300% ground speed. Local only; never on the wire.
@@ -91,6 +93,7 @@ func clear() -> void:
 	cook_pressed = false
 	shove_pressed = false
 	emote_pressed = false
+	emote_alt_pressed = false
 	aim_held = false
 	turbo_held = false
 	godmode = false
@@ -121,6 +124,7 @@ func copy_from(other: MoveIntent) -> void:
 	cook_pressed = other.cook_pressed
 	shove_pressed = other.shove_pressed
 	emote_pressed = other.emote_pressed
+	emote_alt_pressed = other.emote_alt_pressed
 	aim_held = other.aim_held
 	turbo_held = other.turbo_held
 	godmode = other.godmode

@@ -62,6 +62,8 @@ const INTERACT: StringName = &"interact"
 const SHOVE: StringName = &"shove"
 ## The dribble emote: B toggles it; moving ends it.
 const EMOTE: StringName = &"emote"
+## The same dribble with the REPO bot as the object: N toggles it.
+const EMOTE_ALT: StringName = &"emote_alt"
 ## Dev turbo: T held = 300% speed.
 const TURBO: StringName = &"debug_turbo"
 ## Dev godmode: Y toggles rifle immunity.

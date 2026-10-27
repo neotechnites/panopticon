@@ -235,8 +235,9 @@ var _head_offset: float = 0.0
 ## True while the body is held in the crouch stance. See [method _update_crouch].
 var _crouching: bool = false
 
-## True while the body plays its emote. See [method _update_emote].
+## True while the body plays its emote, and whether with the alternate object. See [method _update_emote].
 var _emoting: bool = false
+var _emote_alt: bool = false
 
 ## The capsule's authored height, captured once so the crouch is a change to the
 ## scene's value rather than to a number this file invents. Zero when there is no
@@ -458,6 +459,7 @@ func is_grounded() -> bool:
 ## poses live in physics this machine may not be running. See [member net_floor].
 var net_slide: int = -1
 var net_crouch: int = -1
+## Emote from a snapshot: 0 off, 1 the dribble, 2 with the alternate object; -1 asks this body.
 var net_emote: int = -1
 
 ## True while this machine simulates this body ahead of the authority -- a
@@ -475,7 +477,7 @@ var net_predicted: bool = false
 var view_offset: Vector3 = Vector3.ZERO
 
 ## Floats in a captured motion state. See [method capture_motion_state].
-const MOTION_STATE_SIZE: int = 21
+const MOTION_STATE_SIZE: int = 22
 
 
 ## This body's mutable movement state -- the timers, the stance, the slide and
@@ -508,6 +510,7 @@ func capture_motion_state(out: PackedFloat32Array) -> void:
 	out[18] = _pending_launch.z
 	out[19] = _landing_release_timer
 	out[20] = 1.0 if _emoting else 0.0
+	out[21] = 1.0 if _emote_alt else 0.0
 
 
 ## Put a state from [method capture_motion_state] back on the body. A wrongly
@@ -534,6 +537,7 @@ func restore_motion_state(values: PackedFloat32Array) -> void:
 	_pending_launch = Vector3(values[16], values[17], values[18])
 	_landing_release_timer = values[19]
 	_emoting = values[20] > 0.5
+	_emote_alt = values[21] > 0.5
 	if head != null:
 		head.rotation.x = _pitch
 	# The capsule is sized from the stance, so a restored crouch has to resize
@@ -607,13 +611,20 @@ func is_crouching() -> bool:
 
 ## True while the body plays its emote.
 func is_emoting() -> bool:
-	return _emoting if net_emote < 0 else net_emote == 1
+	return _emoting if net_emote < 0 else net_emote > 0
+
+
+## True while the emote plays with the alternate object (the N key).
+func is_emote_alt() -> bool:
+	return _emote_alt if net_emote < 0 else net_emote == 2
 
 
 ## The emote key toggles it on the floor; any move, jump, slide, crouch or leaving the floor ends it.
 func _update_emote(on_floor: bool) -> void:
-	if _intent.emote_pressed:
-		_emoting = not _emoting
+	if _intent.emote_pressed or _intent.emote_alt_pressed:
+		var alt: bool = _intent.emote_alt_pressed
+		_emoting = not (_emoting and _emote_alt == alt)
+		_emote_alt = alt
 	var moved: bool = _intent.move_direction.length_squared() > 0.0 or _intent.jump_pressed or _intent.slide_held
 	if moved or _sliding or _crouching or not on_floor:
 		_emoting = false

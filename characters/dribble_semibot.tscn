@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://characters/models/semibot_ball.glb" id="1_model"]
+
+[node name="DribbleSemibot" type="Node3D"]
+editor_description = "Content only: the fully scrunched R.E.P.O. Semibot as the balling emote's dribble object; never on main."
+
+[node name="Model" parent="." instance=ExtResource("1_model")]
