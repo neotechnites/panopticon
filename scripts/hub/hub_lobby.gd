@@ -701,8 +701,11 @@ func _apply_overlay(open: bool) -> void:
 	if open:
 		MouseFocus.hold(self)
 		if setup_screen != null:
-			setup_screen.refresh()
-			setup_screen.focus_start()
+			# The rules are the host's to set; a client's panel is the seat list alone.
+			setup_screen.visible = is_host()
+			if setup_screen.visible:
+				setup_screen.refresh()
+				setup_screen.focus_start()
 	else:
 		MouseFocus.release(self)
 	_set_body_input(not open)

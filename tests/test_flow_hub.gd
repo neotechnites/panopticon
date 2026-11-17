@@ -44,3 +44,13 @@ func test_a_joiner_arriving_leaves_everyone_standing_where_they_were() -> void:
 	await step_ticks(30)
 	assert_lt(flat_distance(body(A, A).global_position, a_spot), 0.5, "and on A's own machine")
 	assert_lt(flat_distance(body(B, HOST).global_position, host_spot), 0.5, "and the joiner sees the host there")
+
+
+func test_only_the_host_is_offered_the_rules_panel() -> void:
+	if not await stand_up(0.0, 0, 2):
+		return
+	for machine: int in [HOST, A]:
+		var lobby: HubLobby = _lobby_of(machine)
+		lobby.set_overlay_open(true)
+		assert_true(lobby.setup_screen.visible == (machine == HOST), "machine %d: the rules are the host's to edit" % machine)
+		lobby.set_overlay_open(false)
