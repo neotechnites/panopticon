@@ -58,6 +58,8 @@ const PAD_MAX_FLIGHT_SECONDS: float = 6.0
 ## which the bake sealed: a field of pads with one lane cut through it had no
 ## path for the bots at all.
 const PAD_CARVE_MARGIN_METRES: float = 0.2
+## Re-bakes allowed while carving one dead pad leaves another with nowhere to land.
+const PAD_SETTLE_PASSES: int = 3
 const PAD_CLEARANCE_METRES: float = 0.8
 ## Cover points: sampled every this many metres; discarded this close to a lethal volume.
 const COVER_SPACING_METRES: float = 1.5
@@ -136,6 +138,9 @@ var _doors: Array[TrapDoor] = []
 var _links: Array[Link] = []
 var _link_by_owner: Dictionary = {}
 var _dead_pads: Array[BoostPad] = []
+## Per live pad, where its flight is steered down; per pad, where its bare arc meets the world.
+var _pad_landing: Dictionary[BoostPad, Vector3] = {}
+var _pad_ballistic: Dictionary[BoostPad, Vector3] = {}
 var _all_pads: Array[BoostPad] = []
 var _cover: PackedVector3Array = PackedVector3Array()
 var _cover_facing: PackedVector3Array = PackedVector3Array()
@@ -266,14 +271,28 @@ func bake_from(root: Node) -> void:
 	_index_mesh(mesh)
 	_drops = _carve_drops(source, into_root)
 	_dead_pads.clear()
-	var dead: int = _carve_dead_pads(root, source, into_root)
-	if _drops > 0 or dead > 0:
+	_pad_ballistic.clear()
+	_resolve_pad_landings()
+	var dead: int = _carve_dead_pads(source, into_root)
+	var stale: bool = _drops > 0 or dead > 0
+	# A carved pad takes mesh a neighbour's flight was landing on, so settle it in passes.
+	for _pass: int in PAD_SETTLE_PASSES:
+		if not stale:
+			break
+		mesh = _new_mesh()
+		NavigationServer3D.bake_from_source_geometry_data(mesh, source)
+		_index_mesh(mesh)
+		_resolve_pad_landings()
+		var more: int = _carve_dead_pads(source, into_root)
+		dead += more
+		stale = more > 0
+	if stale:
 		mesh = _new_mesh()
 		NavigationServer3D.bake_from_source_geometry_data(mesh, source)
 		_index_mesh(mesh)
 	navigation_mesh = mesh
 	_polygons = mesh.get_polygon_count()
-	_build_links(root)
+	_build_links()
 	_sample_cover()
 	if is_inside_tree():
 		NavigationServer3D.map_force_update(get_navigation_map())
@@ -677,7 +696,7 @@ func _carve_drops(source: NavigationMeshSourceGeometryData3D, into_root: Transfo
 
 # --- Links --------------------------------------------------------------------
 
-func _build_links(root: Node) -> void:
+func _build_links() -> void:
 	for link: Link in _links:
 		if link.node != null:
 			link.node.queue_free()
@@ -685,7 +704,7 @@ func _build_links(root: Node) -> void:
 	_link_by_owner.clear()
 	_jumps = 0
 	_pads = 0
-	_build_pad_links(root)
+	_build_pad_links()
 	_build_jump_links()
 
 
@@ -737,6 +756,12 @@ func simulate_flight(start: Vector3, velocity: Vector3) -> PackedVector3Array:
 func _pad_ballistic_landing(pad: BoostPad) -> Vector3:
 	if _space == null:
 		return Vector3.INF
+	if not _pad_ballistic.has(pad):
+		_pad_ballistic[pad] = _trace_pad_arc(pad)
+	return _pad_ballistic[pad]
+
+
+func _trace_pad_arc(pad: BoostPad) -> Vector3:
 	var start: Vector3 = pad_takeoff(pad)
 	var previous: Vector3 = start + Vector3.UP * 0.2
 	var lowest: float = start.y - 40.0
@@ -780,7 +805,7 @@ func _steerable_landing(landing: Vector3, direction: Vector3) -> Vector3:
 		if is_nan(height):
 			continue
 		var point: Vector3 = Vector3(probe.x, height, probe.z)
-		if is_lethal(point, 0.3):
+		if is_lethal(point, 0.3) or _lands_on_idle_pad(point):
 			continue
 		var margin: float = boundary_distance(point, PAD_LAND_MARGIN_METRES)
 		if margin < LAND_MARGIN_METRES:
@@ -792,38 +817,64 @@ func _steerable_landing(landing: Vector3, direction: Vector3) -> Vector3:
 	return best
 
 
-func _build_pad_links(root: Node) -> void:
-	var pads: Array[BoostPad] = []
-	_collect_pads(root, pads)
-	for pad: BoostPad in pads:
-		if _dead_pads.has(pad):
-			continue
-		var start: Vector3 = pad_takeoff(pad)
-		var ballistic: Vector3 = _pad_ballistic_landing(pad)
-		if not is_finite(ballistic.x):
+func _build_pad_links() -> void:
+	for pad: BoostPad in _all_pads:
+		if not _pad_landing.has(pad):
 			continue
 		var flat: Vector3 = pad.get_launch_velocity()
 		flat.y = 0.0
-		var direction: Vector3 = flat.normalized() if flat.length() > 0.001 else Vector3.FORWARD
-		var end: Vector3 = _steerable_landing(ballistic, direction)
-		if not is_finite(end.x):
-			continue
-		var link: Link = _add_link(LinkKind.PAD, start, end, flat.length(), LAYER_PAD, PAD_TRAVEL_COST)
+		var link: Link = _add_link(LinkKind.PAD, pad_takeoff(pad), _pad_landing[pad], flat.length(), LAYER_PAD, PAD_TRAVEL_COST)
 		link.pad = pad
 		_pads += 1
 
 
-## Pads whose flight lands nowhere are obstacles: carve the plate out of the mesh.
-func _carve_dead_pads(root: Node, source: NavigationMeshSourceGeometryData3D, into_root: Transform3D) -> int:
-	var pads: Array[BoostPad] = []
-	_collect_pads(root, pads)
+## Where every live pad's flight is steered down, to a fixpoint: a landing on another pad
+## counts only once that pad has a landing of its own, so no flight ends on a dead one.
+func _resolve_pad_landings() -> void:
+	_pad_landing.clear()
+	var waiting: Array[BoostPad] = []
+	for pad: BoostPad in _all_pads:
+		if is_instance_valid(pad) and not _dead_pads.has(pad):
+			waiting.append(pad)
+	var settled: bool = false
+	while not settled:
+		settled = true
+		for index: int in range(waiting.size() - 1, -1, -1):
+			var pad: BoostPad = waiting[index]
+			var ballistic: Vector3 = _pad_ballistic_landing(pad)
+			if not is_finite(ballistic.x):
+				continue
+			var flat: Vector3 = pad.get_launch_velocity()
+			flat.y = 0.0
+			var direction: Vector3 = flat.normalized() if flat.length() > 0.001 else Vector3.FORWARD
+			var end: Vector3 = _steerable_landing(ballistic, direction)
+			if not is_finite(end.x):
+				continue
+			_pad_landing[pad] = end
+			waiting.remove_at(index)
+			settled = false
+
+
+## True when a body coming down at [param point] trips a pad that has no flight of its own.
+func _lands_on_idle_pad(point: Vector3) -> bool:
+	for pad: BoostPad in _all_pads:
+		if not is_instance_valid(pad) or _pad_landing.has(pad):
+			continue
+		var local: Vector3 = pad.global_transform.affine_inverse() * point
+		var half: Vector3 = pad.footprint_metres * 0.5
+		if (
+			absf(local.x) <= half.x + PAD_CLEARANCE_METRES and absf(local.z) <= half.z + PAD_CLEARANCE_METRES
+			and absf(local.y) <= half.y + 1.0
+		):
+			return true
+	return false
+
+
+## Pads whose flight lands nowhere are obstacles: carve each new one's plate out of the mesh.
+func _carve_dead_pads(source: NavigationMeshSourceGeometryData3D, into_root: Transform3D) -> int:
 	var dead: int = 0
-	for pad: BoostPad in pads:
-		var ballistic: Vector3 = _pad_ballistic_landing(pad)
-		var flat: Vector3 = pad.get_launch_velocity()
-		flat.y = 0.0
-		var direction: Vector3 = flat.normalized() if flat.length() > 0.001 else Vector3.FORWARD
-		if is_finite(ballistic.x) and is_finite(_steerable_landing(ballistic, direction).x):
+	for pad: BoostPad in _all_pads:
+		if not is_instance_valid(pad) or _pad_landing.has(pad) or _dead_pads.has(pad):
 			continue
 		_dead_pads.append(pad)
 		var half: Vector3 = pad.footprint_metres * 0.5 + Vector3.ONE * PAD_CARVE_MARGIN_METRES
@@ -1058,13 +1109,17 @@ func _add_link(kind: LinkKind, start: Vector3, end: Vector3, speed: float, layer
 
 ## The pad link whose plate a body at [param point] stands on or has just left, or null.
 func pad_link_near(point: Vector3, reach: float = 3.0) -> Link:
+	var nearest: Link = null
+	var nearest_metres: float = reach
 	for link: Link in _links:
 		if link.kind != LinkKind.PAD or link.pad == null or not is_instance_valid(link.pad):
 			continue
 		var plate: Vector3 = link.pad.global_position
-		if absf(point.y - plate.y) <= reach and Vector2(point.x - plate.x, point.z - plate.z).length() <= reach:
-			return link
-	return null
+		var metres: float = Vector2(point.x - plate.x, point.z - plate.z).length()
+		if absf(point.y - plate.y) <= reach and metres <= nearest_metres:
+			nearest = link
+			nearest_metres = metres
+	return nearest
 
 
 # --- Cover --------------------------------------------------------------------
