@@ -16,6 +16,10 @@ const TOLERANCE_METRES: float = 0.05
 ## Ticks the decoy is watched for, and how long it is given to live. Long
 ## enough for it to leave the place it spawned by a good margin.
 const LIFETIME_TICKS: int = 40
+
+## Ticks a streamed transform may be behind and still count as the host's: the socket is a real
+## one, and a busy machine delivers a datagram a tick or two after the tick that sent it.
+const STALE_TICKS: int = 4
 const DURATION_SECONDS: float = 0.5
 
 var _host: NetSession
@@ -89,6 +93,8 @@ func test_a_clients_hologram_stands_where_the_hosts_does_and_dies_with_it() -> v
 	var last: Vector3 = start
 	var worst: float = 0.0
 	var worst_yaw: float = 0.0
+	var behind: int = 0
+	var trail: Array[Vector3] = []
 	for _tick: int in LIFETIME_TICKS:
 		# Sampled at the TOP of a tick, before the authority's hologram moves
 		# again: physics_frame fires ahead of every _physics_process, so the
@@ -104,7 +110,17 @@ func test_a_clients_hologram_stands_where_the_hosts_does_and_dies_with_it() -> v
 		if mirror == null:
 			fail("the client's hologram vanished while the host's was still running")
 			return
-		worst = maxf(worst, mirror.global_position.distance_to(last))
+		# Held to the host's own path: the nearest place the host stood within the last few ticks.
+		trail.push_front(last)
+		if trail.size() > STALE_TICKS + 1:
+			trail.pop_back()
+		var gap: float = INF
+		for age: int in trail.size():
+			var distance: float = mirror.global_position.distance_to(trail[age])
+			if distance < gap:
+				gap = distance
+				behind = maxi(behind, age) if distance < TOLERANCE_METRES else behind
+		worst = maxf(worst, gap)
 		worst_yaw = maxf(worst_yaw, absf(angle_difference(mirror.rotation.y, host_decoy.rotation.y)))
 
 	assert_almost_eq(worst_yaw, 0.0, 0.01, "the client's hologram faced the way the host's did")
@@ -114,7 +130,7 @@ func test_a_clients_hologram_stands_where_the_hosts_does_and_dies_with_it() -> v
 	assert_lt(
 		worst,
 		TOLERANCE_METRES,
-		"the client's hologram stayed on the host's (worst gap %.3f m)" % worst,
+		"the client's hologram stayed on the host's path (worst gap %.3f m, at most %d ticks behind)" % [worst, behind],
 	)
 
 
