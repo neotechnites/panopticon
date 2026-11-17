@@ -132,9 +132,8 @@ func _can_run(body: PlayerController, from: Vector3, to: Vector3, ignore: Array[
 ## Where the host's map lets its guard stand: the seat, and any guard posts.
 func _stands(guard: PlayerController) -> Array[Vector3]:
 	var stands: Array[Vector3] = [guard.global_position]
-	for node: Node in get_tree().get_nodes_in_group(TowerShooter.POST_GROUP):
-		if _rig.matches[HOST].is_ancestor_of(node):
-			stands.append((node as Node3D).global_position)
+	for post: Vector3 in GuardPosts.read(_rig.matches[HOST]):
+		stands.append(post)
 	return stands
 
 

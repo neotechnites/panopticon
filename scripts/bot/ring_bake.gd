@@ -14,6 +14,9 @@ const AGENT_MAX_CLIMB: float = 0.5
 const AGENT_MAX_SLOPE_DEGREES: float = 40.0
 const CELL_SIZE: float = 0.25
 const CELL_HEIGHT: float = 0.25
+## How far a simplified mesh edge may stray from the voxel edge, in cells, and in metres.
+const EDGE_MAX_ERROR_CELLS: float = 1.3
+const EDGE_ERROR_METRES: float = EDGE_MAX_ERROR_CELLS * CELL_SIZE
 const STATIC_COLLIDER_MASK: int = 1
 ## Metres a trap's carve reaches past its box, and past a lava surface upward.
 const LETHAL_INFLATION_METRES: float = 0.8
@@ -49,18 +52,13 @@ const PAD_LAND_SEARCH_METRES: float = 5.0
 const PAD_LAND_REACH_METRES: float = 1.5
 const PAD_LAND_MARGIN_METRES: float = 1.2
 const PAD_MAX_FLIGHT_SECONDS: float = 6.0
-## Metres added round a dead pad's plate when it is carved out of the mesh as an
-## obstacle. The walkable edge then sits footprint/2 + this + AGENT_RADIUS from
-## the pad's centre: 1.25 + 0.2 + 0.5 = 1.95 m for a 2.5 m plate, so two dead
-## pads 2.7 m apart leave a 2 x (2.7 - 1.95) = 1.5 m lane between them and a
-## body of radius 0.4 walking that lane's centre stays 0.3 m off both trigger
-## boxes. At the old 0.5 the edge was 2.25 m out and the same lane was 0.9 m,
-## which the bake sealed: a field of pads with one lane cut through it had no
-## path for the bots at all.
-const PAD_CARVE_MARGIN_METRES: float = 0.2
-## Re-bakes allowed while carving one dead pad leaves another with nowhere to land.
-const PAD_SETTLE_PASSES: int = 3
-const PAD_CLEARANCE_METRES: float = 0.8
+## Metres added round a dead pad's plate before the bake erodes it by AGENT_RADIUS: enough that
+## a body anywhere on the mesh is clear of the trigger after a cell of rasterising and the edge error.
+const PAD_CARVE_MARGIN_METRES: float = BODY_RADIUS_METRES + CELL_SIZE + EDGE_ERROR_METRES - AGENT_RADIUS
+## How far past an idle plate the mesh ends once it is carved; no landing is taken nearer.
+const IDLE_PAD_REACH_METRES: float = PAD_CARVE_MARGIN_METRES + AGENT_RADIUS + LAND_MARGIN_METRES
+## A body coming down this near a plate overlaps its trigger, or might.
+const PAD_TRIP_METRES: float = BODY_RADIUS_METRES + LAND_MARGIN_METRES
 ## Cover points: sampled every this many metres; discarded this close to a lethal volume.
 const COVER_SPACING_METRES: float = 1.5
 const COVER_LETHAL_CLEARANCE_METRES: float = 1.0
@@ -258,9 +256,8 @@ func bake_from(root: Node) -> void:
 	_eye = _find_eye(root)
 	_eyes = _find_eyes(root)
 
-	var mesh: NavigationMesh = _new_mesh()
 	var source: NavigationMeshSourceGeometryData3D = NavigationMeshSourceGeometryData3D.new()
-	NavigationServer3D.parse_source_geometry_data(mesh, source, root)
+	NavigationServer3D.parse_source_geometry_data(_new_mesh(), source, root)
 	_lethal.clear()
 	_collect_lethal(root)
 	_doors.clear()
@@ -268,30 +265,24 @@ func bake_from(root: Node) -> void:
 	_all_pads.clear()
 	_collect_pads(root, _all_pads)
 	var carved: int = _carve_lethal(root, source, into_root)
-	NavigationServer3D.bake_from_source_geometry_data(mesh, source)
-	_index_mesh(mesh)
+	var mesh: NavigationMesh = _bake(source)
 	_drops = _carve_drops(source, into_root)
+	if _drops > 0:
+		mesh = _bake(source)
 	_dead_pads.clear()
 	_pad_ballistic.clear()
-	_resolve_pad_landings()
-	var dead: int = _carve_dead_pads(source, into_root)
-	var stale: bool = _drops > 0 or dead > 0
-	# A carved pad takes mesh a neighbour's flight was landing on, so settle it in passes.
-	for _pass: int in PAD_SETTLE_PASSES:
-		if not stale:
-			break
-		mesh = _new_mesh()
-		NavigationServer3D.bake_from_source_geometry_data(mesh, source)
-		_index_mesh(mesh)
+	# A carve moves mesh edges anywhere (contours are re-simplified), so landings are
+	# re-resolved on each new bake; the idle set only grows, so this ends.
+	var dead: int = 0
+	while true:
 		_resolve_pad_landings()
 		var more: int = _carve_dead_pads(source, into_root)
+		if more == 0:
+			break
 		dead += more
-		stale = more > 0
-	if stale:
-		mesh = _new_mesh()
-		NavigationServer3D.bake_from_source_geometry_data(mesh, source)
-		_index_mesh(mesh)
-		_resolve_pad_landings()
+		mesh = _bake(source)
+	for fault: String in pad_faults():
+		_pad_fault(fault)
 	navigation_mesh = mesh
 	_polygons = mesh.get_polygon_count()
 	_build_links()
@@ -305,6 +296,14 @@ func bake_from(root: Node) -> void:
 	])
 
 
+## A new mesh baked from [param source], indexed for the queries that read it.
+func _bake(source: NavigationMeshSourceGeometryData3D) -> NavigationMesh:
+	var mesh: NavigationMesh = _new_mesh()
+	NavigationServer3D.bake_from_source_geometry_data(mesh, source)
+	_index_mesh(mesh)
+	return mesh
+
+
 func _new_mesh() -> NavigationMesh:
 	var mesh: NavigationMesh = NavigationMesh.new()
 	mesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
@@ -312,6 +311,7 @@ func _new_mesh() -> NavigationMesh:
 	mesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_ROOT_NODE_CHILDREN
 	mesh.cell_size = CELL_SIZE
 	mesh.cell_height = CELL_HEIGHT
+	mesh.edge_max_error = EDGE_MAX_ERROR_CELLS
 	mesh.agent_radius = AGENT_RADIUS
 	mesh.agent_height = AGENT_HEIGHT
 	mesh.agent_max_climb = AGENT_MAX_CLIMB
@@ -330,9 +330,8 @@ func _find_eye(root: Node) -> Vector3:
 
 func _find_eyes(root: Node) -> PackedVector3Array:
 	var eyes: PackedVector3Array = PackedVector3Array()
-	for node: Node in root.find_children("*", "Marker3D", true, false):
-		if node.is_in_group(TowerShooter.POST_GROUP):
-			eyes.append((node as Node3D).global_position + Vector3.UP * EYE_HEIGHT_METRES)
+	for post: Vector3 in GuardPosts.read(root):
+		eyes.append(post + Vector3.UP * EYE_HEIGHT_METRES)
 	if eyes.is_empty():
 		eyes.append(_eye)
 	return eyes
@@ -783,13 +782,15 @@ func _trace_pad_arc(pad: BoostPad) -> Vector3:
 ## True when [param point] stands on a pad's plate, plus [param margin]: a landing there fires it.
 func _on_pad(point: Vector3, margin: float) -> bool:
 	for pad: BoostPad in _all_pads:
-		if not is_instance_valid(pad):
-			continue
-		var local: Vector3 = pad.global_transform.affine_inverse() * point
-		var half: Vector3 = pad.footprint_metres * 0.5
-		if absf(local.x) <= half.x + margin and absf(local.z) <= half.z + margin and absf(local.y) <= half.y + 1.0:
+		if is_instance_valid(pad) and _within_plate(pad, point, margin):
 			return true
 	return false
+
+
+static func _within_plate(pad: BoostPad, point: Vector3, margin: float) -> bool:
+	var local: Vector3 = pad.global_transform.affine_inverse() * point
+	var half: Vector3 = pad.footprint_metres * 0.5
+	return absf(local.x) <= half.x + margin and absf(local.z) <= half.z + margin and absf(local.y) <= half.y + 1.0
 
 
 ## A mesh point the flight can be steered onto near [param landing] along
@@ -807,11 +808,9 @@ func _steerable_landing(landing: Vector3, direction: Vector3) -> Vector3:
 		if is_nan(height):
 			continue
 		var point: Vector3 = Vector3(probe.x, height, probe.z)
-		if is_lethal(point, 0.3) or _lands_on_idle_pad(point):
+		if not _pad_landing_ok(point):
 			continue
 		var margin: float = boundary_distance(point, PAD_LAND_MARGIN_METRES)
-		if margin < LAND_MARGIN_METRES:
-			continue
 		var cost: float = absf(along) * (3.0 if along > 0.0 else 1.0) + (PAD_LAND_MARGIN_METRES - margin) * 2.0
 		if cost < best_cost:
 			best_cost = cost
@@ -855,19 +854,36 @@ func _resolve_pad_landings() -> void:
 				settled = false
 
 
-## True when a body coming down at [param point] trips a pad that has no flight of its own.
-func _lands_on_idle_pad(point: Vector3) -> bool:
+## A body may come down at mesh [param point]: not lethal, clear of the mesh edge, and not
+## where an idle pad's carve will take the floor. A live pad underfoot is a chain, and allowed.
+func _pad_landing_ok(point: Vector3) -> bool:
+	if is_lethal(point, 0.3) or boundary_distance(point, LAND_MARGIN_METRES) < LAND_MARGIN_METRES:
+		return false
+	for pad: BoostPad in _idle_pads:
+		if is_instance_valid(pad) and _within_plate(pad, point, IDLE_PAD_REACH_METRES):
+			return false
+	return true
+
+
+## Every way the pad bake breaks its contract on the mesh it ships: a live pad whose landing
+## is not a landing, or a pad with no landing that is still mesh. Empty on a sound bake.
+func pad_faults() -> PackedStringArray:
+	var faults: PackedStringArray = PackedStringArray()
 	for pad: BoostPad in _all_pads:
-		if not is_instance_valid(pad) or not _idle_pads.has(pad):
+		if not is_instance_valid(pad):
 			continue
-		var local: Vector3 = pad.global_transform.affine_inverse() * point
-		var half: Vector3 = pad.footprint_metres * 0.5
-		if (
-			absf(local.x) <= half.x + PAD_CLEARANCE_METRES and absf(local.z) <= half.z + PAD_CLEARANCE_METRES
-			and absf(local.y) <= half.y + 1.0
-		):
-			return true
-	return false
+		if _pad_landing.has(pad):
+			var end: Vector3 = _pad_landing[pad]
+			if is_nan(height_at(end)) or not _pad_landing_ok(end):
+				faults.append("%s: its flight lands at %s, which is not a landing" % [pad.name, end])
+		elif not _dead_pads.has(pad):
+			faults.append("%s: no flight and not carved out of the mesh" % pad.name)
+	return faults
+
+
+## How a broken pad bake is reported; it is a bug in the bake, never in the map.
+func _pad_fault(fault: String) -> void:
+	push_error("RingBake: %s" % fault)
 
 
 ## Pads whose flight lands nowhere are obstacles: carve each new one's plate out of the mesh.
@@ -885,7 +901,8 @@ func _carve_dead_pads(source: NavigationMeshSourceGeometryData3D, into_root: Tra
 			Vector3(half.x, 0.0, half.z), Vector3(-half.x, 0.0, half.z),
 		]:
 			corners.append(into_root * (world * corner))
-		source.add_projected_obstruction(corners, (into_root * pad.global_position).y - 1.0, 3.0, true)
+		# Not carve: the bake erodes it by the agent radius, as it does a wall.
+		source.add_projected_obstruction(corners, (into_root * pad.global_position).y - 1.0, 3.0, false)
 		dead += 1
 	return dead
 
@@ -1020,7 +1037,7 @@ func _try_jump(takeoff: Vector3, direction: Vector3) -> void:
 		if is_nan(height):
 			continue
 		var point: Vector3 = Vector3(probe.x, height, probe.z)
-		if _landing_clear(point) and not _on_pad(point, PAD_CLEARANCE_METRES):
+		if _landing_clear(point) and not _on_pad(point, PAD_TRIP_METRES):
 			landing = point
 			break
 	if not is_finite(landing.x):

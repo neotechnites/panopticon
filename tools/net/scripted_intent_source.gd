@@ -19,6 +19,8 @@ const KEY_PATIENCE_SECONDS: float = 45.0
 const BRAWL_SHOVE_REST: float = 1.7
 ## The view counts as on its target inside this many radians: the trigger waits for it, as a person's does.
 const AIM_SETTLED_RADIANS: float = 0.01
+## Where on a body the view is put, metres above its feet.
+const AIM_CHEST_METRES: float = 0.9
 
 ## Emitted on the tick this source pulls the trigger.
 signal trigger_pulled
@@ -69,9 +71,7 @@ var _brawl_rest: float = 0.0
 var _walked: Dictionary[StringName, bool] = {}
 var _rest_ticks: int = 0
 var _optic: WeaponOptic = null
-var _posts: PackedVector3Array = PackedVector3Array()
-var _posts_middle: Vector3 = Vector3.ZERO
-var _post: int = -1
+var _posts: GuardPosts = GuardPosts.new()
 
 
 func _ready() -> void:
@@ -101,12 +101,7 @@ func bind(controller: MatchController, local_body: PlayerController) -> void:
 		var zoom: ZoomInput = body.get_node_or_null(^"ZoomInput") as ZoomInput
 		if zoom != null:
 			zoom.set_active(false)
-	for node: Node in controller.get_tree().get_nodes_in_group(TowerShooter.POST_GROUP):
-		if node is Marker3D:
-			_posts.append((node as Marker3D).global_position)
-			_posts_middle += (node as Marker3D).global_position
-	if not _posts.is_empty():
-		_posts_middle /= float(_posts.size())
+	_posts = GuardPosts.new(GuardPosts.read(RingBake.level_root_of(controller)))
 	for sig: Signal in [controller.race_started, controller.round_started, controller.brawl_started]:
 		sig.connect(func() -> void: _rearm = true)
 	controller.ghost_respawned.connect(func(_p: MatchParticipant) -> void: _rearm = true)
@@ -411,41 +406,26 @@ func _guard(me: MatchParticipant) -> void:
 		_next_fire = _elapsed + fire_every if fire_every > 0.0 else -1.0
 
 
-## Where a person stands to see the lane: the map's guard post nearest the bearing of a runner, if it has posts.
+## Where a person stands to see the lane: the post with a line to the runner in sight, else the nearest runner.
 func _walk_to_post(me: MatchParticipant) -> Vector2:
 	if _posts.is_empty():
 		return Vector2.ZERO
 	var here: Vector3 = me.body.global_position
 	var gaze: Vector3 = _aimed.body.global_position if _aimed != null and _aimed.body != null else Vector3.INF
 	if not gaze.is_finite():
-		# Nobody in sight from here: go and look where the nearest runner by bearing is.
-		var stand: Vector2 = _flat(_posts[_post] if _post >= 0 else here)
+		# Nobody in sight from here: go and look where the nearest runner is.
 		var least: float = INF
 		for p: MatchParticipant in match_controller.get_participants_ref():
-			if p != me and p.body != null and p.is_running and absf(stand.angle_to(_flat(p.body.global_position))) < least:
-				least = absf(stand.angle_to(_flat(p.body.global_position)))
+			if p != me and p.body != null and p.is_running and here.distance_to(p.body.global_position) < least:
+				least = here.distance_to(p.body.global_position)
 				gaze = p.body.global_position
-	if gaze.is_finite():
-		var held: float = absf(_flat(_posts[_post]).angle_to(_flat(gaze))) - TowerShooter.POST_SWITCH_HYSTERESIS if _post >= 0 else INF
-		for index: int in _posts.size():
-			var offset: float = absf(_flat(_posts[index]).angle_to(_flat(gaze)))
-			if offset < held:
-				held = offset
-				_post = index
-	if _post < 0:
-		return Vector2.ZERO
-	var away: Vector3 = _posts[_post] - here
-	away.y = 0.0
-	var distance: float = away.length()
-	if distance <= TowerShooter.POST_REACHED_METRES:
-		return Vector2.ZERO
-	var frame: Basis = me.body.global_transform.basis
-	return Vector2(away.dot(frame.x), -away.dot(frame.z)) / distance * minf(distance / TowerShooter.POST_EASE_METRES, 1.0)
-
-
-## [param point] on the ground plane, told from the middle of the posts.
-func _flat(point: Vector3) -> Vector2:
-	return Vector2(point.x - _posts_middle.x, point.z - _posts_middle.z)
+	var camera: Node3D = me.body.get_node_or_null(^"Head/Camera") as Node3D
+	if gaze.is_finite() and camera != null:
+		var rifle: Rifle = match_controller.rifle
+		var mask: int = rifle.profile.hit_mask if rifle != null and rifle.profile != null else 0xFFFFF
+		var eye_height: float = camera.global_position.y - here.y
+		_posts.choose(me.body, eye_height, gaze + Vector3.UP * AIM_CHEST_METRES, mask, get_physics_process_delta_time())
+	return _posts.steer(me.body)
 
 
 ## The view that puts this body's camera on the chest of the nearest running body it can see.
@@ -460,7 +440,7 @@ func _aim_view(me: MatchParticipant) -> Vector2:
 	for p: MatchParticipant in match_controller.get_participants_ref():
 		if p == me or p.body == null or not p.is_running:
 			continue
-		var chest: Vector3 = p.body.global_position + Vector3.UP * 0.9
+		var chest: Vector3 = p.body.global_position + Vector3.UP * AIM_CHEST_METRES
 		var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(eye, chest)
 		query.exclude = [me.body.get_rid()]
 		var hit: Dictionary = me.body.get_world_3d().direct_space_state.intersect_ray(query)

@@ -3,8 +3,8 @@ extends Node
 
 ## The tower's brain: the opposite number to [RunnerBrain].
 ##
-## It stands on the platform, searches the ring, decides whether a runner it can
-## see is worth a shot, and calls [method Rifle.try_fire]. It has no movement
+## It stands at the map's guard posts (or its seat), searches the ring, decides whether a
+## runner it can see is worth a shot, and calls [method Rifle.try_fire]. It has no movement
 ## and no weapon of its own: it writes a [MoveIntent] into a [BotIntentSource]
 ## and the same controller and rifle a human holds do the rest, so nothing it
 ## does changes how a hit resolves.
@@ -43,15 +43,6 @@ const SCAN_REACHED: float = 0.09
 const SCAN_TIMEOUT_SECONDS: float = 4.0
 ## How far a remembered runner is projected along its last velocity, seconds.
 const MEMORY_PROJECTION_SECONDS: float = 1.5
-## Map markers the guard may stand at, on open floor it can cross in straight
-## lines. A map with none keeps its guard on the seat.
-const POST_GROUP: StringName = &"guard_post"
-## Another post is walked to once it is this much nearer the gaze, radians.
-const POST_SWITCH_HYSTERESIS: float = 0.15
-## Inside this of its post the guard stands still, metres.
-const POST_REACHED_METRES: float = 0.25
-## It eases off the stick inside this of its post, metres.
-const POST_EASE_METRES: float = 1.0
 
 @export var controller: PlayerController
 @export var input: BotIntentSource
@@ -105,12 +96,8 @@ var _scan_index: int = 0
 var _scan_sign: float = 1.0
 var _scan_swept: float = 0.0
 
-# The stand: the map's posts, their middle (bearings are told from it), the one held.
-var _posts: PackedVector3Array = PackedVector3Array()
-var _posts_middle: Vector3 = Vector3.ZERO
-var _posts_reach: float = 0.0
-var _post: int = -1
-var _posted: bool = true
+# The stand: the map's guard posts, empty on a map that keeps its guard on the seat.
+var _posts: GuardPosts = GuardPosts.new()
 
 
 static func _make_ray() -> PhysicsRayQueryParameters3D:
@@ -164,7 +151,7 @@ func configure(spawn_point: Vector3, initial_yaw: float = 0.0) -> void:
 	_resample_aim_error()
 	_resample_lead_bias()
 	_read_watch_points()
-	_read_posts()
+	_posts = GuardPosts.new(GuardPosts.read(RingBake.level_root_of(controller)))
 	if optic != null:
 		optic.reset_zoom()
 	set_physics_process(true)
@@ -178,23 +165,6 @@ func _read_watch_points() -> void:
 		var marker: Node3D = node as Node3D
 		if marker != null:
 			_watch_points.append(marker.global_position)
-
-
-func _read_posts() -> void:
-	_posts.clear()
-	_post = -1
-	if is_inside_tree():
-		for node: Node in get_tree().get_nodes_in_group(POST_GROUP):
-			var marker: Marker3D = node as Marker3D
-			if marker != null:
-				_posts.append(marker.global_position)
-	_posts_middle = Vector3.ZERO
-	for post: Vector3 in _posts:
-		_posts_middle += post / float(_posts.size())
-	_posts_reach = INF if not _posts.is_empty() else 0.0
-	for post: Vector3 in _posts:
-		_posts_reach = minf(_posts_reach, Vector2(post.x - _posts_middle.x, post.z - _posts_middle.z).length())
-	_posted = _posts.is_empty()
 
 
 # --- Readouts -----------------------------------------------------------------
@@ -236,7 +206,12 @@ func get_reaction_delay() -> float:
 
 ## The index of the post held, or -1 on a map with none.
 func get_post() -> int:
-	return _post
+	return _posts.held
+
+
+## False while it walks between posts, when it holds fire.
+func is_posted() -> bool:
+	return _posts.is_posted()
 
 
 func get_skill() -> float:
@@ -270,13 +245,13 @@ func _physics_process(delta: float) -> void:
 	_clock += delta
 	_tick_aim_error(delta)
 	_tick_lead_bias(delta)
-	# The tower does not walk; written every tick so the ground phase runs.
+	# Written every tick so the ground phase runs; a walk to a post overwrites it.
 	input.command.move_direction = Vector2.ZERO
 	var target: PlayerController = _choose_target(_visible_targets())
 	if target == null:
 		_forget_target()
 		_scan(delta)
-		_keep_post(_scan_point if _scan_has_point else _posts_middle - controller.global_transform.basis.z * (_posts_reach + 1.0))
+		_keep_post(_scan_point if _scan_has_point else _sweep_point(), delta)
 		_drive_optic(0.0, Vector2.ZERO)
 		_set_state(State.RECOVERING if not rifle.can_fire() else State.SCANNING)
 		return
@@ -294,7 +269,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		_occluded_seconds += delta
 		_believed_point += _believed_velocity * delta
-	_keep_post(_believed_point)
+	_keep_post(_believed_point, delta)
 	var aim_error: Vector2 = _track(delta)
 	var distance: float = _eye_position().distance_to(_believed_point)
 	_drive_optic(distance, aim_error)
@@ -306,6 +281,8 @@ func _physics_process(delta: float) -> void:
 		return
 	_set_state(State.ENGAGING)
 	_confidence = _compute_confidence(target, aim_error, distance)
+	if not _posts.is_posted():
+		return
 	if _confidence < profile.shot_confidence_threshold:
 		shot_declined.emit(_confidence)
 		return
@@ -500,13 +477,18 @@ func _first_on_line(point: Vector3) -> Object:
 		return self
 	_ray.from = _eye_position()
 	_ray.to = point
-	_ray.collision_mask = rifle.profile.hit_mask if rifle.profile != null else 0xFFFFF
+	_ray.collision_mask = _hit_mask()
 	if _ray_exclude.is_empty() or _ray_exclude[0] != controller.get_rid():
 		_ray_exclude.clear()
 		_ray_exclude.append(controller.get_rid())
 		_ray.exclude = _ray_exclude
 	var hit: Dictionary = space.intersect_ray(_ray)
 	return null if hit.is_empty() else hit.get("collider", null)
+
+
+## What a round stops on, so every line the guard judges is a line of fire.
+func _hit_mask() -> int:
+	return rifle.profile.hit_mask if rifle.profile != null else 0xFFFFF
 
 
 func _aim_point(body: PlayerController) -> Vector3:
@@ -537,7 +519,7 @@ func _scan(delta: float) -> void:
 	if _scan_has_point:
 		_scan_elapsed += delta
 		var error: Vector2 = _angles_to(_scan_point)
-		if absf(error.x) <= SCAN_REACHED and _posted:
+		if absf(error.x) <= SCAN_REACHED and _posts.is_posted():
 			_scan_dwell -= delta
 		if _scan_dwell <= 0.0 or _scan_elapsed >= SCAN_TIMEOUT_SECONDS:
 			_scan_has_point = false
@@ -592,38 +574,19 @@ func _recall_freshest() -> bool:
 	return found
 
 
-## Stand at the post whose bearing from the posts' middle is nearest [param gaze]'s,
-## and walk there when it is not underfoot. Does nothing on a map with no posts.
-func _keep_post(gaze: Vector3) -> void:
+## Stand where there is a line of fire to [param gaze], walking there if need be.
+func _keep_post(gaze: Vector3, delta: float) -> void:
 	if _posts.is_empty():
 		return
-	var want: Vector2 = Vector2(gaze.x - _posts_middle.x, gaze.z - _posts_middle.z)
-	# A gaze inside the ring of posts (somebody in the room) has no bearing worth a walk.
-	if want.length() > _posts_reach or _post < 0:
-		var held: float = _post_offset(_post, want) - POST_SWITCH_HYSTERESIS if _post >= 0 else INF
-		for index: int in _posts.size():
-			var offset: float = _post_offset(index, want)
-			if offset < held:
-				held = offset
-				_post = index
-	if _post < 0:
-		return
-	var here: Vector3 = controller.global_position
-	var away: Vector2 = Vector2(_posts[_post].x - here.x, _posts[_post].z - here.z)
-	var distance: float = away.length()
-	_posted = distance <= POST_REACHED_METRES
-	if _posted:
-		return
-	var frame: Basis = controller.global_transform.basis
-	var heading: Vector3 = Vector3(away.x, 0.0, away.y) / distance
-	input.command.move_direction = (
-		Vector2(heading.dot(frame.x), -heading.dot(frame.z)) * minf(distance / POST_EASE_METRES, 1.0)
-	)
+	_posts.choose(controller, _eye_position().y - controller.global_position.y, gaze, _hit_mask(), delta)
+	input.command.move_direction = _posts.steer(controller)
 
 
-func _post_offset(index: int, want: Vector2) -> float:
-	var out: Vector2 = Vector2(_posts[index].x - _posts_middle.x, _posts[index].z - _posts_middle.z)
-	return absf(out.angle_to(want))
+## What a bare sweep looks at: engagement range out along the facing, level with the eye.
+func _sweep_point() -> Vector3:
+	var forward: Vector3 = -controller.global_transform.basis.z
+	forward.y = 0.0
+	return _eye_position() + forward.normalized() * profile.max_engagement_range
 
 
 ## Steer at the believed point plus lead: the aim's own lag, and time of flight
