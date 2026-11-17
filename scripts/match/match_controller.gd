@@ -873,6 +873,8 @@ func start_match() -> void:
 	_ghost_profile = null
 	_catch_count = 0
 	_disarm_finisher()
+	# A beat belongs to the match that started it: left running, it would score into this one.
+	_clear_kill_beat()
 	# Before the roster is rebuilt, while the old participants are still here to
 	# be read. See the method: difficulty is drawn when a brain is BUILT.
 	_release_tower_brains()
@@ -1090,11 +1092,7 @@ func _place_in_brawl(participant: MatchParticipant, index: int, count: int) -> v
 	if ability != null:
 		# Only the shove: no rules, no power.
 		ability.arm(null, self)
-	_silence_tower_brain(participant)
-	_silence_brain(participant)
-	if participant.brain != null and participant.brain.input != null:
-		# This fight's bots shove when lined up, not on the lap's reflex.
-		participant.brain.input.shove_enabled = false
+	_quiet_for_brawl(participant)
 	participant.tracker.stop()
 	var angle: float = TAU * float(index) / float(maxi(count, 1))
 	# A body and a half apart round the ring, kept a body clear of the edge.
@@ -1105,6 +1103,15 @@ func _place_in_brawl(participant: MatchParticipant, index: int, count: int) -> v
 	# Facing out, so nobody starts with a shove lined up.
 	body.rotation = Vector3(0.0, _heading_of(offset), 0.0)
 	body.add_to_group(RUNNER_GROUP)
+
+
+## How a fighter's own brains stand in the tower fight: down. [method _drive_brawl_bot] moves a
+## bot here, and it shoves when lined up, not on the lap's reflex.
+func _quiet_for_brawl(participant: MatchParticipant) -> void:
+	_silence_tower_brain(participant)
+	_silence_brain(participant)
+	if participant.brain != null and participant.brain.input != null:
+		participant.brain.input.shove_enabled = false
 
 
 ## The host's tower fight, each tick: falls, the bots' shoving, and the end.
@@ -1817,7 +1824,9 @@ func net_seat_to_bot(index: int) -> void:
 	participant.brain = _find_brain(participant.body)
 	if _mirror or participant.brain == null:
 		return
-	if participant.is_finisher:
+	if _phase == Phase.BRAWL:
+		_quiet_for_brawl(participant)
+	elif participant.is_finisher:
 		_hunt_the_guard(participant)
 	elif participant.is_running:
 		_start_running_in_place(participant, participant.tracker.get_travelled_arc(), null)
@@ -2808,7 +2817,7 @@ func _wake_ghost(participant: MatchParticipant) -> void:
 	)
 	body.collision_mask = participant.home_collision_mask
 	# A mirror simulates nothing -- except the one body it is predicting.
-	body.set_physics_process(not _mirror or body.net_predicted)
+	body.set_held(false, not _mirror or body.net_predicted)
 	body.revived.emit()
 
 
@@ -3478,7 +3487,7 @@ func _hold_body(participant: MatchParticipant) -> void:
 	body.velocity = Vector3.ZERO
 	body.collision_layer = 0
 	body.collision_mask = 0
-	body.set_physics_process(false)
+	body.set_held(true)
 	# Whoever is holding the body now owns waking it. A ghost settle still
 	# running would otherwise hand this body its GHOST collision back two frames
 	# into a round that has just placed it as a prisoner.
@@ -3569,7 +3578,7 @@ func _wake_body(participant: MatchParticipant) -> void:
 	body.collision_layer = participant.home_collision_layer
 	body.collision_mask = participant.home_collision_mask
 	# A mirror simulates nothing -- except the one body it is predicting.
-	body.set_physics_process(not _mirror or body.net_predicted)
+	body.set_held(false, not _mirror or body.net_predicted)
 	body.revived.emit()
 
 
@@ -3604,7 +3613,7 @@ func _park_body(participant: MatchParticipant) -> void:
 	_silence_brain(participant)
 	_silence_tower_brain(participant)
 	body.velocity = Vector3.ZERO
-	body.set_physics_process(false)
+	body.set_held(true)
 	body.remove_from_group(RUNNER_GROUP)
 	body.visible = false
 	body.collision_layer = 0
@@ -3663,10 +3672,11 @@ func _arm_tower_brain() -> void:
 	# human's round takes that return, and the prisoners still have to be told
 	# there is somebody up there. See [constant GUARD_GROUP].
 	_publish_the_seat()
-	if _mirror or _phase != Phase.ROUND or _seat == null or _seat.is_human():
+	if _mirror or _phase != Phase.ROUND or _seat == null or _seat.is_human() or _in_kill_beat():
 		# The opening race has no shooter, and a human in the tower is driven by
 		# the human. Either way every brain stays down: an AI that fought the
 		# player for their own look axis would be the worst bug in the game.
+		# Nor inside a kill beat: the seat holder is the one being thrown.
 		return
 
 	var shooter: TowerShooter = _tower_brain_of(_seat)
@@ -4322,7 +4332,7 @@ func _freeze_everyone() -> void:
 		participant.tracker.stop()
 		participant.respawn_hold_remaining = 0.0
 		participant.body.velocity = Vector3.ZERO
-		participant.body.set_physics_process(false)
+		participant.body.set_held(true)
 
 
 # --- Ring geometry ------------------------------------------------------------

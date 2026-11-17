@@ -75,7 +75,7 @@ func _ready() -> void:
 		set_physics_process(false)
 		return
 	_lobby = _session.lobby
-	if _lobby == null or (not hub_mode and _lobby.get_phase() != NetLobby.Phase.LAUNCHING):
+	if _lobby == null or (not hub_mode and not _lobby.names_match_scene()):
 		set_physics_process(false)
 		return
 	_session.session_ended.connect(_on_session_ended)
@@ -329,7 +329,7 @@ func _subscribe_server() -> void:
 	controller.round_started.connect(_on_round_started)
 	controller.participant_converted.connect(
 		func(participant: MatchParticipant) -> void:
-			_event(&"_ev_removed", [participant.index, int(participant.death_cause)])
+			_event(&"_ev_removed", [participant.index, int(participant.death_cause), _is_held(participant)])
 	)
 	controller.ghost_fell.connect(
 		func(participant: MatchParticipant) -> void:
@@ -350,10 +350,16 @@ func _subscribe_server() -> void:
 	)
 	controller.ghost_caught.connect(
 		func(ghost: MatchParticipant, caught: MatchParticipant) -> void:
-			_event(&"_ev_ghost_caught", [ghost.index, caught.index])
+			_event(&"_ev_ghost_caught", [ghost.index, caught.index, _is_held(caught)])
 	)
 	_lobby.seat_occupancy_changed.connect(_on_seat_occupancy_changed)
 	_watch_rifle(controller.rifle, TOWER_RIFLE)
+
+
+## Whether the server still holds a body it has just made a ghost. With no respawn delay it is
+## back up inside its own making, and that respawn was announced before the making was.
+func _is_held(participant: MatchParticipant) -> bool:
+	return participant.respawn_hold_remaining > 0.0
 
 
 ## Send one weapon's shots on, [param which] naming the gun so a client replays
@@ -431,6 +437,10 @@ func _drive_trigger(who: MatchParticipant, weapon: Rifle, was_held: bool) -> boo
 	var source: RemoteIntentSource = link.get_remote_source() if link != null else null
 	if source == null:
 		return was_held
+	if not link.controller.is_physics_processing():
+		# Held by the match: its keys were let go for it, which is not the holder releasing a charge.
+		weapon.cancel_charge()
+		return false
 	# The scope is the holder's; the host raises the seat's optic with it so sway and hip spread agree.
 	if weapon.optic != null:
 		weapon.optic.set_zoomed(source.command.aim_held)
@@ -454,7 +464,9 @@ func _drive_trigger(who: MatchParticipant, weapon: Rifle, was_held: bool) -> boo
 
 func _on_round_started() -> void:
 	var seat: MatchParticipant = controller.get_seat_participant()
-	_event(&"_ev_round_started", [seat.index if seat != null else 0, controller.get_round_number()])
+	_event(&"_ev_round_started", [
+		seat.index if seat != null else 0, controller.get_round_number(), seat.rounds_won if seat != null else 0,
+	])
 
 
 ## Ask for a rematch on this map; the host restarts once every human in the match has asked.
@@ -487,8 +499,16 @@ func _vote_rematch(peer: int) -> void:
 		return
 	_rematch_peers[peer] = true
 	_send_rematch_votes()
+	_tally_rematch()
+
+
+## Restart once every human whose match scene stands has asked. Counted on each vote and
+## again when a human leaves, so the one who had not asked cannot strand the rest by going.
+func _tally_rematch() -> void:
+	if not controller.is_match_over() or _rematch_peers.is_empty():
+		return
 	for seat: LobbySeat in _lobby.seats:
-		if seat.is_human() and seat.peer_id > 0 and not _rematch_peers.has(seat.peer_id):
+		if seat.is_human() and _has_scene(seat.peer_id) and not _rematch_peers.has(seat.peer_id):
 			return
 	_rematch_peers.clear()
 	_lobby.resume_match()
@@ -511,7 +531,7 @@ func _ev_rematch_votes(names: PackedStringArray) -> void:
 
 
 func _on_match_won(participant: MatchParticipant) -> void:
-	_event(&"_ev_match_won", [participant.index])
+	_event(&"_ev_match_won", [participant.index, participant.rounds_won])
 	_lobby.conclude_match(_seat_index_of(participant.index))
 
 
@@ -562,7 +582,13 @@ static func of(node: Node) -> NetMatch:
 
 func _on_scene_bound(peer_id: int, epoch: int) -> void:
 	if hub_mode and epoch == _epoch and _session.is_authority():
-		peer_bound.emit(peer_id)
+		_announce_bound(peer_id)
+
+
+## [param peer_id]'s scene stands: it is told what was said once before it could hear.
+func _announce_bound(peer_id: int) -> void:
+	_session.replicator.send_placed_to(peer_id)
+	peer_bound.emit(peer_id)
 
 
 ## The finisher is in the tower; every peer is told who, for the role.
@@ -600,12 +626,9 @@ func _on_seat_occupancy_changed(seat_index: int, occupancy: LobbySeat.Occupancy)
 	var slot: int = _slot_of_seat[seat_index]
 	var link: PlayerNetLink = _link_for_seat(seat_index)
 	if link != null:
-		# The match may be holding this body (dead, a kill beat, a settle); the handover must not wake it.
-		var simulated: bool = link.controller.is_physics_processing()
 		link.owner_peer_id = 0
 		link.local_source = link.controller.get_node_or_null(^"BotInput") as IntentSource
 		link.refresh_role()
-		link.controller.set_physics_process(simulated)
 	controller.net_seat_to_bot(slot)
 	# Deferred: this runs inside the leaving peer's disconnect signal.
 	_event.call_deferred(&"_ev_seat_to_bot", [slot])
@@ -625,7 +648,7 @@ func _replays() -> bool:
 func _on_peer_launched(peer_id: int, _seat_index: int) -> void:
 	if _started:
 		_catch_up(peer_id)
-		peer_bound.emit(peer_id)
+		_announce_bound(peer_id)
 		_begin_if_launched()
 	elif _lobby.get_unlaunched_peers().is_empty():
 		_start_now()
@@ -633,9 +656,12 @@ func _on_peer_launched(peer_id: int, _seat_index: int) -> void:
 
 ## A peer left before launching: the match no longer waits on it. Deferred,
 ## because this fires inside the leaving peer's disconnect.
-func _on_seat_vacated(_seat_index: int, _peer_id: int) -> void:
+func _on_seat_vacated(_seat_index: int, peer_id: int) -> void:
 	if _started:
 		_begin_if_launched.call_deferred()
+		if _rematch_peers.erase(peer_id):
+			_send_rematch_votes.call_deferred()
+		_tally_rematch.call_deferred()
 	elif _lobby.get_unlaunched_peers().is_empty():
 		_start_now.call_deferred()
 
@@ -679,6 +705,8 @@ func _ev_gamestate(state: PackedInt32Array) -> void:
 	var phase: MatchController.Phase = state[0] as MatchController.Phase
 	if phase == MatchController.Phase.RACE:
 		controller.net_start_race()
+	elif phase == MatchController.Phase.BRAWL:
+		controller.net_start_brawl()
 	elif state[2] >= 0:
 		controller.net_start_round(state[2], state[1])
 	if state[3] >= 0:
@@ -687,7 +715,7 @@ func _ev_gamestate(state: PackedInt32Array) -> void:
 	for i: int in participants.size():
 		var flags: int = state[NetCodec.GAMESTATE_HEADER + i * NetCodec.GAMESTATE_PARTICIPANT]
 		if flags & (NetCodec.GAMESTATE_RUNNING | NetCodec.GAMESTATE_SHOOTER) == 0 and participants[i].is_running:
-			_ev_removed(i, int(MatchParticipant.DeathCause.SHOT))
+			_ev_removed(i, int(MatchParticipant.DeathCause.SHOT), true)
 		if flags & NetCodec.GAMESTATE_GHOST != 0 and flags & NetCodec.GAMESTATE_HELD == 0:
 			# Its respawn landed before this machine was listening.
 			controller.net_ghost_respawn(i)
@@ -709,20 +737,41 @@ func _ev_race_started() -> void:
 
 
 @rpc("authority", "reliable", "call_remote", 0)
-func _ev_round_started(seat_index: int, round_number: int) -> void:
+func _ev_round_started(seat_index: int, round_number: int, rounds_won: int) -> void:
 	if not _replays():
 		return
+	_take_rounds_won(seat_index, rounds_won)
 	controller.net_start_round(seat_index, round_number)
 
 
+## The rounds [param index] has held the tower through, as the server counts them: only it
+## awards one, so the count rides the event that follows the award.
+func _take_rounds_won(index: int, rounds_won: int) -> void:
+	var participants: Array[MatchParticipant] = controller.get_participants()
+	if index >= 0 and index < participants.size():
+		participants[index].rounds_won = maxi(rounds_won, 0)
+
+
 @rpc("authority", "reliable", "call_remote", 0)
-func _ev_removed(index: int, cause: int) -> void:
+func _ev_removed(index: int, cause: int, held: bool) -> void:
 	if not _replays():
 		return
-	if controller.get_phase() == MatchController.Phase.RACE:
-		controller.net_race_out(index)
-	else:
-		controller.net_convert(index, _cause_of(cause))
+	match controller.get_phase():
+		MatchController.Phase.RACE:
+			controller.net_race_out(index)
+		MatchController.Phase.BRAWL:
+			# Only a late peer's catch-up comes this way: it was out before this machine could see the throw.
+			controller.net_brawl_out(index, Vector3.ZERO)
+		_:
+			controller.net_convert(index, _cause_of(cause))
+			_made_ghost(index, held)
+
+
+## A mirror has just made [param index] a ghost: one the server no longer holds has already
+## respawned there, and must not wait here for a respawn that will not be said again.
+func _made_ghost(index: int, held: bool) -> void:
+	if not held:
+		controller.net_ghost_respawn(index)
 
 
 @rpc("authority", "reliable", "call_remote", 0)
@@ -747,9 +796,10 @@ func _ev_round_resolved(outcome: int) -> void:
 
 
 @rpc("authority", "reliable", "call_remote", 0)
-func _ev_match_won(index: int) -> void:
+func _ev_match_won(index: int, rounds_won: int) -> void:
 	if not _replays():
 		return
+	_take_rounds_won(index, rounds_won)
 	controller.net_win(index)
 
 
@@ -761,10 +811,11 @@ func _ev_ghost_respawned(index: int) -> void:
 
 
 @rpc("authority", "reliable", "call_remote", 0)
-func _ev_ghost_caught(ghost_index: int, caught_index: int) -> void:
+func _ev_ghost_caught(ghost_index: int, caught_index: int, held: bool) -> void:
 	if not _replays():
 		return
 	controller.net_ghost_caught(ghost_index, caught_index)
+	_made_ghost(caught_index, held)
 
 
 @rpc("authority", "reliable", "call_remote", 0)

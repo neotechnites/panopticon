@@ -178,6 +178,9 @@ var _decoy_epochs: Dictionary[int, int] = {}
 ## Spawn counter, wrapped at [constant NetCodec.DECOY_EPOCH_MODULUS].
 var _decoy_epoch: int = 0
 
+## The shield each seat was last told of, by its instance id. Authority-only.
+var _shields_told: Dictionary[int, int] = {}
+
 var _is_authority: bool = false
 
 ## The scene epoch this machine's bodies belong to ([method NetLobby.get_epoch]): stamped on what
@@ -292,6 +295,7 @@ func get_jitter_seconds() -> float:
 var intent_tick: int = 0
 var intent_presses: int = 0
 var intent_press_slot: int = 0
+var intent_press_slot_prior: int = 0
 
 
 # --- Sending ------------------------------------------------------------------
@@ -312,6 +316,7 @@ func _physics_process(delta: float) -> void:
 	# Every tick, not at the snapshot rate: a hologram is a body the tower is
 	# shooting at, and one drawn 33 ms behind is one a client's shot misses.
 	_drive_decoys()
+	_drive_shields()
 
 	_send_accumulator += delta
 	var interval: float = session.get_settings().get_snapshot_interval()
@@ -453,6 +458,49 @@ func _drive_decoys() -> void:
 		track.position = position
 		track.yaw = yaw
 		rpc(&"_decoy_moved", NetCodec.pack_decoy_move(link.seat_index, track.epoch, position, yaw))
+
+
+## Tell [param peer_id], whose scene has just stood up, of every hologram and shield already out:
+## each is said once, and a peer with no bodies yet had nowhere to put it.
+func send_placed_to(peer_id: int) -> void:
+	if not _is_authority:
+		return
+	for seat_index: int in _decoy_tracks:
+		var track: DecoyTrack = _decoy_tracks[seat_index]
+		if is_instance_valid(track.decoy):
+			rpc_id(peer_id, &"_decoy_spawned", seat_index, track.epoch, track.position, track.yaw)
+	for seat_index: int in _shields_told:
+		var power: RunnerPower = _power_of(seat_index)
+		var shield: Node3D = power.get_shield() if power != null else null
+		if shield != null:
+			rpc_id(peer_id, &"_shield_raised", seat_index, shield.global_position)
+
+
+## Say once where each new bubble shield stands. A mirror raises its own off the snapshot, where
+## its drawn body had got to; this is where the authority stops shots.
+func _drive_shields() -> void:
+	for link: PlayerNetLink in _links:
+		if not link.is_replicable():
+			continue
+		var power: RunnerPower = RunnerPower.of(link.controller)
+		var shield: Node3D = power.get_shield() if power != null else null
+		var told: int = _shields_told.get(link.seat_index, 0)
+		if shield == null:
+			if told != 0:
+				_shields_told.erase(link.seat_index)
+		elif told != shield.get_instance_id():
+			_shields_told[link.seat_index] = shield.get_instance_id()
+			rpc(&"_shield_raised", link.seat_index, shield.global_position)
+
+
+## Authority to everyone, once, when a runner's shield goes up.
+@rpc("authority", "reliable", "call_remote", 0)
+func _shield_raised(seat_index: int, position: Vector3) -> void:
+	if _is_authority or not position.is_finite():
+		return
+	var power: RunnerPower = _power_of(seat_index)
+	if power != null:
+		power.place_shield(position)
 
 
 ## Authority to everyone, once, when a runner's hologram appears.
@@ -739,6 +787,7 @@ func _should_interpolate() -> bool:
 func _clear_playback() -> void:
 	_decoy_tracks.clear()
 	_decoy_epochs.clear()
+	_shields_told.clear()
 	_playback_start = 0
 	_playback_count = 0
 	_have_clock = false

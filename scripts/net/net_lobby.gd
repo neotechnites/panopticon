@@ -173,8 +173,12 @@ func get_epoch() -> int:
 ## The epoch of the scene this machine is in, or 0 while the lobby names another scene.
 func get_epoch_for(hub_scene: bool) -> int:
 	var hub_phase: bool = _phase == Phase.GATHERING
-	var match_phase: bool = _phase == Phase.LAUNCHING or _phase == Phase.IN_MATCH or _phase == Phase.POST_MATCH
-	return _epoch if (hub_scene and hub_phase) or (not hub_scene and match_phase) else 0
+	return _epoch if (hub_scene and hub_phase) or (not hub_scene and names_match_scene()) else 0
+
+
+## True from the launch until the return to the hub: the scene every machine should be in is the match.
+func names_match_scene() -> bool:
+	return _phase == Phase.LAUNCHING or _phase == Phase.IN_MATCH or _phase == Phase.POST_MATCH
 
 
 ## The host's rules, or null before the host has published any.
@@ -523,7 +527,7 @@ func launch() -> bool:
 ## The host needs no message for its own scene; the reply is whatever of the
 ## match the sender missed, from the match layer.
 func acknowledge_launch() -> void:
-	if _is_authority() or _phase != Phase.LAUNCHING:
+	if _is_authority() or not names_match_scene():
 		return
 	rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_request_launched", get_local_seat_index())
 
@@ -731,9 +735,10 @@ func _request_ready(ready: bool) -> void:
 ## Client to authority: my scene for this epoch stands.
 @rpc("any_peer", "reliable", "call_remote", 0)
 func _request_scene_bound(epoch: int) -> void:
-	# Not rate limited: it is sent once a scene, and one dropped is a peer told nothing in it.
+	# Not rate limited, as one dropped is a peer told nothing in its scene: it counts once, and only
+	# for the scene the lobby names now, so repeating or alternating it gets no second answer.
 	var seat: LobbySeat = find_seat_by_peer(multiplayer.get_remote_sender_id())
-	if seat == null or not _is_authority():
+	if seat == null or not _is_authority() or epoch != _epoch or has_bound(seat.peer_id, epoch):
 		return
 	_bound_epochs[seat.peer_id] = epoch
 	scene_bound.emit(seat.peer_id, epoch)
@@ -742,8 +747,10 @@ func _request_scene_bound(epoch: int) -> void:
 ## Client to authority: my match scene is bound, at this seat.
 @rpc("any_peer", "reliable", "call_remote", 0)
 func _request_launched(seat_index: int) -> void:
-	var seat: LobbySeat = _requesting_seat()
-	if seat == null or seat.index != seat_index or _phase != Phase.LAUNCHING:
+	# Not rate limited, as one dropped is a peer left out of its match: it counts once a launch,
+	# for as long as the lobby names the match scene, however late that peer's scene stands.
+	var seat: LobbySeat = find_seat_by_peer(multiplayer.get_remote_sender_id())
+	if seat == null or not _is_authority() or seat.index != seat_index or not names_match_scene():
 		return
 	if _launched.get(seat.peer_id, false):
 		return

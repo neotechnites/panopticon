@@ -247,6 +247,7 @@ const _SWING_MEMORY_TICKS: int = 90
 ## This machine's running press counts for the intent it sends; see [member MoveIntent.press_counts].
 var _press_counts: int = 0
 var _press_slot: int = 0
+var _press_slot_prior: int = 0
 
 ## Links by the instance id of the body they carry: a link sits under [NetMatch], not its body.
 static var _by_body: Dictionary[int, PlayerNetLink] = {}
@@ -277,6 +278,7 @@ func _ready() -> void:
 			_tick = replicator.intent_tick
 			_press_counts = replicator.intent_presses
 			_press_slot = replicator.intent_press_slot
+			_press_slot_prior = replicator.intent_press_slot_prior
 	session.connection_state_changed.connect(_on_connection_state_changed)
 	controller.jumped.connect(func() -> void: _jump_counter += 1)
 	controller.shoved.connect(_on_body_shoved)
@@ -327,7 +329,8 @@ func refresh_role() -> void:
 		reset_prediction()
 		_take_own_footing()
 
-	controller.set_physics_process(true)
+	# Whether the body runs is the match's word: a role taken over while it is held leaves it held.
+	controller.set_physics_process(not controller.held)
 	if _owns_locally():
 		controller.intent_source = local_source
 	else:
@@ -344,9 +347,7 @@ func _physics_process(delta: float) -> void:
 	_tick += 1
 	if _is_authority:
 		_packets_this_tick = 0
-		if remote_source != null and controller != null and not controller.is_physics_processing():
-			# A parked body runs no command: presses made meanwhile are not owed to it on its return.
-			remote_source.forget_presses()
+		_rest_held_source()
 		return
 	if session == null or controller == null:
 		return
@@ -429,7 +430,15 @@ func reset_prediction() -> void:
 ## The network-fed source for this body. Present whether or not it is in use;
 ## [method PlayerController.intent_source] is what says which source is live.
 func get_remote_source() -> RemoteIntentSource:
+	_rest_held_source()
 	return remote_source
+
+
+## A body the match holds polls nothing, so its source holds nothing: no key, press or
+## trigger pull sent for it meanwhile stands, or waits, for its return.
+func _rest_held_source() -> void:
+	if remote_source != null and controller != null and not controller.is_physics_processing():
+		remote_source.rest()
 
 
 ## Read this body's current state into [param out]. Called by [NetReplicator]
@@ -558,7 +567,15 @@ func _present_events(state: PlayerState) -> void:
 	_was_sliding = state.sliding
 
 
-## This body's participant, or null before the match has built them.
+## A predicting body heard its own jumps, landings and slides as it made them: the mirror's
+## memory moves past them, so none is replayed when the match holds the body.
+func _pass_own_events(state: PlayerState) -> void:
+	_event_tick = state.tick
+	_was_on_floor = state.on_floor
+	_was_sliding = state.sliding
+	_seen_jumps = state.jump_counter
+
+
 ## Draw the swings the authority's counter has advanced by, less the ones this machine
 ## already drew for its own body when the key went down.
 func _present_swings(counter: int) -> void:
@@ -595,6 +612,7 @@ func _predict_swing(delta: float) -> void:
 	controller.shoved.emit()
 
 
+## This body's participant, or null before the match has built them.
 func _participant() -> MatchParticipant:
 	if match_controller == null or controller == null:
 		return null
@@ -610,7 +628,11 @@ func _send_intent() -> void:
 	# controller. Polling it again here would eat the edges twice and send an
 	# input the body never acted on.
 	if _predicting:
-		_scratch_intent.copy_from(controller.get_intent())
+		if controller.is_physics_processing():
+			_scratch_intent.copy_from(controller.get_intent())
+		else:
+			# Held by the match: nothing polled the source, so its last intent is no longer being made.
+			_scratch_intent.clear()
 		var view: Vector2 = controller.get_view_angles()
 		_scratch_intent.view_angles = Vector2(wrapf(view.x - _view_base, -PI, PI), view.y)
 	else:
@@ -622,9 +644,6 @@ func _send_intent() -> void:
 	_scratch_intent.view_tick = replicator.get_view_tick() if replicator != null else -1
 	_scratch_intent.look_delta = Vector2.ZERO
 	_scratch_intent.normalise()
-	if not controller.is_physics_processing():
-		# Parked: its last intent stands unpolled, and a key pressed now is pressed at nothing.
-		_scratch_intent.clear_presses()
 	_count_presses(_scratch_intent)
 	var redundancy: int = clampi(
 		session.get_settings().intent_redundancy, 1, NetCodec.MAX_INTENT_REDUNDANCY
@@ -635,6 +654,7 @@ func _send_intent() -> void:
 		replicator.intent_tick = _tick
 		replicator.intent_presses = _press_counts
 		replicator.intent_press_slot = _press_slot
+		replicator.intent_press_slot_prior = _press_slot_prior
 	rpc_id(session.get_authority_peer_id(), &"_receive_intent", _last_packet)
 
 
@@ -650,9 +670,11 @@ func _count_presses(intent: MoveIntent) -> void:
 			continue
 		_press_counts = MoveIntent.press_added(_press_counts, key)
 		if key == MoveIntent.Press.POWER:
+			_press_slot_prior = _press_slot
 			_press_slot = intent.ability_slot
 	intent.press_counts = _press_counts
 	intent.press_slot = _press_slot
+	intent.press_slot_prior = _press_slot_prior
 
 
 func get_last_intent_packet() -> PackedByteArray:
@@ -800,6 +822,7 @@ func _write_result(entry: PredictedTick) -> void:
 func _reconcile(delta: float) -> void:
 	_apply_presentation(_pending_state, true)
 	_present_swings(_pending_state.shove_counter)
+	_pass_own_events(_pending_state)
 	var rebase: float = angle_difference(_view_base, _pending_state.view_base)
 	_view_base = _pending_state.view_base
 	controller.rotation.y = wrapf(controller.rotation.y + rebase, -PI, PI)
