@@ -454,7 +454,9 @@ func _drive_trigger(who: MatchParticipant, weapon: Rifle, was_held: bool) -> boo
 
 func _on_round_started() -> void:
 	var seat: MatchParticipant = controller.get_seat_participant()
-	_event(&"_ev_round_started", [seat.index if seat != null else 0, controller.get_round_number()])
+	_event(&"_ev_round_started", [
+		seat.index if seat != null else 0, controller.get_round_number(), seat.rounds_won if seat != null else 0,
+	])
 
 
 ## Ask for a rematch on this map; the host restarts once every human in the match has asked.
@@ -519,7 +521,7 @@ func _ev_rematch_votes(names: PackedStringArray) -> void:
 
 
 func _on_match_won(participant: MatchParticipant) -> void:
-	_event(&"_ev_match_won", [participant.index])
+	_event(&"_ev_match_won", [participant.index, participant.rounds_won])
 	_lobby.conclude_match(_seat_index_of(participant.index))
 
 
@@ -722,10 +724,19 @@ func _ev_race_started() -> void:
 
 
 @rpc("authority", "reliable", "call_remote", 0)
-func _ev_round_started(seat_index: int, round_number: int) -> void:
+func _ev_round_started(seat_index: int, round_number: int, rounds_won: int) -> void:
 	if not _replays():
 		return
+	_take_rounds_won(seat_index, rounds_won)
 	controller.net_start_round(seat_index, round_number)
+
+
+## The rounds [param index] has held the tower through, as the server counts them: only it
+## awards one, so the count rides the event that follows the award.
+func _take_rounds_won(index: int, rounds_won: int) -> void:
+	var participants: Array[MatchParticipant] = controller.get_participants()
+	if index >= 0 and index < participants.size():
+		participants[index].rounds_won = maxi(rounds_won, 0)
 
 
 @rpc("authority", "reliable", "call_remote", 0)
@@ -760,9 +771,10 @@ func _ev_round_resolved(outcome: int) -> void:
 
 
 @rpc("authority", "reliable", "call_remote", 0)
-func _ev_match_won(index: int) -> void:
+func _ev_match_won(index: int, rounds_won: int) -> void:
 	if not _replays():
 		return
+	_take_rounds_won(index, rounds_won)
 	controller.net_win(index)
 
 
