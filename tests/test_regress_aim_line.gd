@@ -8,10 +8,7 @@ const HELL: StringName = &"bentham_ring"
 const MARBLE: StringName = &"marble"
 ## Ticks for an event to cross loopback and be drawn, at the real clock these tests run on.
 const CROSS_TICKS: int = 20
-## Set to 1 to run the tests of bugs that are known and open; unset, they are skipped by name.
-const OPEN_BUGS_ENV: String = "PANOPTICON_RUN_OPEN_BUGS"
-## Wall milliseconds a dead line is given to be noticed. ENet counts its timeout in doubling resends,
-## so the shipped 8 s lands anywhere from 8 s to about twice that.
+## Wall milliseconds a dead line is given to be noticed: the shipped 8 s, and what is left of the test.
 const DEAD_LINE_LIMIT_MS: int = 30000
 
 var _rig: Rig = null
@@ -63,8 +60,13 @@ func _stall(stalled: int, wall_ms: int, until: Callable = Callable()) -> int:
 	var tree: SceneTree = get_tree()
 	var machine: Node = (_rig.sessions[stalled] as NetSession).get_parent()
 	tree.multiplayer_poll = false
+	# What it says in these two ticks is held, and leaves as the clock starts: the others hear its last word
+	# after that, so the silence they time is never longer than the one timed here, and shorter only by a poll.
+	await tree.physics_frame
+	await tree.physics_frame
 	machine.process_mode = Node.PROCESS_MODE_DISABLED
 	var began: int = Time.get_ticks_msec()
+	(_rig.sessions[stalled] as NetSession).multiplayer.poll()
 	while Time.get_ticks_msec() - began < wall_ms and not (until.is_valid() and until.call()):
 		for peer: int in _rig.peer_count():
 			if peer != stalled:
@@ -205,17 +207,47 @@ func test_a_dead_line_is_told_to_everybody_marble_four_peers() -> void:
 	await _a_dead_line_is_told_to_everybody(MARBLE, 3)
 
 
+## The host's line dies in a round: its scene was standing, so each client gives it up at the timeout, not
+## after the longer silence a loading host is allowed, and is told.
+func _a_dead_host_is_given_up_at_the_timeout(map: StringName, clients: int) -> void:
+	if not await _start_round(map, clients):
+		return
+	var settings: NetSettings = (_rig.sessions[1] as NetSession).get_settings()
+	var timeout_ms: int = int(settings.peer_timeout_seconds * 1000.0)
+	var load_ms: int = int(settings.load_stall_seconds * 1000.0)
+	assert_gt(float(load_ms), float(timeout_ms), "a loading host is allowed longer than a host in a round")
+	var silent_ms: int = await _stall(HOST, load_ms, func() -> bool:
+		for peer: int in range(1, _rig.peer_count()):
+			if (_rig.sessions[peer] as NetSession).is_established():
+				return false
+		return true)
+	# It never wakes: a host that polls again finds every client gone in one read, and the engine logs each.
+	(_rig.sessions[HOST] as NetSession).leave()
+	print("    every client gave the dead host up after %d ms of silence" % silent_ms)
+	assert_ge(float(silent_ms), float(timeout_ms), "not before the timeout: a hitching host is still the host")
+	# Halfway to a load's allowance: ENet's own timer, which would end it without the watch, lands later still.
+	assert_lt(float(silent_ms), float(timeout_ms + load_ms) * 0.5, "and not as late as a host still loading is allowed")
+	await step_ticks(CROSS_TICKS)
+	for peer: int in range(1, _rig.peer_count()):
+		var screen: MatchResultScreen = _rig.matches[peer].get_node("ResultScreen") as MatchResultScreen
+		assert_true(screen.is_showing(), "peer %d is shown a result" % peer)
+		assert_eq_string(
+			(screen.get_node("%Verdict") as Label).text, tr("RESULT_HOST_LOST"), "peer %d is told the connection was lost" % peer
+		)
+
+
+func test_a_dead_host_is_given_up_at_the_timeout_marble_two_peers() -> void:
+	await _a_dead_host_is_given_up_at_the_timeout(MARBLE, 1)
+
+
+func test_a_dead_host_is_given_up_at_the_timeout_hell_four_peers() -> void:
+	await _a_dead_host_is_given_up_at_the_timeout(HELL, 3)
+
+
 # --- Known gap: no way back into a running match ----------------------------------------------------
 
 ## A player dialling a match that is already running is turned away, and nobody already in it is disturbed.
 func _a_join_into_a_running_match_is_refused(map: StringName, clients: int) -> void:
-	if OS.get_environment(OPEN_BUGS_ENV) != "1":
-		skip(
-			"LIVE BUG (minor, about 1 run in 5): refusing a join into a running match can log 'Unable to send packet "
-			+ "on channel N, max channels: 0' on the host, from the snapshot broadcast reaching the peer being "
-			+ "turned away. The refusal itself works. %s=1 runs this test." % OPEN_BUGS_ENV
-		)
-		return
 	if not await _start_round(map, clients):
 		return
 	var host_session: NetSession = _rig.sessions[HOST]
@@ -277,6 +309,44 @@ func test_a_client_whose_scene_stands_before_the_hosts_is_quiet_hell_two_peers()
 
 func test_a_client_whose_scene_stands_before_the_hosts_is_quiet_marble_four_peers() -> void:
 	await _a_client_ahead_of_the_host_is_quiet(MARBLE, 3)
+
+
+## The host's map takes longer to load than a line may be silent in a round (a cold shader cache): its clients,
+## already standing in theirs, wait for it, and the match starts.
+func _a_slow_loading_host_keeps_its_clients(map: StringName, clients: int) -> void:
+	if not await _rig.connect_peers(self, clients):
+		fail("the loopback handshake did not complete")
+		return
+	_rig.settings().rounds_to_win_match = 5
+	_rig.settings().map_id = map
+	# Returns false by design: with the host unbound nobody can be told the match has started.
+	var late: Array[int] = [HOST]
+	await _rig.launch(clients + 2, HOST, late)
+	var host_session: NetSession = _rig.sessions[HOST]
+	var timeout_ms: int = int(host_session.get_settings().peer_timeout_seconds * 1000.0)
+	Engine.physics_ticks_per_second = int(SIM_HZ)
+	Engine.time_scale = 1.0
+	var silent_ms: int = await _stall(HOST, timeout_ms + 1500)
+	assert_gt(float(silent_ms), float(timeout_ms), "the host was silent for longer than a line may be in a round")
+	for client: int in range(1, clients + 1):
+		assert_true((_rig.sessions[client] as NetSession).is_established(), "client %d waited for the loading host" % client)
+	if not await _rig.bind_late(HOST):
+		fail("the host's match never started once its scene stood")
+		return
+	for peer: int in _rig.peer_count():
+		var controller: MatchController = _rig.controller(peer)
+		if not await _rig.wait_for(func() -> bool: return controller.get_phase() == MatchController.Phase.ROUND):
+			fail("peer %d never reached the round" % peer)
+			return
+	await _everyone_is_still_playing_the_same_round(clients, "after the host's slow load")
+
+
+func test_a_host_that_loads_for_longer_than_the_timeout_keeps_its_clients_hell_two_peers() -> void:
+	await _a_slow_loading_host_keeps_its_clients(HELL, 1)
+
+
+func test_a_host_that_loads_for_longer_than_the_timeout_keeps_its_clients_marble_four_peers() -> void:
+	await _a_slow_loading_host_keeps_its_clients(MARBLE, 3)
 
 
 # --- Known gap (tasks 84-88): the host decides, whatever a client sends ---------------------------

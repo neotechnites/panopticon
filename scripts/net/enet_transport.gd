@@ -159,18 +159,13 @@ func get_local_peer_id() -> int:
 	return multiplayer.get_unique_id()
 
 
-func kick_peer(peer_id: int, now: bool = false) -> void:
+func kick_peer(peer_id: int) -> void:
 	if _peer == null or get_connection_state() != ConnectionState.HOSTING:
 		return
-	# now = false: the queued disconnect lets ENet deliver the packets already
-	# in flight and gives the far end a real disconnect rather than a silence
-	# it has to time out. peer_disconnected arrives from the API as usual, so
-	# the roster unwinds down the same path a voluntary leave does.
-	# now = true: the peer leaves every broadcast this instant, and the API then
-	# says nothing about it, so the signal is raised here and the same path runs.
-	_peer.disconnect_peer(peer_id, now)
-	if now:
-		_peer.peer_disconnected.emit(peer_id)
+	# Forced: the far end is still sent its disconnect, and the peer is out of every broadcast now rather than
+	# listed with its channels closed. The API then says nothing, so the signal is raised here.
+	_peer.disconnect_peer(peer_id, true)
+	_peer.peer_disconnected.emit(peer_id)
 
 
 func _exit_tree() -> void:
