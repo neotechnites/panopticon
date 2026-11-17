@@ -455,6 +455,17 @@ func _drive_decoys() -> void:
 		rpc(&"_decoy_moved", NetCodec.pack_decoy_move(link.seat_index, track.epoch, position, yaw))
 
 
+## Tell [param peer_id], whose scene has just stood up, of every hologram already out: the spawn
+## is said once, and a peer with no bodies yet had nowhere to put it.
+func send_decoys_to(peer_id: int) -> void:
+	if not _is_authority:
+		return
+	for seat_index: int in _decoy_tracks:
+		var track: DecoyTrack = _decoy_tracks[seat_index]
+		if is_instance_valid(track.decoy):
+			rpc_id(peer_id, &"_decoy_spawned", seat_index, track.epoch, track.position, track.yaw)
+
+
 ## Authority to everyone, once, when a runner's hologram appears.
 @rpc("authority", "reliable", "call_remote", 0)
 func _decoy_spawned(seat_index: int, epoch: int, position: Vector3, yaw: float) -> void:

@@ -562,7 +562,13 @@ static func of(node: Node) -> NetMatch:
 
 func _on_scene_bound(peer_id: int, epoch: int) -> void:
 	if hub_mode and epoch == _epoch and _session.is_authority():
-		peer_bound.emit(peer_id)
+		_announce_bound(peer_id)
+
+
+## [param peer_id]'s scene stands: it is told what was said once before it could hear.
+func _announce_bound(peer_id: int) -> void:
+	_session.replicator.send_decoys_to(peer_id)
+	peer_bound.emit(peer_id)
 
 
 ## The finisher is in the tower; every peer is told who, for the role.
@@ -622,7 +628,7 @@ func _replays() -> bool:
 func _on_peer_launched(peer_id: int, _seat_index: int) -> void:
 	if _started:
 		_catch_up(peer_id)
-		peer_bound.emit(peer_id)
+		_announce_bound(peer_id)
 		_begin_if_launched()
 	elif _lobby.get_unlaunched_peers().is_empty():
 		_start_now()
