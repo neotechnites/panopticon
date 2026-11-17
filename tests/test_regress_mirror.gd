@@ -19,6 +19,8 @@ const RUN_UP_TICKS: int = 45
 const RUN_WATCH_TICKS: int = 20
 ## Furthest a limp part may lie from the pelvis of a body shot standing, metres: hip to foot is under a metre.
 const LIMP_REACH_METRES: float = 1.2
+## The same for a body shot at a run or thrown in the finale: it lands harder, and is still one body.
+const MOVING_REACH_METRES: float = 1.35
 ## A limp part's scale must stay within this of 1: a part built on a collapsed bone is a degenerate body.
 const PART_SCALE_SLACK: float = 0.05
 
@@ -393,7 +395,7 @@ func test_a_client_hears_footsteps_four_peers_marble() -> void:
 # --- PT3-02, PT3-10a, S-01: the rifle kill, limp and unchanged on every machine --------
 
 ## One rifle kill of [param slot], watched every tick from the hit to the respawn on every peer.
-## [param reach] bounds the limp body of a victim shot standing; one shot at a run can tear (S-04).
+## [param reach] bounds the limp body: tighter for a victim shot standing than for one shot at a run.
 func _watch_a_rifle_kill(slot: int, reach: float = LIMP_REACH_METRES) -> void:
 	var owner: int = _owner_of(slot)
 	if owner >= 0:
@@ -470,7 +472,7 @@ func test_a_running_client_shot_over_a_bad_line_is_limp_on_four_peers_marble() -
 	# Running when it is hit, so snapshots still in flight carry the run past the death.
 	_rig.drive(2, Vector2(0.0, 1.0))
 	await step_ticks(_cross)
-	await _watch_a_rifle_kill(2, INF)
+	await _watch_a_rifle_kill(2, MOVING_REACH_METRES)
 
 
 func test_a_running_host_shot_over_a_bad_line_is_limp_on_two_peers_hell() -> void:
@@ -479,7 +481,7 @@ func test_a_running_host_shot_over_a_bad_line_is_limp_on_two_peers_hell() -> voi
 	_hold_the_field(0)
 	_rig.drive(HOST, Vector2(0.0, 1.0))
 	await step_ticks(_cross)
-	await _watch_a_rifle_kill(0, INF)
+	await _watch_a_rifle_kill(0, MOVING_REACH_METRES)
 
 
 # --- PT3-04, S-02, S-18: the finale on every machine ------------------------------------
@@ -577,8 +579,7 @@ func _watch_a_finale(guard_slot: int, finisher_slot: int) -> void:
 			elif _rig.controller(peer).is_tower_open():
 				fault = "peer %d: the tower opened" % peer
 		if fault == "":
-			# No reach bound: the thrown body is known to stretch (S-04), which is watched offline.
-			fault = _corpse_fault(guard_slot, alive, INF)
+			fault = _corpse_fault(guard_slot, alive, MOVING_REACH_METRES)
 	assert_eq_string(fault, "", "the kill beat on every peer")
 	assert_gt(float(watched), 30.0, "the beat was watched for more than half a second")
 	assert_eq_int(hits[0], 0, "rifle hits shown for a guard who was shoved, not shot")
