@@ -54,6 +54,7 @@ var _next_shove: float = 0.0
 var _shove_turn: int = 0
 var _session_over: bool = false
 var _retries: int = 0
+var _start_ms: int = 0
 var _stall_at_ms: int = 0
 var _zap_ms: int = 0
 var _flung_ms: Dictionary = {}
@@ -264,6 +265,11 @@ func _humans() -> int:
 
 func _drive_hub(scene_node: Node) -> void:
 	var in_hub: float = (Time.get_ticks_msec() - _scene_ms) / 1000.0
+	if _starting and _lobby.get_phase() == NetLobby.Phase.GATHERING and Time.get_ticks_msec() - _start_ms > 2000:
+		# The press found the host off the dais (this driver's own shove had just moved it): stand and press again.
+		_starting = false
+		_started -= 1
+		_line("START retry")
 	if _starting or in_hub < float(_o["hub-seconds"]) or _humans() < int(_o.humans):
 		return
 	if _started >= _maps.size() * int(_o.loops):
@@ -285,6 +291,7 @@ func _drive_hub(scene_node: Node) -> void:
 			hub.player.velocity = Vector3.ZERO
 			return
 		_starting = true
+		_start_ms = Time.get_ticks_msec()
 		_started += 1
 		_release_all()
 		var press: InputEventAction = InputEventAction.new()
@@ -452,7 +459,8 @@ func _act(scene_node: Node, net: NetMatch, now: float) -> void:
 	if act == "idle":
 		return
 	_walk(now)
-	if act == "shove" and _is_server() and now >= _next_shove:
+	var leaving: bool = _scene == HUB_SCENE and (Time.get_ticks_msec() - _scene_ms) / 1000.0 >= float(_o["hub-seconds"]) - 1.0
+	if act == "shove" and _is_server() and now >= _next_shove and not leaving:
 		_shove_next(net, mine, now)
 	if act == "keys" or act == "shove":
 		_run_program(now)
