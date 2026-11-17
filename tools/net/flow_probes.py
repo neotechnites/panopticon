@@ -3,7 +3,7 @@
 
   tools/net/flow_probes.py                 # every scenario, 6 at a time
   tools/net/flow_probes.py D_late_join F_  # scenarios whose name starts with an argument
-  options: --jobs=N --out=DIR --godot=PATH --list
+  options: --jobs=N --out=DIR --godot=PATH --list --check-only (re-read the logs in --out)
 
 Scenarios and their expectations live in tools/net/flow_scenarios.txt. Exit 0 when every
 expectation held, 1 otherwise. Each peer gets its own HOME, so no saved settings are touched.
@@ -53,8 +53,14 @@ def limit_of(scenario):
     return latest + 4.0
 
 
-def run(scenario, port, out, godot):
+def run(scenario, port, out, godot, check_only):
     folder = os.path.join(out, scenario["name"])
+    if check_only:
+        codes = {}
+        for line in open(os.path.join(folder, "exit_codes.txt")):
+            name, code = line.split()
+            codes[name] = int(code) if code.lstrip("-").isdigit() else code
+        return check(scenario, folder, codes)
     os.makedirs(folder, exist_ok=True)
     limit = limit_of(scenario)
     procs = []
@@ -76,6 +82,9 @@ def run(scenario, port, out, godot):
             proc.kill()
             codes[name] = "hung"
         log.close()
+    with open(os.path.join(folder, "exit_codes.txt"), "w") as record:
+        for name, code in codes.items():
+            record.write("%s %s\n" % (name, code))
     return check(scenario, folder, codes)
 
 
@@ -100,6 +109,8 @@ def check(scenario, folder, codes):
     for peer, t0, t1, mode, pattern in scenario["expect"]:
         rule = re.compile(pattern)
         window = [text for at, text in states.get(peer, []) if t0 <= at <= t1]
+        if mode == "all":
+            window = [text for text in window if text.startswith("STATE ")]
         hits = [text for text in window if rule.search(text)]
         ok = {"any": bool(hits), "none": not hits, "all": bool(window) and len(hits) == len(window)}[mode]
         if not ok:
@@ -123,7 +134,7 @@ def main():
     base = int(options.get("port", 28100)) + (os.getpid() % 50) * 40
     failed = 0
     with ThreadPoolExecutor(max_workers=int(options.get("jobs", 6))) as pool:
-        futures = [pool.submit(run, s, base + i, out, godot) for i, s in enumerate(scenarios)]
+        futures = [pool.submit(run, s, base + i, out, godot, "check-only" in options) for i, s in enumerate(scenarios)]
         for future in futures:
             name, problems, errors = future.result()
             print("%s  %s  errors=%s" % ("PASS" if not problems else "FAIL", name, errors), flush=True)

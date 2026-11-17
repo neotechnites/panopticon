@@ -1,6 +1,6 @@
 extends Node
 ## Flow probe: one process of the real game driven from the main menu by a timed plan, logging what
-## this machine holds. Run by tools/net/flow_probes.py; --plan="2:host;8:start=marble;40:end" --name --port --limit## Other args: --name=X --port=N --address=A --limit=S
+## this machine holds. Run by tools/net/flow_probes.py; --plan="2:host;8:start=marble;40:end" --name --port --limit
 
 var _plan: Array = []
 var _name: String = "P"
@@ -13,6 +13,8 @@ var _last_state_ms: int = 0
 var _last_frame_ms: int = 0
 var _start_when: int = 0
 var _start_map: String = ""
+## The plan asked to quit: the tree is coming down and what it holds says nothing.
+var _done: bool = false
 
 
 func _ready() -> void:
@@ -62,6 +64,8 @@ func _find(type_name: String) -> Node:
 
 
 func _process(_delta: float) -> void:
+	if _done:
+		return
 	var now: int = Time.get_ticks_msec()
 	if _last_frame_ms > 0 and now - _last_frame_ms > 250:
 		_line("HITCH %d ms" % (now - _last_frame_ms))
@@ -81,12 +85,13 @@ func _process(_delta: float) -> void:
 			_start_when = 0
 			_do("start=" + _start_map)
 	var state: String = _state()
-	if state != _last_state or now - _last_state_ms > 5000:
+	if state != _last_state or now - _last_state_ms > 1000:
 		_last_state = state
 		_last_state_ms = now
 		_line("STATE " + state)
 	if elapsed > _limit:
 		_line("END limit")
+		_done = true
 		get_tree().quit(0)
 
 
@@ -257,12 +262,14 @@ func _do(action: String) -> void:
 			_line("stall over")
 		"quit":
 			_line("DO quit")
+			_done = true
 			get_tree().quit(0)
 		"crash":
 			_line("DO crash (kill self)")
 			OS.kill(OS.get_process_id())
 		"end":
 			_line("END ok")
+			_done = true
 			get_tree().quit(0)
 		_:
 			_line("DO ? %s" % action)
