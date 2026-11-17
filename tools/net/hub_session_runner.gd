@@ -1,138 +1,200 @@
 extends Node
 
-## Host or client through the real MultiplayerScreen into the hub; the host starts the first decided wedge
-## once --humans are in, --win ends it, --back returns to the hub, --again starts the next map from it.
-## --relaunch-bots=3,1: at --win of match k the host relaunches with the k-th count, as the debug menu does.
-## --relaunch-seats=2,5 / --relaunch-tower=seat: the first relaunch by seat, as the debug menu's Seats.
-## --shove-at=s: the host, in the hub, stands behind the client's body and shoves it, every 3 s from s.
-## --rematch presses Rematch on the result; --hub-all makes the host's Back take everyone to the hub.
-## --loss/--delay-ms condition the wire. Logs every body's position and snapshots taken. Stdout.
+## Host or client through the real MultiplayerScreen into the hub, then --matches matches off the
+## wedges named by --maps, each to a result and back to the hub. Exit 0 END ok, 1 bad arguments, 2 timeout.
+##
+## A match ends on its own (ceiling --ceiling, then forced and logged) or forced at --win seconds.
+## At the result, --back seconds in: --rematches=N rematches first, then --after=hub-all|back.
+## --relaunch-bots=3,1 / --relaunch-seats / --relaunch-tower: the debug menu's relaunch at --win of match k.
+## --shove-at=s: the host, in the hub, stands behind a client's body and shoves it, every 3 s from s.
+## Match settings, wire faults, quitting and the scripted human are [constant SessionProbe.OPTIONS].
 
 const SCREEN_SCENE: String = "res://ui/multiplayer_screen.tscn"
 
 var _o: Dictionary = {}
+var _probe: SessionProbe = null
 var _screen: MultiplayerScreen = null
 var _lobby: NetLobby = null
 var _session: NetSession = null
 var _t0: int = 0
+var _maps: PackedStringArray = PackedStringArray()
+var _scene_kind: String = ""
+var _scene_ms: int = 0
+var _hub_visits: int = 0
+var _matches_started: int = 0
+var _matches_done: int = 0
 var _started: bool = false
-var _match_ms: int = -1
-var _last_scene: String = ""
+var _auto_relaunch: bool = false
 var _physics_start: MapWedge = null
 var _physics_hub: HubLobby = null
-var _scene_ms: int = 0
-var _trace_ms: int = 0
+var _play_ms: int = -1
 var _won: bool = false
-var _back_ms: int = -1
-var _hub_again_ms: int = -1
-var _hub_visits: int = 0
-var _snaps: int = 0
-var _matches: int = 0
-var _rematched: int = 0
-var _was_showing: bool = false
+var _result_ms: int = -1
+var _acted: bool = false
+var _rematches_left: int = 0
+var _rematch_ms: int = -1
+var _launch_ms: int = -1
+var _gathered: bool = false
+var _interact_down: int = 0
 var _relaunched: int = 0
-var _last_frame_ms: int = 0
+var _next_shove: float = 0.0
+var _exit_code: int = -1
 
 
 func _ready() -> void:
-	_o = BotHarness.parse_arguments({"role": "server", "address": "127.0.0.1", "port": 27960,
-		"seconds": 20.0, "humans": 2, "wait": 3.0, "limit": 120.0, "map": "", "walk": false, "name": "", "press": true, "press_key": true,
-		"win": -1.0, "back": -1.0, "hub_seconds": 6.0, "trace": 1.5, "guard": -1,
-		"again": false, "loss": 0.0, "delay-ms": 0, "rematch": false, "hub-all": false, "relaunch-bots": "", "matches": 2, "relaunch-seats": "", "relaunch-tower": -1, "shove-at": -1.0})
+	var defaults: Dictionary = SessionProbe.OPTIONS.duplicate()
+	defaults.merge({
+		"humans": 2, "wait": 3.0, "limit": 240.0, "maps": "", "map": "", "matches": 0,
+		"win": -1.0, "ceiling": 150.0, "back": 3.0, "after": "hub-all", "rematches": 0, "rematch-wait": 12.0,
+		"hub-wait": 4.0, "hub_seconds": 6.0, "guard": -1, "press": true, "press_key": true,
+		"relaunch-bots": "", "relaunch-seats": "", "relaunch-tower": -1, "shove-at": -1.0,
+		"walk": true, "again": true, "rematch": false, "hub-all": true, "seconds": 20.0, "trace": 1.5,
+	}, true)
+	_o = BotHarness.parse_arguments(defaults)
 	_t0 = Time.get_ticks_msec()
+	Engine.max_fps = 60
+	var maps: String = String(_o.maps) if not String(_o.maps).is_empty() else String(_o.map)
+	_maps = maps.split(",", false)
+	if int(_o.matches) <= 0:
+		_o.matches = maxi(_maps.size(), 1)
+	if bool(_o.rematch) and int(_o.rematches) == 0:
+		_o.rematches = 1
+	if not bool(_o.walk) and String(_o.mode) == "play":
+		_o.mode = "idle"
+	if String(_o.name).is_empty():
+		_o.name = "Host" if _is_server() else "Client%d" % (OS.get_process_id() % 100)
+	_probe = SessionProbe.new()
+	_probe.configure(_o)
+	if _o.has("_error"):
+		_exit_code = 1
+		get_tree().quit.call_deferred(1)
+		return
 	_boot.call_deferred()
 
 
-func _line(s: String) -> void:
-	print("HUBRUN t=%.2f %s" % [(Time.get_ticks_msec() - _t0) / 1000.0, s])
+func _is_server() -> bool:
+	return String(_o.role) == "server"
 
 
 ## Moves itself to the root so the scene changes it drives do not free it.
 func _boot() -> void:
 	var tree: SceneTree = get_tree()
 	reparent(tree.root)
-	SettingsStore.instance().config_path = "user://net_harness_settings.cfg"
+	tree.root.add_child(_probe)
 	_screen = (load(SCREEN_SCENE) as PackedScene).instantiate() as MultiplayerScreen
 	tree.root.add_child(_screen)
 	tree.current_scene = _screen
 	_session = _screen.ensure_session()
 	_lobby = _session.lobby
-	_session.replicator.snapshot_received.connect(func(_tick: int, _count: int) -> void: _snaps += 1)
-	_lobby.roster_changed.connect(func() -> void: _line("ROSTER " + _lobby.describe().replace("\n", " | ")))
-	if not String(_o.name).is_empty():
-		_screen.set_player_name(String(_o.name))
+	_probe.attach(_session)
+	_probe.scene_changed.connect(_on_scene_changed)
+	_probe.match_started.connect(_on_match_started)
+	_probe.match_won.connect(func() -> void: _won = true)
+	_probe.host_lost.connect(func() -> void: _finish(0, "host-lost"))
+	_screen.set_player_name(String(_o.name))
 	var port: int = int(_o.port)
-	if String(_o.role) == "server":
-		if int(_o.guard) >= 0:
-			SettingsStore.instance().settings.skip_opening_race = true
-			SettingsStore.instance().settings.tower_seat_index = int(_o.guard)
+	if _is_server():
+		var settings: GameSettings = SettingsStore.instance().settings
+		settings.skip_opening_race = int(_o.guard) >= 0
+		settings.tower_seat_index = maxi(int(_o.guard), 0)
+		_probe.apply_settings()
 		_screen.set_host_port(port)
-		_line("HOST " + error_string(_screen.start_hosting()))
+		var error: Error = _screen.start_hosting()
+		_probe.line("HOST port=%d result=%s" % [port, error_string(error)])
+		if error != OK:
+			_finish(2, "host-failed")
+			return
 	else:
 		_screen.set_join_target(String(_o.address), port)
-		_line("JOIN " + error_string(_screen.join_game()))
-	var enet: ENetMultiplayerPeer = _session.multiplayer.multiplayer_peer as ENetMultiplayerPeer
-	if enet != null and (float(_o.loss) > 0.0 or int(_o["delay-ms"]) > 0):
-		_session.multiplayer.multiplayer_peer = LossyPeer.new(enet, float(_o.loss), 7, int(_o["delay-ms"]))
-		_line("WIRE loss=%.2f delay_ms=%d" % [float(_o.loss), int(_o["delay-ms"])])
+		_probe.line("JOIN port=%d result=%s" % [port, error_string(_screen.join_game())])
+	_probe.condition_wire()
 
 
 func _process(_delta: float) -> void:
-	if _lobby == null:
+	if _lobby == null or _exit_code >= 0:
 		return
-	var frame_ms: int = Time.get_ticks_msec()
-	if _last_frame_ms > 0 and frame_ms - _last_frame_ms > 50:
-		_line("HITCH %d ms scene=%s" % [frame_ms - _last_frame_ms, _last_scene.get_file()])
-	_last_frame_ms = frame_ms
-	var tree: SceneTree = get_tree()
-	var scene_node: Node = tree.current_scene
-	var scene: String = scene_node.scene_file_path if scene_node != null else "<none>"
-	if scene != _last_scene:
-		_last_scene = scene
-		_scene_ms = Time.get_ticks_msec()
-		_line("SCENE " + scene)
-		if scene == "res://hub/hub.tscn":
-			_hub_visits += 1
-			if _hub_visits >= 2:
-				_hub_again_ms = _scene_ms
-			if bool(_o.again):
-				_started = false
-		elif scene == "res://match/match.tscn":
-			_matches += 1
-			_match_ms = -1
-			_won = false
-			_back_ms = -1
-	var elapsed: float = (Time.get_ticks_msec() - _t0) / 1000.0
-	if bool(_o.walk):
-		_walk(elapsed)
-	if String(_o.role) == "server" and float(_o["shove-at"]) >= 0.0 and elapsed > float(_o["shove-at"]) and scene == "res://hub/hub.tscn":
-		_shove_client(scene_node, elapsed)
-	if String(_o.role) == "server" and not _started and scene_node != null:
-		var hub: HubLobby = null
-		for n: Node in scene_node.find_children("*", "Node", true, false):
-			if n is HubLobby:
-				hub = n as HubLobby
-		if hub != null and _humans() >= int(_o.humans) and elapsed > float(_o.wait):
-			for w: Node in hub.wedges_root.get_children():
-				var wedge: MapWedge = w as MapWedge
-				if wedge != null and wedge.is_decided() and (String(_o.map).is_empty() or String(wedge.map_id) == String(_o.map)):
-					_press_start(hub, wedge)
-					break
-	if _match_ms < 0 and scene == "res://match/match.tscn":
-		_match_ms = Time.get_ticks_msec()
-		_line("MATCH loaded")
-	if _match_ms >= 0 and (_hub_visits < 2 or bool(_o.again)) and scene == "res://match/match.tscn":
-		_finish_match(scene_node)
-	var seconds: float = float(_o.hub_seconds) if float(_o.back) >= 0.0 else float(_o.seconds)
-	var since: int = _hub_again_ms if float(_o.back) >= 0.0 else _match_ms
-	if bool(_o.again):
-		since = _match_ms if _matches >= int(_o.matches) else -1
-	if since >= 0 and (Time.get_ticks_msec() - since) / 1000.0 > seconds:
-		_line("END ok phase=%s" % String(NetLobby.Phase.keys()[_lobby.get_phase()]))
-		tree.quit(0)
-	elif elapsed > float(_o.limit):
-		_line("END timeout")
-		tree.quit(2)
+	var now: int = Time.get_ticks_msec()
+	var elapsed: float = float(now - _t0) / 1000.0
+	var scene: Node = get_tree().current_scene
+	if scene == null:
+		return
+	if _probe.wants_quit():
+		if String(_o["quit-mode"]) == "drop":
+			OS.kill(OS.get_process_id())
+		_finish(0, "scripted-quit")
+		return
+	if _scene_kind == "hub":
+		_in_hub(scene, now, elapsed)
+	elif _scene_kind == "match":
+		_in_match(scene, now)
+	if elapsed > float(_o.limit):
+		_finish(2, "timeout")
+
+
+func _on_scene_changed(kind: String) -> void:
+	if kind == "none" or kind == _scene_kind:
+		return
+	if _scene_kind == "match":
+		_matches_done += 1
+		_probe.line("FLOW match_done n=%d of=%d" % [_matches_done, int(_o.matches)])
+	_scene_kind = kind
+	_scene_ms = Time.get_ticks_msec()
+	if kind == "hub":
+		_hub_visits += 1
+		_launch_ms = -1
+		_started = _auto_relaunch
+		_auto_relaunch = false
+	elif kind == "match":
+		_matches_started += 1
+		_play_ms = -1
+		_won = false
+		_result_ms = -1
+		_acted = false
+		_rematches_left = int(_o.rematches)
+
+
+## A match, or a rematch of it, has begun on this machine: its clocks start over.
+func _on_match_started() -> void:
+	_play_ms = Time.get_ticks_msec()
+	_won = false
+	_result_ms = -1
+	_rematch_ms = -1
+	_acted = false
+
+
+func _in_hub(scene: Node, now: int, elapsed: float) -> void:
+	var in_hub: float = float(now - _scene_ms) / 1000.0
+	if _matches_done >= int(_o.matches):
+		if in_hub > float(_o.hub_seconds):
+			_finish(0, "flow-complete")
+		return
+	if not _is_server():
+		return
+	if float(_o["shove-at"]) >= 0.0 and elapsed > float(_o["shove-at"]):
+		_shove_client(scene, elapsed)
+	if _launch_ms >= 0 and now - _launch_ms > 3000 and _lobby.get_phase() == NetLobby.Phase.GATHERING:
+		# The press did not take (the body had stepped off the dais): stand on it again.
+		_probe.line("START retry")
+		_launch_ms = -1
+		_started = false
+	# Everyone is waited for once; a peer who leaves later does not hold the next map back.
+	_gathered = _gathered or _humans() >= int(_o.humans)
+	if _started or not _gathered or elapsed < float(_o.wait) or in_hub < float(_o["hub-wait"]):
+		return
+	var hub: HubLobby = null
+	for n: Node in scene.find_children("*", "Node", true, false):
+		if n is HubLobby:
+			hub = n as HubLobby
+	if hub == null:
+		return
+	var wanted: String = _maps[_matches_started % _maps.size()] if not _maps.is_empty() else ""
+	for w: Node in hub.wedges_root.get_children():
+		var wedge: MapWedge = w as MapWedge
+		if wedge != null and wedge.is_decided() and (wanted.is_empty() or String(wedge.map_id) == wanted):
+			_press_start(hub, wedge)
+			return
+	_probe.line("FLOW no decided wedge for map=%s" % wanted)
+	_finish(2, "no-wedge")
 
 
 func _humans() -> int:
@@ -143,32 +205,11 @@ func _humans() -> int:
 	return n
 
 
-## Scripted wandering: forward and strafe in turns, jumps, shoves and mouse look.
-func _walk(elapsed: float) -> void:
-	var phase: int = int(elapsed / 1.5) % 4
-	_hold(&"move_forward", phase != 2)
-	_hold(&"move_left", phase == 1)
-	_hold(&"move_right", phase == 3)
-	_hold(&"move_back", phase == 2)
-	_hold(&"jump", fmod(elapsed, 2.3) < 0.1)
-	_hold(&"shove", fmod(elapsed, 3.7) < 0.1)
-	var motion := InputEventMouseMotion.new()
-	motion.relative = Vector2(6.0, sin(elapsed) * 3.0)
-	Input.parse_input_event(motion)
-
-
-func _hold(action: StringName, on: bool) -> void:
-	if on and not Input.is_action_pressed(action):
-		Input.action_press(action)
-	elif not on and Input.is_action_pressed(action):
-		Input.action_release(action)
-
-
 ## The host's own way in: stand on the wedge's dais and press interact, as a player does.
 func _press_start(hub: HubLobby, wedge: MapWedge) -> void:
 	if not bool(_o.press):
 		_started = true
-		_line("START wedge=%s result=%s" % [wedge.map_id, str(hub._start_on(wedge))])
+		_probe.line("START wedge=%s result=%s" % [wedge.map_id, str(hub._start_on(wedge))])
 		return
 	if hub.get_wedge_here() != wedge:
 		var dais: Node3D = wedge.get_node("Dais") as Node3D
@@ -176,102 +217,100 @@ func _press_start(hub: HubLobby, wedge: MapWedge) -> void:
 		hub.player.velocity = Vector3.ZERO
 		return
 	_started = true
+	_launch_ms = Time.get_ticks_msec()
 	if not bool(_o.press_key):
 		_physics_start = wedge
 		_physics_hub = hub
 		return
-	var press := InputEventAction.new()
-	press.action = &"interact"
-	press.pressed = true
-	Input.parse_input_event(press)
-	_line("START pressed interact on wedge=%s" % wedge.map_id)
+	_send_interact(true)
+	_interact_down = 3
+	_probe.line("START pressed interact on wedge=%s" % wedge.map_id)
+
+
+func _send_interact(pressed: bool) -> void:
+	var event: InputEventAction = InputEventAction.new()
+	event.action = &"interact"
+	event.pressed = pressed
+	Input.parse_input_event(event)
 
 
 func _physics_process(_delta: float) -> void:
-	_trace()
+	if _interact_down > 0:
+		# The key comes back up, or the action stays pressed and E never reads as pressed again.
+		_interact_down -= 1
+		if _interact_down == 0:
+			_send_interact(false)
 	if _physics_start != null:
-		_line("START in physics wedge=%s result=%s" % [_physics_start.map_id, str(_physics_hub.start_map())])
+		_probe.line("START in physics wedge=%s result=%s" % [_physics_start.map_id, str(_physics_hub.start_map())])
 		_physics_start = null
 
 
-## Host: --win seconds into the match, seat 0 wins. Anyone: --back seconds after the win, Back to hub.
-func _finish_match(scene_node: Node) -> void:
-	var now: int = Time.get_ticks_msec()
-	var counts: PackedStringArray = String(_o["relaunch-bots"]).split(",", false)
-	if String(_o.role) == "server" and not counts.is_empty() and float(_o.win) >= 0.0:
-		if _relaunched < _matches and _relaunched < counts.size() and (now - _match_ms) / 1000.0 > float(_o.win):
-			var count: int = int(counts[_relaunched])
-			_relaunched = _matches
-			DebugMenu.write_bot_count(SettingsStore.instance().settings, count)
-			HubLobby.relaunch_on_arrival = true
-			if _relaunched == 1 and not String(_o["relaunch-seats"]).is_empty():
-				HubLobby.relaunch_bot_seats = PackedInt32Array(Array(String(_o["relaunch-seats"]).split(",")).map(func(x: String) -> int: return int(x)))
-				SettingsStore.instance().settings.skip_opening_race = int(_o["relaunch-tower"]) >= 0
-				SettingsStore.instance().settings.tower_seat_index = maxi(int(_o["relaunch-tower"]), 0)
-			(scene_node.get_node(^"NetMatch") as NetMatch).return_all_to_hub()
-			_line("RELAUNCH bots=%d" % count)
+func _in_match(scene: Node, now: int) -> void:
+	var controller: MatchController = _probe.controller
+	if not is_instance_valid(controller) or _play_ms < 0:
 		return
-	if String(_o.role) == "server" and not _won and float(_o.win) >= 0.0 and (now - _match_ms) / 1000.0 > float(_o.win):
-		var controller: MatchController = scene_node.get_node_or_null(^"MatchController") as MatchController
-		if controller != null and controller.get_phase() != MatchController.Phase.MATCH_OVER and not controller.get_participants().is_empty():
+	var playing: float = float(now - _play_ms) / 1000.0
+	if _is_server() and not _won and _relaunch_due(scene, playing):
+		return
+	if _is_server() and not _won and controller.get_phase() != MatchController.Phase.MATCH_OVER:
+		var forced: bool = float(_o.win) >= 0.0 and playing > float(_o.win)
+		var ceiling: bool = float(_o.win) < 0.0 and playing > float(_o.ceiling)
+		if (forced or ceiling) and not controller.get_participants_ref().is_empty():
 			_won = true
-			controller._win_match(controller.get_participants()[0])
-			_line("WIN forced")
-	var screen: MatchResultScreen = scene_node.get_node_or_null(^"ResultScreen") as MatchResultScreen
-	if screen != null and screen.is_showing() != _was_showing:
-		_was_showing = screen.is_showing()
-		var mc: MatchController = scene_node.get_node_or_null(^"MatchController") as MatchController
-		_line("RESULT showing=%s phase=%s votes=%s" % [str(_was_showing), mc.get_phase_name() if mc != null else "?",
-			screen.get_node(^"%RematchVotes").text])
-	if bool(_o.rematch) and screen != null and screen.is_showing() and _rematched < _matches:
-		_rematched = _matches
-		_line("REMATCH pressed")
+			_probe.line("WIN forced" if forced else "CEILING unresolved after=%.0f phase=%s round=%d" % [
+				playing, controller.get_phase_name(), controller.get_round_number()])
+			controller._win_match(controller.get_participants_ref()[0])
+	var screen: MatchResultScreen = scene.get_node_or_null(^"ResultScreen") as MatchResultScreen
+	if screen == null or not screen.is_showing() or float(_o.back) < 0.0:
+		return
+	if _result_ms < 0:
+		_result_ms = now
+	if _acted and _rematch_ms >= 0 and _is_server() and float(now - _rematch_ms) / 1000.0 > float(_o["rematch-wait"]):
+		# Somebody never asked: the result is still up. Stop waiting and take the other way out.
+		_probe.line("REMATCH gave up after=%.0f" % float(_o["rematch-wait"]))
+		_rematch_ms = -1
+		_rematches_left = 0
+		_acted = false
+	if _acted or float(now - _result_ms) / 1000.0 < float(_o.back):
+		return
+	_acted = true
+	if _rematches_left > 0:
+		_rematches_left -= 1
+		_rematch_ms = now
+		_probe.line("REMATCH pressed left=%d" % _rematches_left)
 		screen.request_rematch()
-		return
-	if _back_ms == -1 and screen != null and screen.is_showing() and float(_o.back) >= 0.0:
-		_back_ms = now
-	if _back_ms >= 0 and screen != null and (now - _back_ms) / 1000.0 > float(_o.back):
-		_back_ms = -2
-		_line("BACK pressed")
-		if bool(_o["hub-all"]):
-			if String(_o.role) == "server":
-				screen._on_hub_all_pressed()
-		else:
-			screen.play_again()
+	elif String(_o.after) == "back":
+		_probe.line("BACK pressed")
+		screen.play_again()
+	elif _is_server():
+		_probe.line("HUBALL pressed")
+		screen._on_hub_all_pressed()
 
 
-## Every body this scene's NetMatch drives: seat, position, shown, simulating. Each physics
-## frame for --trace seconds after a scene change, then twice a second.
-func _trace() -> void:
-	var scene_node: Node = get_tree().current_scene
-	if scene_node == null:
-		return
-	var net: NetMatch = scene_node.get_node_or_null(^"NetMatch") as NetMatch
-	if net == null:
-		return
-	var now: int = Time.get_ticks_msec()
-	if (now - _scene_ms) / 1000.0 > float(_o.trace) and now - _trace_ms < 500:
-		return
-	_trace_ms = now
-	var parts: PackedStringArray = PackedStringArray()
-	for child: Node in net.get_children():
-		var link: PlayerNetLink = child as PlayerNetLink
-		if link == null or link.controller == null or not link.controller.is_inside_tree():
-			continue
-		var body: PlayerController = link.controller
-		var p: Vector3 = body.global_position
-		parts.append("s%d(%.2f,%.2f,%.2f)%s%s%s" % [link.seat_index, p.x, p.y, p.z,
-			"" if body.is_visible_in_tree() else " hidden", " sim" if body.is_physics_processing() else "",
-			" floor" if body.is_on_floor() else ""])
-	_line("POS %s%s epoch=%d snaps=%d %s" % [scene_node.scene_file_path.get_file(), " 3d-off" if get_viewport().disable_3d else "",
-		_session.replicator.get_scene(), _snaps, " ".join(parts)])
+## The debug menu's relaunch: at --win of match k the host goes back with the k-th bot count.
+func _relaunch_due(scene: Node, playing: float) -> bool:
+	var counts: PackedStringArray = String(_o["relaunch-bots"]).split(",", false)
+	if counts.is_empty() or float(_o.win) < 0.0 or _relaunched >= counts.size() or _relaunched >= _matches_started:
+		return false
+	if playing <= float(_o.win):
+		return true
+	var count: int = int(counts[_relaunched])
+	_relaunched = _matches_started
+	var settings: GameSettings = SettingsStore.instance().settings
+	DebugMenu.write_bot_count(settings, count)
+	HubLobby.relaunch_on_arrival = true
+	_auto_relaunch = true
+	if _relaunched == 1 and not String(_o["relaunch-seats"]).is_empty():
+		HubLobby.relaunch_bot_seats = PackedInt32Array(Array(String(_o["relaunch-seats"]).split(",")).map(func(x: String) -> int: return int(x)))
+		settings.skip_opening_race = int(_o["relaunch-tower"]) >= 0
+		settings.tower_seat_index = maxi(int(_o["relaunch-tower"]), 0)
+	_probe.line("RELAUNCH bots=%d" % count)
+	(scene.get_node(^"NetMatch") as NetMatch).return_all_to_hub()
+	return true
 
 
-var _next_shove: float = 0.0
-
-
-func _shove_client(scene_node: Node, elapsed: float) -> void:
-	var net: NetMatch = scene_node.get_node_or_null(^"NetMatch") as NetMatch
+func _shove_client(scene: Node, elapsed: float) -> void:
+	var net: NetMatch = scene.get_node_or_null(^"NetMatch") as NetMatch
 	if net == null:
 		return
 	var mine: PlayerController = null
@@ -280,9 +319,9 @@ func _shove_client(scene_node: Node, elapsed: float) -> void:
 		var link: PlayerNetLink = child as PlayerNetLink
 		if link == null or link.controller == null:
 			continue
-		if link.seat_index == 0:
+		if link.seat_index == _lobby.get_local_seat_index():
 			mine = link.controller
-		else:
+		elif theirs == null:
 			theirs = link.controller
 	if mine == null or theirs == null:
 		return
@@ -293,5 +332,17 @@ func _shove_client(scene_node: Node, elapsed: float) -> void:
 		mine.global_position = theirs.global_position - Vector3(ahead.x, 0.0, ahead.z).normalized() * 1.0
 		mine.velocity = Vector3.ZERO
 		mine.look_at(theirs.global_position, Vector3.UP)
-		_line("SHOVE try")
-	_hold(&"shove", press)
+		_probe.line("SHOVE try")
+		Input.action_press(&"shove")
+	elif Input.is_action_pressed(&"shove"):
+		Input.action_release(&"shove")
+
+
+func _finish(code: int, reason: String) -> void:
+	if _exit_code >= 0:
+		return
+	_exit_code = code
+	_probe.finish(code == 0, reason)
+	if _session != null:
+		_session.leave()
+	get_tree().quit(code)

@@ -1,0 +1,27 @@
+{
+ "name": "flow_3p_hell_marble_rounds2",
+ "runner": "hub",
+ "peers": 3,
+ "limit": 760,
+ "tags": [
+  "flow"
+ ],
+ "common": {
+  "maps": "bentham_ring,marble",
+  "matches": 2,
+  "ceiling": 330,
+  "hub_seconds": 6,
+  "limit": 740
+ },
+ "host": {
+  "prisoners": 3,
+  "rounds": 2
+ },
+ "expect": {
+  "matches": 2,
+  "natural_win": true,
+  "host": [
+   "EV round_started round=2"
+  ]
+ }
+}

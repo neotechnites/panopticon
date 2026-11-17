@@ -1,0 +1,26 @@
+{
+ "name": "flow_4p_hell_marble_keys",
+ "runner": "hub",
+ "peers": 4,
+ "limit": 520,
+ "tags": [
+  "flow",
+  "powers"
+ ],
+ "common": {
+  "maps": "bentham_ring,marble",
+  "matches": 2,
+  "ceiling": 200,
+  "hub_seconds": 6,
+  "keys": "1@5,2@12,3@19+2,4@24,5@31,e@>1,b@37+2,n@42+2,q@47",
+  "limit": 500
+ },
+ "host": {
+  "prisoners": 4,
+  "rounds": 1,
+  "ability": 1
+ },
+ "expect": {
+  "matches": 2
+ }
+}

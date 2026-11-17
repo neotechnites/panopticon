@@ -1,0 +1,28 @@
+{
+ "name": "quit_host_in_hub_3p",
+ "runner": "hub",
+ "peers": 3,
+ "limit": 90,
+ "tags": [
+  "leave",
+  "host",
+  "hub"
+ ],
+ "common": {
+  "maps": "bentham_ring",
+  "matches": 1,
+  "win": 15,
+  "hub-wait": 30,
+  "limit": 70
+ },
+ "expect": {
+  "host_lost": true
+ },
+ "kill": [
+  {
+   "peer": 0,
+   "when": "SCENE kind=hub",
+   "after": 8
+  }
+ ]
+}

@@ -1,0 +1,36 @@
+{
+ "name": "power_all_3p_marble",
+ "runner": "match",
+ "peers": 3,
+ "limit": 115,
+ "tags": [
+  "powers"
+ ],
+ "common": {
+  "seconds": 70,
+  "map": "marble",
+  "seats": 4,
+  "tower": 2
+ },
+ "host": {
+  "keys": "1@5,2@12,3@19+2,4@24,5@31,e@>1,b@37+2,n@42+2,q@47",
+  "ability": 4
+ },
+ "client": {
+  "keys": "2@7,1@14,4@21,3@27+2,5@33,f@>1.2,n@39+2,b@44+2,q@49"
+ },
+ "peer": {
+  "2": {
+   "aim": false,
+   "fire-every": 0,
+   "press-fire": 0,
+   "keys": ""
+  }
+ },
+ "expect": {
+  "valid_presses": {
+   "0": 3,
+   "1": 3
+  }
+ }
+}

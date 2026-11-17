@@ -1,76 +1,435 @@
 class_name ScriptedIntentSource
 extends IntentSource
 
-## A canned human for headless net runs: walks forward, sweeps aim, fires.
+## A scripted human for headless net runs. Keys go down on the real device actions and are read
+## back through the body's own HumanIntentSource; movement is the bot brain's (PLAY) or a canned walk.
 
-## Walk in bursts: this many seconds on, then this many off.
-@export var walk_seconds: float = 3.0
-@export var rest_seconds: float = 2.0
-## Yaw sweep per second while walking, radians.
-@export var yaw_rate: float = 0.15
-## Pitch sweep per second while walking, radians; the sign flips each burst.
-@export var pitch_rate: float = 0.0
+enum Mode { IDLE, WALK, PLAY }
+enum Role { HELD, RUN, CHASE, HUNT, GUARD, BRAWL }
+
+const KEY_ACTIONS: Dictionary[String, StringName] = {
+	"1": &"ability_1", "2": &"ability_2", "3": &"ability_3", "4": &"ability_4", "5": &"ability_5",
+	"q": &"ability", "e": &"interact", "f": &"shove", "b": &"emote", "n": &"emote_alt", "j": &"jump",
+}
+const BOT_PROFILE: String = "res://characters/bots/default_bot_profile.tres"
+const RUNNER_PROFILE: String = "res://characters/bots/default_runner_profile.tres"
+## A deferred key gives up waiting for a valid moment after this long.
+const KEY_PATIENCE_SECONDS: float = 45.0
+const BRAWL_SHOVE_REST: float = 1.7
 
 ## Emitted on the tick this source pulls the trigger.
 signal trigger_pulled
-## Emitted on the tick this source presses a power key.
-signal power_pressed(slot: int)
-## First trigger pull, seconds after start; 0 or less never fires.
-@export var fire_at: float = 4.0
-## Pull again this often after the first; 0 never repeats.
-@export var fire_every: float = 0.0
-## Press this ability slot once, [member ability_at] seconds in; 0 never does.
-@export var ability_slot: int = 0
-@export var ability_at: float = 6.0
-## Then the next slot (1..4, wrapping) this often, each key held; 0 presses once.
-@export var ability_every: float = 0.0
+## Emitted on the tick a key goes down; [param valid] says the body could act on it.
+signal key_pressed(key: String, valid: bool, note: String)
+signal key_released(key: String)
+signal role_changed(role: String)
 
-## When set, returns the (yaw, pitch) to face this tick, or a non-finite vector for none;
-## [member body] is the body whose view is turned onto it.
-var aim: Callable
+var mode: Mode = Mode.WALK
+## Canned walk: seconds on, seconds off, yaw and pitch sweep per second.
+var walk_seconds: float = 3.0
+var rest_seconds: float = 2.0
+var yaw_rate: float = 0.15
+var pitch_rate: float = 0.0
+## Guard: first trigger pull, seconds after start, and the gap between pulls; 0 never fires.
+var fire_at: float = 4.0
+var fire_every: float = 0.0
+## Guard: turn the view onto the nearest running body in sight and fire only with one in sight.
+var aim_enabled: bool = false
+## Hold a key back until the body can act on it.
+var keys_wait: bool = true
+## Not the body's source: only presses keys (and walks) on the device, from its own physics tick.
+var device_only: bool = false
+var device_walk: bool = false
+## Fault for the checker's own test: report the press and never put the key down.
+var mute_keys: bool = false
+
+var match_controller: MatchController = null
 var body: PlayerController = null
 
 var _elapsed: float = 0.0
 var _next_fire: float = -1.0
-var _ability_pressed: bool = false
-var _slot: int = 0
-var _slot_until: float = -1.0
+var _keys: Array[Dictionary] = []
+var _repeats: Array[Dictionary] = []
+var _down: Dictionary[String, float] = {}
+var _last_press: float = 0.0
+var _still_until: float = -1.0
+var _human: HumanIntentSource = null
+var _bot: BotIntentSource = null
+var _brain: RunnerBrain = null
+var _role: Role = Role.HELD
+var _rearm: bool = true
+var _aimed: MatchParticipant = null
+var _brawl_rest: float = 0.0
+var _walked: Dictionary[StringName, bool] = {}
+var _rest_ticks: int = 0
 
 
 func _ready() -> void:
 	_next_fire = fire_at
+	set_physics_process(device_only)
+
+
+func _exit_tree() -> void:
+	for key: String in _down.keys():
+		Input.action_release(KEY_ACTIONS[key])
+	for action: StringName in _walked:
+		Input.action_release(action)
+	if is_instance_valid(_bot):
+		_bot.queue_free()
+
+
+## Bind to the match this source plays in; call once the local body is known.
+func bind(controller: MatchController, local_body: PlayerController) -> void:
+	match_controller = controller
+	body = local_body
+	_human = body.get_node_or_null(^"HumanInput") as HumanIntentSource if body != null else null
+	if controller == null:
+		return
+	for sig: Signal in [controller.race_started, controller.round_started, controller.brawl_started]:
+		sig.connect(func() -> void: _rearm = true)
+	controller.ghost_respawned.connect(func(_p: MatchParticipant) -> void: _rearm = true)
+	controller.ghost_caught.connect(func(_g: MatchParticipant, _c: MatchParticipant) -> void: _rearm = true)
+	controller.seat_changed.connect(func(_p: MatchParticipant, _t: int) -> void: _rearm = true)
+
+
+## "3@8+2,5@14,e@>1,f@>1.5,b@20+2/15": key@seconds[+hold][/every]; ">" counts from the previous press.
+func set_keys(spec: String) -> void:
+	_keys.clear()
+	_repeats.clear()
+	for part: String in spec.split(",", false):
+		var at_split: PackedStringArray = part.strip_edges().split("@")
+		if at_split.size() != 2 or not KEY_ACTIONS.has(at_split[0]):
+			push_error("ScriptedIntentSource: bad key spec '%s'" % part)
+			continue
+		var timing: String = at_split[1]
+		var every: float = 0.0
+		if timing.contains("/"):
+			every = float(timing.get_slice("/", 1))
+			timing = timing.get_slice("/", 0)
+		var hold: float = 0.0
+		if timing.contains("+"):
+			hold = float(timing.get_slice("+", 1))
+			timing = timing.get_slice("+", 0)
+		var relative: bool = timing.begins_with(">")
+		_keys.append({"key": at_split[0], "at": float(timing.trim_prefix(">")), "relative": relative,
+			"hold": hold, "every": every})
+
+
+func get_role_name() -> String:
+	return String(Role.keys()[_role])
+
+
+func get_aimed() -> MatchParticipant:
+	return _aimed
+
+
+func _physics_process(delta: float) -> void:
+	_elapsed += delta
+	_drive_keys(_me())
+	if device_walk:
+		_walk_device()
 
 
 func poll(delta: float) -> MoveIntent:
 	_elapsed += delta
 	_intent.clear()
+	var me: MatchParticipant = _me()
+	_drive_keys(me)
+	if _human != null:
+		_intent.copy_from(_human.poll(delta))
+	match mode:
+		Mode.WALK:
+			_walk(delta)
+		Mode.PLAY:
+			_play(me, delta)
+	if mode != Mode.PLAY and me != null and me.is_shooter:
+		_guard(me)
+	if _elapsed < _still_until:
+		_intent.move_direction = Vector2.ZERO
+		_intent.jump_pressed = false
+		_intent.jump_held = false
+		_intent.slide_pressed = false
+		_intent.slide_held = false
+	return _intent
+
+
+func _me() -> MatchParticipant:
+	return match_controller.get_human_participant() if match_controller != null else null
+
+
+# --- Keys ---------------------------------------------------------------------
+
+func _drive_keys(me: MatchParticipant) -> void:
+	for key: String in _down.keys():
+		if _elapsed >= _down[key]:
+			_down.erase(key)
+			Input.action_release(KEY_ACTIONS[key])
+			key_released.emit(key)
+	while not _keys.is_empty():
+		var entry: Dictionary = _keys[0]
+		var due: float = float(entry.at) + (_last_press if bool(entry.relative) else 0.0)
+		if _elapsed < due or not _press(entry, me, due):
+			break
+		_keys.pop_front()
+		if float(entry.every) > 0.0:
+			entry.at = _elapsed + float(entry.every)
+			entry.relative = false
+			_repeats.append(entry)
+	for entry: Dictionary in _repeats:
+		if _elapsed >= float(entry.at) and _press(entry, me, float(entry.at)):
+			entry.at = _elapsed + float(entry.every)
+
+
+## Put one key down. False while it is being held back for a moment the body can use it.
+func _press(entry: Dictionary, me: MatchParticipant, due: float) -> bool:
+	var key: String = String(entry.key)
+	if _down.has(key):
+		return false
+	if key == "b" or key == "n":
+		# An emote wants a body at rest on the floor: stop first, press once it has.
+		_still_until = maxf(_still_until, _elapsed + 0.5)
+	var note: String = _why_not(key, me)
+	if not note.is_empty() and keys_wait and _elapsed < due + KEY_PATIENCE_SECONDS:
+		return false
+	if not mute_keys:
+		Input.action_press(KEY_ACTIONS[key])
+	# One tick at least, so the press edge is read before the release.
+	_down[key] = _elapsed + maxf(float(entry.hold), 0.0) + 0.02
+	_last_press = _elapsed
+	if key == "b" or key == "n" or key == "3":
+		_still_until = _elapsed + float(entry.hold) + 0.3
+	key_pressed.emit(key, note.is_empty(), note)
+	return true
+
+
+## Why this body could not act on [param key] this tick, or empty when it can.
+func _why_not(key: String, me: MatchParticipant) -> String:
+	if me == null or me.body == null:
+		return "no-body"
+	if not me.body.is_physics_processing():
+		return "held"
+	var in_hub: bool = match_controller.get_phase() == MatchController.Phase.HUB
+	if not in_hub and not me.is_running:
+		return "role-%s" % me.get_role_name()
+	var power: RunnerPower = RunnerPower.of(me.body)
+	match key:
+		"1", "2", "3", "4", "5", "q":
+			if power == null or power.rules == null:
+				return "unarmed"
+			if power.get_shown() != MatchRules.RunnerAbility.NONE:
+				return "busy-%d" % int(power.get_shown())
+			if power.get_cooldown_remaining() > 0.0:
+				return "cooldown"
+			if key == "q" and power.rules.runner_ability == MatchRules.RunnerAbility.NONE:
+				return "no-picked-power"
+		"e":
+			if power == null or power.get_shown() != MatchRules.RunnerAbility.CAT_GRENADE:
+				return "no-cat"
+		"b", "n":
+			if not me.body.is_on_floor():
+				return "airborne"
+			if me.body.velocity.length() > 0.3:
+				_rest_ticks = 0
+				return "moving"
+			_rest_ticks += 1
+			if _rest_ticks < 20:
+				return "settling"
+			_rest_ticks = 0
+	return ""
+
+
+# --- Movement -----------------------------------------------------------------
+
+func _walk(delta: float) -> void:
 	if _elapsed < 1.0:
-		return _intent
+		return
 	var cycle: float = fmod(_elapsed - 1.0, walk_seconds + rest_seconds)
 	if cycle < walk_seconds:
 		_intent.move_direction = Vector2(0.0, 1.0)
 		var burst: int = int((_elapsed - 1.0) / (walk_seconds + rest_seconds))
 		_intent.look_delta = Vector2(yaw_rate * delta, pitch_rate * delta * (1.0 if burst % 2 == 0 else -1.0))
-	if aim.is_valid():
-		var want: Vector2 = aim.call()
-		if want.is_finite() and body != null:
-			var view: Vector2 = body.get_view_angles()
-			_intent.move_direction = Vector2.ZERO
-			_intent.look_delta = Vector2(angle_difference(want.x, view.x), -(want.y - view.y))
-	if ability_slot > 0 and not _ability_pressed and _elapsed >= ability_at:
-		_intent.ability_slot = ability_slot
-		_slot = ability_slot
-		_slot_until = _elapsed + ability_every * 0.8
-		power_pressed.emit(_slot)
-		if ability_every > 0.0:
-			ability_slot = ability_slot % 4 + 1
-			ability_at += ability_every
-		else:
-			_ability_pressed = true
-	if _elapsed < _slot_until:
-		_intent.ability_held = true
-	if _next_fire > 0.0 and _elapsed >= _next_fire:
+
+
+## Hub wandering on the device: forward and strafe in turns, jumps and mouse look.
+func _walk_device() -> void:
+	var phase: int = int(_elapsed / 1.5) % 4
+	var still: bool = _elapsed < _still_until
+	_hold(&"move_forward", phase != 2 and not still)
+	_hold(&"move_left", phase == 1 and not still)
+	_hold(&"move_right", phase == 3 and not still)
+	_hold(&"move_back", phase == 2 and not still)
+	_hold(&"jump", fmod(_elapsed, 2.3) < 0.1 and not still)
+	var motion: InputEventMouseMotion = InputEventMouseMotion.new()
+	motion.relative = Vector2(6.0, sin(_elapsed) * 3.0)
+	Input.parse_input_event(motion)
+
+
+func _hold(action: StringName, on: bool) -> void:
+	_walked[action] = true
+	if on and not Input.is_action_pressed(action):
+		Input.action_press(action)
+	elif not on and Input.is_action_pressed(action):
+		Input.action_release(action)
+
+
+func _play(me: MatchParticipant, delta: float) -> void:
+	var role: Role = _role_of(me)
+	if role != _role or (_rearm and role != Role.HELD):
+		_enter(role, me)
+	match _role:
+		Role.RUN, Role.CHASE, Role.HUNT:
+			var command: MoveIntent = _bot.poll(delta)
+			_intent.move_direction = command.move_direction
+			_intent.look_delta = command.look_delta
+			_intent.jump_pressed = command.jump_pressed
+			_intent.jump_held = command.jump_held
+			_intent.slide_pressed = command.slide_pressed
+			_intent.slide_held = command.slide_held
+			_intent.shove_pressed = _intent.shove_pressed or command.shove_pressed
+		Role.GUARD:
+			_guard(me)
+		Role.BRAWL:
+			_brawl(me, delta)
+
+
+func _role_of(me: MatchParticipant) -> Role:
+	if me == null or me.body == null or not me.body.is_physics_processing():
+		return Role.HELD
+	var phase: MatchController.Phase = match_controller.get_phase()
+	if phase == MatchController.Phase.BRAWL:
+		return Role.BRAWL if me.is_running else Role.HELD
+	if phase != MatchController.Phase.RACE and phase != MatchController.Phase.ROUND:
+		return Role.HELD
+	if me.is_shooter:
+		return Role.GUARD
+	if me.is_finisher:
+		return Role.HUNT
+	if me.is_running:
+		return Role.RUN
+	if me.is_ghost:
+		return Role.CHASE
+	return Role.HELD
+
+
+## Stand the bot brain up for [param role], the way MatchController does for a bot seat.
+func _enter(role: Role, me: MatchParticipant) -> void:
+	_role = role
+	if role != Role.HELD:
+		_rearm = false
+	_ensure_brain(me)
+	if _brain != null:
+		_brain.end_chase()
+		_brain.set_physics_process(false)
+		_bot.command.clear()
+	role_changed.emit(get_role_name())
+	if _brain == null or role == Role.HELD or role == Role.GUARD or role == Role.BRAWL:
+		return
+	var rules: MatchRules = match_controller.get_rules()
+	var route: RingRoute = match_controller.get_route()
+	_brain.rules = rules
+	match role:
+		Role.RUN:
+			if route == null or me.tracker == null:
+				return
+			var level: int = me.tracker.get_level()
+			_brain.profile.track_radius = route.lane_radius(level)
+			_brain.resume(match_controller._centre, match_controller._start_point, match_controller._end_point,
+				me.tracker.get_travelled_arc(), route, level)
+		Role.CHASE:
+			_brain.begin_chase(MatchController.RUNNER_GROUP)
+		Role.HUNT:
+			_brain.begin_hunt(MatchController.GUARD_GROUP)
+
+
+func _ensure_brain(me: MatchParticipant) -> void:
+	if _brain != null or me == null or me.body == null:
+		return
+	_bot = BotIntentSource.new()
+	_bot.name = "HarnessBotInput"
+	me.body.add_child(_bot)
+	_bot.configure(me.body.profile)
+	_brain = RunnerBrain.new()
+	_brain.name = "HarnessBrain"
+	_brain.controller = me.body
+	_brain.input = _bot
+	_brain.profile = (load(BOT_PROFILE) as BotProfile).duplicate() as BotProfile
+	_brain.runner_profile = load(RUNNER_PROFILE) as RunnerProfile
+	_brain.seat_index = me.index
+	add_child(_brain)
+
+
+## The tower: face the nearest running body in sight, hold the scope on it, pull on the cadence.
+func _guard(me: MatchParticipant) -> void:
+	_intent.move_direction = Vector2.ZERO
+	var want: Vector2 = _aim_view(me) if aim_enabled else Vector2.INF
+	if want.is_finite():
+		var view: Vector2 = me.body.get_view_angles()
+		_intent.look_delta = Vector2(angle_difference(want.x, view.x), -(want.y - view.y))
+		_intent.aim_held = true
+	elif not aim_enabled:
+		_intent.look_delta = Vector2(yaw_rate * get_physics_process_delta_time(), 0.0)
+	if _next_fire > 0.0 and _elapsed >= _next_fire and (want.is_finite() or not aim_enabled):
 		_intent.fire_pressed = true
+		_intent.fire_held = true
 		trigger_pulled.emit()
 		_next_fire = _elapsed + fire_every if fire_every > 0.0 else -1.0
-	return _intent
+
+
+## The view that puts this body's camera on the chest of the nearest running body it can see.
+func _aim_view(me: MatchParticipant) -> Vector2:
+	_aimed = null
+	var camera: Node3D = me.body.get_node_or_null(^"Head/Camera") as Node3D
+	if camera == null:
+		return Vector2.INF
+	var eye: Vector3 = camera.global_position
+	var best: float = INF
+	var at: Vector3 = Vector3.INF
+	for p: MatchParticipant in match_controller.get_participants_ref():
+		if p == me or p.body == null or not p.is_running:
+			continue
+		var chest: Vector3 = p.body.global_position + Vector3.UP * 0.9
+		var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(eye, chest)
+		query.exclude = [me.body.get_rid()]
+		var hit: Dictionary = me.body.get_world_3d().direct_space_state.intersect_ray(query)
+		if hit.is_empty() or hit.collider != p.body or eye.distance_to(chest) >= best:
+			continue
+		best = eye.distance_to(chest)
+		at = chest
+		_aimed = p
+	if _aimed == null:
+		return Vector2.INF
+	var rifle: Rifle = match_controller.rifle
+	var speed: float = rifle.get_shot_speed() if rifle != null else 0.0
+	if speed > 0.0:
+		# Lead a travelling shot as the tower bot does: flight time, then the fall over it.
+		var velocity: Vector3 = _aimed.body.velocity
+		var flight: float = (at - eye + velocity * ((at - eye).length() / speed)).length() / speed
+		at += velocity * flight
+		if rifle.profile != null:
+			at.y += 0.5 * rifle.profile.projectile_gravity * flight * flight
+	var dir: Vector3 = (at - eye).normalized()
+	return Vector2(atan2(-dir.x, -dir.z), asin(clampf(dir.y, -1.0, 1.0)))
+
+
+## The tower fight: walk at the nearest standing rival and shove it.
+func _brawl(me: MatchParticipant, delta: float) -> void:
+	_brawl_rest = maxf(_brawl_rest - delta, 0.0)
+	var here: Vector3 = me.body.global_position
+	var target: MatchParticipant = null
+	var best: float = INF
+	for p: MatchParticipant in match_controller.get_participants_ref():
+		if p == me or p.body == null or not p.is_running:
+			continue
+		var d: float = here.distance_to(p.body.global_position)
+		if d < best:
+			best = d
+			target = p
+	if target == null:
+		return
+	var to: Vector3 = target.body.global_position - here
+	var want_yaw: float = atan2(-to.x, -to.z)
+	_intent.look_delta = Vector2(angle_difference(want_yaw, me.body.get_view_angles().x), 0.0)
+	_intent.move_direction = Vector2(0.0, 1.0 if best > 1.2 else 0.0)
+	if best < 2.2 and _brawl_rest <= 0.0:
+		_intent.shove_pressed = true
+		_brawl_rest = BRAWL_SHOVE_REST

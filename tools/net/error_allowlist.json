@@ -1,0 +1,68 @@
+[
+ {
+  "pattern": "resources still in use at exit",
+  "class": "benign",
+  "id": "exit-leak",
+  "reason": "Engine teardown report after quit(); nothing is running."
+ },
+ {
+  "pattern": "Parameter \"material\" is null",
+  "class": "benign",
+  "id": "dummy-renderer-material",
+  "reason": "Headless dummy renderer; the unit suite forgives the same line."
+ },
+ {
+  "pattern": "keybind_panel\\.tscn has no row for action 'ability_5'",
+  "class": "known",
+  "id": "B-ability5-row",
+  "reason": "BASELINE 3B: the keybind panel has no fifth power row. Owned by the suite agent."
+ },
+ {
+  "pattern": "Condition \"!peers\\.has\\(p_id\\)\" is true",
+  "class": "known",
+  "id": "K-enet-timeout-peers",
+  "reason": "BASELINE 5: enet_transport.gd _apply_timeout asks ENet for a peer that is not the host, on every client with 3+ peers."
+ },
+ {
+  "pattern": "Node not found: \"(Match|Hub)/NetMatch/Link\\d+\"",
+  "class": "known",
+  "id": "K-old-scene-packet",
+  "max": 40,
+  "reason": "BUGS PT2-08 / task 335 leftover, BASELINE 5: a packet for a scene this machine has already left (or not yet built)."
+ },
+ {
+  "pattern": "Failed to get cached node from peer",
+  "class": "known",
+  "id": "K-old-scene-packet",
+  "max": 40,
+  "reason": "BUGS PT2-08 / task 335 leftover, BASELINE 5: a packet for a scene this machine has already left (or not yet built)."
+ },
+ {
+  "pattern": "Failed to get path from RPC: (Match|Hub)/NetMatch/Link\\d+",
+  "class": "known",
+  "id": "K-old-scene-packet",
+  "max": 40,
+  "reason": "BUGS PT2-08 / task 335 leftover, BASELINE 5: a packet for a scene this machine has already left (or not yet built)."
+ },
+ {
+  "pattern": "Invalid packet received\\. Requested node was not found",
+  "class": "known",
+  "id": "K-old-scene-packet",
+  "max": 40,
+  "reason": "BUGS PT2-08 / task 335 leftover, BASELINE 5: a packet for a scene this machine has already left (or not yet built)."
+ },
+ {
+  "pattern": "Parameter \"node\" is null.*process_simplify_path",
+  "class": "known",
+  "id": "K-old-scene-packet",
+  "max": 40,
+  "reason": "BUGS PT2-08 / task 335 leftover, BASELINE 5: a packet for a scene this machine has already left (or not yet built)."
+ },
+ {
+  "pattern": "Unable to send packet on channel 0, max channels: 0",
+  "class": "known",
+  "id": "K-shutdown-send",
+  "max": 10,
+  "reason": "BASELINE 5: the host sends to a peer it has already closed, at shutdown."
+ }
+]

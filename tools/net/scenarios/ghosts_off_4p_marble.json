@@ -1,0 +1,26 @@
+{
+ "name": "ghosts_off_4p_marble",
+ "runner": "match",
+ "peers": 4,
+ "limit": 145,
+ "tags": [
+  "ghosts"
+ ],
+ "common": {
+  "seconds": 100,
+  "map": "marble",
+  "seats": 5,
+  "tower": 1
+ },
+ "host": {
+  "ghosts": "false"
+ },
+ "expect": {
+  "host": [
+   "EV converted"
+  ],
+  "never": [
+   "EV ghosted"
+  ]
+ }
+}

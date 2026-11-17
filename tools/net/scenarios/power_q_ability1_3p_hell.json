@@ -1,0 +1,36 @@
+{
+ "name": "power_q_ability1_3p_hell",
+ "runner": "match",
+ "peers": 3,
+ "limit": 90,
+ "tags": [
+  "powers"
+ ],
+ "common": {
+  "seconds": 45,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 2
+ },
+ "host": {
+  "keys": "q@6+1.5/9",
+  "ability": 1
+ },
+ "peer": {
+  "1": {
+   "keys": "q@8+1.5/9"
+  },
+  "2": {
+   "aim": false,
+   "fire-every": 0,
+   "press-fire": 0,
+   "keys": ""
+  }
+ },
+ "expect": {
+  "valid_presses": {
+   "0": 1,
+   "1": 1
+  }
+ }
+}

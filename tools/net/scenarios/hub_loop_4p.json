@@ -1,0 +1,24 @@
+{
+ "name": "hub_loop_4p",
+ "runner": "hub",
+ "peers": 4,
+ "limit": 330,
+ "tags": [
+  "after",
+  "transitions"
+ ],
+ "common": {
+  "maps": "bentham_ring,marble,marble,bentham_ring,bentham_ring,marble",
+  "matches": 6,
+  "win": 12,
+  "back": 2,
+  "hub-wait": 3,
+  "limit": 310
+ },
+ "host": {
+  "prisoners": 3
+ },
+ "expect": {
+  "matches": 6
+ }
+}

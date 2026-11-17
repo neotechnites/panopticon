@@ -1,0 +1,27 @@
+{
+ "name": "fault_stall3s_client_2p_marble",
+ "runner": "match",
+ "peers": 2,
+ "limit": 105,
+ "tags": [
+  "fault",
+  "stall"
+ ],
+ "common": {
+  "seconds": 60,
+  "map": "marble",
+  "seats": 4,
+  "tower": 3
+ },
+ "peer": {
+  "1": {
+   "stall-at": 15,
+   "stall-ms": 3000
+  }
+ },
+ "expect": {
+  "never": [
+   "SEAT seat=s1 occupancy=BOT"
+  ]
+ }
+}

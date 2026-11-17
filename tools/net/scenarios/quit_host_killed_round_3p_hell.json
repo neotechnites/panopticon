@@ -1,0 +1,26 @@
+{
+ "name": "quit_host_killed_round_3p_hell",
+ "runner": "match",
+ "peers": 3,
+ "limit": 120,
+ "tags": [
+  "leave",
+  "host"
+ ],
+ "common": {
+  "seconds": 60,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 3
+ },
+ "expect": {
+  "host_lost": "in-match"
+ },
+ "kill": [
+  {
+   "peer": 0,
+   "when": "EV round_started",
+   "after": 12
+  }
+ ]
+}

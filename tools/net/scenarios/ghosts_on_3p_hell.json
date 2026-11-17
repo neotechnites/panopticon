@@ -1,0 +1,24 @@
+{
+ "name": "ghosts_on_3p_hell",
+ "runner": "match",
+ "peers": 3,
+ "limit": 145,
+ "tags": [
+  "ghosts"
+ ],
+ "common": {
+  "seconds": 100,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 1
+ },
+ "host": {
+  "ghosts": "true"
+ },
+ "expect": {
+  "host": [
+   "EV ghosted",
+   "EV ghost_respawned"
+  ]
+ }
+}

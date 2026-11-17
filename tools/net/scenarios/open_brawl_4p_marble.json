@@ -1,0 +1,25 @@
+{
+ "name": "open_brawl_4p_marble",
+ "runner": "match",
+ "peers": 4,
+ "limit": 135,
+ "tags": [
+  "opening",
+  "brawl"
+ ],
+ "common": {
+  "seconds": 90,
+  "map": "marble",
+  "seats": 5,
+  "tower": -1
+ },
+ "host": {
+  "brawl": true
+ },
+ "expect": {
+  "all": [
+   "EV brawl_started",
+   "EV round_started round=1"
+  ]
+ }
+}

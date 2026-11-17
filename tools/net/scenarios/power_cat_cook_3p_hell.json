@@ -1,0 +1,35 @@
+{
+ "name": "power_cat_cook_3p_hell",
+ "runner": "match",
+ "peers": 3,
+ "limit": 105,
+ "tags": [
+  "powers"
+ ],
+ "common": {
+  "seconds": 60,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 2
+ },
+ "host": {
+  "keys": "5@6,e@>1,5@>6,e@>1,5@>6,e@>1"
+ },
+ "peer": {
+  "1": {
+   "keys": "5@8,e@>1,5@>6,e@>1,5@>6,e@>1"
+  },
+  "2": {
+   "aim": false,
+   "fire-every": 0,
+   "press-fire": 0,
+   "keys": ""
+  }
+ },
+ "expect": {
+  "valid_presses": {
+   "0": 1,
+   "1": 1
+  }
+ }
+}

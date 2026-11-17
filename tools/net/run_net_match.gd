@@ -1,80 +1,77 @@
 extends SceneTree
 
-## Headless server or client for a localhost net match. Logs phases, seats,
-## positions and errors to --log. Run one --role=server and N --role=client.
-## --screen=true goes through the real MultiplayerScreen instead of the lobby API.
+## Headless server or client for a localhost net match, straight into match.tscn (no hub).
+## Run one --role=server and N --role=client; logs through [SessionProbe]. Exit 0 ok, 1 bad
+## arguments, 2 never launched or session lost, 3 --until=won and nobody won in --seconds.
 ##
-## Debug hooks, server only, seconds into the match: --arm-finisher hands the
-## remote prisoner the second rifle without making it run a lap, and --kill-guard
-## lands a shot on the guard; --arm-host=true arms the host instead. --brawl=true opens with the tower fight. Both exist to exercise what a CLIENT is shown.
-## --press-fire is when the scripted human first pulls the trigger.
-## --map picks the map; --bind-delay holds this machine's match scene back that many
-## seconds after launch; --stall-at/--stall-ms freeze this process once mid-match.
-## --loss drops that fraction of this machine's outgoing unreliable packets; --delay-ms holds
-## every outgoing packet that long;
-## --enet-throttle=true puts ENet's own RTT throttle back. --aim=true turns this machine's view
-## onto the nearest running body it can see, as drawn here, every tick.
-
-var _aimed: MatchParticipant = null
+## --humans people the host waits for (itself included), --seats total with bots, --tower the
+## opening guard seat (-1 opens with the race), --map, --screen=true drives the real MultiplayerScreen.
+## --until=time ends at --seconds; --until=won ends --linger seconds after match_won.
+## Server debug hooks, seconds into the match: --arm-finisher, --kill-guard, --arm-host=true.
+## --bind-delay holds this machine's match scene back after launch; --enet-throttle=true restores ENet's.
+## Match settings, wire faults, quitting and the scripted human are [constant SessionProbe.OPTIONS].
 
 const MATCH_SCENE: String = "res://match/match.tscn"
 const SESSION_SCENE: String = "res://match/net/net_session.tscn"
 const SCREEN_SCENE: String = "res://ui/multiplayer_screen.tscn"
-## Positions are logged once per this many authority ticks, on every process.
-const SAMPLE_TICKS: int = 120
+const RULES_PATH: String = "res://match/rules/default_match_rules.tres"
 
 var _o: Dictionary = {}
+var _probe: SessionProbe = null
 var _session: NetSession = null
 var _screen: MultiplayerScreen = null
 var _rules_set: bool = false
 var _lobby: NetLobby = null
-var _log: FileAccess = null
 var _match: Node = null
-var _controller: MatchController = null
-var _net_match: NetMatch = null
 var _started_ms: int = 0
-var _match_ms: int = -1
-var _last_bucket: int = -1
 var _readied: bool = false
 var _launched: bool = false
-var _finished: bool = false
-var _errors: int = 0
+var _exit_code: int = -1
 var _armed_finisher: bool = false
 var _killed_guard: bool = false
-## Per body, the power last seen drawn, so every change is logged on its frame.
-var _shown_powers: Dictionary[int, int] = {}
-var _stalled: bool = false
-var _lossy: LossyPeer = null
+var _won_ms: int = -1
 var _enet: ENetMultiplayerPeer = null
-var _intents_in: int = 0
 
 
 func _initialize() -> void:
-	_o = BotHarness.parse_arguments({
-		"role": "server", "address": "127.0.0.1", "port": 27960, "seconds": 90.0,
-		"log": "", "seats": 6, "tower": 1, "name": "", "humans": 3, "fire-every": 0.0,
-		"screen": false, "preset": "classic", "press-ability": 0, "press-at": 6.0, "press-every": 0.0,
-		"press-fire": 4.0, "arm-finisher": 0.0, "kill-guard": 0.0, "pitch-rate": 0.0,
-		"map": "", "bind-delay": 0.0, "stall-at": 0.0, "stall-ms": 0,
-		"loss": 0.0, "delay-ms": 0, "enet-throttle": false, "aim": false, "arm-host": false, "brawl": false,
-	})
+	var defaults: Dictionary = SessionProbe.OPTIONS.duplicate()
+	defaults.merge({
+		"seconds": 90.0, "seats": 6, "tower": 1, "humans": 3, "screen": false, "preset": "classic",
+		"press-ability": 0, "press-at": 6.0, "press-every": 0.0, "arm-finisher": 0.0, "kill-guard": 0.0,
+		"map": "", "bind-delay": 0.0, "enet-throttle": false, "arm-host": false,
+		"until": "time", "linger": 4.0,
+	}, true)
+	_o = BotHarness.parse_arguments(defaults)
 	Engine.max_fps = 60
 	_started_ms = Time.get_ticks_msec()
-	if bool(_o.get("brawl", false)):
-		SettingsStore.instance().settings.tower_brawl = true
-		SettingsStore.instance().settings.skip_opening_race = false
-	var log_path: String = String(_o.get("log", ""))
-	if not log_path.is_empty():
-		_log = FileAccess.open(log_path, FileAccess.WRITE)
+	if int(_o["press-ability"]) > 0:
+		var legacy: String = "%d@%.2f+%.2f" % [int(_o["press-ability"]), float(_o["press-at"]), float(_o["press-every"]) * 0.8]
+		if float(_o["press-every"]) > 0.0:
+			legacy += "/%.2f" % float(_o["press-every"])
+		_o.keys = legacy if String(_o.keys).is_empty() else "%s,%s" % [String(_o.keys), legacy]
+	if String(_o.name).is_empty():
+		_o.name = "Host" if _is_server() else "Client%d" % (OS.get_process_id() % 100)
+	_probe = SessionProbe.new()
+	_probe.configure(_o)
+	if _o.has("_error"):
+		_exit_code = 1
 
 
 ## Runs on the first frame: the tree has a MultiplayerAPI only once it is live.
 func _boot() -> void:
+	root.add_child(_probe)
+	var settings: GameSettings = SettingsStore.instance().settings
+	if _is_server():
+		var map: String = String(_o.map)
+		if not map.is_empty():
+			settings.map_id = StringName(map)
+		var tower: int = int(_o.tower)
+		settings.skip_opening_race = tower >= 0
+		settings.tower_seat_index = maxi(tower, 0)
+		_probe.apply_settings()
 	if _use_screen():
-		SettingsStore.instance().config_path = "user://net_harness_settings.cfg"
 		_screen = (load(SCREEN_SCENE) as PackedScene).instantiate() as MultiplayerScreen
-		# This harness drives the screen's own lobby panel; it has no hub to walk
-		# into and would lose the node it is holding if the scene changed.
+		# This runner drives the screen's own lobby panel; it has no hub to walk into.
 		_screen.enters_hub = false
 		root.add_child(_screen)
 		current_scene = _screen
@@ -82,56 +79,36 @@ func _boot() -> void:
 	else:
 		_session = (load(SESSION_SCENE) as PackedScene).instantiate() as NetSession
 		_session.name = "NetSession"
-		# This harness adds the match scene itself on launch.
+		# This runner adds the match scene itself on launch.
 		_session.level.follows = false
 		root.add_child(_session)
-	var map: String = String(_o.get("map", ""))
-	if not map.is_empty():
-		SettingsStore.instance().settings.map_id = StringName(map)
 	_lobby = _session.lobby
-	_lobby.rules_changed.connect(_on_rules_changed)
-	_lobby.phase_changed.connect(func(phase: NetLobby.Phase) -> void:
-		_line("LOBBY phase=%s" % String(NetLobby.Phase.keys()[phase])))
+	_probe.attach(_session)
 	_lobby.roster_changed.connect(_on_roster_changed)
 	_lobby.match_launching.connect(_on_launching)
-	_lobby.join_refused.connect(func(peer: int, why: String) -> void: _line("REFUSED peer=%d %s" % [peer, why]))
-	_session.session_ended.connect(func(failed: bool) -> void:
-		_line("SESSION ended failed=%s" % str(failed))
-		if not _finished:
-			_end_after_session.call_deferred())
-	var port: int = int(_o.get("port", 27960))
-	var address: String = String(_o.get("address", "127.0.0.1"))
+	_probe.host_lost.connect(func() -> void: _finish(0 if _probe.matches_bound > 0 else 2, "host-lost"))
+	_probe.match_won.connect(func() -> void: _won_ms = Time.get_ticks_msec())
+	var port: int = int(_o.port)
+	var address: String = String(_o.address)
 	if _use_screen():
-		_screen.set_player_name(_display_name())
+		_screen.set_player_name(String(_o.name))
 		if _is_server():
 			_screen.set_host_port(port)
-			_line("HOST port=%d result=%s" % [port, error_string(_screen.start_hosting())])
-			_line("ADDRESSES " + " | ".join(MultiplayerScreen.local_addresses()))
+			_probe.line("HOST port=%d result=%s" % [port, error_string(_screen.start_hosting())])
 		else:
 			_screen.set_join_target(address, port)
-			_line("JOIN port=%d result=%s" % [port, error_string(_screen.join_game())])
+			_probe.line("JOIN port=%d result=%s" % [port, error_string(_screen.join_game())])
 	elif _is_server():
 		var error: Error = _session.host(port)
-		_line("HOST port=%d result=%s" % [port, error_string(error)])
-		_condition_wire()
-		_lobby.open(_display_name())
+		_probe.line("HOST port=%d result=%s" % [port, error_string(error)])
+		if error != OK:
+			_finish(2, "host-failed")
+			return
+		_lobby.open(String(_o.name))
 	else:
-		var error: Error = _session.join(address, port)
-		_line("JOIN port=%d result=%s" % [port, error_string(error)])
-		_condition_wire()
-
-
-## Wrap the live peer in [LossyPeer] when --loss asks for it.
-func _condition_wire() -> void:
-	var api: MultiplayerAPI = _session.multiplayer
-	_enet = api.multiplayer_peer as ENetMultiplayerPeer
-	var loss: float = float(_o.get("loss", 0.0))
-	var delay_ms: int = int(_o.get("delay-ms", 0))
-	if (loss <= 0.0 and delay_ms <= 0) or _enet == null:
-		return
-	_lossy = LossyPeer.new(_enet, loss, 7 if _is_server() else 11, delay_ms)
-	api.multiplayer_peer = _lossy
-	_line("WIRE loss=%.2f delay_ms=%d" % [loss, delay_ms])
+		_probe.line("JOIN port=%d result=%s" % [port, error_string(_session.join(address, port))])
+	_enet = _session.multiplayer.multiplayer_peer as ENetMultiplayerPeer
+	_probe.condition_wire()
 
 
 ## ENet's default throttle (interval 5 s, accelerate 2, decelerate 2) on every live peer.
@@ -143,81 +120,62 @@ func _restore_enet_throttle() -> void:
 
 
 func _process(_delta: float) -> bool:
-	if _finished:
+	if _exit_code >= 0:
+		quit(_exit_code)
 		return true
 	if _session == null:
 		_boot()
 		return false
-	var elapsed: float = _seconds()
 	if _is_server() and not _launched and _lobby.get_phase() == NetLobby.Phase.GATHERING:
 		_drive_lobby()
-	if _launched and _match == null and current_scene != null and current_scene.has_node("MatchController"):
-		_hook_match(current_scene)
-	if bool(_o.get("enet-throttle", false)):
+	if bool(_o["enet-throttle"]):
 		_restore_enet_throttle()
-	if _match_ms >= 0:
-		var in_match: float = float(Time.get_ticks_msec() - _match_ms) / 1000.0
-		var bucket: int = _tick() / SAMPLE_TICKS
-		if _tick() >= 0 and bucket != _last_bucket:
-			_last_bucket = bucket
-			_sample()
+	if _probe.wants_quit():
+		if String(_o["quit-mode"]) == "drop":
+			OS.kill(OS.get_process_id())
+		_finish(0, "scripted-quit")
+		return true
+	var in_match: float = _probe.match_seconds()
+	if _probe.matches_bound > 0 and in_match >= 0.0:
 		_run_debug_hooks(in_match)
-		_watch_powers()
-		_stall_once(in_match)
-		if in_match >= float(_o.get("seconds", 90.0)):
-			_finish("time budget")
-	elif elapsed > 60.0:
-		_finish("never launched")
-	return _finished
-
-
-func _finalize() -> void:
-	if _log != null:
-		_log.close()
+		var until_won: bool = String(_o.until) == "won"
+		if until_won and _won_ms >= 0 and Time.get_ticks_msec() - _won_ms > int(float(_o.linger) * 1000.0):
+			_finish(0, "match-won")
+		elif in_match >= float(_o.seconds):
+			_finish(3 if until_won and _is_server() else 0, "ceiling-unresolved" if until_won else "time-budget")
+	elif float(Time.get_ticks_msec() - _started_ms) / 1000.0 > 60.0 + float(_o["bind-delay"]):
+		_finish(2, "never-launched")
+	return _exit_code >= 0
 
 
 # --- Debug hooks --------------------------------------------------------------
 
-## The server's two shortcuts into the finisher ending, so a 60 second run can
-## show a client what it is meant to see without a prisoner running a full lap.
+## The server's two shortcuts into the finale, so a short run shows a client what it is meant to see.
 func _run_debug_hooks(in_match: float) -> void:
-	if not _is_server() or _controller == null:
+	var controller: MatchController = _probe.controller
+	if not _is_server() or not is_instance_valid(controller):
 		return
-	var arm_at: float = float(_o.get("arm-finisher", 0.0))
+	var arm_at: float = float(_o["arm-finisher"])
 	if arm_at > 0.0 and not _armed_finisher and in_match >= arm_at:
 		_armed_finisher = true
-		var who: MatchParticipant = _controller.get_human_participant() if bool(_o.get("arm-host", false)) else _remote_prisoner()
-		if who == null:
-			_line("DEBUG arm-finisher: no remote prisoner to arm")
-		else:
-			_line("DEBUG arm-finisher who=%s" % _who(who))
-			_controller._arm_the_finisher(who)
-	var kill_at: float = float(_o.get("kill-guard", 0.0))
+		var who: MatchParticipant = controller.get_human_participant() if bool(_o["arm-host"]) else _remote_prisoner(controller)
+		_probe.line("DEBUG arm-finisher seat=%s" % _probe._seat_of(who))
+		if who != null:
+			controller._arm_the_finisher(who)
+	var kill_at: float = float(_o["kill-guard"])
 	if kill_at > 0.0 and not _killed_guard and in_match >= kill_at:
 		_killed_guard = true
-		var guard: MatchParticipant = _controller.get_seat_participant()
-		_line("DEBUG kill-guard guard=%s finisher=%s" % [
-			_who(guard), _who(_controller.get_finisher())])
-		var finisher: MatchParticipant = _controller.get_finisher()
+		var guard: MatchParticipant = controller.get_seat_participant()
+		var finisher: MatchParticipant = controller.get_finisher()
+		_probe.line("DEBUG kill-guard guard=%s finisher=%s" % [_probe._seat_of(guard), _probe._seat_of(finisher)])
 		if guard != null and finisher != null and finisher.body != null and guard.body != null:
-			_controller.throw_guard(guard, guard.body.global_position - finisher.body.global_position)
-
-
-## Freeze this whole process once, the way a hitching machine does.
-func _stall_once(in_match: float) -> void:
-	var at: float = float(_o.get("stall-at", 0.0))
-	if _stalled or at <= 0.0 or in_match < at:
-		return
-	_stalled = true
-	_line("DEBUG stall ms=%d" % int(_o.get("stall-ms", 0)))
-	OS.delay_msec(int(_o.get("stall-ms", 0)))
-	_line("DEBUG stall over")
+			controller.throw_guard(guard, guard.body.global_position - finisher.body.global_position)
 
 
 ## A prisoner some other peer is driving: the one whose client this run is about.
-func _remote_prisoner() -> MatchParticipant:
-	for p: MatchParticipant in _controller.get_participants():
-		if p.is_human() and p != _controller.get_human_participant() and p.is_running:
+func _remote_prisoner(controller: MatchController) -> MatchParticipant:
+	for p: MatchParticipant in controller.get_participants():
+		if p.is_human() and p != controller.get_human_participant() and p.is_running:
 			return p
 	return null
 
@@ -232,23 +190,7 @@ func _use_screen() -> bool:
 	return bool(_o.get("screen", false))
 
 
-func _on_rules_changed() -> void:
-	var rules: MatchRules = _lobby.get_rules()
-	if rules == null:
-		return
-	_line("RULES prisoners=%d ghosts=%s race=%s lives=%d rounds=%d runner_win=%d reload=%.2f" % [
-		rules.prisoner_count, str(rules.has_ghosts()), str(rules.open_with_race), rules.prisoner_lives,
-		rules.rounds_to_win_match, int(rules.runner_win_condition), rules.base_reload_seconds,
-	])
-
-
-func _display_name() -> String:
-	var wanted: String = String(_o.get("name", ""))
-	return wanted if not wanted.is_empty() else ("Host" if _is_server() else "Client%d" % (Time.get_ticks_msec() % 100))
-
-
 func _on_roster_changed() -> void:
-	_line("ROSTER " + _lobby.describe().replace("\n", " | "))
 	if _is_server() or _readied:
 		return
 	var seat: LobbySeat = _lobby.get_local_seat()
@@ -258,7 +200,7 @@ func _on_roster_changed() -> void:
 	if _use_screen():
 		_screen.set_ready(true)
 		return
-	_lobby.set_display_name(seat.index, _display_name())
+	_lobby.set_display_name(seat.index, String(_o.name))
 	_lobby.set_ready(seat.index, true)
 
 
@@ -271,345 +213,63 @@ func _humans() -> int:
 
 
 func _drive_lobby() -> void:
-	if _humans() < int(_o.get("humans", 3)):
+	if _humans() < int(_o.humans):
 		return
+	var seats: int = maxi(int(_o.seats), int(_o.humans))
+	var settings: GameSettings = SettingsStore.instance().settings
 	if _use_screen():
 		if not _rules_set:
 			_rules_set = true
-			_screen.select_preset(StringName(String(_o.get("preset", "classic"))))
-			# The opening is a GameSettings choice the preset resets; --tower overrides it.
-			var tower: int = int(_o.get("tower", 1))
-			var settings: GameSettings = SettingsStore.instance().settings
+			_screen.select_preset(StringName(String(_o.preset)))
+			# The preset resets the opening and the settings; the command line goes back over it.
+			var tower: int = int(_o.tower)
 			settings.skip_opening_race = tower >= 0
 			settings.tower_seat_index = maxi(tower, 0)
-			_screen.set_prisoner_count(int(_o.get("seats", 6)) - 1)
-			_line("RULES set prisoners=%d preset=%s" % [int(_o.get("seats", 6)) - 1, String(_o.get("preset", "classic"))])
+			_probe.apply_settings()
+			_screen.set_prisoner_count(seats - 1)
 		_screen.set_ready(true)
 		if _screen.can_start():
-			_line("START result=%s" % str(_screen.start_match()))
+			_probe.line("START result=%s" % str(_screen.start_match()))
 		return
-	if _lobby.get_occupant_count() < int(_o.get("seats", 6)):
-		# Publish the host's rules, as the hub does, so every machine loads the same map.
-		var rules: MatchRules = (load("res://match/rules/default_match_rules.tres") as MatchRules).duplicate() as MatchRules
-		SettingsStore.instance().settings.apply_to_match_rules(rules)
+	if not _rules_set:
+		_rules_set = true
+		# Published whoever is seated, as the hub does, so every machine loads the host's map and rules.
+		var rules: MatchRules = (load(RULES_PATH) as MatchRules).duplicate() as MatchRules
+		settings.prisoner_count = seats - 1
+		settings.apply_to_match_rules(rules)
 		_lobby.set_rules(rules)
-		_lobby.fill_with_bots(int(_o.get("seats", 6)))
-		var tower: int = int(_o.get("tower", 1))
+		_lobby.fill_with_bots(seats)
+		var tower: int = int(_o.tower)
 		if tower >= 0:
 			_lobby.assign_guard(tower)
 		else:
 			_lobby.clear_roles()
 	_lobby.set_ready(_lobby.get_local_seat_index(), true)
 	if _lobby.can_launch():
-		_lobby.launch()
+		_probe.line("START result=%s" % str(_lobby.launch()))
 
 
 func _on_launching() -> void:
 	if _launched:
 		return
 	_launched = true
-	_line("LAUNCH local_seat=%d" % _lobby.get_local_seat_index())
+	_probe.line("LAUNCH local_seat=s%d" % _lobby.get_local_seat_index())
 	if _use_screen():
 		return
-	var delay: float = float(_o.get("bind-delay", 0.0))
+	var delay: float = float(_o["bind-delay"])
 	if delay > 0.0:
 		await create_timer(delay).timeout
-		_line("BIND after delay=%.1f" % delay)
+		_probe.line("BIND after delay=%.1f" % delay)
 	_match = (load(MATCH_SCENE) as PackedScene).instantiate()
 	root.add_child(_match)
 	current_scene = _match
-	_hook_match(_match)
 
 
-func _hook_match(match_scene: Node) -> void:
-	_match = match_scene
-	_controller = _match.get_node("MatchController") as MatchController
-	_net_match = _match.get_node("NetMatch") as NetMatch
-	var rules: MatchRules = _controller.get_rules()
-	_line("MATCH rules prisoners=%d ghosts=%s race=%s map=%s" % [
-		rules.prisoner_count, str(rules.has_ghosts()), str(rules.open_with_race), String(rules.map_id)])
-	_hook_controller()
-	_net_match.host_lost.connect(func() -> void: _line("NET host_lost"))
-	_lobby.seat_occupancy_changed.connect(func(seat: int, occupancy: LobbySeat.Occupancy) -> void:
-		_line("LOBBY seat=%d occupancy=%s" % [seat, String(LobbySeat.Occupancy.keys()[occupancy])]))
-	_net_match.match_bound.connect(func(authority: bool) -> void:
-		_match_ms = Time.get_ticks_msec()
-		_line("MATCH bound authority=%s" % str(authority)))
-	if _net_match.has_started():
-		_match_ms = Time.get_ticks_msec()
-		_line("MATCH bound authority=true (started on load)")
-	var scripted: ScriptedIntentSource = ScriptedIntentSource.new()
-	scripted.name = "Scripted"
-	scripted.fire_at = float(_o.get("press-fire", 4.0))
-	scripted.fire_every = float(_o.get("fire-every", 0.0))
-	scripted.ability_slot = int(_o.get("press-ability", 0))
-	scripted.ability_at = float(_o.get("press-at", 6.0))
-	scripted.ability_every = float(_o.get("press-every", 0.0))
-	scripted.power_pressed.connect(_on_power_pressed)
-	scripted.pitch_rate = float(_o.get("pitch-rate", 0.0))
-	scripted.trigger_pulled.connect(_on_trigger_pulled)
-	if bool(_o.get("aim", false)):
-		scripted.aim = _aim_view.bind(scripted)
-	_net_match.add_child(scripted)
-	_net_match.set_local_source(scripted)
-
-
-# --- Logging ------------------------------------------------------------------
-
-func _hook_controller() -> void:
-	_controller.match_started.connect(func(count: int) -> void: _line("EV match_started participants=%d" % count))
-	_controller.race_started.connect(func() -> void: _line("EV race_started"))
-	_controller.brawl_started.connect(func() -> void: _line("EV brawl_started"))
-	_controller.brawler_out.connect(func(p: MatchParticipant, throw: Vector3) -> void:
-		_line("EV brawl_out who=%s throw=%.1f" % [_who(p), throw.length()]))
-	_controller.round_started.connect(func() -> void:
-		_line("EV round_started round=%d seat=%s" % [_controller.get_round_number(), _who(_controller.get_seat_participant())]))
-	_controller.seat_changed.connect(func(p: MatchParticipant, turns: int) -> void:
-		_line("EV seat_changed seat=%s turns=%d" % [_who(p), turns]))
-	_controller.participant_converted.connect(func(p: MatchParticipant) -> void:
-		_line("EV converted who=%s phase=%s" % [_who(p), _controller.get_phase_name()]))
-	_controller.runner_ghosted.connect(func(p: MatchParticipant) -> void: _line("EV ghosted who=%s" % _who(p)))
-	_controller.ghost_respawned.connect(func(p: MatchParticipant) -> void: _line("EV ghost_respawned who=%s" % _who(p)))
-	_controller.ghost_caught.connect(func(g: MatchParticipant, c: MatchParticipant) -> void:
-		_line("EV ghost_caught ghost=%s caught=%s" % [_who(g), _who(c)]))
-	_controller.round_resolved.connect(func(outcome: MatchController.Outcome) -> void:
-		_line("EV round_resolved round=%d outcome=%s" % [_controller.get_round_number(), String(MatchController.Outcome.keys()[outcome])]))
-	_controller.match_won.connect(func(p: MatchParticipant) -> void: _line("EV match_won who=%s" % _who(p)))
-	if _controller.rifle != null and _is_server():
-		_controller.rifle.projectile_launched.connect(_on_round_launched)
-	if _controller.rifle != null:
-		_controller.rifle.fired.connect(func(origin: Vector3, end_point: Vector3) -> void:
-			var aim: Vector3 = (end_point - origin).normalized()
-			_line("RIFLE fired by=%s from=%.1f,%.1f,%.1f aim_yaw=%.3f aim_pitch=%.3f" % [
-				_who(_controller.get_seat_participant()), origin.x, origin.y, origin.z,
-				atan2(-aim.x, -aim.z), asin(clampf(aim.y, -1.0, 1.0))]))
-		_controller.rifle.target_hit.connect(func(collider: Node3D, _at: Vector3, _n: Vector3) -> void:
-			_line("RIFLE hit=%s" % _who(_controller.resolve_participant(collider))))
-	_controller.finisher_armed.connect(_on_finisher_armed)
-	_controller.match_started.connect(func(_count: int) -> void: _watch_bodies())
-	var transition: RoundTransitionScreen = _match.get_node_or_null("RoundTransition") as RoundTransitionScreen
-	if transition != null:
-		transition.transition_shown.connect(func(round_number: int) -> void:
-			_line("EV card_shown round=%d paused=%s" % [round_number, str(paused)]))
-
-
-func _on_power_pressed(slot: int) -> void:
-	var mine: MatchParticipant = _controller.get_human_participant() if _controller != null else null
-	var power: RunnerPower = RunnerPower.of(mine.body) if mine != null and mine.body != null else null
-	_line("PRESS power slot=%d who=%s running=%s armed=%s phys=%s" % [slot, _who(mine),
-		str(mine.is_running) if mine != null else "?", str(power != null and power.rules != null),
-		str(mine.body.is_physics_processing()) if mine != null and mine.body != null else "?"])
-
-
-## Where the host traces a remote shooter's round against: every runner rewound by its lag.
-func _on_round_launched(_origin: Vector3, _direction: Vector3, _speed: float) -> void:
-	var lag: int = _controller.rifle.lag_ticks
-	var replicator: NetReplicator = _session.replicator
-	replicator.rewind(lag, _controller.rifle.shooter_body)
-	var parts: PackedStringArray = PackedStringArray()
-	for p: MatchParticipant in _controller.get_participants():
-		if p.is_running and p.body != null:
-			parts.append("%d=%.2f,%.2f" % [p.index, p.body.global_position.x, p.body.global_position.z])
-	replicator.restore()
-	var now: PackedStringArray = PackedStringArray()
-	for p: MatchParticipant in _controller.get_participants():
-		if p.is_running and p.body != null:
-			now.append("%d=%.2f,%.2f" % [p.index, p.body.global_position.x, p.body.global_position.z])
-	_line("ROUND lag_ticks=%d rewound %s now %s" % [lag, " ".join(parts), " ".join(now)])
-
-
-## The view that puts this machine's camera on the chest of the nearest running body it can see.
-func _aim_view(scripted: ScriptedIntentSource) -> Vector2:
-	_aimed = null
-	var mine: MatchParticipant = _controller.get_human_participant() if _controller != null else null
-	if mine == null or mine.body == null:
-		return Vector2.INF
-	scripted.body = mine.body
-	var eye: Vector3 = (mine.body.get_node(^"Head/Camera") as Node3D).global_position
-	var best: float = INF
-	var at: Vector3 = Vector3.INF
-	for p: MatchParticipant in _controller.get_participants():
-		if p == mine or p.body == null or not p.is_running:
-			continue
-		var chest: Vector3 = p.body.global_position + Vector3.UP * 0.9
-		var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(eye, chest)
-		query.exclude = [mine.body.get_rid()]
-		var hit: Dictionary = mine.body.get_world_3d().direct_space_state.intersect_ray(query)
-		if hit.is_empty() or hit.collider != p.body or eye.distance_to(chest) >= best:
-			continue
-		best = eye.distance_to(chest)
-		at = chest
-		_aimed = p
-	if _aimed == null:
-		return Vector2.INF
-	# Lead a travelling shot the way the tower bot does: flight time, then the fall over it.
-	var speed: float = _controller.rifle.get_shot_speed() if _controller.rifle != null else 0.0
-	if speed > 0.0:
-		var velocity: Vector3 = _aimed.body.velocity
-		var flight: float = (at - eye + velocity * ((at - eye).length() / speed)).length() / speed
-		at += velocity * flight
-		at.y += 0.5 * _controller.rifle.profile.projectile_gravity * flight * flight
-	var dir: Vector3 = (at - eye).normalized()
-	return Vector2(atan2(-dir.x, -dir.z), asin(clampf(dir.y, -1.0, 1.0)))
-
-
-## Where this machine's own body is looking on the tick its trigger goes, to set against the host's shot line.
-func _on_trigger_pulled() -> void:
-	var mine: MatchParticipant = _controller.get_human_participant() if _controller != null else null
-	if mine == null or mine.body == null:
+func _finish(code: int, reason: String) -> void:
+	if _exit_code >= 0:
 		return
-	if _aimed != null:
-		_line("AIMED at=%s drawn=%s" % [_who(_aimed), str(_aimed.body.global_position)])
-	var aim: Vector3 = -mine.body.get_node(^"Head/Camera").global_transform.basis.z
-	_line("TRIGGER who=%s guard=%s aim_yaw=%.3f aim_pitch=%.3f" % [
-		_who(mine), str(mine.body.is_guard), atan2(-aim.x, -aim.z), asin(clampf(aim.y, -1.0, 1.0))])
-
-
-## Who was put in the tower for the finale, on the server.
-func _on_finisher_armed(_weapon: Rifle) -> void:
-	var who: MatchParticipant = _controller.get_finisher()
-	var mine: bool = who != null and who == _controller.get_human_participant()
-	_line("FINISHER in tower who=%s mine=%s" % [_who(who), str(mine)])
-
-
-## The kill beat is a death clip on the guard, wherever it is run.
-func _watch_bodies() -> void:
-	for p: MatchParticipant in _controller.get_participants():
-		if p.body == null:
-			continue
-		var who: MatchParticipant = p
-		p.body.died.connect(func() -> void: _line("BODY died who=%s" % _who(who)))
-		p.body.jumped.connect(func() -> void: _line("BODY jumped who=%s" % _who(who)))
-		p.body.slide_started.connect(func(_speed: float) -> void:
-			_line("BODY slide_started who=%s" % _who(who)))
-
-
-func _who(p: MatchParticipant) -> String:
-	return "%d:%s" % [p.index, p.display_name] if p != null else "none"
-
-
-func _tick() -> int:
-	var replicator: NetReplicator = _session.replicator
-	return replicator.get_tick() if _session.is_authority() else replicator.get_latest_tick()
-
-
-func _sample() -> void:
-	if _controller == null:
-		return
-	var parts: PackedStringArray = PackedStringArray()
-	for p: MatchParticipant in _controller.get_participants():
-		var at: Vector3 = p.body.global_position if p.body != null else Vector3.ZERO
-		parts.append("%d=%s:%.1f,%.1f,%.1f rot=%.4f,%.4f,%.2f clip=%s floor=%s" % [
-			p.index, p.get_role_name(), at.x, at.y, at.z,
-			p.body.head.rotation.x if p.body != null and p.body.head != null else 0.0,
-			p.body.rotation.y if p.body != null else 0.0,
-			p.body.rotation.z if p.body != null else 0.0,
-			_clip_of(p), str(p.body.is_grounded()) if p.body != null else "?",
-		])
-	_line("POS phys_ms=%.2f tick=%d phase=%s round=%d seat=%s paused=%s %s" % [
-		Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
-		_tick(), _controller.get_phase_name(), _controller.get_round_number(),
-		_who(_controller.get_seat_participant()), str(paused), " ".join(parts),
-	])
-	_sample_powers()
-	var lead: MatchParticipant = _controller.get_participants()[0] if not _controller.get_participants().is_empty() else null
-	if lead != null and lead.tracker != null:
-		var gate: Variant = lead.tracker.get("_gate")
-		_line("TRACK arena=%s gate_valid=%s gate_in_arena=%s" % [
-			_controller.arena.scene_file_path, str(is_instance_valid(gate)),
-			str(is_instance_valid(gate) and _controller.arena.is_ancestor_of(gate))])
-	_sample_wire()
-	var mine: MatchParticipant = _controller.get_human_participant()
-	if mine != null and mine.body != null:
-		var source: IntentSource = mine.body.intent_source
-		_line("LOCAL slot=%d phys=%s src=%s layer=%d vel=%.1f" % [
-			mine.index, str(mine.body.is_physics_processing()),
-			source.get_class() if source != null else "null",
-			mine.body.collision_layer, mine.body.velocity.length(),
-		])
-
-
-## Unreliable packets sent and dropped here, and intent packets the host took in.
-func _sample_wire() -> void:
-	if _is_server():
-		for node: Node in _match.find_children("*", "PlayerNetLink", true, false):
-			var link: PlayerNetLink = node as PlayerNetLink
-			if not link.intent_received.is_connected(_on_intent_in):
-				link.intent_received.connect(_on_intent_in)
-	_line("WIRE sent=%d dropped=%d intents_in=%d" % [
-		_lossy.sent if _lossy != null else -1, _lossy.dropped if _lossy != null else -1, _intents_in])
-
-
-func _on_intent_in(_peer: int, _tick_number: int) -> void:
-	_intents_in += 1
-
-
-## What each body is drawing of the runner powers: the authority's own effect,
-## or the one a client read off the snapshot.
-func _sample_powers() -> void:
-	for p: MatchParticipant in _controller.get_participants():
-		var power: RunnerPower = RunnerPower.of(p.body) if p.body != null else null
-		if power == null or power.get_shown() == MatchRules.RunnerAbility.NONE:
-			continue
-		_line("POWER who=%s ability=%d left=%.1f shield=%s decoy=%s" % [
-			_who(p), int(power.get_shown()), power.get_remaining(),
-			str(power.get_shield() != null), str(power.get_decoy() != null),
-		])
-
-
-## Every change in what a body's power is drawing, on the frame it happens.
-func _watch_powers() -> void:
-	if _controller == null:
-		return
-	for p: MatchParticipant in _controller.get_participants():
-		var power: RunnerPower = RunnerPower.of(p.body) if p.body != null else null
-		var shown: int = int(power.get_shown()) if power != null else 0
-		if shown != _shown_powers.get(p.index, 0):
-			_shown_powers[p.index] = shown
-			_line("POWER_SHOWN who=%s ability=%d left=%.1f immune=%s camo=%s" % [
-				_who(p), shown, power.get_remaining(), str(power.is_hit_immune()), str(power.is_camouflaged())])
-
-
-## The clip the body is drawing, for confirming a mirrored body is not stuck dead.
-func _clip_of(p: MatchParticipant) -> String:
-	if p.body == null:
-		return "none"
-	for child: Node in p.body.get_children():
-		var avatar: PrisonerAvatar = child as PrisonerAvatar
-		if avatar != null and avatar.animation != null:
-			return String(avatar.animation.current_animation)
-	return "none"
-
-
-func _seconds() -> float:
-	return float(Time.get_ticks_msec() - _started_ms) / 1000.0
-
-
-func _line(text: String) -> void:
-	var stamped: String = "t=%.2f %s" % [_seconds(), text]
-	print(stamped)
-	if _log != null:
-		_log.store_line(stamped)
-		_log.flush()
-
-
-## After the match scene has had its own say about the session ending.
-func _end_after_session() -> void:
-	var screen: MatchResultScreen = _match.get_node_or_null(^"ResultScreen") as MatchResultScreen if _match != null else null
-	_line("RESULT showing=%s" % (str(screen.is_showing()) if screen != null else "none"))
-	_finish("session ended")
-
-
-func _finish(reason: String) -> void:
-	if _finished:
-		return
-	if _controller != null:
-		_line("END reason=%s phase=%s round=%d seat=%s outcome=%s" % [
-			reason, _controller.get_phase_name(), _controller.get_round_number(),
-			_who(_controller.get_seat_participant()), _controller.get_outcome_name(),
-		])
-	else:
-		_line("END reason=%s (no match)" % reason)
-	_finished = true
-	_session.leave()
-	quit(0)
+	_exit_code = code
+	_probe.finish(code == 0, reason)
+	if _session != null:
+		_session.leave()
+	quit(code)

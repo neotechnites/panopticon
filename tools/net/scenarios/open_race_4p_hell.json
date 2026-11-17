@@ -1,0 +1,23 @@
+{
+ "name": "open_race_4p_hell",
+ "runner": "match",
+ "peers": 4,
+ "limit": 145,
+ "tags": [
+  "opening"
+ ],
+ "common": {
+  "seconds": 100,
+  "map": "bentham_ring",
+  "seats": 5,
+  "tower": -1
+ },
+ "expect": {
+  "all": [
+   "EV race_started"
+  ],
+  "host": [
+   "EV round_started round=1"
+  ]
+ }
+}

@@ -1,0 +1,33 @@
+{
+ "name": "quit_client_midmatch_hubflow_4p",
+ "runner": "hub",
+ "peers": 4,
+ "limit": 200,
+ "tags": [
+  "leave"
+ ],
+ "common": {
+  "maps": "bentham_ring,marble",
+  "matches": 2,
+  "win": 25,
+  "limit": 180
+ },
+ "host": {
+  "prisoners": 3
+ },
+ "peer": {
+  "2": {
+   "quit-at": 10,
+   "quit-match": 1
+  }
+ },
+ "expect": {
+  "matches": 2,
+  "host": [
+   "SEAT seat=s2 occupancy=BOT"
+  ],
+  "seat_to_bot": [
+   2
+  ]
+ }
+}

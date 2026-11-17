@@ -1,0 +1,35 @@
+{
+ "name": "power_armorlock_tap_3p_hell",
+ "runner": "match",
+ "peers": 3,
+ "limit": 105,
+ "tags": [
+  "powers"
+ ],
+ "common": {
+  "seconds": 60,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 2
+ },
+ "host": {
+  "keys": "3@6/6"
+ },
+ "peer": {
+  "1": {
+   "keys": "3@8/6"
+  },
+  "2": {
+   "aim": false,
+   "fire-every": 0,
+   "press-fire": 0,
+   "keys": ""
+  }
+ },
+ "expect": {
+  "valid_presses": {
+   "0": 1,
+   "1": 1
+  }
+ }
+}

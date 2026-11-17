@@ -1,0 +1,28 @@
+{
+ "name": "rematch_4p_hell",
+ "runner": "hub",
+ "peers": 4,
+ "limit": 200,
+ "tags": [
+  "after"
+ ],
+ "common": {
+  "maps": "bentham_ring",
+  "matches": 1,
+  "win": 18,
+  "rematches": 2,
+  "limit": 180
+ },
+ "host": {
+  "prisoners": 3
+ },
+ "expect": {
+  "matches": 1,
+  "all": [
+   "REMATCH pressed left=0"
+  ],
+  "never": [
+   "REMATCH gave up"
+  ]
+ }
+}

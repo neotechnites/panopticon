@@ -1,0 +1,32 @@
+{
+ "name": "power_all_2p_marble_clientkeys",
+ "runner": "match",
+ "peers": 2,
+ "limit": 115,
+ "tags": [
+  "powers"
+ ],
+ "common": {
+  "seconds": 70,
+  "map": "marble",
+  "seats": 4,
+  "tower": 0
+ },
+ "host": {
+  "aim": false,
+  "fire-every": 0,
+  "press-fire": 0,
+  "keys": "",
+  "ability": 4
+ },
+ "peer": {
+  "1": {
+   "keys": "2@7,1@14,4@21,3@27+2,5@33,f@>1.2,n@39+2,b@44+2,q@49"
+  }
+ },
+ "expect": {
+  "valid_presses": {
+   "1": 3
+  }
+ }
+}

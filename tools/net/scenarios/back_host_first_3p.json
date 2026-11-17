@@ -1,0 +1,27 @@
+{
+ "name": "back_host_first_3p",
+ "runner": "hub",
+ "peers": 3,
+ "limit": 160,
+ "tags": [
+  "after"
+ ],
+ "common": {
+  "maps": "bentham_ring,marble",
+  "matches": 2,
+  "win": 15,
+  "after": "back",
+  "limit": 140
+ },
+ "host": {
+  "prisoners": 3,
+  "back": 1
+ },
+ "client": {
+  "back": 6
+ },
+ "expect": {
+  "matches": 2,
+  "scene_split": true
+ }
+}

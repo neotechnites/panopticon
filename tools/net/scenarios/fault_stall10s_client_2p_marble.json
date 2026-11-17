@@ -1,0 +1,22 @@
+{
+ "name": "fault_stall10s_client_2p_marble",
+ "runner": "match",
+ "peers": 2,
+ "limit": 105,
+ "tags": [
+  "fault",
+  "stall"
+ ],
+ "common": {
+  "seconds": 60,
+  "map": "marble",
+  "seats": 4,
+  "tower": 3
+ },
+ "peer": {
+  "1": {
+   "stall-at": 15,
+   "stall-ms": 10000
+  }
+ }
+}

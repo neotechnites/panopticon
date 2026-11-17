@@ -1,0 +1,27 @@
+{
+ "name": "fault_stall7s_client_2p_hell",
+ "runner": "match",
+ "peers": 2,
+ "limit": 105,
+ "tags": [
+  "fault",
+  "stall"
+ ],
+ "common": {
+  "seconds": 60,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 3
+ },
+ "peer": {
+  "1": {
+   "stall-at": 15,
+   "stall-ms": 7000
+  }
+ },
+ "expect": {
+  "never": [
+   "SEAT seat=s1 occupancy=BOT"
+  ]
+ }
+}
