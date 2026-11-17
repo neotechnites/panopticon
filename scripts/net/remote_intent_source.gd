@@ -88,7 +88,8 @@ var _stale: bool = false
 var _seen_presses: int = -1
 ## Presses counted and not yet handed to the body, per [enum MoveIntent.Press]; one is spent a tick.
 var _owed: PackedByteArray = PackedByteArray()
-var _owed_slot: int = 0
+## The slot each owed power press was made with, oldest first: as many as [member _owed] has of POWER.
+var _owed_slots: PackedByteArray = PackedByteArray()
 const _OWED_MAX: int = MoveIntent.PRESS_MODULUS - 1
 
 ## A trigger press that arrived and has not been taken by the rifle yet, and the tick the
@@ -168,6 +169,7 @@ func poll(_delta: float) -> MoveIntent:
 func _count_presses(from: MoveIntent) -> void:
 	if _owed.is_empty():
 		_owed.resize(MoveIntent.PRESS_KEYS)
+		_owed_slots.resize(_OWED_MAX)
 	for key: int in MoveIntent.PRESS_KEYS:
 		var pressed: int = 1 if from.presses(key) else 0
 		if _seen_presses >= 0:
@@ -176,9 +178,14 @@ func _count_presses(from: MoveIntent) -> void:
 				- MoveIntent.press_count(_seen_presses, key),
 				MoveIntent.PRESS_MODULUS,
 			)
-		if pressed > 0 and key == MoveIntent.Press.POWER:
-			# This command's own press names its slot; one made on a lost command is the newest's.
-			_owed_slot = from.ability_slot if from.presses(key) else from.press_slot
+		if key == MoveIntent.Press.POWER:
+			# This command's own press names its slot; one made on a lost command is the newest's,
+			# and the one before that the prior's. Older than that the wire does not say.
+			var newest: int = from.ability_slot if from.presses(key) else from.press_slot
+			for i: int in pressed:
+				var at: int = _owed[key] + i
+				if at < _OWED_MAX:
+					_owed_slots[at] = newest if i == pressed - 1 else from.press_slot_prior
 		_owed[key] = mini(_owed[key] + pressed, _OWED_MAX)
 	_seen_presses = from.press_counts
 
@@ -188,8 +195,13 @@ func _spend_presses() -> void:
 	if _owed.is_empty():
 		return
 	var power: bool = _spend(MoveIntent.Press.POWER)
-	_intent.ability_slot = _owed_slot if power else 0
-	_intent.ability_pressed = power and _owed_slot == 0
+	var slot: int = _owed_slots[0] if power else 0
+	if power:
+		# The next owed press's slot moves up to the front.
+		for i: int in _OWED_MAX - 1:
+			_owed_slots[i] = _owed_slots[i + 1]
+	_intent.ability_slot = slot
+	_intent.ability_pressed = power and slot == 0
 	_intent.cook_pressed = _spend(MoveIntent.Press.COOK)
 	_intent.shove_pressed = _spend(MoveIntent.Press.SHOVE)
 	_intent.emote_pressed = _spend(MoveIntent.Press.EMOTE)

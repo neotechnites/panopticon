@@ -292,6 +292,7 @@ func get_jitter_seconds() -> float:
 var intent_tick: int = 0
 var intent_presses: int = 0
 var intent_press_slot: int = 0
+var intent_press_slot_prior: int = 0
 
 
 # --- Sending ------------------------------------------------------------------

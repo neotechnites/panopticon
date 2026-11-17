@@ -247,6 +247,7 @@ const _SWING_MEMORY_TICKS: int = 90
 ## This machine's running press counts for the intent it sends; see [member MoveIntent.press_counts].
 var _press_counts: int = 0
 var _press_slot: int = 0
+var _press_slot_prior: int = 0
 
 ## Links by the instance id of the body they carry: a link sits under [NetMatch], not its body.
 static var _by_body: Dictionary[int, PlayerNetLink] = {}
@@ -277,6 +278,7 @@ func _ready() -> void:
 			_tick = replicator.intent_tick
 			_press_counts = replicator.intent_presses
 			_press_slot = replicator.intent_press_slot
+			_press_slot_prior = replicator.intent_press_slot_prior
 	session.connection_state_changed.connect(_on_connection_state_changed)
 	controller.jumped.connect(func() -> void: _jump_counter += 1)
 	controller.shoved.connect(_on_body_shoved)
@@ -652,6 +654,7 @@ func _send_intent() -> void:
 		replicator.intent_tick = _tick
 		replicator.intent_presses = _press_counts
 		replicator.intent_press_slot = _press_slot
+		replicator.intent_press_slot_prior = _press_slot_prior
 	rpc_id(session.get_authority_peer_id(), &"_receive_intent", _last_packet)
 
 
@@ -667,9 +670,11 @@ func _count_presses(intent: MoveIntent) -> void:
 			continue
 		_press_counts = MoveIntent.press_added(_press_counts, key)
 		if key == MoveIntent.Press.POWER:
+			_press_slot_prior = _press_slot
 			_press_slot = intent.ability_slot
 	intent.press_counts = _press_counts
 	intent.press_slot = _press_slot
+	intent.press_slot_prior = _press_slot_prior
 
 
 func get_last_intent_packet() -> PackedByteArray:

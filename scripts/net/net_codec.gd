@@ -131,6 +131,8 @@ const _FLAG2_AIM_HELD: int = 1 << 1
 const _FLAG2_COOK_PRESSED: int = 1 << 2
 const _FLAG2_EMOTE_PRESSED: int = 1 << 3
 const _FLAG2_EMOTE_ALT_PRESSED: int = 1 << 4
+## [member MoveIntent.press_slot_prior], in the three bits the flags leave.
+const _FLAG2_PRIOR_SLOT_SHIFT: int = 5
 const _FLAG_ON_FLOOR: int = 1 << 0
 ## The rest of the snapshot flag byte: what a mirror cannot work out for itself
 ## because it runs no physics and takes no match decisions.
@@ -243,6 +245,7 @@ static func _put_intent(buffer: StreamPeerBuffer, intent: MoveIntent) -> void:
 		| (_FLAG2_COOK_PRESSED if intent.cook_pressed else 0)
 		| (_FLAG2_EMOTE_PRESSED if intent.emote_pressed else 0)
 		| (_FLAG2_EMOTE_ALT_PRESSED if intent.emote_alt_pressed else 0)
+		| (clampi(intent.press_slot_prior, 0, _MAX_ABILITY) << _FLAG2_PRIOR_SLOT_SHIFT)
 	)
 	buffer.put_u16(intent.press_counts & MoveIntent.PRESS_COUNTS_MASK)
 
@@ -314,6 +317,7 @@ static func unpack_intent_at(payload: PackedByteArray, index: int, out: MoveInte
 	out.ability_held = (flags & _FLAG_ABILITY_HELD) != 0
 	out.ability_slot = mini(slot & ((1 << _PRESS_SLOT_SHIFT) - 1), _MAX_ABILITY)
 	out.press_slot = mini(slot >> _PRESS_SLOT_SHIFT, _MAX_ABILITY)
+	out.press_slot_prior = mini(flags2 >> _FLAG2_PRIOR_SLOT_SHIFT, _MAX_ABILITY)
 	out.press_counts = press_counts & MoveIntent.PRESS_COUNTS_MASK
 	out.shove_pressed = (flags2 & _FLAG2_SHOVE_PRESSED) != 0
 	out.aim_held = (flags2 & _FLAG2_AIM_HELD) != 0

@@ -66,9 +66,11 @@ var emote_pressed: bool = false
 ## True on the tick the alternate emote key was tapped; toggles the emote with the alternate object.
 var emote_alt_pressed: bool = false
 ## Wire only: running counts of the one-tick keys below (3 bits each), written by [PlayerNetLink]
-## so a press outlives a lost packet; and the slot of the newest power press (0 = the picked power).
+## so a press outlives a lost packet; and the slots of the newest power press and the one before
+## it (0 = the picked power), so two keys pressed inside one burst of loss stay two keys.
 var press_counts: int = 0
 var press_slot: int = 0
+var press_slot_prior: int = 0
 ## True while the scope is asked up. Ignored by movement; the host drives the seat's optic with it.
 var aim_held: bool = false
 ## Dev: hold for 300% ground speed. Local only; never on the wire.
@@ -100,6 +102,7 @@ func clear() -> void:
 	emote_alt_pressed = false
 	press_counts = 0
 	press_slot = 0
+	press_slot_prior = 0
 	aim_held = false
 	turbo_held = false
 	godmode = false
@@ -133,6 +136,7 @@ func copy_from(other: MoveIntent) -> void:
 	emote_alt_pressed = other.emote_alt_pressed
 	press_counts = other.press_counts
 	press_slot = other.press_slot
+	press_slot_prior = other.press_slot_prior
 	aim_held = other.aim_held
 	turbo_held = other.turbo_held
 	godmode = other.godmode
