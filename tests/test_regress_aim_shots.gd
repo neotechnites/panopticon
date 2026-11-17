@@ -1,7 +1,7 @@
 extends TestCase
 ## Playtest regressions in shots: a client guard's shot, the shot rules and the replayed round, on every peer.
 
-const Rig: GDScript = preload("res://tests/support/net_match_rig.gd")
+const Rig = preload("res://tests/support/net_match_rig.gd")
 
 const HOST: int = 0
 const GUARD: int = 1
@@ -26,7 +26,7 @@ const LAG_COMPENSATION_BUG: String = (
 	+ "runner is now, not where the client saw it. %s=1 runs this test." % "PANOPTICON_RUN_OPEN_BUGS"
 )
 
-var _rig: RefCounted = null
+var _rig: Rig = null
 ## Whether the match is played with a round that flies and drops.
 var _travelling: bool = false
 ## Whether the round is played at the real clock, where a line's delay is the delay a player would have.

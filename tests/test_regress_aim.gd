@@ -1,7 +1,7 @@
 extends TestCase
 ## Playtest regressions in aim and facing: a client's view on the host, and where the guard looks and stands.
 
-const Rig: GDScript = preload("res://tests/support/net_match_rig.gd")
+const Rig = preload("res://tests/support/net_match_rig.gd")
 
 const HOST: int = 0
 const HELL: StringName = &"bentham_ring"
@@ -18,8 +18,9 @@ const VIEW_TOLERANCE: float = 0.0088
 const MIRROR_TOLERANCE: float = 0.02
 ## Shots a bot guard is watched for.
 const GUARD_SHOTS: int = 20
+const GUARD_STRAYS: int = 2
 
-var _rig: RefCounted = null
+var _rig: Rig = null
 var _cross: int = CROSS_TICKS
 
 
@@ -276,9 +277,9 @@ func _is_tower(node: Node) -> bool:
 
 
 ## A bot holds the tower against running bots; the shots it takes are aimed out of the tower, not into it.
-## [param allowed] is how many of [constant GUARD_SHOTS] may meet the tower: marble's guard walks between
-## posts and now and then fires on the way with an arch across its aim (measured about 1 shot in 60).
-func _a_bot_guard_aims_out_of_its_own_tower(map: StringName, allowed: int) -> void:
+## [constant GUARD_STRAYS] of [constant GUARD_SHOTS] may meet the tower: about 1 shot in 100 on either map
+## is fired with a column across the guard's led, erring aim. The line of sight it checks is to the body.
+func _a_bot_guard_aims_out_of_its_own_tower(map: StringName) -> void:
 	if not await _start_round(map, 0, 5, 1):
 		return
 	var host: MatchController = _rig.controller(HOST)
@@ -322,17 +323,17 @@ func _a_bot_guard_aims_out_of_its_own_tower(map: StringName, allowed: int) -> vo
 			break
 	if not assert_ge(float(shots[0]), float(GUARD_SHOTS), "the bot guard took shots to judge"):
 		return
-	if into_tower.size() > allowed:
+	if into_tower.size() > GUARD_STRAYS:
 		for line: String in into_tower:
 			fail("the bot guard aimed into its own tower: %s" % line)
 	assert_le(
-		float(into_tower.size()), float(allowed), "of %d shots, the ones aimed into the tower" % shots[0]
+		float(into_tower.size()), float(GUARD_STRAYS), "of %d shots, the ones aimed into the tower" % shots[0]
 	)
 
 
 func test_a_bot_guard_aims_out_of_its_own_tower_hell() -> void:
-	await _a_bot_guard_aims_out_of_its_own_tower(HELL, 0)
+	await _a_bot_guard_aims_out_of_its_own_tower(HELL)
 
 
 func test_a_bot_guard_aims_out_of_its_own_tower_marble() -> void:
-	await _a_bot_guard_aims_out_of_its_own_tower(MARBLE, 2)
+	await _a_bot_guard_aims_out_of_its_own_tower(MARBLE)

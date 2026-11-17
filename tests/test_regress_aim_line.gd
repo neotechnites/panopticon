@@ -1,7 +1,7 @@
 extends TestCase
 ## Playtest regressions on a bad line: a hitch is ridden out, and a real drop is told to everybody.
 
-const Rig: GDScript = preload("res://tests/support/net_match_rig.gd")
+const Rig = preload("res://tests/support/net_match_rig.gd")
 
 const HOST: int = 0
 const HELL: StringName = &"bentham_ring"
@@ -14,7 +14,7 @@ const OPEN_BUGS_ENV: String = "PANOPTICON_RUN_OPEN_BUGS"
 ## so the shipped 8 s lands anywhere from 8 s to about twice that.
 const DEAD_LINE_LIMIT_MS: int = 30000
 
-var _rig: RefCounted = null
+var _rig: Rig = null
 var _saved_hz: int = 0
 var _saved_scale: float = 1.0
 

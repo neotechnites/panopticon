@@ -259,11 +259,6 @@ func get_scene() -> int:
 	return _scene
 
 
-## Whether the authority has shown this client the scene it stands in: until then it has no bodies to drive.
-func has_authority_scene() -> bool:
-	return _is_authority or _have_clock
-
-
 ## The authority's current tick. Stamped on outgoing snapshots and handed to
 ## [PlayerNetLink] so intent and state carry the same clock.
 func get_tick() -> int:
@@ -519,6 +514,17 @@ func _power_of(seat_index: int) -> RunnerPower:
 ## deliver a worse answer. Restricted to the node's multiplayer authority,
 ## which is [constant NetTransport.AUTHORITY_PEER_ID] for the life of the
 ## session however often the tower changes hands.
+## A client's input for the body in [param seat_index]. Taken on this node, which every machine always
+## has: the body's own link does not stand on the host until the host's scene does.
+@rpc("any_peer", "unreliable_ordered", "call_remote", 1)
+func _receive_intent(seat_index: int, payload: PackedByteArray) -> void:
+	if not _is_authority:
+		return
+	var link: PlayerNetLink = find_link(seat_index)
+	if link != null:
+		link.accept_intent_payload(multiplayer.get_remote_sender_id(), payload)
+
+
 @rpc("authority", "unreliable_ordered", "call_remote", 2)
 func _receive_snapshot(payload: PackedByteArray) -> void:
 	if _is_authority:
