@@ -4617,11 +4617,13 @@ func debug_refresh_pace() -> void:
 			_apply_runner_multipliers(participant.body, active)
 
 
-## Re-read every rule a body carries a copy of. A mirror calls it when the host's rules change.
+## Re-read every rule the scene carries a copy of: movement, pace, the sniper's knobs. A mirror
+## calls it when the host's rules change.
 func refresh_rules() -> void:
 	debug_refresh_movement()
 	if not hub_mode:
 		debug_refresh_pace()
+		refresh_sniper_profiles()
 
 
 ## Write the crouch and slide rules onto every body, bots and humans alike.

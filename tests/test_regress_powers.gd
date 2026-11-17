@@ -711,6 +711,30 @@ func test_the_hosts_mid_match_crouch_and_slide_flip_reaches_a_client() -> void:
 	_movement_is(not want, "after it is flipped back")
 
 
+## The same line carries every rule: the run speed a client's own body predicts with follows the host's edit.
+func test_the_hosts_mid_match_run_speed_edit_reaches_a_clients_bodies() -> void:
+	if not await _start_round(2, MARBLE, 1):
+		return
+	var host: MatchController = _rig.controller(HOST)
+	var shipped: float = host.get_rules().runner_speed_multiplier
+	var faster: float = shipped + 0.5
+	# What the debug menu's Run speed slider does.
+	host.get_rules().runner_speed_multiplier = faster
+	host.debug_refresh_pace()
+	host.rules_edited.emit()
+	await step_ticks(CROSS_TICKS)
+	for peer: int in _rig.peer_count():
+		assert_almost_eq(
+			_rig.sessions[peer].lobby.get_rules().runner_speed_multiplier, faster, 0.001,
+			"peer %d holds the host's rules as edited" % peer,
+		)
+		for who: MatchParticipant in _rig.controller(peer).get_participants():
+			if who.is_running and not who.is_ghost:
+				assert_almost_eq(who.body.run_speed_scale, faster, 0.001, "peer %d, slot %d runs at the edited speed" % [peer, who.index])
+	# The scene's rules are one cached resource: the next test starts from the shipped number.
+	host.get_rules().runner_speed_multiplier = shipped
+
+
 func test_a_machine_that_binds_after_the_hosts_flip_runs_by_it() -> void:
 	if not await _start_round(3, MARBLE, 1, [2]):
 		return

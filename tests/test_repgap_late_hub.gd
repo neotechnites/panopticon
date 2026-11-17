@@ -8,6 +8,17 @@ const ARMOR: int = MatchRules.RunnerAbility.ARMOR_LOCK
 const CAMO: int = MatchRules.RunnerAbility.ACTIVE_CAMO
 const NONE: int = MatchRules.RunnerAbility.NONE
 
+## The rules a test lengthened a power on, and the length they shipped with.
+var _lengthened: MatchRules = null
+var _shipped_seconds: float = 0.0
+
+
+func after_each() -> void:
+	if _lengthened != null:
+		_lengthened.ability_duration_seconds = _shipped_seconds
+		_lengthened = null
+	super()
+
 
 ## What [param machine] has standing in its hub for [param which] on A's body.
 func _draws(machine: int, which: int) -> bool:
@@ -37,7 +48,9 @@ func _a_joiner_draws(which: int) -> void:
 		return net(A).get_local_link() != null and net(A).get_local_link().is_predicting()):
 		fail("A's own body was never placed after the rebuild")
 		return
-	ctrl(HOST).get_rules().ability_duration_seconds = 600.0
+	_lengthened = ctrl(HOST).get_rules()
+	_shipped_seconds = _lengthened.ability_duration_seconds
+	_lengthened.ability_duration_seconds = 600.0
 	await step_ticks(30)
 	keys[A].held.ability_held = which == ARMOR
 	keys[A].tap_slot(which)

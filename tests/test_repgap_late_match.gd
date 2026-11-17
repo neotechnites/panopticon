@@ -21,6 +21,9 @@ const CROSS_TICKS: int = 30
 var _rig: RefCounted = null
 ## The slot whose body runs the power.
 var _slot: int = 0
+## The rules a test lengthened a power on, and the length they shipped with.
+var _lengthened: MatchRules = null
+var _shipped_seconds: float = 0.0
 
 
 func before_each() -> void:
@@ -28,6 +31,9 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	if _lengthened != null:
+		_lengthened.ability_duration_seconds = _shipped_seconds
+		_lengthened = null
 	if _rig != null:
 		_rig.close()
 		_rig = null
@@ -50,7 +56,9 @@ func _start(map: StringName, on_bot: bool) -> bool:
 		fail("the host never reached the round")
 		return false
 	await step_ticks(CROSS_TICKS)
-	host.get_rules().ability_duration_seconds = 600.0
+	_lengthened = host.get_rules()
+	_shipped_seconds = _lengthened.ability_duration_seconds
+	_lengthened.ability_duration_seconds = 600.0
 	_slot = 3 if on_bot else _rig.local_slot(EARLY)
 	TestFixtures.pin_the_field(host, null)
 	return assert_true(_rig.participant(HOST, _slot).is_running, "the body the power runs on is a living runner")
