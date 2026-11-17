@@ -578,7 +578,8 @@ func _recall_freshest() -> bool:
 func _keep_post(gaze: Vector3, delta: float) -> void:
 	if _posts.is_empty():
 		return
-	_posts.choose(controller, _eye_position().y - controller.global_position.y, gaze, _hit_mask(), delta)
+	var eye_height: float = _eye_position().y - controller.global_position.y
+	_posts.choose(controller, eye_height, _view_half_angles().x, gaze, _hit_mask(), delta)
 	input.command.move_direction = _posts.steer(controller)
 
 

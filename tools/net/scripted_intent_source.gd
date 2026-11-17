@@ -424,7 +424,8 @@ func _walk_to_post(me: MatchParticipant) -> Vector2:
 		var rifle: Rifle = match_controller.rifle
 		var mask: int = rifle.profile.hit_mask if rifle != null and rifle.profile != null else 0xFFFFF
 		var eye_height: float = camera.global_position.y - here.y
-		_posts.choose(me.body, eye_height, gaze + Vector3.UP * AIM_CHEST_METRES, mask, get_physics_process_delta_time())
+		var half_view: float = deg_to_rad((camera as Camera3D).fov) * 0.5 if camera is Camera3D else PI / 4.0
+		_posts.choose(me.body, eye_height, half_view, gaze + Vector3.UP * AIM_CHEST_METRES, mask, get_physics_process_delta_time())
 	return _posts.steer(me.body)
 
 
