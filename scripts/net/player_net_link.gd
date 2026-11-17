@@ -608,6 +608,9 @@ func _participant() -> MatchParticipant:
 func _send_intent() -> void:
 	if local_source == null or not session.is_established():
 		return
+	if replicator != null and not replicator.has_authority_scene():
+		# The host's copy of this scene does not stand yet: there is no node there to hear this.
+		return
 	# A predicting body has already polled the source on this tick, through the
 	# controller. Polling it again here would eat the edges twice and send an
 	# input the body never acted on.

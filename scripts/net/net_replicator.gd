@@ -259,6 +259,11 @@ func get_scene() -> int:
 	return _scene
 
 
+## Whether the authority has shown this client the scene it stands in: until then it has no bodies to drive.
+func has_authority_scene() -> bool:
+	return _is_authority or _have_clock
+
+
 ## The authority's current tick. Stamped on outgoing snapshots and handed to
 ## [PlayerNetLink] so intent and state carry the same clock.
 func get_tick() -> int:
