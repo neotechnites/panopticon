@@ -329,9 +329,7 @@ func _subscribe_server() -> void:
 	controller.round_started.connect(_on_round_started)
 	controller.participant_converted.connect(
 		func(participant: MatchParticipant) -> void:
-			# With no respawn delay the body is back up inside its own conversion, announced before it.
-			var held: bool = participant.respawn_hold_remaining > 0.0
-			_event(&"_ev_removed", [participant.index, int(participant.death_cause), held])
+			_event(&"_ev_removed", [participant.index, int(participant.death_cause), _is_held(participant)])
 	)
 	controller.ghost_fell.connect(
 		func(participant: MatchParticipant) -> void:
@@ -352,10 +350,16 @@ func _subscribe_server() -> void:
 	)
 	controller.ghost_caught.connect(
 		func(ghost: MatchParticipant, caught: MatchParticipant) -> void:
-			_event(&"_ev_ghost_caught", [ghost.index, caught.index])
+			_event(&"_ev_ghost_caught", [ghost.index, caught.index, _is_held(caught)])
 	)
 	_lobby.seat_occupancy_changed.connect(_on_seat_occupancy_changed)
 	_watch_rifle(controller.rifle, TOWER_RIFLE)
+
+
+## Whether the server still holds a body it has just made a ghost. With no respawn delay it is
+## back up inside its own making, and that respawn was announced before the making was.
+func _is_held(participant: MatchParticipant) -> bool:
+	return participant.respawn_hold_remaining > 0.0
 
 
 ## Send one weapon's shots on, [param which] naming the gun so a client replays
@@ -433,6 +437,10 @@ func _drive_trigger(who: MatchParticipant, weapon: Rifle, was_held: bool) -> boo
 	var source: RemoteIntentSource = link.get_remote_source() if link != null else null
 	if source == null:
 		return was_held
+	if not link.controller.is_physics_processing():
+		# Held by the match: its keys were let go for it, which is not the holder releasing a charge.
+		weapon.cancel_charge()
+		return false
 	# The scope is the holder's; the host raises the seat's optic with it so sway and hip spread agree.
 	if weapon.optic != null:
 		weapon.optic.set_zoomed(source.command.aim_held)
@@ -651,7 +659,8 @@ func _on_peer_launched(peer_id: int, _seat_index: int) -> void:
 func _on_seat_vacated(_seat_index: int, peer_id: int) -> void:
 	if _started:
 		_begin_if_launched.call_deferred()
-		_rematch_peers.erase(peer_id)
+		if _rematch_peers.erase(peer_id):
+			_send_rematch_votes.call_deferred()
 		_tally_rematch.call_deferred()
 	elif _lobby.get_unlaunched_peers().is_empty():
 		_start_now.call_deferred()
@@ -755,9 +764,14 @@ func _ev_removed(index: int, cause: int, held: bool) -> void:
 			controller.net_brawl_out(index, Vector3.ZERO)
 		_:
 			controller.net_convert(index, _cause_of(cause))
-			if not held:
-				# Its respawn has already landed on the server: a mirror must not wait for one.
-				controller.net_ghost_respawn(index)
+			_made_ghost(index, held)
+
+
+## A mirror has just made [param index] a ghost: one the server no longer holds has already
+## respawned there, and must not wait here for a respawn that will not be said again.
+func _made_ghost(index: int, held: bool) -> void:
+	if not held:
+		controller.net_ghost_respawn(index)
 
 
 @rpc("authority", "reliable", "call_remote", 0)
@@ -797,10 +811,11 @@ func _ev_ghost_respawned(index: int) -> void:
 
 
 @rpc("authority", "reliable", "call_remote", 0)
-func _ev_ghost_caught(ghost_index: int, caught_index: int) -> void:
+func _ev_ghost_caught(ghost_index: int, caught_index: int, held: bool) -> void:
 	if not _replays():
 		return
 	controller.net_ghost_caught(ghost_index, caught_index)
+	_made_ghost(caught_index, held)
 
 
 @rpc("authority", "reliable", "call_remote", 0)

@@ -61,6 +61,49 @@ func test_a_ghost_respawned_at_once_is_not_left_frozen_on_a_client() -> void:
 	assert_true(mine.body.is_physics_processing(), "and its own ghost moves")
 
 
+## The same with a catch instead of a shot: the caught runner is made a ghost by another event.
+func test_a_runner_caught_with_no_respawn_delay_is_not_left_frozen_on_its_client() -> void:
+	if not await _rig.connect_peers(self, 1):
+		fail("handshake")
+		return
+	_rig.settings().rounds_to_win_match = 3
+	if not await _rig.launch(4, 0):
+		fail("launch")
+		return
+	for peer: int in _rig.sessions.size():
+		var controller: MatchController = _rig.controller(peer)
+		if not await _rig.wait_for(func() -> bool: return controller.get_phase() == MatchController.Phase.ROUND):
+			fail("peer %d never reached the round" % peer)
+			return
+	await step_ticks(30)
+	var host: MatchController = _rig.controller(HOST)
+	var mirror: MatchController = _rig.controller(CLIENT)
+	host.get_ghost_profile().respawn_delay_seconds = 0.0
+	TestFixtures.pin_the_field(host, null)
+	var slot: int = _rig.local_slot(CLIENT)
+	var other: int = -1
+	for i: int in range(1, 4):
+		if i != slot:
+			other = i
+			break
+	var ghost: MatchParticipant = _rig.participant(HOST, other)
+	assert_true(host.convert_participant(ghost), "the host converts a bot runner into a ghost")
+	await step_ticks(30)
+	assert_true(ghost.is_ghost, "the bot is a ghost on the host")
+	var caught: MatchParticipant = _rig.participant(HOST, slot)
+	host.call(&"_swap_with_ghost", ghost, caught)
+	var mine: MatchParticipant = _rig.participant(CLIENT, slot)
+	if not await _rig.wait_for(func() -> bool: return mine.is_ghost):
+		fail("the client never saw its runner caught")
+		return
+	await step_ticks(90)
+	print("PROOF instant-respawn-catch: host caught body simulated=%s awaiting=%s | client's own caught body simulated=%s held=%s" % [
+		str(caught.body.is_physics_processing()), str(host.is_awaiting_respawn(caught)),
+		str(mine.body.is_physics_processing()), str(mine.body.held)])
+	assert_true(caught.body.is_physics_processing(), "the host's caught ghost is up and running")
+	assert_true(mine.body.is_physics_processing(), "and the client's own caught ghost moves")
+
+
 ## A restart (the debug menu's, mid-finale) into an opening race: the old round's beat must not score in it.
 func test_a_restart_inside_the_kill_beat_does_not_score_into_the_new_match() -> void:
 	if not await _start_round(3):

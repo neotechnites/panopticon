@@ -95,3 +95,22 @@ func test_a_rematch_starts_when_the_one_who_had_not_voted_leaves() -> void:
 	await step_ticks(CROSS_TICKS * 2)
 	print("PROOF rematch after re-press: match_over=%s" % host.is_match_over())
 	assert_false(host.is_match_over(), "and pressing Rematch again starts it")
+
+
+## The leaver had voted: the names the others read lose it.
+func test_a_leavers_vote_leaves_the_result_screen_with_them() -> void:
+	if not await _start_round(2, 4, 1):
+		return
+	if not await _win_the_match():
+		return
+	var names: Array[PackedStringArray] = [PackedStringArray()]
+	_rig.net_match(1).rematch_votes_changed.connect(func(said: PackedStringArray) -> void: names[0] = said)
+	_rig.net_match(2).request_rematch()
+	if not await _rig.wait_for(func() -> bool: return names[0].size() == 1):
+		fail("client 1 never read client 2's vote")
+		return
+	_rig.sessions[2].leave()
+	var cleared: bool = await _rig.wait_for(func() -> bool: return names[0].is_empty(), 2000)
+	print("PROOF leaver's vote: names read on client 1 after the leaver went: %s" % str(names[0]))
+	assert_true(cleared, "the vote of a player who left is no longer shown")
+	assert_true(_rig.controller(HOST).is_match_over(), "and nobody left has asked, so nothing restarts")
