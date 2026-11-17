@@ -7,12 +7,20 @@ const HOST: int = 0
 const CLIENT: int = 1
 ## Ticks for a reliable event and the snapshots behind it to cross loopback and be drawn.
 const CROSS_TICKS: int = 30
+## The same on a bad line: the runner compresses time fiftyfold, so 3 real ms each way is 150 ms of play.
+const BAD_LINE_TICKS: int = 120
+const BAD_LINE_LOSS: float = 0.1
+const BAD_LINE_DELAY_MS: int = 3
 
 var _rig: RefCounted = null
+var _cross: int = CROSS_TICKS
+var _bad_line: bool = false
 
 
 func before_each() -> void:
 	_rig = Rig.new()
+	_cross = CROSS_TICKS
+	_bad_line = false
 
 
 func after_each() -> void:
@@ -23,6 +31,10 @@ func after_each() -> void:
 
 ## Host in the tower, one client and one bot on the ring, the round running on both machines.
 func _start_round(clients: int = 1, seats: int = 3, guard_seat: int = 0, late: Array[int] = []) -> bool:
+	if _bad_line:
+		_rig.wire_loss = BAD_LINE_LOSS
+		_rig.wire_delay_ms = BAD_LINE_DELAY_MS
+		_cross = BAD_LINE_TICKS
 	if not await _rig.connect_peers(self, clients):
 		fail("the loopback handshake did not complete")
 		return false
@@ -38,7 +50,7 @@ func _start_round(clients: int = 1, seats: int = 3, guard_seat: int = 0, late: A
 		if not await _rig.wait_for(func() -> bool: return controller.get_phase() == MatchController.Phase.ROUND):
 			fail("peer %d never reached the round" % peer)
 			return false
-	await step_ticks(CROSS_TICKS)
+	await step_ticks(_cross)
 	return true
 
 
@@ -59,7 +71,7 @@ func test_a_killed_client_runs_again_as_a_ghost_on_its_own_machine() -> void:
 	):
 		fail("the host never woke the ghost")
 		return
-	await step_ticks(CROSS_TICKS)
+	await step_ticks(_cross)
 	assert_true(mine.body.is_physics_processing(), "the client's own ghost is simulated again after its respawn")
 	var from: Vector3 = host_side.body.global_position
 	_rig.drive(CLIENT, Vector2(0.0, 1.0))
@@ -104,7 +116,7 @@ func _respawned(slot: int) -> bool:
 	):
 		fail("the host never put slot %d back as a ghost" % slot)
 		return false
-	await step_ticks(CROSS_TICKS)
+	await step_ticks(_cross)
 	return true
 
 
@@ -115,6 +127,9 @@ func _watch_a_rifle_kill(slot: int) -> void:
 		before.append(_worn(peer, slot))
 	_shoot(slot)
 	assert_true(_rig.participant(HOST, slot).is_ghost, "the hit converts slot %d on the host" % slot)
+	# The ghost included, its chase called off: a chasing ghost's shove is a catch, and a swap ends the watch early.
+	TestFixtures.pin_the_field(_rig.controller(HOST), null)
+	_rig.controller(HOST).call(&"_silence_brain", _rig.participant(HOST, slot))
 	if not await _every_peer_sees_limp(slot, "after the rifle kill"):
 		return
 	await step_ticks(60)
@@ -265,7 +280,7 @@ func test_a_late_peer_finds_a_ghost_already_back_in_the_world() -> void:
 	if not await _rig.bind_late(2):
 		fail("the late peer never bound")
 		return
-	await step_ticks(CROSS_TICKS)
+	await step_ticks(_cross)
 	var late: MatchController = _rig.controller(2)
 	for slot: int in [1, 2]:
 		var ghost: MatchParticipant = _rig.participant(2, slot)
@@ -331,7 +346,7 @@ func _watch_a_finale(guard_slot: int, finisher_slot: int) -> void:
 		if not await _rig.wait_for(func() -> bool: return controller.get_round_number() == round_before + 1):
 			fail("peer %d never saw the next round" % peer)
 			return
-	await step_ticks(CROSS_TICKS)
+	await step_ticks(_cross)
 	for peer: int in _rig.peer_count():
 		var controller: MatchController = _rig.controller(peer)
 		assert_same(controller.get_seat_participant(), _rig.participant(peer, finisher_slot), "peer %d: the finisher holds the tower" % peer)
@@ -364,3 +379,31 @@ func test_a_bot_guard_thrown_by_a_bot_is_seen_by_every_peer() -> void:
 	if not await _start_round(2, 5, 3):
 		return
 	await _watch_a_finale(3, 4)
+
+
+func test_a_shot_client_goes_limp_on_every_peer_over_a_bad_line() -> void:
+	_bad_line = true
+	if not await _start_round(2, 4):
+		return
+	var slot: int = _rig.local_slot(CLIENT)
+	TestFixtures.pin_the_field(_rig.controller(HOST), _rig.participant(HOST, slot))
+	# Running when it is hit, so snapshots still in flight carry the run past the death.
+	_rig.drive(CLIENT, Vector2(0.0, 1.0))
+	await step_ticks(_cross)
+	await _watch_a_rifle_kill(slot)
+
+
+func test_a_running_bot_shot_over_a_bad_line_goes_limp_on_every_peer() -> void:
+	_bad_line = true
+	if not await _start_round(2, 4):
+		return
+	await step_ticks(_cross)
+	TestFixtures.pin_the_field(_rig.controller(HOST), _rig.participant(HOST, 3))
+	await _watch_a_rifle_kill(3)
+
+
+func test_a_finale_over_a_bad_line_holds_on_every_peer() -> void:
+	_bad_line = true
+	if not await _start_round(2, 4, 1):
+		return
+	await _watch_a_finale(1, 0)

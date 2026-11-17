@@ -11,10 +11,17 @@ const STEP_TIMEOUT_MS: int = 4000
 ## Simulated seconds the host waits on a peer that is deliberately bound late.
 const LATE_LAUNCH_TIMEOUT_SECONDS: float = 1.0
 
+## A bad line on every peer, set before [method connect_peers]: the share of unreliable packets
+## dropped, and real milliseconds every packet is held.
+var wire_loss: float = 0.0
+var wire_delay_ms: int = 0
+
 var sessions: Array[NetSession] = []
 var matches: Array[Node3D] = []
 var _case: Node = null
 var _saved_settings: GameSettings = null
+## The real peers under each LossyPeer; it hangs closures on their signals that would outlive the test.
+var _wrapped: Array[MultiplayerPeer] = []
 
 
 ## Host plus [param clients] joined and seated. False rather than hanging.
@@ -25,20 +32,38 @@ func connect_peers(case: Node, clients: int) -> bool:
 	SettingsStore.instance().settings = GameSettings.new()
 	var host: NetSession = NetFixtures.make_peer(case, "Host", NetFixtures.settings())
 	sessions.append(host)
-	var port: int = await NetFixtures.host_and_wait(case, host)
-	if port < 0:
+	var port: int = NetFixtures.reserve_port()
+	if port < 0 or host.host(port) != OK:
+		return false
+	_condition(host, 0)
+	if not await NetFixtures.poll_until(case, func() -> bool: return host.is_established(), STEP_TIMEOUT_MS):
 		return false
 	host.lobby.open("Host")
 	for i: int in clients:
 		var client: NetSession = NetFixtures.make_peer(case, "Client%d" % (i + 1), NetFixtures.settings())
 		sessions.append(client)
-		if not await NetFixtures.join_and_wait(case, client, host, port):
+		if client.join("127.0.0.1", port) != OK:
 			return false
+		_condition(client, i + 1)
+		var expected: int = host.get_peer_count() + 1
 		if not await NetFixtures.poll_until(
-			case, func() -> bool: return client.lobby.get_local_seat_index() >= 0, STEP_TIMEOUT_MS
+			case,
+			func() -> bool:
+				return client.is_established() and host.get_peer_count() >= expected \
+					and client.lobby.get_local_seat_index() >= 0,
+			STEP_TIMEOUT_MS,
 		):
 			return false
 	return true
+
+
+## Wrap a peer's line as it opens, when [member wire_loss] or [member wire_delay_ms] asks for a bad one.
+func _condition(session: NetSession, peer: int) -> void:
+	if wire_loss <= 0.0 and wire_delay_ms <= 0:
+		return
+	var api: MultiplayerAPI = session.multiplayer
+	_wrapped.append(api.multiplayer_peer)
+	api.multiplayer_peer = LossyPeer.new(api.multiplayer_peer, wire_loss, 7 + peer * 4, wire_delay_ms)
 
 
 ## The settings every peer's scene will read; edit before [method launch].
@@ -183,6 +208,12 @@ func close() -> void:
 	for i: int in range(sessions.size() - 1, -1, -1):
 		if sessions[i] != null:
 			sessions[i].leave()
+	for real: MultiplayerPeer in _wrapped:
+		for joined: Dictionary in real.peer_connected.get_connections():
+			real.peer_connected.disconnect(joined["callable"])
+		for left: Dictionary in real.peer_disconnected.get_connections():
+			real.peer_disconnected.disconnect(left["callable"])
+	_wrapped.clear()
 	if _saved_settings != null:
 		SettingsStore.instance().settings = _saved_settings
 		_saved_settings = null
