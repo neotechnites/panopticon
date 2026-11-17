@@ -16,6 +16,8 @@ const MENU_SCENE: String = "res://ui/main_menu.tscn"
 const HUB_SCENE: String = "res://hub/hub.tscn"
 const MATCH_SCENE: String = "res://match/match.tscn"
 const TAP_SECONDS: float = 0.06
+## Faster upward than anything the game throws a body with.
+const FLUNG_SPEED: float = 40.0
 const KEYS: Dictionary = {
 	"1": &"ability_1", "2": &"ability_2", "3": &"ability_3", "4": &"ability_4", "5": &"ability_5",
 	"j": &"jump", "s": &"shove", "e": &"interact", "b": &"emote", "n": &"emote_alt",
@@ -49,6 +51,12 @@ var _aim_source: IntentSource = null
 var _next_shove: float = 0.0
 var _shove_turn: int = 0
 var _session_over: bool = false
+var _retries: int = 0
+var _flung_ms: Dictionary = {}
+var _trails: Dictionary = {}
+var _last_physics_ms: int = 0
+var _last_frame_ms: int = 0
+var _retry_at: float = 0.0
 
 
 func _ready() -> void:
@@ -146,6 +154,10 @@ func _enter_multiplayer() -> void:
 func _process(_delta: float) -> void:
 	if _finished:
 		return
+	var frame_ms: int = Time.get_ticks_msec()
+	if _last_frame_ms > 0 and frame_ms - _last_frame_ms > 250:
+		_line("HITCH %d ms scene=%s" % [frame_ms - _last_frame_ms, _scene.get_file()])
+	_last_frame_ms = frame_ms
 	var scene_node: Node = get_tree().current_scene
 	var scene: String = scene_node.scene_file_path if scene_node != null else ""
 	if scene != _scene:
@@ -157,6 +169,15 @@ func _process(_delta: float) -> void:
 		_enter_multiplayer()
 		return
 	var now: float = _seconds()
+	if _session_over and _hub_visits == 0 and not _is_server() and _retries < 15:
+		# The host was still loading; a player presses Join again.
+		_session_over = false
+		_retries += 1
+		_retry_at = now + 2.0
+		return
+	if _retry_at > 0.0 and now >= _retry_at:
+		_retry_at = 0.0
+		_line("JOIN retry %d %s" % [_retries, error_string(_screen.join_game())])
 	if _session_over:
 		var whole: bool = _matches_seen >= _maps.size() * int(_o.loops)
 		_end("ok" if whole and not _is_server() else "session-lost", 0 if whole else 3)
@@ -269,15 +290,19 @@ func _hook(scene_node: Node) -> void:
 	var controller: MatchController = scene_node.get_node_or_null(^"MatchController") as MatchController
 	if controller == null:
 		return
-	controller.match_started.connect(func(count: int) -> void: _line("EV match_started participants=%d" % count))
+	controller.match_started.connect(func(count: int) -> void: _line("EV match_started participants=%d map=%s" % [
+		count, String(controller.get_rules().map_id) if controller.get_rules() != null else "?"]))
 	controller.round_started.connect(func() -> void: _line("EV round_started round=%d" % controller.get_round_number()))
 	controller.round_resolved.connect(func(outcome: MatchController.Outcome) -> void:
 		_line("EV round_resolved outcome=%s" % String(MatchController.Outcome.keys()[outcome])))
 	controller.match_won.connect(func(p: MatchParticipant) -> void: _line("EV match_won who=%d" % (p.index if p != null else -1)))
-	controller.participant_shoved.connect(func(a: MatchParticipant, b: MatchParticipant) -> void:
-		_line("EV shoved by=%d victim=%d" % [a.index if a != null else -1, b.index if b != null else -1]))
-	controller.kill_beat_started.connect(func(g: MatchParticipant, _s: float, _throw: Vector3) -> void:
-		_line("EV kill_beat guard=%d" % (g.index if g != null else -1)))
+	# By name: an older build this driver is pointed at may not have them.
+	if controller.has_signal(&"participant_shoved"):
+		controller.connect(&"participant_shoved", func(a: MatchParticipant, b: MatchParticipant) -> void:
+			_line("EV shoved by=%d victim=%d" % [a.index if a != null else -1, b.index if b != null else -1]))
+	if controller.has_signal(&"kill_beat_started"):
+		controller.connect(&"kill_beat_started", func(g: MatchParticipant, _s: float, _throw: Vector3) -> void:
+			_line("EV kill_beat guard=%d" % (g.index if g != null else -1)))
 	if controller.rifle != null:
 		controller.rifle.fired.connect(func(_from: Vector3, _to: Vector3) -> void: _line("RIFLE fired"))
 		controller.rifle.target_hit.connect(func(collider: Node3D, _at: Vector3, _n: Vector3) -> void:
@@ -305,13 +330,53 @@ func _watch(scene_node: Node, net: NetMatch) -> void:
 				power.get_remaining(), str(body.movement_locked), str(body.is_on_floor())])
 		if sample:
 			var at: Vector3 = body.global_position
-			parts.append("s%d(%.1f,%.1f,%.1f)%s%s" % [link.seat_index, at.x, at.y, at.z,
-				"G" if body.is_guard else "", "L" if body.movement_locked else ""])
+			parts.append("s%d(%.1f,%.1f,%.1f)%s%s%s" % [link.seat_index, at.x, at.y, at.z,
+				"G" if body.is_guard else "", "L" if body.movement_locked else "", "" if body.is_on_floor() else "^"])
 	if sample:
 		_last_pos_ms = now
 		var controller: MatchController = scene_node.get_node_or_null(^"MatchController") as MatchController
 		_line("POS %s phase=%s fps=%d %s" % [_scene.get_file(),
 			controller.get_phase_name() if controller != null else "?", int(Engine.get_frames_per_second()), " ".join(parts)])
+
+
+## Every body's vertical speed, each tick: a body thrown upward faster than any jump, pad or shove is logged once.
+func _physics_process(_delta: float) -> void:
+	var scene_node: Node = get_tree().current_scene
+	var net: NetMatch = scene_node.get_node_or_null(^"NetMatch") as NetMatch if scene_node != null else null
+	if net == null:
+		return
+	var now: int = Time.get_ticks_msec()
+	for child: Node in net.get_children():
+		var link: PlayerNetLink = child as PlayerNetLink
+		if link == null or link.controller == null or not link.controller.is_inside_tree():
+			continue
+		var body: PlayerController = link.controller
+		var trail: PackedStringArray = _trails.get(link.seat_index, PackedStringArray())
+		var under: String = ""
+		for i: int in body.get_slide_collision_count():
+			var c: KinematicCollision3D = body.get_slide_collision(i)
+			var who: Node = c.get_collider() as Node
+			under += "%s%s " % [str(who.get_path()) if who != null else "?", str(c.get_collider_velocity())]
+		trail.append("f%d ms=%d y=%.3f vy=%.2f floor=%s plat=%s layer=%d mask=%d under=%s" % [Engine.get_physics_frames(), now,
+			body.global_position.y, body.velocity.y, str(body.is_on_floor()), str(body.get_platform_velocity()),
+			body.collision_layer, body.collision_mask, under])
+		if trail.size() > 10:
+			trail.remove_at(0)
+		_trails[link.seat_index] = trail
+		if body.velocity.y < FLUNG_SPEED or now - int(_flung_ms.get(link.seat_index, -5000)) < 3000:
+			continue
+		for entry: String in trail:
+			_line("TRAIL seat=%d %s" % [link.seat_index, entry])
+		_flung_ms[link.seat_index] = now
+		var touching: PackedStringArray = PackedStringArray()
+		for i: int in body.get_slide_collision_count():
+			var hit: KinematicCollision3D = body.get_slide_collision(i)
+			touching.append("%s v=%s" % [str(hit.get_collider()), str(hit.get_collider_velocity())])
+		_line("FLUNG seat=%d guard=%s at=%s velocity=%s platform=%s floor=%s sim=%s frame_ms=%d touching=[%s]" % [
+			link.seat_index, str(body.is_guard), str(body.global_position), str(body.velocity),
+			str(body.get_platform_velocity()), str(body.is_on_floor()), str(body.is_physics_processing()),
+			now - _last_physics_ms, " | ".join(touching)])
+	_last_physics_ms = now
 
 
 # --- What this peer does ------------------------------------------------------

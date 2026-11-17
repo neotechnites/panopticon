@@ -1601,6 +1601,9 @@ func configure_net(
 	_net_names = names.duplicate()
 	_local_index = local_index
 	_mirror = mirror
+	# Built stacked at the scene default: a body simulates nothing until its first placement wakes it.
+	for body: PlayerController in bodies:
+		body.set_physics_process(false)
 	if not hub_mode:
 		# A hub's population is not a match's prisoner count, and writing one
 		# into the shared rules would edit the player's own setting every time

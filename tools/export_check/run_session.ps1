@@ -41,7 +41,8 @@ foreach ($peer in $c.peers) {
     $null = $p.Handle
     $procs += [pscustomobject]@{ Name = $peer.name; Proc = $p }
     $slot++
-    Start-Sleep -Milliseconds ([int]$c.stagger)
+    # The host is given time to reach its hub before anybody joins.
+    Start-Sleep -Milliseconds $(if ($slot -eq 1) { [int]$c.stagger * 4 } else { [int]$c.stagger })
 }
 $env:APPDATA = $realAppData
 $deadline = $started.AddSeconds([int]$c.timeout)

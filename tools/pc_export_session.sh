@@ -5,6 +5,7 @@
 #
 # Each group is the driver's own --key=value list (see session_driver.gd); --role, --port and --name
 # are filled in. EXE= picks the build, PC_ROOT= the PC folder, PORT= the port. Logs come back to OUT=.
+# KEEP=1 keeps the session folder, so each peer starts with the user data (shader cache) of the last run.
 set -euo pipefail
 [ $# -ge 4 ] || { sed -n 2,8p "$0" >&2; exit 2; }
 NAME="$1"; MODE="$2"; TIMEOUT="$3"; shift 3
@@ -38,7 +39,7 @@ json.dump({"exe": exe, "harness": root + "\\_harness\\" + build, "driver": root 
 PY
 
 SESSION="$PC_ROOT\\_logs\\$NAME"
-ssh -o ConnectTimeout=20 "$PC" "New-Item -ItemType Directory -Force -Path '$PC_ROOT\\drv','$SESSION' | Out-Null; Remove-Item -Recurse -Force '$SESSION\\*' -ErrorAction SilentlyContinue"
+ssh -o ConnectTimeout=20 "$PC" "New-Item -ItemType Directory -Force -Path '$PC_ROOT\\drv','$SESSION' | Out-Null; if (-not '${KEEP:-}') { Remove-Item -Recurse -Force '$SESSION\\*' -ErrorAction SilentlyContinue }; Remove-Item -Force '$SESSION\\done','$SESSION\\result.txt' -ErrorAction SilentlyContinue; exit 0"
 scp -q "$HERE/tools/export_check/session_driver.gd" "$HERE/tools/export_check/run_session.ps1" "$PC:$PC_ROOT\\drv\\"
 scp -q "$TMP/config.json" "$PC:$SESSION\\config.json"
 RUN="powershell -NoProfile -ExecutionPolicy Bypass -File $PC_ROOT\\drv\\run_session.ps1 -Config $SESSION\\config.json"
@@ -46,13 +47,17 @@ if [ "$MODE" = headless ]; then
   ssh "$PC" "$RUN" | tr -d '\r'
 else
   # A window needs the logged-on console session; an SSH session has no desktop and no GPU.
+  # Registered at priority 4: a default task runs below normal with low I/O priority, which no player's launch does.
   TASK="PanopticonExport_$NAME"
   ssh "$PC" "
-    schtasks /create /tn $TASK /tr \"$RUN\" /sc once /st 23:59 /ru \$env:USERNAME /it /f | Out-Null
-    schtasks /run /tn $TASK | Out-Null
-    \$deadline = (Get-Date).AddSeconds($TIMEOUT + 60)
+    \$a = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File $PC_ROOT\\drv\\run_session.ps1 -Config $SESSION\\config.json'
+    \$p = New-ScheduledTaskPrincipal -UserId \$env:USERNAME -LogonType Interactive
+    \$s = New-ScheduledTaskSettingsSet -Priority 4 -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+    Register-ScheduledTask -TaskName $TASK -Action \$a -Principal \$p -Settings \$s -Force | Out-Null
+    Start-ScheduledTask -TaskName $TASK
+    \$deadline = (Get-Date).AddSeconds($TIMEOUT + 90)
     while (-not (Test-Path '$SESSION\\done') -and (Get-Date) -lt \$deadline) { Start-Sleep -Seconds 1 }
-    schtasks /delete /tn $TASK /f | Out-Null
+    Unregister-ScheduledTask -TaskName $TASK -Confirm:\$false
     if (Test-Path '$SESSION\\result.txt') { Get-Content '$SESSION\\result.txt' } else { Write-Output 'NO RESULT' }
   " | tr -d '\r'
 fi
