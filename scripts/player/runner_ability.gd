@@ -26,6 +26,9 @@ var _active: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE
 var _remaining: float = 0.0
 var _cooldown: float = 0.0
 var _shield: StaticBody3D = null
+## Where the authority's shield stands, once it has said: a mirror's body is drawn a snapshot
+## behind, so its own spot is not where shots are stopped. Not finite when nothing is said.
+var _shield_at: Vector3 = Vector3.INF
 var _decoy: PlayerController = null
 var _shell: MeshInstance3D = null
 var _camo_mesh: MeshInstance3D = null
@@ -274,6 +277,7 @@ func _teardown(keep_decoy: bool = false) -> void:
 	if _shield != null:
 		_shield.queue_free()
 		_shield = null
+		_shield_at = Vector3.INF
 	if not keep_decoy:
 		if is_instance_valid(_decoy):
 			_decoy.queue_free()
@@ -314,8 +318,15 @@ func _raise_shield() -> void:
 	mesh.material_override = _glow_material(Color(0.35, 0.75, 1.0, 0.3), Color(0.2, 0.6, 1.0), 1.5)
 	shield.add_child(mesh)
 	body.get_parent().add_child(shield)
-	shield.global_position = body.global_position + Vector3.UP * 0.9
+	shield.global_position = _shield_at if _shield_at.is_finite() else body.global_position + Vector3.UP * 0.9
 	_shield = shield
+
+
+## The authority's word on where this body's shield stands, heard before or after it is drawn here.
+func place_shield(at: Vector3) -> void:
+	_shield_at = at
+	if _shield != null:
+		_shield.global_position = at
 
 
 # --- Hologram -----------------------------------------------------------------

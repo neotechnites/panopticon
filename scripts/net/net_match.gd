@@ -579,7 +579,7 @@ func _on_scene_bound(peer_id: int, epoch: int) -> void:
 
 ## [param peer_id]'s scene stands: it is told what was said once before it could hear.
 func _announce_bound(peer_id: int) -> void:
-	_session.replicator.send_decoys_to(peer_id)
+	_session.replicator.send_placed_to(peer_id)
 	peer_bound.emit(peer_id)
 
 
