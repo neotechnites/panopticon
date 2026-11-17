@@ -242,6 +242,10 @@ signal finisher_armed(weapon: Rifle)
 ## [param throw] (world m/s), and every view follows him for [param seconds].
 signal kill_beat_started(guard: MatchParticipant, seconds: float, throw: Vector3)
 
+## The rules in force were edited while this scene runs (the debug menu). A hosted match
+## publishes them; see [NetMatch].
+signal rules_edited()
+
 ## Every design parameter of the match: how many players, on what track, at what
 ## pace, with what reload escalation, and what counts as a win.
 ##
@@ -4611,6 +4615,14 @@ func debug_refresh_pace() -> void:
 			participant.body.speed_scale = maxf(get_ghost_profile().speed_multiplier, 0.0)
 		elif participant.is_running:
 			_apply_runner_multipliers(participant.body, active)
+
+
+## Re-read every rule the scene carries a copy of: movement, pace, the sniper's knobs. A mirror
+## calls it when the host's rules change.
+func refresh_rules() -> void:
+	debug_refresh_movement()
+	debug_refresh_pace()
+	refresh_sniper_profiles()
 
 
 ## Write the crouch and slide rules onto every body, bots and humans alike.

@@ -204,8 +204,12 @@ func _spend_presses() -> void:
 	_intent.ability_pressed = power and slot == 0
 	_intent.cook_pressed = _spend(MoveIntent.Press.COOK)
 	_intent.shove_pressed = _spend(MoveIntent.Press.SHOVE)
-	_intent.emote_pressed = _spend(MoveIntent.Press.EMOTE)
-	_intent.emote_alt_pressed = _spend(MoveIntent.Press.EMOTE_ALT)
+	# An emote press says what it came to, and a later one supersedes: however many are owed,
+	# the body is told the newest once, not walked through a toggle per press.
+	_intent.emote_pressed = false
+	_intent.emote_alt_pressed = false
+	_intent.emote_state = command.emote_state if _owed[MoveIntent.Press.EMOTE] > 0 else -1
+	_owed[MoveIntent.Press.EMOTE] = 0
 
 
 func _spend(key: int) -> bool:

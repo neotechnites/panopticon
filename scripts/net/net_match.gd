@@ -65,6 +65,8 @@ var _epoch: int = 0
 var _rematch_peers: Dictionary[int, bool] = {}
 ## Reused by [method get_scene_peers], which a carried cat asks every tick.
 var _scene_peers: PackedInt32Array = PackedInt32Array()
+## Authority: the rules last published from this scene, so a widget that edited none sends none.
+var _rules_said: PackedByteArray = PackedByteArray()
 ## Client, hub: the authority has been told this scene stands.
 var _acknowledged: bool = false
 
@@ -125,6 +127,7 @@ func _bind_match() -> void:
 		if _lobby.get_unlaunched_peers().is_empty():
 			_start_now()
 	else:
+		_lobby.rules_changed.connect(_on_rules_changed)
 		_lobby.acknowledge_launch()
 
 
@@ -133,6 +136,10 @@ func _exit_tree() -> void:
 		return
 	# A scene on its way out answers for nothing: a late binder is the next scene's to greet.
 	_lobby.scene_bound.disconnect(_on_scene_bound)
+	if _lobby.rules_changed.is_connected(_on_rules_changed):
+		_lobby.rules_changed.disconnect(_on_rules_changed)
+	if _lobby.rematch_requested.is_connected(_vote_rematch):
+		_lobby.rematch_requested.disconnect(_vote_rematch)
 	_session.replicator.bind_scene(0)
 	_show_world(true)
 
@@ -384,7 +391,24 @@ func _subscribe_server() -> void:
 			_event(&"_ev_ghost_caught", [ghost.index, caught.index, _is_held(caught)])
 	)
 	_lobby.seat_occupancy_changed.connect(_on_seat_occupancy_changed)
+	_lobby.rematch_requested.connect(_vote_rematch)
+	controller.rules_edited.connect(_publish_rules)
 	_watch_rifle(controller.rifle, TOWER_RIFLE)
+
+
+## The rules are replicated state: the host's edit goes out on the lobby's line, where a peer
+## still loading finds it too.
+func _publish_rules() -> void:
+	var packed: PackedByteArray = NetCodec.pack_rules(controller.get_rules())
+	if packed != _rules_said:
+		_rules_said = packed
+		_lobby.set_rules(controller.get_rules())
+
+
+## A mirror runs by the host's rules as they stand now, not as they stood at the launch.
+func _on_rules_changed() -> void:
+	NetCodec.copy_rules(_lobby.get_rules(), controller.get_rules())
+	controller.refresh_rules()
 
 
 ## Whether the server still holds a body it has just made a ghost. With no respawn delay it is
@@ -506,7 +530,7 @@ func request_rematch() -> void:
 	if is_authority():
 		_vote_rematch(NetTransport.AUTHORITY_PEER_ID)
 	else:
-		rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_rq_rematch")
+		_lobby.request_rematch()
 
 
 ## Host only: every peer back to the hub together, still connected.
@@ -516,12 +540,6 @@ func return_all_to_hub() -> void:
 	if _lobby.get_phase() != NetLobby.Phase.POST_MATCH:
 		_lobby.conclude_match(-1)
 	_lobby.return_to_lobby()
-
-
-@rpc("any_peer", "reliable", "call_remote", 0)
-func _rq_rematch() -> void:
-	if is_authority():
-		_vote_rematch(multiplayer.get_remote_sender_id())
 
 
 func _vote_rematch(peer: int) -> void:
@@ -547,9 +565,12 @@ func _tally_rematch() -> void:
 
 func _send_rematch_votes() -> void:
 	var names: PackedStringArray = PackedStringArray()
+	var participants: Array[MatchParticipant] = controller.get_participants()
 	for seat: LobbySeat in _lobby.seats:
-		if seat.is_human() and _rematch_peers.has(seat.peer_id):
-			names.append(seat.display_name)
+		var slot: int = _slot_of_seat.get(seat.index, -1)
+		if seat.is_human() and _rematch_peers.has(seat.peer_id) and slot >= 0 and slot < participants.size():
+			# The name the match has shown for this player all along.
+			names.append(participants[slot].display_name)
 	_event(&"_ev_rematch_votes", [names])
 	rematch_votes_changed.emit(names)
 

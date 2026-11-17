@@ -133,6 +133,9 @@ const _FLAG2_EMOTE_PRESSED: int = 1 << 3
 const _FLAG2_EMOTE_ALT_PRESSED: int = 1 << 4
 ## [member MoveIntent.press_slot_prior], in the three bits the flags leave.
 const _FLAG2_PRIOR_SLOT_SHIFT: int = 5
+## [member MoveIntent.emote_state] plus one (0 = not said), in the bits the press counts leave.
+const _EMOTE_STATE_SHIFT: int = MoveIntent.PRESS_KEYS * MoveIntent.PRESS_BITS
+const _EMOTE_STATE_MASK: int = 3
 const _FLAG_ON_FLOOR: int = 1 << 0
 ## The rest of the snapshot flag byte: what a mirror cannot work out for itself
 ## because it runs no physics and takes no match decisions.
@@ -247,7 +250,10 @@ static func _put_intent(buffer: StreamPeerBuffer, intent: MoveIntent) -> void:
 		| (_FLAG2_EMOTE_ALT_PRESSED if intent.emote_alt_pressed else 0)
 		| (clampi(intent.press_slot_prior, 0, _MAX_ABILITY) << _FLAG2_PRIOR_SLOT_SHIFT)
 	)
-	buffer.put_u16(intent.press_counts & MoveIntent.PRESS_COUNTS_MASK)
+	buffer.put_u16(
+		(intent.press_counts & MoveIntent.PRESS_COUNTS_MASK)
+		| (clampi(intent.emote_state + 1, 0, _EMOTE_STATE_MASK) << _EMOTE_STATE_SHIFT)
+	)
 
 
 ## Decode into [param out]. Returns the tick, or -1 if [param payload] is not a
@@ -324,6 +330,7 @@ static func unpack_intent_at(payload: PackedByteArray, index: int, out: MoveInte
 	out.cook_pressed = (flags2 & _FLAG2_COOK_PRESSED) != 0
 	out.emote_pressed = (flags2 & _FLAG2_EMOTE_PRESSED) != 0
 	out.emote_alt_pressed = (flags2 & _FLAG2_EMOTE_ALT_PRESSED) != 0
+	out.emote_state = ((press_counts >> _EMOTE_STATE_SHIFT) & _EMOTE_STATE_MASK) - 1
 	# The dev keys are not on the wire and must not survive on a reused struct
 	# either. [param out] is owned by the caller and lives for the session, so a
 	# field this format does not carry has to be cleared here or it keeps

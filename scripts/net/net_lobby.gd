@@ -68,6 +68,9 @@ signal scene_bound(peer_id: int, epoch: int)
 ## The host's match rules arrived or changed. See [method get_rules].
 signal rules_changed()
 
+## Authority: the seated human [param peer_id] asked to play the finished match again.
+signal rematch_requested(peer_id: int)
+
 ## A peer connected and could not be seated. [param reason] is a readable line
 ## for a log or a disconnect message.
 signal join_refused(peer_id: int, reason: String)
@@ -578,6 +581,12 @@ func acknowledge_launch() -> void:
 	rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_request_launched", get_local_seat_index())
 
 
+## Ask the host to play the finished match again. A client's request; the host casts its own vote.
+func request_rematch() -> void:
+	if not _is_authority():
+		rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_request_rematch")
+
+
 ## A client's word that its scene for [param epoch] stands: until then nothing in it can take an RPC.
 func acknowledge_scene(epoch: int) -> void:
 	if not _is_authority():
@@ -689,6 +698,7 @@ static func wire_fingerprint() -> int:
 		str(NetCodec.INTENT_SIZE), str(NetCodec.SNAPSHOT_HEADER_SIZE), str(NetCodec.SNAPSHOT_BODY_SIZE),
 		str(NetCodec.ROSTER_HEADER_SIZE), str(NetCodec.ROSTER_SEAT_FIXED_SIZE),
 		str(NetCodec.GAMESTATE_HEADER), str(NetCodec.GAMESTATE_PARTICIPANT), str(NetCodec.DECOY_VERSION),
+		str(MoveIntent.PRESS_KEYS),
 	])
 	parts.append_array(NetCodec.rules_field_names(MatchRules.new()))
 	for map: MapDefinition in MapCatalog.all():
@@ -871,6 +881,15 @@ func _request_launched(seat_index: int) -> void:
 		return
 	_launched[seat.peer_id] = true
 	peer_launched.emit(seat.peer_id, seat.index)
+
+
+## Client to authority: play that again. Taken here and not in the match scene, which the host
+## may already have left.
+@rpc("any_peer", "reliable", "call_remote", 0)
+func _request_rematch() -> void:
+	var seat: LobbySeat = _requesting_seat()
+	if seat != null:
+		rematch_requested.emit(seat.peer_id)
 
 
 ## Client to authority: this is what to call me.

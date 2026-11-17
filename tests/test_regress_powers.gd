@@ -597,7 +597,7 @@ func test_a_client_that_leaves_mid_lock_leaves_no_lock_on_the_machines_that_stay
 	assert_false(_rig.body(HOST, slot).movement_locked, "and the bot that takes the seat can move")
 
 
-# --- Known gaps: the cooldown, a hologram met by a late machine, a rule flipped mid-match ---
+# --- The cooldown, a hologram met by a late machine, a rule flipped mid-match ---
 
 ## A cooldown on the host's rules: the next press is refused everywhere, the owner is shown the wait, then it runs.
 func _cooldown(peers: int, map: StringName) -> void:
@@ -645,7 +645,7 @@ func test_four_machines_marble_a_cooldown_refuses_the_next_press_and_is_shown_to
 	await _cooldown(4, MARBLE)
 
 
-func test_a_machine_that_binds_while_a_hologram_runs_ends_with_none() -> void:
+func test_a_machine_that_binds_while_a_hologram_runs_draws_it_and_ends_with_none() -> void:
 	if not await _start_round(3, HELL, HOST, [2]):
 		return
 	for other: MatchParticipant in _rig.controller(HOST).get_participants():
@@ -667,25 +667,88 @@ func test_a_machine_that_binds_while_a_hologram_runs_ends_with_none() -> void:
 	for peer: int in _rig.peer_count():
 		assert_null(_power(peer).get_decoy(), "peer %d: no hologram is left when its time is up" % peer)
 		assert_eq_int(int(_power(peer).get_shown()), NONE, "peer %d draws no power" % peer)
-	if not sees_it:
-		skip("KNOWN GAP: a machine that binds while a hologram runs never draws that hologram (the spawn is one reliable message, not in the snapshot)")
+	assert_true(sees_it, "the machine that bound while it ran drew it")
+
+
+## Flip the host's Crouch and Slide in its debug menu, as a hand on the two checkboxes does.
+func _flip_movement_in_the_debug_menu(want: bool) -> void:
+	var host: MatchController = _rig.controller(HOST)
+	var menu: DebugMenu = (load("res://ui/debug_menu.tscn") as PackedScene).instantiate() as DebugMenu
+	host.add_child(menu)
+	menu.set("_edits", host)
+	menu.call("_build_movement", host)
+	var flipped: int = 0
+	for found: Node in menu.find_children("*", "CheckBox", true, false):
+		var check: CheckBox = found as CheckBox
+		if check.text == "DEBUG_CROUCH" or check.text == "DEBUG_SLIDE":
+			check.button_pressed = want
+			flipped += 1
+	assert_eq_int(flipped, 2, "the debug menu offers the two toggles")
+	menu.queue_free()
+
+
+## Every machine's copy of every body may crouch and slide, or may not, as the host's rules say.
+func _movement_is(want: bool, why: String) -> void:
+	for peer: int in _rig.peer_count():
+		for who: MatchParticipant in _rig.controller(peer).get_participants():
+			assert_true(
+				who.body.slide_enabled == want and who.body.crouch_enabled == want,
+				"peer %d, slot %d: crouch and slide are %s %s" % [peer, who.index, "on" if want else "off", why],
+			)
 
 
 func test_the_hosts_mid_match_crouch_and_slide_flip_reaches_a_client() -> void:
 	if not await _start_round(2, HELL, 1):
 		return
+	var want: bool = not _rig.controller(HOST).get_rules().slide_enabled
+	_movement_is(not want, "before the flip")
+	_flip_movement_in_the_debug_menu(want)
+	await step_ticks(CROSS_TICKS)
+	assert_true(_rig.sessions[1].lobby.get_rules().slide_enabled == want, "the client holds the host's rules as edited")
+	_movement_is(want, "after the flip")
+	_flip_movement_in_the_debug_menu(not want)
+	await step_ticks(CROSS_TICKS)
+	_movement_is(not want, "after it is flipped back")
+
+
+## The same line carries every rule: the run speed a client's own body predicts with follows the host's edit.
+func test_the_hosts_mid_match_run_speed_edit_reaches_a_clients_bodies() -> void:
+	if not await _start_round(2, MARBLE, 1):
+		return
 	var host: MatchController = _rig.controller(HOST)
-	var rules: MatchRules = host.get_rules()
-	var want: bool = not rules.slide_enabled
-	# What the debug menu's two toggles do.
-	rules.slide_enabled = want
-	rules.crouch_enabled = want
-	host.debug_refresh_movement()
-	await step_ticks(CROSS_TICKS * 2)
-	assert_eq_int(int(_rig.body(HOST, _slot).slide_enabled), int(want), "the host's copy of the client's body takes the flip")
-	var mine: PlayerController = _rig.body(1, _slot)
-	if mine.slide_enabled != want or mine.crouch_enabled != want:
-		skip("KNOWN GAP (decision 255): the host's mid-match crouch/slide flip does not reach a client's own body until the next match")
+	var shipped: float = host.get_rules().runner_speed_multiplier
+	var faster: float = shipped + 0.5
+	# What the debug menu's Run speed slider does.
+	host.get_rules().runner_speed_multiplier = faster
+	host.debug_refresh_pace()
+	host.rules_edited.emit()
+	await step_ticks(CROSS_TICKS)
+	for peer: int in _rig.peer_count():
+		assert_almost_eq(
+			_rig.sessions[peer].lobby.get_rules().runner_speed_multiplier, faster, 0.001,
+			"peer %d holds the host's rules as edited" % peer,
+		)
+		for who: MatchParticipant in _rig.controller(peer).get_participants():
+			if who.is_running and not who.is_ghost:
+				assert_almost_eq(who.body.run_speed_scale, faster, 0.001, "peer %d, slot %d runs at the edited speed" % [peer, who.index])
+	# The scene's rules are one cached resource: the next test starts from the shipped number.
+	host.get_rules().runner_speed_multiplier = shipped
+
+
+func test_a_machine_that_binds_after_the_hosts_flip_runs_by_it() -> void:
+	if not await _start_round(3, MARBLE, 1, [2]):
+		return
+	var want: bool = not _rig.controller(HOST).get_rules().slide_enabled
+	_flip_movement_in_the_debug_menu(want)
+	await step_ticks(CROSS_TICKS)
+	if not await _rig.bind_late(2):
+		fail("the late machine never bound")
+		return
+	await step_ticks(CROSS_TICKS)
+	# The late machine's own word of the rules: its lobby's copy, which its scene read as it stood up.
+	var told: MatchRules = _rig.sessions[2].lobby.get_rules()
+	assert_true(told.slide_enabled == want and told.crouch_enabled == want, "the late machine's lobby holds the host's rules as edited")
+	_movement_is(want, "on a machine that bound after the flip")
 
 
 # --- PT2-05: what camo is for, in the shipped scene with the AI in the tower ---

@@ -646,15 +646,24 @@ func is_emote_alt() -> bool:
 	return _emote_alt if net_emote < 0 else net_emote == 2
 
 
-## The emote key toggles it on the floor; any move, jump, slide, crouch or leaving the floor ends it.
+## The emote this body is in: 0 none, 1, 2 with the alternate object.
+func get_emote_state() -> int:
+	return (2 if is_emote_alt() else 1) if is_emoting() else 0
+
+
 ## The authority's word on this body's emote, for a prediction being put right.
 func set_emote_state(emoting: bool, alt: bool) -> void:
 	_emoting = emoting
 	_emote_alt = alt
 
 
+## The emote key toggles it on the floor; any move, jump, slide, crouch or leaving the floor ends it.
+## [member MoveIntent.emote_state] sets it outright: an owner on the wire ran the toggle itself.
 func _update_emote(on_floor: bool) -> void:
-	if _intent.emote_pressed or _intent.emote_alt_pressed:
+	if _intent.emote_state >= 0:
+		_emoting = _intent.emote_state > 0
+		_emote_alt = _intent.emote_state == 2
+	elif _intent.emote_pressed or _intent.emote_alt_pressed:
 		var alt: bool = _intent.emote_alt_pressed
 		_emoting = not (_emoting and _emote_alt == alt)
 		_emote_alt = alt

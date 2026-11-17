@@ -127,9 +127,7 @@ func test_a_predicted_power_never_flickers_at_80ms() -> void:
 func test_one_tick_keys_pressed_inside_a_blackout_arrive_as_one_edge() -> void:
 	if not await stand_up(0.0, 1):
 		return
-	var keys: Array[StringName] = [
-		&"cook_pressed", &"shove_pressed", &"emote_pressed", &"emote_alt_pressed",
-	]
+	var keys: Array[StringName] = [&"cook_pressed", &"shove_pressed"]
 	for key: StringName in keys:
 		await step_ticks(1)
 		var dropped_before: int = a_wire.dropped
@@ -148,10 +146,11 @@ func test_one_tick_keys_pressed_inside_a_blackout_arrive_as_one_edge() -> void:
 func test_emote_alt_is_one_edge_on_a_clean_line() -> void:
 	if not await stand_up():
 		return
-	await step_ticks(1)
+	# At rest on the floor, so the tap is an emote A's own body takes.
+	await step_ticks(30)
 	a_keys.tap(&"emote_alt_pressed")
-	var edges: int = await _count_ticks_set(&"emote_alt_pressed", 60)
-	assert_eq_int(edges, 1, "one N press: ticks the host's body read it in the next 60")
+	var edges: int = await _count_ticks_emote_told(60)
+	assert_eq_int(edges, 1, "one N press: ticks the host's body was told its emote in the next 60")
 
 
 func test_power_slot_is_one_edge_on_a_clean_line() -> void:
@@ -166,7 +165,7 @@ func test_power_slot_is_one_edge_on_a_clean_line() -> void:
 func test_emote_alt_is_one_edge_when_no_packet_follows_it() -> void:
 	var edges: int = await _edges_when_the_line_goes_quiet(&"emote_alt_pressed")
 	if edges >= 0:
-		assert_eq_int(edges, 1, "one N press, then silence: ticks the host's body read it")
+		assert_eq_int(edges, 1, "one N press, then silence: ticks the host's body was told its emote")
 
 
 func test_power_slot_is_one_edge_when_no_packet_follows_it() -> void:
@@ -271,7 +270,7 @@ func _finish(which: int) -> void:
 func _edges_when_the_line_goes_quiet(flag: StringName) -> int:
 	if not await stand_up(0.0, 1):
 		return -1
-	await step_ticks(1)
+	await step_ticks(30)
 	if flag == &"ability_slot":
 		# Refused on the host, so nothing but the key itself can stop a second read.
 		power_of(host_links, A_SEAT).rules = null
@@ -281,7 +280,20 @@ func _edges_when_the_line_goes_quiet(flag: StringName) -> int:
 	await step_ticks(1)
 	@warning_ignore("missing_await")
 	black_out(a_wire, 8)
+	if flag == &"emote_alt_pressed":
+		return await _count_ticks_emote_told(30)
 	return await _count_ticks_set(flag, 30)
+
+
+## How many of the next [param ticks] ticks the host's copy of A's body was told where its emote stands.
+func _count_ticks_emote_told(ticks: int) -> int:
+	var body: PlayerController = body_of(host_links, A_SEAT)
+	var seen: int = 0
+	for _tick: int in ticks:
+		await step_ticks(1)
+		if body.get_intent().emote_state >= 0:
+			seen += 1
+	return seen
 
 
 ## How many of the next [param ticks] ticks the host's copy of A's body read [param flag] as set.
