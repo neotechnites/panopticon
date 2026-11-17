@@ -9,14 +9,15 @@
 # C:\Users\ddd\Desktop\panopticon-builds\<version>\panopticon-win.zip. macOS
 # exports headless here into build/<version>/panopticon-mac.zip. Each build is
 # smoke-run headless and a row goes to the pod DB `builds` table.
+# PC_WORKTREE= and PC_OUT_ROOT= move the PC scratch worktree and the output folder.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PC_HOST=panopticon-pc
 PC_GODOT='C:\tools\godot\godot.exe'
-PC_WORKTREE='C:\dev\verify'
+PC_WORKTREE="${PC_WORKTREE:-C:\\dev\\verify}"
 PC_PLAY='C:\dev\panopticon'
-PC_OUT_ROOT='C:\Users\ddd\Desktop\panopticon-builds'
+PC_OUT_ROOT="${PC_OUT_ROOT:-C:\\Users\\ddd\\Desktop\\panopticon-builds}"
 POD_DB="${PANOPTICON_POD_DB:-$HOME/Documents/senate/domains/panopticon/data/panopticon.db}"
 GODOT="${GODOT:-$(command -v godot || true)}"
 ENGINE="$(cat .godot-version)"                       # 4.7.2.stable.official.ed1daf0bf
