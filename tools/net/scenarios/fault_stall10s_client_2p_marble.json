@@ -18,5 +18,14 @@
    "stall-at": 15,
    "stall-ms": 10000
   }
+ },
+ "expect": {
+  "host": [
+   "SEAT seat=s1 occupancy=BOT"
+  ],
+  "host_lost": "in-match",
+  "seat_to_bot": [
+   1
+  ]
  }
 }

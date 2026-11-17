@@ -10,6 +10,8 @@ extends Node
 ## Match settings, wire faults, quitting and the scripted human are [constant SessionProbe.OPTIONS].
 
 const SCREEN_SCENE: String = "res://ui/multiplayer_screen.tscn"
+## The longest the host waits, past its own hub seconds, for the clients to finish theirs and go.
+const HOST_LINGER_SECONDS: float = 8.0
 
 var _o: Dictionary = {}
 var _probe: SessionProbe = null
@@ -165,7 +167,9 @@ func _on_match_started() -> void:
 func _in_hub(scene: Node, now: int, elapsed: float) -> void:
 	var in_hub: float = float(now - _scene_ms) / 1000.0
 	if _matches_done >= int(_o.matches):
-		if in_hub > float(_o.hub_seconds):
+		# The host leaves last: a client still counting its own hub seconds must not lose it first.
+		var alone: bool = not _is_server() or _humans() <= 1 or in_hub > float(_o.hub_seconds) + HOST_LINGER_SECONDS
+		if in_hub > float(_o.hub_seconds) and alone:
 			_finish(0, "flow-complete")
 		return
 	if not _is_server():

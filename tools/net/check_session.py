@@ -46,6 +46,8 @@ POSITION_TOLERANCE = 2.5
 POSITION_WINDOW = 0.75
 SUSTAIN_SAMPLES = 3
 PRESS_WINDOW = 1.5
+# Seconds after a press in which a host-side change of round, phase or role still got there first.
+PRESS_CROSSING = 0.15
 WORLD_HIDDEN_GRACE = 8.0
 STUCK_SECONDS = 15.0
 STUCK_METRES = 1.0
@@ -350,10 +352,20 @@ def events_of(peer: Peer) -> dict[str, list[tuple[tuple, Line]]]:
     return by_epoch
 
 
+def dropped_at(host: Peer, client: Peer) -> float:
+    """When the host gave this client's seat to nobody or to a bot: from then on it is sent nothing."""
+    seat = next((l.kv.get("local_seat") for l in client.lines if l.tag == "MATCH" and l.rest.startswith("bound")), None)
+    seated = next((l.w for l in host.lines if l.tag == "SEAT" and l.kv.get("seat") == seat and l.kv.get("occupancy") == "HUMAN"
+                   and l.w > client.first_w), float("inf"))
+    return next((l.w for l in host.lines if l.tag == "SEAT" and l.kv.get("seat") == seat and l.kv.get("occupancy") != "HUMAN"
+                 and l.w > seated), float("inf"))
+
+
 def check_events(host: Peer, clients: list[Peer], v: Verdict, slack: float) -> None:
     host_events = events_of(host)
     for client in clients:
         bound = bound_times(client)
+        sent_until = dropped_at(host, client)
         for epoch, mine in events_of(client).items():
             theirs = host_events.get(epoch, [])
             start = bound.get(epoch, client.first_w)
@@ -362,6 +374,7 @@ def check_events(host: Peer, clients: list[Peer], v: Verdict, slack: float) -> N
             keys = [k for k, _ in kept]
             host_keys = [k for k, _ in theirs]
             scene_end = next((l.w for l in client.lines if l.tag in ("SCENE", "END", "QUIT") and l.w > start), client.last_w)
+            scene_end = min(scene_end, sent_until)
             required = {i for i, (_, l) in enumerate(theirs) if start + slack < l.w < scene_end - slack}
             ok = False
             for offset in range(0, len(host_keys) - len(keys) + 1):
@@ -624,13 +637,27 @@ def check_presentation(host: Peer, clients: list[Peer], v: Verdict, lag: float, 
 
 
 def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, scenario: dict) -> dict:
-    stats: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+    stats: dict[str, list[int]] = defaultdict(lambda: [0, 0, 0])
     powers = host.tagged("POWER")
     emotes = host.tagged("EMOTE")
     cats = host.tagged("CATHOST")
     rules = [l for l in host.tagged("MATCH") if l.rest.startswith("rules")]
     window = PRESS_WINDOW + 2.0 * lag
     valid_by_peer: dict[int, int] = defaultdict(int)
+    states = host.tagged("STATE")
+    roles = host.tagged("ROLE")
+
+    def turns(seat: str, lo: float, hi: float) -> list[Line]:
+        """The host's changes of round or phase, and of what this seat is, inside the stretch."""
+        return [l for l in states + roles if lo <= l.w <= hi and (l.tag == "STATE" or l.kv.get("seat") == seat)]
+
+    def crossed(peer: Peer, press: Line, seat: str) -> bool:
+        """The host turned the round or the seat about the time of the press, and this machine pressed before it saw so."""
+        for change in turns(seat, press.w - lag - 0.5, press.w + lag + PRESS_CROSSING):
+            seen = next((l.w for l in peer.lines if l.tag == change.tag and l.rest == change.rest and l.w >= change.w - 0.05), None)
+            if seen is None or seen > press.w:
+                return True
+        return False
     for peer in peers:
         releases = peer.tagged("RELEASE")
         for press in peer.tagged("PRESS"):
@@ -644,6 +671,10 @@ def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, 
                 continue
             valid_by_peer[peer.index] += 1
             if key in ("f", "j") or press.w > host.last_w - window or quiet(press.w):
+                continue
+            if crossed(peer, press, seat):
+                # The body the key was pressed for was already another round's, or dead, on the host.
+                stats[key][2] += 1
                 continue
             lo, hi = press.w - 0.3, press.w + window
             ok = True
@@ -661,8 +692,8 @@ def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, 
                     off = next((l for l in powers if l.kv.get("seat") == seat and l.w > on.w), None)
                     held = (release.w - press.w) if release else 0.0
                     ran = (off.w - on.w) if off else host.last_w - on.w
-                    cut = any(on.w <= l.w <= on.w + ran + 0.1 for l in host.tagged("STATE"))
-                    # A round or phase change inside the hold ends the lock by rule.
+                    # A round or phase change inside the hold ends the lock by rule; so does the seat dying in it.
+                    cut = bool(turns(seat, on.w, on.w + ran + 0.1))
                     if held >= 1.0 and ran < min(held, 5.0) - 0.6 and not cut:
                         v.fail("press", peer.name, f"armor lock held {held:.1f} s ran only {ran:.1f} s on the host", host.ref(on))
             elif key in "bn":
@@ -681,7 +712,7 @@ def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, 
         if valid_by_peer[int(index)] < int(least):
             v.fail("press", peers[int(index)].name if int(index) < len(peers) else f"peer{index}",
                    f"{valid_by_peer[int(index)]} usable key press(es), {least} expected: the scenario tested nothing here")
-    return {k: {"pressed": a, "ran": b} for k, (a, b) in stats.items()}
+    return {k: {"pressed": a, "ran": b, "crossed": c} for k, (a, b, c) in stats.items()}
 
 
 def check_role_powers(host: Peer, v: Verdict) -> None:

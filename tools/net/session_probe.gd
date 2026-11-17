@@ -56,6 +56,7 @@ var _result_showing: bool = false
 var _quit_done: bool = false
 var _cats_seen: Dictionary[int, Array] = {}
 var _broke: bool = false
+var _trigger_due: bool = false
 
 
 func _init() -> void:
@@ -203,6 +204,7 @@ func _process(_delta: float) -> void:
 	if not is_instance_valid(controller):
 		return
 	_install_actor()
+	_pull_host_trigger()
 	_break()
 	_watch_state()
 	_watch_bodies()
@@ -387,7 +389,16 @@ func _on_trigger_pulled() -> void:
 	var mine: MatchParticipant = controller.get_human_participant()
 	var aimed: MatchParticipant = actor.get_aimed()
 	line("TRIGGER seat=%s guard=%d aimed=%s" % [_seat_of(mine), int(mine != null and mine.is_shooter), _seat_of(aimed)])
-	if session.is_authority() and mine != null and mine == controller.get_seat_participant() and controller.rifle != null:
+	# On the frame after the tick, where WeaponInput reads the button: the view the pull was made on has landed.
+	_trigger_due = session.is_authority()
+
+
+func _pull_host_trigger() -> void:
+	if not _trigger_due:
+		return
+	_trigger_due = false
+	var mine: MatchParticipant = controller.get_human_participant()
+	if mine != null and mine == controller.get_seat_participant() and controller.rifle != null:
 		controller.rifle.try_fire()
 
 

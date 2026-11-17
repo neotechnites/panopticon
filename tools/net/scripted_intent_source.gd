@@ -11,11 +11,14 @@ const KEY_ACTIONS: Dictionary[String, StringName] = {
 	"1": &"ability_1", "2": &"ability_2", "3": &"ability_3", "4": &"ability_4", "5": &"ability_5",
 	"q": &"ability", "e": &"interact", "f": &"shove", "b": &"emote", "n": &"emote_alt", "j": &"jump",
 }
+const POWER_KEYS: PackedStringArray = ["1", "2", "3", "4", "5", "q"]
 const BOT_PROFILE: String = "res://characters/bots/default_bot_profile.tres"
 const RUNNER_PROFILE: String = "res://characters/bots/default_runner_profile.tres"
 ## A deferred key gives up waiting for a valid moment after this long.
 const KEY_PATIENCE_SECONDS: float = 45.0
 const BRAWL_SHOVE_REST: float = 1.7
+## The view counts as on its target inside this many radians: the trigger waits for it, as a person's does.
+const AIM_SETTLED_RADIANS: float = 0.01
 
 ## Emitted on the tick this source pulls the trigger.
 signal trigger_pulled
@@ -62,6 +65,10 @@ var _aimed: MatchParticipant = null
 var _brawl_rest: float = 0.0
 var _walked: Dictionary[StringName, bool] = {}
 var _rest_ticks: int = 0
+var _optic: WeaponOptic = null
+var _posts: PackedVector3Array = PackedVector3Array()
+var _posts_middle: Vector3 = Vector3.ZERO
+var _post: int = -1
 
 
 func _ready() -> void:
@@ -85,6 +92,18 @@ func bind(controller: MatchController, local_body: PlayerController) -> void:
 	_human = body.get_node_or_null(^"HumanInput") as HumanIntentSource if body != null else null
 	if controller == null:
 		return
+	if not device_only and body != null:
+		# The scope answers this source, as it answers a bot's brain: headless has no captured mouse to hold.
+		_optic = body.get_node_or_null(^"Optic") as WeaponOptic
+		var zoom: ZoomInput = body.get_node_or_null(^"ZoomInput") as ZoomInput
+		if zoom != null:
+			zoom.set_active(false)
+	for node: Node in controller.get_tree().get_nodes_in_group(TowerShooter.POST_GROUP):
+		if node is Marker3D:
+			_posts.append((node as Marker3D).global_position)
+			_posts_middle += (node as Marker3D).global_position
+	if not _posts.is_empty():
+		_posts_middle /= float(_posts.size())
 	for sig: Signal in [controller.race_started, controller.round_started, controller.brawl_started]:
 		sig.connect(func() -> void: _rearm = true)
 	controller.ghost_respawned.connect(func(_p: MatchParticipant) -> void: _rearm = true)
@@ -144,6 +163,8 @@ func poll(delta: float) -> MoveIntent:
 			_play(me, delta)
 	if mode != Mode.PLAY and me != null and me.is_shooter:
 		_guard(me)
+	elif _optic != null and (me == null or not me.is_shooter):
+		_optic.set_zoomed(false)
 	if _elapsed < _still_until:
 		_intent.move_direction = Vector2.ZERO
 		_intent.jump_pressed = false
@@ -218,6 +239,10 @@ func _why_not(key: String, me: MatchParticipant) -> String:
 				return "unarmed"
 			if power.get_shown() != MatchRules.RunnerAbility.NONE:
 				return "busy-%d" % int(power.get_shown())
+			# One power at a time: a second power key in the tick of the first is ignored by the body.
+			for other: String in _down:
+				if other != key and POWER_KEYS.has(other):
+					return "busy-key-%s" % other
 			if power.get_cooldown_remaining() > 0.0:
 				return "cooldown"
 			if key == "q" and power.rules.runner_ability == MatchRules.RunnerAbility.NONE:
@@ -362,17 +387,61 @@ func _ensure_brain(me: MatchParticipant) -> void:
 func _guard(me: MatchParticipant) -> void:
 	_intent.move_direction = Vector2.ZERO
 	var want: Vector2 = _aim_view(me) if aim_enabled else Vector2.INF
+	var steady: bool = not aim_enabled
 	if want.is_finite():
 		var view: Vector2 = me.body.get_view_angles()
 		_intent.look_delta = Vector2(angle_difference(want.x, view.x), -(want.y - view.y))
-		_intent.aim_held = true
+		# Scope up, then the shot: from the hip the round goes anywhere in the rule's cone.
+		steady = _intent.look_delta.length() <= AIM_SETTLED_RADIANS and (_optic == null or _optic.is_fully_zoomed())
 	elif not aim_enabled:
 		_intent.look_delta = Vector2(yaw_rate * get_physics_process_delta_time(), 0.0)
-	if _next_fire > 0.0 and _elapsed >= _next_fire and (want.is_finite() or not aim_enabled):
+	if aim_enabled:
+		_intent.move_direction = _walk_to_post(me)
+		_intent.aim_held = want.is_finite()
+		if _optic != null:
+			_optic.set_zoomed(want.is_finite())
+	if _next_fire > 0.0 and _elapsed >= _next_fire and steady:
 		_intent.fire_pressed = true
 		_intent.fire_held = true
 		trigger_pulled.emit()
 		_next_fire = _elapsed + fire_every if fire_every > 0.0 else -1.0
+
+
+## Where a person stands to see the lane: the map's guard post nearest the bearing of a runner, if it has posts.
+func _walk_to_post(me: MatchParticipant) -> Vector2:
+	if _posts.is_empty():
+		return Vector2.ZERO
+	var here: Vector3 = me.body.global_position
+	var gaze: Vector3 = _aimed.body.global_position if _aimed != null and _aimed.body != null else Vector3.INF
+	if not gaze.is_finite():
+		# Nobody in sight from here: go and look where the nearest runner by bearing is.
+		var stand: Vector2 = _flat(_posts[_post] if _post >= 0 else here)
+		var least: float = INF
+		for p: MatchParticipant in match_controller.get_participants_ref():
+			if p != me and p.body != null and p.is_running and absf(stand.angle_to(_flat(p.body.global_position))) < least:
+				least = absf(stand.angle_to(_flat(p.body.global_position)))
+				gaze = p.body.global_position
+	if gaze.is_finite():
+		var held: float = absf(_flat(_posts[_post]).angle_to(_flat(gaze))) - TowerShooter.POST_SWITCH_HYSTERESIS if _post >= 0 else INF
+		for index: int in _posts.size():
+			var offset: float = absf(_flat(_posts[index]).angle_to(_flat(gaze)))
+			if offset < held:
+				held = offset
+				_post = index
+	if _post < 0:
+		return Vector2.ZERO
+	var away: Vector3 = _posts[_post] - here
+	away.y = 0.0
+	var distance: float = away.length()
+	if distance <= TowerShooter.POST_REACHED_METRES:
+		return Vector2.ZERO
+	var frame: Basis = me.body.global_transform.basis
+	return Vector2(away.dot(frame.x), -away.dot(frame.z)) / distance * minf(distance / TowerShooter.POST_EASE_METRES, 1.0)
+
+
+## [param point] on the ground plane, told from the middle of the posts.
+func _flat(point: Vector3) -> Vector2:
+	return Vector2(point.x - _posts_middle.x, point.z - _posts_middle.z)
 
 
 ## The view that puts this body's camera on the chest of the nearest running body it can see.
