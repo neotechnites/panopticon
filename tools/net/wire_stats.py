@@ -297,7 +297,29 @@ def _rate_allowance(rate: float, n: float, rho: float = 0.0) -> float:
     return max(RATE_BAND * rate, 3.0 * math.sqrt(max(rate * (1.0 - rate), 1e-9) * inflation / max(n, 1.0)), 0.01)
 
 
-RELAY_LINE = re.compile(r"RELAY link=(\d+) dir=(up|down) offered=(\d+) lost=(\d+) duplicated=(\d+) held=(\d+)")
+RELAY_LINE = re.compile(r"RELAY link=(\d+) dir=(up|down) offered=(\d+) lost=(\d+) duplicated=(\d+) held=(\d+)"
+                        r"(?: spells=(\d+) spell_ms=(\d+))?")
+# A bad spell is seen from the first send in it to the first send after it: this much on top of its length.
+SPELL_SAMPLING_MS = 20.0
+MIN_SPELLS = 5
+
+
+def check_spells(opts: dict, spells: int, spell_ms: float) -> list[str]:
+    """Burst size from the conditioner's own record of the bad spells it made, not from probes that sample
+    them. The mean of k exponential spells is the asked mean times chi-square(2k) / 2k: held to its
+    three-sigma quantiles (Wilson-Hilferty), which unlike a normal band are right in the short tail."""
+    burst, gap = _num(opts, "burst-ms"), _num(opts, "burst-gap-ms")
+    if burst <= 0.0 or gap <= 0.0:
+        return [f"made {spells} bad spells on a line asked for none"] if spells > 0 else []
+    if spells < MIN_SPELLS:
+        return [f"made only {spells} bad spells, too few to judge {burst:.0f} ms ones"]
+    mean = spell_ms / spells
+    nu = 2.0 * spells
+    low, high = (burst * (1.0 - 2.0 / (9.0 * nu) + z * math.sqrt(2.0 / (9.0 * nu))) ** 3 for z in (-3.0, 3.0))
+    if not low <= mean <= high + SPELL_SAMPLING_MS:
+        return [f"bad spells averaged {mean:.0f} ms over {spells}, asked {burst:.0f} ms "
+                f"(allowed {low:.0f}..{high + SPELL_SAMPLING_MS:.0f})"]
+    return []
 
 
 def check_relay(session: Path, scenario: dict) -> list[tuple[str, str]]:
@@ -310,7 +332,7 @@ def check_relay(session: Path, scenario: dict) -> list[tuple[str, str]]:
     for line in path.read_text(errors="replace").splitlines():
         m = RELAY_LINE.search(line)
         if m:
-            last[(int(m.group(1)), m.group(2))] = tuple(int(g) for g in m.groups()[2:])
+            last[(int(m.group(1)), m.group(2))] = tuple(int(g or 0) for g in m.groups()[2:])
     bad = []
     for link in range(1, int(scenario["peers"])):
         for direction in ("up", "down"):
@@ -319,7 +341,8 @@ def check_relay(session: Path, scenario: dict) -> list[tuple[str, str]]:
             if (link, direction) not in last:
                 bad.append((who, "no counters reported"))
                 continue
-            offered, lost, duplicated, held = last[(link, direction)]
+            offered, lost, duplicated, held, spells, spell_ms = last[(link, direction)]
+            bad += [(who, message) for message in check_spells(opts, spells, spell_ms)]
             if offered < MIN_SAMPLES:
                 continue
             copies = offered + duplicated
@@ -334,6 +357,24 @@ def check_relay(session: Path, scenario: dict) -> list[tuple[str, str]]:
     return bad
 
 
+def check_lossy_peers(scenario: dict, logs: dict[int, list]) -> list[tuple[str, str]]:
+    """Above ENet each conditioned peer reports its own conditioner's counters ("WIRE link"): burst
+    size is judged there, and a conditioned peer with no conditioner is caught outright."""
+    bad = []
+    for index in range(int(scenario.get("peers", 0))):
+        opts = peer_options(scenario, index)
+        if not conditioned(opts):
+            continue
+        reports = [l for l in logs.get(index, []) if l.tag == "WIRE" and l.rest.startswith("link ")]
+        if not reports:
+            bad.append((_label(index), "conditioned, yet no conditioner on its sends reported"))
+            continue
+        kv = reports[-1].kv
+        bad += [(_label(index), message) for message in check_spells(opts, int(kv.get("spells", 0)),
+                                                                     float(kv.get("spell_ms", 0)))]
+    return bad
+
+
 def check(session: Path, scenario: dict, logs: dict[int, list]) -> tuple[list[tuple[str, str]], dict]:
     """(peer label, message) for every way the wire did not do what the scenario asked, and the figures."""
     peers = int(scenario.get("peers", 0))
@@ -343,6 +384,8 @@ def check(session: Path, scenario: dict, logs: dict[int, list]) -> tuple[list[tu
     failures = []
     if any(peer_options(scenario, i).get("wire-layer", "peer") == "socket" for i in range(peers)):
         failures += check_relay(session, scenario)
+    else:
+        failures += check_lossy_peers(scenario, logs)
     for (sender, receiver), m in sorted(measured.items()):
         opts = peer_options(scenario, sender)
         if conditioned(opts):

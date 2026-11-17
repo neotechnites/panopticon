@@ -673,6 +673,11 @@ func _sample() -> void:
 				link.intent_received.connect(_on_intent_in)
 	line("WIRE sent=%d dropped=%d intents_in=%d snap_tick=%d" % [_lossy.sent if _lossy != null else -1,
 		_lossy.dropped if _lossy != null else -1, _intents_in, session.replicator.get_latest_tick()])
+	if _lossy != null:
+		var stats: Dictionary = _lossy.conditions.stats()
+		line("WIRE link offered=%d lost=%d duplicated=%d held=%d spells=%d spell_ms=%.0f" % [int(stats.get("offered", 0)),
+			int(stats.get("lost", 0)), int(stats.get("duplicated", 0)), int(stats.get("held", 0)),
+			int(stats.get("spells", 0)), float(stats.get("spell_ms", 0.0))])
 
 
 func _on_intent_in(_peer: int, _tick_number: int) -> void:

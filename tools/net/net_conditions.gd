@@ -49,6 +49,7 @@ var _stats: Dictionary[int, Dictionary] = {}
 class Link extends RefCounted:
 	var bad: bool = false
 	var bad_at: float = 0.0
+	var spell_start: float = 0.0
 	var jitter_z: float = 0.0
 	var jitter_at: float = -INF
 	var last_due: float = -INF
@@ -115,7 +116,7 @@ func push(path: int, reliable: bool, item: Variant, now_ms: float) -> int:
 	_count(path, "reliable" if reliable else "offered")
 	var kept: int = 0
 	for _copy: int in copies:
-		if not reliable and _lost(link, now_ms):
+		if not reliable and _lost(link, path, now_ms):
 			_count(path, "lost")
 			continue
 		_enqueue(link, path, reliable, item, now_ms)
@@ -151,7 +152,7 @@ func forget(path: int) -> void:
 
 
 ## Counters for one path, or every path summed for -1: offered, reliable, lost, duplicated, held,
-## delivered, delay_sum_ms, delay_sq_sum_ms, delay_max_ms.
+## delivered, spells and spell_ms (bad spells ended, and their length), delay_sum_ms, delay_sq_sum_ms, delay_max_ms.
 func stats(path: int = -1) -> Dictionary:
 	if path != -1:
 		return _stats.get(path, {}).duplicate()
@@ -164,15 +165,15 @@ func stats(path: int = -1) -> Dictionary:
 	return total
 
 
-func _lost(link: Link, now_ms: float) -> bool:
-	var chance: float = burst_loss if _bad_at(link, now_ms) else loss
+func _lost(link: Link, path: int, now_ms: float) -> bool:
+	var chance: float = burst_loss if _bad_at(link, path, now_ms) else loss
 	# One loss draw per unreliable copy, always: a seed replays the same drops when the rate changes.
 	return _rng_loss.randf() < chance
 
 
 ## The two-state link of Gilbert and Elliott in continuous time: exponential good and bad spells,
 ## advanced to [param now_ms] with the exact two-state transition probability.
-func _bad_at(link: Link, now_ms: float) -> bool:
+func _bad_at(link: Link, path: int, now_ms: float) -> bool:
 	if not has_bursts():
 		return false
 	var to_bad: float = 1.0 / burst_gap_ms
@@ -180,8 +181,15 @@ func _bad_at(link: Link, now_ms: float) -> bool:
 	var bad_share: float = to_bad / (to_bad + to_good)
 	var decay: float = exp(-(to_bad + to_good) * maxf(now_ms - link.bad_at, 0.0))
 	var p_bad: float = bad_share + (1.0 - bad_share) * decay if link.bad else bad_share * (1.0 - decay)
+	var was_bad: bool = link.bad
 	link.bad = _rng_link.randf() < p_bad
 	link.bad_at = now_ms
+	# The bad spells this link really made, as seen at its sends: what a burst setting is judged by.
+	if link.bad and not was_bad:
+		link.spell_start = now_ms
+	elif was_bad and not link.bad:
+		_count(path, "spells")
+		_count(path, "spell_ms", now_ms - link.spell_start)
 	return link.bad
 
 

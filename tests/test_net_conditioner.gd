@@ -249,6 +249,9 @@ func test_bursts_follow_the_gilbert_elliott_link_in_time() -> void:
 			_share(runs, 1.0, 1.5)])
 		assert_almost_eq(float(missing.size()) / count, 0.1, 0.02, "10%% lost at %.0f ms spacing" % spacing)
 		assert_almost_eq(_mean(runs), expected_run, expected_run * 0.15, "in runs a 100 ms spell makes at %.0f ms" % spacing)
+		var record: Dictionary = c.stats(1)
+		assert_almost_eq(float(record.get("spell_ms", 0.0)) / maxf(float(record.get("spells", 0.0)), 1.0), 100.0 + spacing * 0.5,
+			15.0, "its own record of bad spells: 100 ms each, seen to the next send, at %.0f ms" % spacing)
 		assert_almost_eq(_share(runs, 1.0, 1.5), 1.0 - stay, 0.05,
 			"geometric: the share of single losses at %.0f ms" % spacing)
 

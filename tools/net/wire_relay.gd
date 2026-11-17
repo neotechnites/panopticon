@@ -115,9 +115,9 @@ func _report() -> void:
 	for i: int in _links.size():
 		for direction: String in ["up", "down"]:
 			var stats: Dictionary = (_links[i].up if direction == "up" else _links[i].down).stats()
-			_line("RELAY link=%d dir=%s offered=%d lost=%d duplicated=%d held=%d" % [i + 1, direction,
-				int(stats.get("offered", 0)), int(stats.get("lost", 0)), int(stats.get("duplicated", 0)),
-				int(stats.get("held", 0))])
+			_line("RELAY link=%d dir=%s offered=%d lost=%d duplicated=%d held=%d spells=%d spell_ms=%.0f" % [i + 1,
+				direction, int(stats.get("offered", 0)), int(stats.get("lost", 0)), int(stats.get("duplicated", 0)),
+				int(stats.get("held", 0)), int(stats.get("spells", 0)), float(stats.get("spell_ms", 0.0))])
 
 
 func _line(text: String) -> void:
