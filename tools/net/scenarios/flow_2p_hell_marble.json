@@ -12,6 +12,7 @@
   "matches": 2,
   "ceiling": 200,
   "hub_seconds": 6,
+  "marksman": true,
   "limit": 500
  },
  "host": {

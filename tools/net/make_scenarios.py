@@ -46,15 +46,17 @@ def hub(name: str, peers: int, limit: int, tags: list[str], common: dict, host: 
 
 
 # --- A. The whole flow in one run, won on its own ------------------------------
+# A match between people ends when a guard clears the lane, so the people here can shoot ("marksman"):
+# everywhere else the scripted guard pulls the moment it sees somebody and mostly misses, and the rounds run on.
 for peers in (2, 3, 4):
     for order, maps in (("hell_marble", "bentham_ring,marble"), ("marble_hell", "marble,bentham_ring")):
         hub(f"flow_{peers}p_{order}", peers, 520, ["flow", "smoke"] if (peers, order) == (2, "hell_marble") else ["flow"],
-            {"maps": maps, "matches": 2, "ceiling": 200, "hub_seconds": 6},
+            {"maps": maps, "matches": 2, "ceiling": 200, "hub_seconds": 6, "marksman": True},
             host={"prisoners": 3, "rounds": 1},
             expect={"matches": 2, "natural_win": True,
                     "all": ["SCENE kind=hub", "EV match_won"], "host": ["EV round_started round=1"]})
 hub("flow_3p_hell_marble_rounds2", 3, 760, ["flow"],
-    {"maps": "bentham_ring,marble", "matches": 2, "ceiling": 330, "hub_seconds": 6},
+    {"maps": "bentham_ring,marble", "matches": 2, "ceiling": 330, "hub_seconds": 6, "marksman": True},
     host={"prisoners": 3, "rounds": 2},
     expect={"matches": 2, "natural_win": True, "host": ["EV round_started round=2"]})
 hub("flow_4p_hell_marble_keys", 4, 520, ["flow", "powers"],

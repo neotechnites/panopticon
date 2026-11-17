@@ -10,7 +10,7 @@ const OPTIONS: Dictionary = {
 	"prisoners": -1, "ability": -1, "rounds": -1, "lives": -1, "ghosts": "", "brawl": false,
 	"loss": 0.0, "delay-ms": 0, "stall-at": 0.0, "stall-ms": 0, "stall-match": 1,
 	"quit-at": -1.0, "quit-match": 1, "quit-mode": "leave", "host-lost-exit": 4.0,
-	"mode": "play", "aim": true, "fire-every": 2.6, "press-fire": 3.0, "pitch-rate": 0.0,
+	"mode": "play", "aim": true, "marksman": false, "fire-every": 2.6, "press-fire": 3.0, "pitch-rate": 0.0,
 	"keys": "", "hub-keys": "", "keys-wait": true, "sample": 0.5,
 	"break": "", "break-at": 10.0,
 }
@@ -357,6 +357,7 @@ func _install_actor() -> void:
 	actor.device_only = hub
 	actor.device_walk = hub and mode != "idle"
 	actor.aim_enabled = bool(o.aim)
+	actor.marksman = bool(o.marksman)
 	actor.fire_at = float(o["press-fire"])
 	actor.fire_every = float(o["fire-every"])
 	actor.pitch_rate = float(o["pitch-rate"])

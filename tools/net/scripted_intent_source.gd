@@ -38,6 +38,9 @@ var fire_at: float = 4.0
 var fire_every: float = 0.0
 ## Guard: turn the view onto the nearest running body in sight and fire only with one in sight.
 var aim_enabled: bool = false
+## Guard: play the tower as a person does, scope up and from a post with a line, and fire only once
+## the view has settled. Off, the guard turns to its target and pulls at once on the cadence.
+var marksman: bool = false
 ## Hold a key back until the body can act on it.
 var keys_wait: bool = true
 ## Not the body's source: only presses keys (and walks) on the device, from its own physics tick.
@@ -92,7 +95,7 @@ func bind(controller: MatchController, local_body: PlayerController) -> void:
 	_human = body.get_node_or_null(^"HumanInput") as HumanIntentSource if body != null else null
 	if controller == null:
 		return
-	if not device_only and body != null:
+	if marksman and not device_only and body != null:
 		# The scope answers this source, as it answers a bot's brain: headless has no captured mouse to hold.
 		_optic = body.get_node_or_null(^"Optic") as WeaponOptic
 		var zoom: ZoomInput = body.get_node_or_null(^"ZoomInput") as ZoomInput
@@ -387,17 +390,18 @@ func _ensure_brain(me: MatchParticipant) -> void:
 func _guard(me: MatchParticipant) -> void:
 	_intent.move_direction = Vector2.ZERO
 	var want: Vector2 = _aim_view(me) if aim_enabled else Vector2.INF
-	var steady: bool = not aim_enabled
+	var steady: bool = want.is_finite() or not aim_enabled
 	if want.is_finite():
 		var view: Vector2 = me.body.get_view_angles()
 		_intent.look_delta = Vector2(angle_difference(want.x, view.x), -(want.y - view.y))
-		# Scope up, then the shot: from the hip the round goes anywhere in the rule's cone.
-		steady = _intent.look_delta.length() <= AIM_SETTLED_RADIANS and (_optic == null or _optic.is_fully_zoomed())
+		_intent.aim_held = true
+		if marksman:
+			# Scope up, then the shot: from the hip the round goes anywhere in the rule's cone.
+			steady = _intent.look_delta.length() <= AIM_SETTLED_RADIANS and (_optic == null or _optic.is_fully_zoomed())
 	elif not aim_enabled:
 		_intent.look_delta = Vector2(yaw_rate * get_physics_process_delta_time(), 0.0)
-	if aim_enabled:
+	if marksman and aim_enabled:
 		_intent.move_direction = _walk_to_post(me)
-		_intent.aim_held = want.is_finite()
 		if _optic != null:
 			_optic.set_zoomed(want.is_finite())
 	if _next_fire > 0.0 and _elapsed >= _next_fire and steady:
