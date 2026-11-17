@@ -3667,10 +3667,11 @@ func _arm_tower_brain() -> void:
 	# human's round takes that return, and the prisoners still have to be told
 	# there is somebody up there. See [constant GUARD_GROUP].
 	_publish_the_seat()
-	if _mirror or _phase != Phase.ROUND or _seat == null or _seat.is_human():
+	if _mirror or _phase != Phase.ROUND or _seat == null or _seat.is_human() or _in_kill_beat():
 		# The opening race has no shooter, and a human in the tower is driven by
 		# the human. Either way every brain stays down: an AI that fought the
 		# player for their own look axis would be the worst bug in the game.
+		# Nor inside a kill beat: the seat holder is the one being thrown.
 		return
 
 	var shooter: TowerShooter = _tower_brain_of(_seat)
