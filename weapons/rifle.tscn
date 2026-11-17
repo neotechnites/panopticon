@@ -101,7 +101,8 @@ editor_description = "Drifts the aim in a slow figure eight while the scope is u
 script = ExtResource("8_rifle_sway")
 rifle = NodePath("..")
 
-[node name="Clearance" type="Node" parent="." node_paths=PackedStringArray("rifle")]
-editor_description = "Keeps the drawn rifle out of the world for whoever holds it: Recoil passes every pose it writes through here, and a barrel that would reach into a wall, a column or a body slides back toward the eye until the muzzle is clear. The shot is untouched (it is the eye's). Appended LAST for the reason Ads records."
+[node name="Clearance" type="Node" parent="." node_paths=PackedStringArray("rifle", "model")]
+editor_description = "Keeps the drawn rifle out of the world for whoever holds it: Recoil passes every pose it writes through here. When the gun's bounds would reach into a wall, a column or a body it slides back toward the eye at once, by at most MAX_SLIDE (stock at the shoulder), and eases back out once clear. The shot is untouched (it is the eye's). Appended LAST for the reason Ads records."
 script = ExtResource("9_rifle_clearance")
 rifle = NodePath("..")
+model = NodePath("../ViewModel/Model")
