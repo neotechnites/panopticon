@@ -702,7 +702,10 @@ def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, 
                 ok = any(l.kv.get("seat") == seat and l.kv.get("on") == "1" and l.kv.get("alt") == want_alt and lo <= l.w <= hi for l in emotes)
             elif key == "e":
                 what = "cook the cat"
-                ok = any(l.kv.get("seat") == seat and l.kv.get("cooking") == "1" and lo <= l.w <= hi for l in cats)
+                # Lit inside the window, or lit already (a shove threw it): either way the fuse the key asks for burns.
+                before = [l for l in cats if l.kv.get("seat") == seat and l.w < lo]
+                ok = (any(l.kv.get("seat") == seat and l.kv.get("cooking") == "1" and lo <= l.w <= hi for l in cats)
+                      or (bool(before) and before[-1].kv.get("held") == "1" and before[-1].kv.get("cooking") == "1"))
             stats[key][0] += 1
             if ok:
                 stats[key][1] += 1
