@@ -309,8 +309,8 @@ func _a_dropped_round_is_replayed_as_the_host_flew_it(map: StringName, clients: 
 	if not assert_true(rifle.is_travelling_shot(), "the guard's shot travels, so it has an arc to replay"):
 		return
 	var input: BotIntentSource = _input_of(guard_peer)
-	# Up and over the sill, so the round is in the air long enough to fall.
-	for _tick: int in 20:
+	# A little up and over the sill: in the air long enough to fall, and down onto the map before its range runs out.
+	for _tick: int in 8:
 		input.command.look_delta = Vector2(0.0, -0.01)
 		await step_ticks(1)
 	await step_ticks(CROSS_TICKS)
@@ -358,6 +358,10 @@ func _a_dropped_round_is_replayed_as_the_host_flew_it(map: StringName, clients: 
 		return
 	if not assert_ge(float(host_path.size()), 30.0, "the round was in the air long enough to drop"):
 		return
+	assert_lt(
+		host_path[0].distance_to(host_end[0]), rifle.profile.max_range - 5.0,
+		"the round met the map before its range ran out, so a replay has to be told where",
+	)
 	host_path.append(host_end[0])
 	var straight: Vector3 = host_path[0].lerp(host_end[0], 0.5)
 	assert_gt(_distance_to_path(straight, host_path), 1.0, "its flight is an arc, not the straight line to where it landed")
