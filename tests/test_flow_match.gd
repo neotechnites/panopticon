@@ -61,6 +61,26 @@ func _every_body_stands(peer: int) -> bool:
 	return true
 
 
+## The client's own seat wins the match: the client reads VICTORY and the host DEFEAT.
+func test_the_client_that_won_is_told_it_won() -> void:
+	if not await _play(1, 3):
+		return
+	assert_eq_int(_rig.local_slot(A), 1, "the client holds slot 1")
+	if not await _win(1):
+		return
+	assert_eq_string(_verdict(HOST), tr("RESULT_DEFEAT"), "the host lost, and is told so")
+	assert_eq_string(_verdict(A), tr("RESULT_VICTORY"), "the client won, and is told so")
+
+
+func test_the_client_that_lost_is_told_it_lost() -> void:
+	if not await _play(1, 3):
+		return
+	if not await _win(0):
+		return
+	assert_eq_string(_verdict(HOST), tr("RESULT_VICTORY"), "the host won, and is told so")
+	assert_eq_string(_verdict(A), tr("RESULT_DEFEAT"), "the client lost, and is told so")
+
+
 func test_a_rematch_starts_when_every_human_asked() -> void:
 	if not await _play(2, 3):
 		return

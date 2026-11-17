@@ -415,12 +415,9 @@ func _detail_text(winner: MatchParticipant) -> String:
 	return "\n".join(lines)
 
 
-## The human in the match, or null in an AI-only one.
+## This machine's own player, or null in an AI-only match.
 func _human_participant() -> MatchParticipant:
-	for participant: MatchParticipant in controller.get_participants():
-		if participant.is_human():
-			return participant
-	return null
+	return controller.get_human_participant()
 
 
 # --- The beat -----------------------------------------------------------------
