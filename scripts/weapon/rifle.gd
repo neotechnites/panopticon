@@ -284,9 +284,8 @@ var _charging: bool = false
 ## single-shot cycle unless the reload is shorter than the flight time.
 var _projectiles: Array[WeaponProjectile] = []
 
-## Server-side lag compensation (Source's): ticks behind the authority the shooter saw the
-## world, set by the net layer for a remote shooter's shot; its rays are then cast by
-## [member lag_trace] (space, ray query, ticks back) against the bodies as they stood then.
+## Lag compensation: ticks behind the authority a remote shooter saw the world, set for its shot;
+## its rays are cast by [member lag_trace] (space, ray query, ticks back) against bodies as they stood.
 var lag_ticks: int = 0
 var lag_trace: Callable
 

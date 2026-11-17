@@ -168,7 +168,7 @@ func test_a_trace_moves_no_body_and_no_ray_query() -> void:
 			PhysicsServer3D.body_get_state(body.get_rid(), PhysicsServer3D.BODY_STATE_TRANSFORM) == served[index],
 			"body %d is where it was for the physics server" % index,
 		)
-	# The same tick, with no restore in between: the live world is the live world.
+	# On the same tick the live world is the live world.
 	assert_same(_space().intersect_ray(_ray(_through(NOW))).get("collider"), _target, "a live ray meets it where it is")
 	assert_true(_space().intersect_ray(_ray(_through(THEN))).is_empty(), "and nothing where it was")
 	await step_ticks(3)

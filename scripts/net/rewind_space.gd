@@ -40,6 +40,7 @@ func place(seat: int, body: CollisionObject3D, origin: Vector3) -> void:
 		for index: int in body.shape_owner_get_shape_count(owner):
 			PhysicsServer3D.body_add_shape(stand_in, body.shape_owner_get_shape(owner, index).get_rid(), local, disabled)
 	PhysicsServer3D.body_attach_object_instance_id(stand_in, body.get_instance_id())
+	# Last: it is this call that puts the shapes just added in front of a ray.
 	PhysicsServer3D.body_set_collision_layer(stand_in, body.collision_layer)
 
 

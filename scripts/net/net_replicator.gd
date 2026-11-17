@@ -220,6 +220,8 @@ func bind_scene(scene: int) -> void:
 	if scene == _scene:
 		return
 	_scene = scene
+	# Where the last scene's bodies stood is not where this one's did.
+	_history_ticks.fill(-1)
 	if not _is_authority:
 		_clear_playback()
 
@@ -411,7 +413,7 @@ func get_lag_ticks(view_tick: int) -> int:
 func trace(space: PhysicsDirectSpaceState3D, query: PhysicsRayQueryParameters3D, back: int) -> Dictionary:
 	var then: int = _tick - back
 	var slot: int = posmod(then, HISTORY_TICKS)
-	if not _is_authority or back <= 0 or back >= HISTORY_TICKS or _history.is_empty() or _history_ticks[slot] != then:
+	if not _is_authority or back <= 0 or then < 0 or _history.is_empty() or _history_ticks[slot] != then:
 		return space.intersect_ray(query)
 	var live_exclude: Array[RID] = query.exclude
 	var exclude: Array[RID] = live_exclude.duplicate()
