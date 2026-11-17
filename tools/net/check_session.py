@@ -754,9 +754,11 @@ def check_expect(host: Peer, peers: list[Peer], gone: set[int], scenario: dict, 
             continue
         ended = next(l for l in peer.lines if l.tag == "SESSION")
         v.fail("dropped", peer.name, f"its session ended {host_end - peer.session_end:.0f} s before the host left", peer.ref(ended))
+    # Up to the first peer that finished by itself: what follows is teardown, not play.
+    first_end = min([l.w for p in peers for l in p.lines if l.tag in ("END", "QUIT")] or [host_end]) - 0.2
     for pattern in expect.get("never", []):
         for peer in peers:
-            hit = next((l for l in peer.lines if l.w < min(peer.session_end, host_end) and re.search(pattern, f"{l.tag} {l.rest}")), None)
+            hit = next((l for l in peer.lines if l.w < min(peer.session_end, first_end) and re.search(pattern, f"{l.tag} {l.rest}")), None)
             if hit is not None:
                 v.fail("expect", peer.name, f"line that must not appear: /{pattern}/", peer.ref(hit))
     if "matches" in expect:

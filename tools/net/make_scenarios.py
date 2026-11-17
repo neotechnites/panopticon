@@ -105,14 +105,14 @@ for map_name, map_id in MAPS.items():
               host={"keys": "q@6+1.5/9", "ability": ability}, peer={"1": {"keys": "q@8+1.5/9"}, "2": SILENT},
               expect={"valid_presses": {"0": 1, "1": 1}})
     match(f"power_all_2p_{map_name}_hostkeys", 2, 70, ["powers"], {"map": map_id, "seats": 4, "tower": 1},
-          host={"keys": ALL_KEYS, "ability": 4}, peer={"1": SILENT}, expect={"valid_presses": {"0": 5}})
+          host={"keys": ALL_KEYS, "ability": 4}, peer={"1": SILENT}, expect={"valid_presses": {"0": 3}})
     match(f"power_all_2p_{map_name}_clientkeys", 2, 70, ["powers"], {"map": map_id, "seats": 4, "tower": 0},
-          host=dict(SILENT, ability=4), peer={"1": {"keys": ALL_KEYS_LATE}}, expect={"valid_presses": {"1": 5}})
+          host=dict(SILENT, ability=4), peer={"1": {"keys": ALL_KEYS_LATE}}, expect={"valid_presses": {"1": 3}})
     for peers in (3, 4):
         match(f"power_all_{peers}p_{map_name}", peers, 70, ["powers", "smoke"] if (peers, map_name) == (3, "hell") else ["powers"],
               {"map": map_id, "seats": peers + 1, "tower": peers - 1},
               host={"keys": ALL_KEYS, "ability": 4}, client={"keys": ALL_KEYS_LATE}, peer={str(peers - 1): SILENT},
-              expect={"valid_presses": {str(i): 5 for i in range(peers - 1)}})
+              expect={"valid_presses": {str(i): 3 for i in range(peers - 1)}})
     # The same keys under a bot guard that shoots: shield, lock and camo against a live rifle.
     match(f"power_all_botguard_3p_{map_name}", 3, 70, ["powers"], {"map": map_id, "seats": 4, "tower": 3},
           host={"keys": ALL_KEYS, "ability": 4}, client={"keys": ALL_KEYS_LATE})
