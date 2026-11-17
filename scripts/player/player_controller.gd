@@ -268,6 +268,12 @@ var _headroom_shape: CapsuleShape3D = null
 var _headroom_query: PhysicsShapeQueryParameters3D = null
 
 
+## The match holds this body or lets it go; [param simulate] is whether this machine then runs it.
+func set_held(hold: bool, simulate: bool = true) -> void:
+	held = hold
+	set_physics_process(simulate and not hold)
+
+
 func _ready() -> void:
 	if profile == null:
 		push_error("PlayerController has no MovementProfile; the body cannot move.")
@@ -469,6 +475,10 @@ var net_emote: int = -1
 ## client's own. Written by [PlayerNetLink]; read by [MatchController], which
 ## otherwise runs no physics at all on a mirror.
 var net_predicted: bool = false
+
+## True while the match holds this body still: placed, dead or frozen. Written through
+## [method set_held]; [PlayerNetLink] reads it, so taking a role over never wakes a held body.
+var held: bool = false
 
 
 ## Where the VIEW is drawn relative to the body, in world space. The body is not

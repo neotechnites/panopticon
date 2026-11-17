@@ -327,7 +327,8 @@ func refresh_role() -> void:
 		reset_prediction()
 		_take_own_footing()
 
-	controller.set_physics_process(true)
+	# Whether the body runs is the match's word: a role taken over while it is held leaves it held.
+	controller.set_physics_process(not controller.held)
 	if _owns_locally():
 		controller.intent_source = local_source
 	else:

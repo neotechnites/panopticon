@@ -2805,7 +2805,7 @@ func _wake_ghost(participant: MatchParticipant) -> void:
 	)
 	body.collision_mask = participant.home_collision_mask
 	# A mirror simulates nothing -- except the one body it is predicting.
-	body.set_physics_process(not _mirror or body.net_predicted)
+	body.set_held(false, not _mirror or body.net_predicted)
 	body.revived.emit()
 
 
@@ -3475,7 +3475,7 @@ func _hold_body(participant: MatchParticipant) -> void:
 	body.velocity = Vector3.ZERO
 	body.collision_layer = 0
 	body.collision_mask = 0
-	body.set_physics_process(false)
+	body.set_held(true)
 	# Whoever is holding the body now owns waking it. A ghost settle still
 	# running would otherwise hand this body its GHOST collision back two frames
 	# into a round that has just placed it as a prisoner.
@@ -3566,7 +3566,7 @@ func _wake_body(participant: MatchParticipant) -> void:
 	body.collision_layer = participant.home_collision_layer
 	body.collision_mask = participant.home_collision_mask
 	# A mirror simulates nothing -- except the one body it is predicting.
-	body.set_physics_process(not _mirror or body.net_predicted)
+	body.set_held(false, not _mirror or body.net_predicted)
 	body.revived.emit()
 
 
@@ -3601,7 +3601,7 @@ func _park_body(participant: MatchParticipant) -> void:
 	_silence_brain(participant)
 	_silence_tower_brain(participant)
 	body.velocity = Vector3.ZERO
-	body.set_physics_process(false)
+	body.set_held(true)
 	body.remove_from_group(RUNNER_GROUP)
 	body.visible = false
 	body.collision_layer = 0
@@ -4319,7 +4319,7 @@ func _freeze_everyone() -> void:
 		participant.tracker.stop()
 		participant.respawn_hold_remaining = 0.0
 		participant.body.velocity = Vector3.ZERO
-		participant.body.set_physics_process(false)
+		participant.body.set_held(true)
 
 
 # --- Ring geometry ------------------------------------------------------------

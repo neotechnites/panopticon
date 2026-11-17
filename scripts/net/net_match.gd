@@ -600,12 +600,9 @@ func _on_seat_occupancy_changed(seat_index: int, occupancy: LobbySeat.Occupancy)
 	var slot: int = _slot_of_seat[seat_index]
 	var link: PlayerNetLink = _link_for_seat(seat_index)
 	if link != null:
-		# The match may be holding this body (dead, a kill beat, a settle); the handover must not wake it.
-		var simulated: bool = link.controller.is_physics_processing()
 		link.owner_peer_id = 0
 		link.local_source = link.controller.get_node_or_null(^"BotInput") as IntentSource
 		link.refresh_role()
-		link.controller.set_physics_process(simulated)
 	controller.net_seat_to_bot(slot)
 	# Deferred: this runs inside the leaving peer's disconnect signal.
 	_event.call_deferred(&"_ev_seat_to_bot", [slot])
