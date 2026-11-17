@@ -15,12 +15,15 @@ const BAD_LINE_DELAY_MS: int = 3
 var _rig: RefCounted = null
 var _cross: int = CROSS_TICKS
 var _bad_line: bool = false
+## The guard's round speed for the match, m/s; 0 leaves the shipped shot.
+var _shot_speed: float = 0.0
 
 
 func before_each() -> void:
 	_rig = Rig.new()
 	_cross = CROSS_TICKS
 	_bad_line = false
+	_shot_speed = 0.0
 
 
 func after_each() -> void:
@@ -40,6 +43,8 @@ func _start_round(clients: int = 1, seats: int = 3, guard_seat: int = 0, late: A
 		return false
 	# A finale kill must turn the round over, not end the match.
 	_rig.settings().rounds_to_win_match = 3
+	if _shot_speed > 0.0:
+		_rig.settings().guard_projectile_speed = _shot_speed
 	if not await _rig.launch(seats, guard_seat, late):
 		fail("the match never started on every peer")
 		return false
@@ -469,3 +474,78 @@ func test_a_body_shoved_in_the_hub_flops_on_every_peer() -> void:
 	await _watch_a_shove(0, 1)
 	await _watch_a_shove(1, 0)
 	await _watch_a_shove(2, 1)
+
+
+## Metres a client's replayed round may stray from the path the host's round flew.
+const ARC_TOLERANCE_METRES: float = 0.3
+
+
+func test_a_dropped_shot_lands_on_a_client_where_the_host_landed_it() -> void:
+	# The shipped shot is instant; the arc belongs to a match played with a travelling round.
+	_shot_speed = 60.0
+	if not await _start_round(2, 4):
+		return
+	var host: MatchController = _rig.controller(HOST)
+	TestFixtures.pin_the_field(host, null)
+	var rifle: Rifle = host.rifle
+	if not assert_true(rifle.is_travelling_shot(), "the guard's shot travels, so it has an arc to replay"):
+		return
+	# Out over the ring and a little up, so the round drops for most of a second before it lands.
+	var guard: PlayerController = _rig.body(HOST, 0)
+	guard.head.rotation.x = deg_to_rad(4.0)
+	await step_ticks(_cross)
+	var host_end: Array[Vector3] = []
+	var client_ends: Dictionary = {}
+	var landed: Callable = func(end_point: Vector3) -> void: host_end.append(end_point)
+	rifle.missed.connect(landed)
+	rifle.target_hit.connect(func(_c: Node3D, at: Vector3, _n: Vector3) -> void: host_end.append(at))
+	for peer: int in range(1, _rig.peer_count()):
+		var mirror_rifle: Rifle = _rig.controller(peer).rifle
+		client_ends[peer] = []
+		mirror_rifle.missed.connect(func(end_point: Vector3) -> void: client_ends[peer].append(end_point))
+		mirror_rifle.target_hit.connect(func(_c: Node3D, at: Vector3, _n: Vector3) -> void: client_ends[peer].append(at))
+	if not await _rig.wait_for(func() -> bool: return rifle.can_fire()):
+		fail("the host's rifle never came ready")
+		return
+	assert_true(rifle.try_fire(), "the host fires")
+	var host_path: PackedVector3Array = PackedVector3Array()
+	var client_paths: Dictionary = {}
+	for peer: int in range(1, _rig.peer_count()):
+		client_paths[peer] = PackedVector3Array()
+	var ticks: int = 0
+	while ticks < 600 and (host_end.is_empty() or client_ends[1].is_empty() or client_ends[2].is_empty()):
+		var flying: Array = rifle.get(&"_projectiles")
+		if not flying.is_empty() and is_instance_valid(flying[0]):
+			host_path.append((flying[0] as Node3D).global_position)
+		for peer: int in range(1, _rig.peer_count()):
+			var shown: Array = _rig.controller(peer).rifle.get(&"_visual_rounds")
+			# Only while the host's round is in the air: past its landing a replay flies on until it is told.
+			if host_end.is_empty() and not shown.is_empty() and is_instance_valid(shown[0]):
+				client_paths[peer].append((shown[0] as Node3D).global_position)
+		await step_ticks(1)
+		ticks += 1
+	if not assert_false(host_end.is_empty(), "the host's round landed"):
+		return
+	assert_gt(float(host_path.size()), 10.0, "the host's round was in the air long enough to drop")
+	host_path.append(host_end[0])
+	var straight: Vector3 = host_path[0].lerp(host_end[0], 0.5)
+	assert_gt(_distance_to_path(straight, host_path), 1.0, "and its flight is an arc, not the straight line to where it landed")
+	for peer: int in range(1, _rig.peer_count()):
+		if not assert_false(client_ends[peer].is_empty(), "peer %d is told where the round landed" % peer):
+			continue
+		assert_vec3_almost_eq(client_ends[peer][0], host_end[0], 0.001, "peer %d lands it where the host did" % peer)
+		var path: PackedVector3Array = client_paths[peer]
+		assert_gt(float(path.size()), 10.0, "peer %d drew the round in flight" % peer)
+		var worst: float = 0.0
+		for point: Vector3 in path:
+			worst = maxf(worst, _distance_to_path(point, host_path))
+		assert_le(worst, ARC_TOLERANCE_METRES, "peer %d's replayed round flies the host's arc" % peer)
+
+
+## Metres from [param point] to the polyline through [param path].
+func _distance_to_path(point: Vector3, path: PackedVector3Array) -> float:
+	var best: float = INF
+	for i: int in range(1, path.size()):
+		var closest: Vector3 = Geometry3D.get_closest_point_to_segment(point, path[i - 1], path[i])
+		best = minf(best, point.distance_to(closest))
+	return best
