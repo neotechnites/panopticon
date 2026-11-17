@@ -72,6 +72,9 @@ signal rules_changed()
 ## for a log or a disconnect message.
 signal join_refused(peer_id: int, reason: String)
 
+## Client: the host turned this machine away, and why. The session is left right after.
+signal refused(reason: Refusal)
+
 ## Where the lobby stands. The whole vocabulary; there is no sixth state hiding
 ## in a bool somewhere.
 enum Phase {
@@ -93,6 +96,19 @@ enum Phase {
 	POST_MATCH,
 }
 
+## Why a host turns a joiner away; the number that goes on the wire.
+enum Refusal {
+	## A match is running, and nobody joins one part-way.
+	IN_MATCH,
+	## Every seat holds a person.
+	FULL,
+	## The two builds do not speak the same game.
+	VERSION,
+}
+
+## Real seconds a refused peer has to hear why and leave before the host drops it.
+const REFUSAL_GRACE_SECONDS: float = 2.0
+
 ## Fewest occupants a match can start with. PANOPTICON is 1v1 at its smallest
 ## and a lone player in a tower has nothing to shoot, so two -- of which one
 ## may perfectly well be a bot.
@@ -106,6 +122,14 @@ const MIN_OCCUPANTS: int = 2
 ## order. Read freely; write through this class's methods, which is the only
 ## way the change reaches the other machines.
 var seats: Array[LobbySeat] = []
+
+static var _fingerprint: int = 0
+
+## What this build tells a host it speaks, and what a host holds a joiner to.
+var build_fingerprint: int = wire_fingerprint()
+
+## The name this machine asks to be seated under when it joins; set before [method NetSession.join].
+var local_name: String = ""
 
 var _phase: Phase = Phase.IDLE
 
@@ -130,6 +154,9 @@ var _epoch: int = 0
 ## [method conclude_match] for why the lobby keeps so little of a result.
 var _last_winning_seat: int = -1
 
+## Authority: the name each connected peer asked to join under. A peer absent here has not asked.
+var _asked: Dictionary[int, String] = {}
+
 ## Each peer's lobby-request allowance, and when it was last topped up, from
 ## [method Time.get_ticks_msec]. Wall clock: a flood arrives over a socket and
 ## the socket has not heard of the test runner's compressed time.
@@ -142,7 +169,7 @@ func _ready() -> void:
 	if session == null:
 		push_error("NetLobby has no session; it cannot seat anyone.")
 		return
-	session.peer_joined.connect(_on_peer_joined)
+	session.session_established.connect(_on_session_established)
 	session.peer_left.connect(_on_peer_left)
 	session.session_ended.connect(_on_session_ended)
 
@@ -186,6 +213,11 @@ func get_seat(seat_index: int) -> LobbySeat:
 	if seat_index < 0 or seat_index >= seats.size():
 		return null
 	return seats[seat_index]
+
+
+## Authority: whether [param peer_id] has asked to join since it connected.
+func has_asked(peer_id: int) -> bool:
+	return _asked.has(peer_id)
 
 
 ## The seat a peer is sitting in, or null. Never matches on 0: a peer id of
@@ -281,9 +313,8 @@ func describe() -> String:
 ## [method NetSession.is_authority] answers true for so neither needs a special
 ## case here.
 ##
-## Any peers already connected are seated too, which matters because
-## [signal NetSession.peer_joined] for a peer that arrived before this call has
-## already been and gone.
+## Any peers already connected are seated too: one that arrived before this
+## call has asked to join already, and is not asked again.
 func open(local_display_name: String) -> bool:
 	if not _is_authority():
 		return false
@@ -302,7 +333,9 @@ func open(local_display_name: String) -> bool:
 
 	for peer_id: int in session.get_peer_ids():
 		if peer_id != NetTransport.AUTHORITY_PEER_ID:
-			_seat_peer(peer_id)
+			var seat: LobbySeat = _seat_peer(peer_id)
+			if seat != null:
+				seat.display_name = _clean(_asked.get(peer_id, ""))
 
 	_set_phase(Phase.GATHERING)
 	_publish()
@@ -330,6 +363,8 @@ func set_rules(source: MatchRules) -> bool:
 ## any machine: a client whose host vanished calls this too, through
 ## [signal NetSession.session_ended].
 func close() -> void:
+	if not session.is_established():
+		_asked.clear()
 	_reset_seats()
 	_local_seat_index = -1
 	_epoch = 0
@@ -617,30 +652,88 @@ func return_to_lobby() -> bool:
 
 # --- Session events -----------------------------------------------------------
 
-func _on_peer_joined(peer_id: int) -> void:
+## A client says who it is the moment it is connected; the host seats nobody it has not heard from.
+func _on_session_established() -> void:
+	if not _is_authority():
+		rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_request_join", build_fingerprint, _clean(local_name))
+
+
+## One number for what two builds must share to play together: wire sizes, rule fields and maps.
+static func wire_fingerprint() -> int:
+	if _fingerprint != 0:
+		return _fingerprint
+	var parts: PackedStringArray = PackedStringArray([
+		str(NetCodec.INTENT_SIZE), str(NetCodec.SNAPSHOT_HEADER_SIZE), str(NetCodec.SNAPSHOT_BODY_SIZE),
+		str(NetCodec.ROSTER_HEADER_SIZE), str(NetCodec.ROSTER_SEAT_FIXED_SIZE),
+		str(NetCodec.GAMESTATE_HEADER), str(NetCodec.GAMESTATE_PARTICIPANT), str(NetCodec.DECOY_VERSION),
+	])
+	parts.append_array(NetCodec.rules_field_names(MatchRules.new()))
+	for map: MapDefinition in MapCatalog.all():
+		if map != null:
+			parts.append(String(map.id))
+	_fingerprint = hash("|".join(parts))
+	return _fingerprint
+
+
+## A connected peer asks for a seat: its build's fingerprint and the name it wants.
+@rpc("any_peer", "reliable", "call_remote", 0)
+func _request_join(fingerprint: int, display_name: String) -> void:
+	var peer_id: int = multiplayer.get_remote_sender_id()
 	if not _is_authority() or peer_id == NetTransport.AUTHORITY_PEER_ID:
 		return
-	if _phase == Phase.IDLE:
-		# A lobby nobody opened is a lobby that is not in charge of anything.
-		# A session is allowed to exist without one -- a tool, a test, a
-		# spectator path that has not been built yet -- and throwing a peer off
-		# because a dormant component has no seat for it would make the lobby
-		# mandatory by accident. When open() does run it seats whoever is
-		# already connected, so nothing is lost by waiting.
+	if not session.has_peer(peer_id) or _asked.has(peer_id):
 		return
-	if _phase != Phase.GATHERING:
-		join_refused.emit(peer_id, "The match has already started.")
-		session.kick_peer(peer_id)
+	_asked[peer_id] = display_name.substr(0, MAX_RAW_NAME_LENGTH)
+	if fingerprint != build_fingerprint:
+		_refuse(peer_id, Refusal.VERSION)
 		return
-	if _seat_peer(peer_id) == null:
-		join_refused.emit(peer_id, "The lobby is full.")
-		session.kick_peer(peer_id)
-		return
+	# A lobby nobody opened is in charge of nothing: open() seats whoever has asked by then.
+	if _phase != Phase.IDLE:
+		_admit(peer_id)
+
+
+## Seat a peer that asked to join under its name, or tell it why not.
+func _admit(peer_id: int) -> void:
+	var seat: LobbySeat = find_seat_by_peer(peer_id)
+	if seat == null:
+		if _phase != Phase.GATHERING:
+			_refuse(peer_id, Refusal.IN_MATCH)
+			return
+		seat = _seat_peer(peer_id)
+		if seat == null:
+			_refuse(peer_id, Refusal.FULL)
+			return
+	if _phase == Phase.GATHERING:
+		seat.display_name = _clean(_asked.get(peer_id, ""))
 	_publish()
 	_send_rules_to(peer_id)
 
 
+## Turn a peer away: it is told why, and dropped if it has not left by itself.
+func _refuse(peer_id: int, reason: Refusal) -> void:
+	join_refused.emit(peer_id, String(Refusal.keys()[reason]))
+	rpc_id(peer_id, &"_receive_refusal", int(reason))
+	get_tree().create_timer(REFUSAL_GRACE_SECONDS, true, false, true).timeout.connect(
+		_drop_refused.bind(peer_id)
+	)
+
+
+func _drop_refused(peer_id: int) -> void:
+	if session.has_peer(peer_id) and find_seat_by_peer(peer_id) == null:
+		session.kick_peer(peer_id)
+
+
+@rpc("authority", "reliable", "call_remote", 0)
+func _receive_refusal(reason: int) -> void:
+	if _is_authority() or reason < 0 or reason >= Refusal.size():
+		return
+	refused.emit(reason as Refusal)
+	# Deferred: this runs inside the socket's own poll.
+	session.leave.call_deferred()
+
+
 func _on_peer_left(peer_id: int) -> void:
+	_asked.erase(peer_id)
 	_request_tokens.erase(peer_id)
 	_request_filled_ms.erase(peer_id)
 	_launched.erase(peer_id)

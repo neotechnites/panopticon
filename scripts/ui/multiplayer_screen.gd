@@ -15,7 +15,7 @@ const RULES_PATH: String = "res://match/rules/default_match_rules.tres"
 const HUB_SCENE_PATH: String = "res://hub/hub.tscn"
 const CUSTOM_ID: int = -1
 
-## Walk into the hub as soon as the session is up, host and client alike.
+## Walk into the hub: the host as soon as the session is up, a client once the host has seated it.
 ##
 ## The hub IS the lobby now: this screen's panel is the host/join dialog and the
 ## few frames of handshake behind it, and the seat table it draws is drawn again
@@ -49,8 +49,11 @@ var _session: NetSession = null
 var _lobby: NetLobby = null
 var _rules: MatchRules = null
 var _syncing: bool = false
-var _named: bool = false
 var _launched: bool = false
+## The hub is loading for this machine's seat; asked for once.
+var _entering: bool = false
+## Why the host turned this machine away, shown until the next try.
+var _refusal: String = ""
 
 
 func _ready() -> void:
@@ -137,6 +140,8 @@ func join_game() -> Error:
 	ensure_session()
 	_store.settings.clamp_all()
 	var settings: GameSettings = _store.settings
+	_refusal = ""
+	_lobby.local_name = settings.player_name
 	var error: Error = _session.join(settings.join_address, settings.join_port)
 	_status.text = (
 		tr("MP_STATUS_JOINING").format({"address": settings.join_address, "port": settings.join_port})
@@ -209,7 +214,7 @@ func start_match() -> bool:
 func leave() -> void:
 	if _session != null:
 		_session.leave()
-	_named = false
+	_refusal = ""
 	_status.text = ""
 	_show_lobby(false)
 
@@ -264,11 +269,10 @@ func _bind_session(session: NetSession) -> void:
 	_lobby.roster_changed.connect(_render_roster)
 	_lobby.rules_changed.connect(_on_rules_changed)
 	_lobby.match_launching.connect(_on_launching)
-	_lobby.join_refused.connect(func(_peer: int, why: String) -> void: _status.text = why)
+	_lobby.refused.connect(_on_refused)
 
 
 func _on_established() -> void:
-	_named = false
 	if _session.is_authority():
 		_lobby.open(_store.settings.player_name)
 		_publish_rules()
@@ -279,7 +283,7 @@ func _on_established() -> void:
 	_show_lobby(true)
 	_render_roster()
 	_render_rules()
-	if enters_hub:
+	if enters_hub and _session.is_authority():
 		_enter_hub()
 
 
@@ -293,9 +297,23 @@ func _enter_hub() -> void:
 
 
 func _on_session_ended(failed: bool) -> void:
-	_status.text = tr("MP_STATUS_FAILED") if failed else tr("MP_STATUS_LEFT")
-	_named = false
+	if _refusal.is_empty():
+		_status.text = tr("MP_STATUS_FAILED") if failed else tr("MP_STATUS_LEFT")
+	else:
+		_status.text = _refusal
 	_show_lobby(false)
+
+
+## The host turned this machine away: say why, here on the join screen.
+func _on_refused(reason: NetLobby.Refusal) -> void:
+	match reason:
+		NetLobby.Refusal.IN_MATCH:
+			_refusal = tr("MP_REFUSED_IN_MATCH")
+		NetLobby.Refusal.FULL:
+			_refusal = tr("MP_REFUSED_FULL")
+		_:
+			_refusal = tr("MP_REFUSED_VERSION")
+	_status.text = _refusal
 
 
 func _on_launching() -> void:
@@ -431,9 +449,12 @@ func _render_roster() -> void:
 	if _lobby == null:
 		return
 	var local: LobbySeat = _lobby.get_local_seat()
-	if local != null and not _named and not is_host():
-		_named = true
-		_lobby.set_display_name(local.index, _store.settings.player_name)
+	if enters_hub and local != null and not is_host() and not _entering \
+			and _lobby.get_phase() == NetLobby.Phase.GATHERING:
+		# Seated by the host: only now is there a hub for this machine to stand in.
+		_entering = true
+		_enter_hub()
+		return
 	for child: Node in _player_list.get_children():
 		child.queue_free()
 	for seat: LobbySeat in _lobby.get_occupied_seats():
