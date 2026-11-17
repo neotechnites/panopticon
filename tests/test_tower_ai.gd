@@ -113,6 +113,26 @@ func test_no_shot_lands_inside_the_reaction_delay() -> void:
 	assert_eq_int(guard.get_state(), TowerShooter.State.ACQUIRING, "it is acquiring, not engaging")
 
 
+# --- The shot's own line -------------------------------------------------------
+
+## The guard holds a shot whose line, along its aim, meets a wall short of the target; a body on the line is no wall.
+func test_a_shot_whose_line_meets_a_wall_is_not_fired() -> void:
+	var guard: TowerShooter = _make_guard(Vector3(0.0, 0.0, 0.0), 0.5)
+	_wire_rifle(guard)
+	await step_ticks(3)
+	assert_true(bool(guard.call(&"_shot_line_is_clear", 20.0)), "an open line is clear")
+	var runner: PlayerController = _make_body(Vector3(0.0, 0.0, -10.0), MatchController.RUNNER_GROUP)
+	await step_ticks(2)
+	assert_true(bool(guard.call(&"_shot_line_is_clear", 20.0)), "a body on the line does not hold the shot")
+	runner.global_position = RETIRED_POINT
+	runner.set_physics_process(false)
+	var column: StaticBody3D = TestFixtures.make_box_body(Vector3(1.0, 6.0, 1.0), Vector3(0.0, 2.0, -5.0), "Column")
+	_world.add_child(column)
+	await step_ticks(2)
+	assert_false(bool(guard.call(&"_shot_line_is_clear", 20.0)), "a column across the aim holds the shot")
+	assert_true(bool(guard.call(&"_shot_line_is_clear", 3.0)), "a target nearer than the column is still shot at")
+
+
 # --- Lead error ---------------------------------------------------------------
 
 ## The lead misjudgement grows with the target's angular speed and shrinks with

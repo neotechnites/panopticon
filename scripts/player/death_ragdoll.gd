@@ -198,7 +198,7 @@ func flop(anchor: Node3D, throw: Vector3) -> void:
 	_tumble = 0.0
 	_spin = deg_to_rad(TUMBLE_DEG_PER_MPS) * flat.length() * flop_throw
 	# The limbs are left behind by the launch, by as much as they are limp.
-	# Capped: at a full shove the soft joints let limbs left 7 m/s behind stretch off the torso.
+	# Capped: limbs left far behind a full shove stretch off the torso.
 	var behind: Vector3 = (-throw * limp * flop_throw * 0.5).limit_length(FLOP_MOST_LAG)
 	for i: int in range(2, _bones.size()):
 		_bones[i].linear_velocity = throw + behind
@@ -377,14 +377,17 @@ func _meet_as_one(delta: float) -> void:
 		_face_ray.from = _bones[i].global_position
 		_face_ray.to = _face_ray.from + velocity / step * delta * (step + radius)
 		var hit: Dictionary = space.intersect_ray(_face_ray)
-		if not hit.is_empty():
+		if not hit.is_empty() and not hit["collider"] is CharacterBody3D:
 			_met.append(hit["position"])
 			_met.append(hit["normal"])
 	for at: int in range(0, _met.size(), 2):
 		var normal: Vector3 = _met[at + 1]
 		for i: int in _bones.size():
-			var room: float = (_bones[i].global_position - _met[at]).dot(normal) - float(PARTS[i][3])
-			var most: float = maxf(room / delta, MEET_MOST_SPEED)
+			var off: float = (_bones[i].global_position - _met[at]).dot(normal)
+			# Already past the face's plane (over a ledge, round a corner): that face is nothing to it.
+			if off < 0.0:
+				continue
+			var most: float = maxf((off - float(PARTS[i][3])) / delta, MEET_MOST_SPEED)
 			var closing: float = -_bones[i].linear_velocity.dot(normal)
 			if closing > most:
 				_bones[i].linear_velocity += normal * (closing - most)
@@ -593,7 +596,8 @@ class Part extends PhysicalBone3D:
 		face_ray.from = last_centre
 		face_ray.to = now.origin
 		var hit: Dictionary = state.get_space_state().intersect_ray(face_ray) # hot-ok: one ray a moving part, only while the body is limp
-		if not hit.is_empty():
+		# A body that walked in since is no face.
+		if not hit.is_empty() and not hit["collider"] is CharacterBody3D:
 			var normal: Vector3 = hit["normal"]
 			var on: Vector3 = hit["position"]
 			# Back to this side of the face, then on along it: a part dragged over the ground slides, never sticks.
