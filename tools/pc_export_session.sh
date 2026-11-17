@@ -5,6 +5,7 @@
 #
 # Each group is the driver's own --key=value list (see session_driver.gd); --role, --port and --name
 # are filled in. EXE= picks the build, PC_ROOT= the PC folder, PORT= the port. Logs come back to OUT=.
+# HARNESS= names the folder the build is copied to (a new name is a cold GPU driver shader cache).
 # KEEP=1 keeps the session folder, so each peer starts with the user data (shader cache) of the last run.
 set -euo pipefail
 [ $# -ge 4 ] || { sed -n 2,8p "$0" >&2; exit 2; }
@@ -33,7 +34,8 @@ for i, g in enumerate(groups):
     role = "server" if i == 0 else "client"
     named = [] if any(x.startswith("--name=") for x in g) else ["--name=" + ("Host" if i == 0 else "C%d" % i)]
     peers.append({"name": who, "args": ["--role=" + role, "--port=" + port] + named + g})
-build = exe.replace("/", "\\").split("\\")[-3]
+import os
+build = os.environ.get("HARNESS") or exe.replace("/", "\\").split("\\")[-3]
 json.dump({"exe": exe, "harness": root + "\\_harness\\" + build, "driver": root + "\\drv\\session_driver.gd", "out": root + "\\_logs\\" + name,
            "headless": mode == "headless", "timeout": int(timeout), "stagger": 1500, "peers": peers}, open(path, "w"))
 PY
