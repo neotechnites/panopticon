@@ -24,3 +24,23 @@ func test_leaving_a_session_does_not_rebuild_the_hub_being_left() -> void:
 	await step_ticks(10)
 	assert_eq_int(rebuilt[0], 0, "a closed lobby has no roster to stand bodies for")
 	assert_true(await until(func() -> bool: return ctrl(HOST).get_participants().size() == 1), "the host's hub drops the leaver")
+
+
+func test_a_joiner_arriving_leaves_everyone_standing_where_they_were() -> void:
+	if not await stand_up(0.0, 0, 2):
+		return
+	var host_spot: Vector3 = body(HOST, HOST).global_position + Vector3(3.0, 0.0, 2.0)
+	var a_spot: Vector3 = body(HOST, A).global_position + Vector3(-2.0, 0.0, 3.0)
+	body(HOST, HOST).global_position = host_spot
+	for machine: int in [HOST, A]:
+		body(machine, A).global_position = a_spot
+	await step_ticks(30)
+	host_spot = body(HOST, HOST).global_position
+	a_spot = body(HOST, A).global_position
+	if not await join_late(B):
+		return
+	assert_lt(flat_distance(body(HOST, HOST).global_position, host_spot), 0.5, "the host's body stayed put on the host")
+	assert_lt(flat_distance(body(HOST, A).global_position, a_spot), 0.5, "A's body stayed put on the host")
+	await step_ticks(30)
+	assert_lt(flat_distance(body(A, A).global_position, a_spot), 0.5, "and on A's own machine")
+	assert_lt(flat_distance(body(B, HOST).global_position, host_spot), 0.5, "and the joiner sees the host there")

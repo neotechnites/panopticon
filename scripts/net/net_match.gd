@@ -218,11 +218,16 @@ func get_session() -> NetSession:
 ## body is built per seat at bind time, so a roster that changed needs the set
 ## rebuilt rather than patched. It is cheap and it is total: every remote body
 ## and every link goes, the controller drops its roster, and the hub is armed
-## again, which stands everybody back on their spawn. Nothing is lost by that
-## because a hub holds no state worth keeping.
+## again. A seat that is still held keeps the place its body stood in.
 func rebuild_hub() -> void:
 	if not hub_mode or _lobby == null:
 		return
+	var places: Dictionary[int, Transform3D] = {}
+	var holders: Dictionary[int, int] = {}
+	for link: PlayerNetLink in _links:
+		if link.controller != null and link.controller.is_inside_tree():
+			places[link.seat_index] = link.controller.global_transform
+			holders[link.seat_index] = link.owner_peer_id
 	# Out of the tree BEFORE the free, not merely queued: queue_free defers, and
 	# a Link0 still holding the name when the new Link0 is added is renamed to
 	# Link0@2 -- which is a node path that resolves on nobody else's machine.
@@ -239,6 +244,9 @@ func rebuild_hub() -> void:
 	controller.release_roster()
 	_build_bodies()
 	controller.start_hub()
+	for link: PlayerNetLink in _links:
+		if holders.get(link.seat_index, -1) == link.owner_peer_id:
+			link.controller.global_transform = places[link.seat_index]
 
 
 ## The seats bodies are built for: every occupant in a match, and only the
