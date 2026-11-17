@@ -487,8 +487,16 @@ func _vote_rematch(peer: int) -> void:
 		return
 	_rematch_peers[peer] = true
 	_send_rematch_votes()
+	_tally_rematch()
+
+
+## Restart once every human whose match scene stands has asked. Counted on each vote and
+## again when a human leaves, so the one who had not asked cannot strand the rest by going.
+func _tally_rematch() -> void:
+	if not controller.is_match_over() or _rematch_peers.is_empty():
+		return
 	for seat: LobbySeat in _lobby.seats:
-		if seat.is_human() and seat.peer_id > 0 and not _rematch_peers.has(seat.peer_id):
+		if seat.is_human() and _has_scene(seat.peer_id) and not _rematch_peers.has(seat.peer_id):
 			return
 	_rematch_peers.clear()
 	_lobby.resume_match()
@@ -636,9 +644,11 @@ func _on_peer_launched(peer_id: int, _seat_index: int) -> void:
 
 ## A peer left before launching: the match no longer waits on it. Deferred,
 ## because this fires inside the leaving peer's disconnect.
-func _on_seat_vacated(_seat_index: int, _peer_id: int) -> void:
+func _on_seat_vacated(_seat_index: int, peer_id: int) -> void:
 	if _started:
 		_begin_if_launched.call_deferred()
+		_rematch_peers.erase(peer_id)
+		_tally_rematch.call_deferred()
 	elif _lobby.get_unlaunched_peers().is_empty():
 		_start_now.call_deferred()
 
