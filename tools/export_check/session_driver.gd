@@ -11,6 +11,7 @@ extends Node
 ## --program: steps split by ';'. '3h4' hold key 3 four seconds, '3t' tap, 'j' jump, 's' shove,
 ##   'e' interact, 'b'/'n' emotes, 'w1.5' wait. Loops for the whole session, hub included.
 ## --zap (host): the rifle's hit lands on every armor-locked body, every 0.6 s.
+## --stall=s freezes this process once, a second into every match; --load-stall overrides the net setting.
 ## --phase: seconds the program start is held back. --mute=false keeps the game's volume.
 
 const MENU_SCENE: String = "res://ui/main_menu.tscn"
@@ -53,6 +54,7 @@ var _next_shove: float = 0.0
 var _shove_turn: int = 0
 var _session_over: bool = false
 var _retries: int = 0
+var _stall_at_ms: int = 0
 var _zap_ms: int = 0
 var _flung_ms: Dictionary = {}
 var _trails: Dictionary = {}
@@ -67,7 +69,7 @@ func _ready() -> void:
 		"role": "server", "address": "127.0.0.1", "port": 27960, "name": "", "humans": 2,
 		"maps": "bentham_ring,marble", "loops": 1, "hub-seconds": 8.0, "match-seconds": 60.0,
 		"prisoners": 0, "guard": -2, "limit": 600.0, "act": "keys", "program": "", "phase": 0.0,
-		"mute": true, "fire-every": 1.2, "width": 0, "height": 0, "zap": false,
+		"mute": true, "fire-every": 1.2, "width": 0, "height": 0, "zap": false, "stall": 0.0, "load-stall": 0.0, "peer-timeout": 0.0,
 	})
 	_t0 = Time.get_ticks_msec()
 	_maps = String(_o.maps).split(",", false)
@@ -96,6 +98,23 @@ func _arguments(defaults: Dictionary) -> Dictionary:
 
 func _line(text: String) -> void:
 	print("DRV t=%.2f %s" % [(Time.get_ticks_msec() - _t0) / 1000.0, text])
+
+
+## The silence ceiling in force and each ENet peer's state and round trip, for reading a drop.
+func _wire() -> String:
+	if _session == null or _session.transport == null:
+		return ""
+	var text: String = ""
+	if _session.transport.has_method(&"get_silence_ceiling_seconds"):
+		text += " ceiling=%.0f" % float(_session.transport.call(&"get_silence_ceiling_seconds"))
+	var enet: ENetMultiplayerPeer = _session.multiplayer.multiplayer_peer as ENetMultiplayerPeer
+	if enet != null and enet.host != null:
+		for packet_peer: ENetPacketPeer in enet.host.get_peers():
+			text += " peer(state=%d rtt=%d last_rtt=%d loss=%d)" % [int(packet_peer.get_state()),
+				int(packet_peer.get_statistic(ENetPacketPeer.PEER_ROUND_TRIP_TIME)),
+				int(packet_peer.get_statistic(ENetPacketPeer.PEER_LAST_ROUND_TRIP_TIME)),
+				int(packet_peer.get_statistic(ENetPacketPeer.PEER_PACKET_LOSS))]
+	return text
 
 
 func _is_server() -> bool:
@@ -137,9 +156,13 @@ func _enter_multiplayer() -> void:
 	if not String(_o.name).is_empty():
 		_screen.set_player_name(String(_o.name))
 	_session = _screen.ensure_session()
+	if float(_o["load-stall"]) > 0.0:
+		_session.get_settings().set(&"load_stall_seconds", float(_o["load-stall"]))
+	if float(_o["peer-timeout"]) > 0.0:
+		_session.get_settings().peer_timeout_seconds = float(_o["peer-timeout"])
 	_lobby = _session.lobby
 	_session.session_ended.connect(func(failed: bool) -> void:
-		_line("SESSION ended failed=%s" % str(failed))
+		_line("SESSION ended failed=%s%s" % [str(failed), _wire()])
 		_session_over = true)
 	_lobby.roster_changed.connect(func() -> void: _line("ROSTER " + _lobby.describe().replace("\n", " | ")))
 	_lobby.phase_changed.connect(func(phase: NetLobby.Phase) -> void:
@@ -158,7 +181,7 @@ func _process(_delta: float) -> void:
 		return
 	var frame_ms: int = Time.get_ticks_msec()
 	if _last_frame_ms > 0 and frame_ms - _last_frame_ms > 250:
-		_line("HITCH %d ms scene=%s" % [frame_ms - _last_frame_ms, _scene.get_file()])
+		_line("HITCH %d ms scene=%s%s" % [frame_ms - _last_frame_ms, _scene.get_file(), _wire()])
 	_last_frame_ms = frame_ms
 	var scene_node: Node = get_tree().current_scene
 	var scene: String = scene_node.scene_file_path if scene_node != null else ""
@@ -190,6 +213,11 @@ func _process(_delta: float) -> void:
 		return
 	if scene_node == null:
 		return
+	if _stall_at_ms > 0 and Time.get_ticks_msec() >= _stall_at_ms:
+		# This whole process frozen once, the way a first-run shader compile freezes it.
+		_stall_at_ms = 0
+		_line("STALL %.1f s" % float(_o.stall))
+		OS.delay_msec(int(float(_o.stall) * 1000.0))
 	var net: NetMatch = scene_node.get_node_or_null(^"NetMatch") as NetMatch
 	if net != null:
 		_watch(scene_node, net)
@@ -210,6 +238,7 @@ func _on_scene(scene: String) -> void:
 		_starting = false
 	elif scene == MATCH_SCENE:
 		_matches_seen += 1
+		_stall_at_ms = Time.get_ticks_msec() + 1000 if float(_o.stall) > 0.0 else 0
 		_won = false
 		_result_ms = -1
 

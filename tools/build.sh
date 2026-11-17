@@ -134,7 +134,11 @@ if [ "$TARGET" != mac ]; then
   echo "== windows (via $PC_HOST, $PC_WORKTREE)"
   PLAY_BEFORE="$(pc "git -C $PC_PLAY status --porcelain" | tr -d '\r')"
   git push -q -f pc "HEAD:refs/heads/build"
-  pc "git -C $PC_WORKTREE checkout -q --detach refs/heads/build; git -C $PC_WORKTREE clean -fdq; git -C $PC_WORKTREE log --oneline -1" | tr -d '\r' | sed 's/^/  at    /'
+  # Forced: the last build's stamped project.godot and the uid files its import wrote would otherwise stop the
+  # checkout, and the export would be the OLD commit under the new version stamp.
+  pc "git -C $PC_WORKTREE checkout -q -f --detach refs/heads/build; git -C $PC_WORKTREE clean -fdq; git -C $PC_WORKTREE log --oneline -1" | tr -d '\r' | sed 's/^/  at    /'
+  PC_SHA="$(pc "git -C $PC_WORKTREE rev-parse HEAD" | tr -d '\r')"
+  [ "$PC_SHA" = "$(git rev-parse HEAD)" ] || die "PC worktree is at ${PC_SHA:-nothing}, not HEAD $(git rev-parse HEAD); refusing to export a stale build"
   scp -q tools/ci/export_presets.windows.cfg "$PC_HOST:$PC_WORKTREE\\export_presets.cfg"
   scp -q project.godot "$PC_HOST:$PC_WORKTREE\\project.godot"
   scp -q tools/ci/export_windows.ps1 "$PC_HOST:$PC_WORKTREE\\tools\\ci\\export_windows.ps1"
