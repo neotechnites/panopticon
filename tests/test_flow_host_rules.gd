@@ -24,7 +24,7 @@ func test_a_settings_apply_on_the_host_keeps_the_published_rules() -> void:
 	_session = (load(NetFixtures.SESSION_SCENE_PATH) as PackedScene).instantiate() as NetSession
 	_session.name = "NetSession"
 	_session.settings = NetFixtures.settings()
-	_session.level.follows = false
+	_session.flow.follows = false
 	get_tree().root.add_child(_session)
 	if await NetFixtures.host_and_wait(self, _session) < 0:
 		fail("the host could not take a port")

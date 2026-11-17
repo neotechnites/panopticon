@@ -102,7 +102,7 @@ func _stale_sends_are_quiet(peers: int, map: StringName) -> void:
 	await step_ticks(CROSS_TICKS)
 	for peer: int in range(1, peers):
 		assert_gt(float(_rig.net_match(peer).get_local_link().get_intent_tick()), 0.0, "client %d is still sending its input" % peer)
-		_rig.net_match(peer).request_rematch()
+		_rig.sessions[peer].flow.rematch()
 	await step_ticks(CROSS_TICKS)
 	replicator.snapshot_sent.disconnect(tally)
 	assert_eq_int(arrived[0], 0, "the host, with no scene, sends no snapshot of one")
@@ -123,9 +123,11 @@ func test_a_clients_rematch_request_is_a_vote_while_the_hosts_scene_stands() -> 
 	if not await _finish_a_match(2, &"bentham_ring"):
 		return
 	var host: MatchController = _rig.controller(HOST)
-	_rig.net_match(1).request_rematch()
+	var epoch: int = _rig.sessions[HOST].lobby.get_epoch()
+	_rig.sessions[1].flow.rematch()
 	await step_ticks(CROSS_TICKS)
-	assert_true(host.is_match_over(), "one of two votes does not restart it")
-	_rig.net_match(HOST).request_rematch()
-	var restarted: bool = await _rig.wait_for(func() -> bool: return not host.is_match_over())
-	assert_true(restarted, "the client's vote and the host's restart the match")
+	assert_eq_int(_rig.sessions[HOST].lobby.get_epoch(), epoch, "one of two votes does not relaunch it")
+	_rig.sessions[HOST].flow.rematch()
+	var restarted: bool = await _rig.wait_rematch(epoch)
+	assert_true(restarted, "the client's vote and the host's relaunch the match")
+	await step_ticks(CROSS_TICKS)

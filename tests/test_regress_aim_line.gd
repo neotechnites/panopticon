@@ -160,7 +160,8 @@ func _a_dead_line_is_told_to_everybody(map: StringName, clients: int) -> void:
 		1, DEAD_LINE_LIMIT_MS, func() -> bool: return host_session.get_peer_count() == clients
 	)
 	print("    the host let the dead line go after %d ms of silence" % silent_ms)
-	assert_ge(float(silent_ms), float(timeout_ms), "and not before the timeout: a hitching machine is still a player")
+	# Timed from the last keep-alive, which went out up to one beat before the machine stalled.
+	assert_ge(float(silent_ms), float(timeout_ms - NetSession.BEAT_MS), "and not before the timeout: a hitching machine is still a player")
 	await step_ticks(CROSS_TICKS * 2)
 	# The host: one peer fewer, the seat a bot's, and the bot plays the body.
 	assert_eq_int(host_session.get_peer_count(), clients, "the host has let the dead line go")
@@ -224,7 +225,8 @@ func _a_dead_host_is_given_up_at_the_timeout(map: StringName, clients: int) -> v
 	# It never wakes: a host that polls again finds every client gone in one read, and the engine logs each.
 	(_rig.sessions[HOST] as NetSession).leave()
 	print("    every client gave the dead host up after %d ms of silence" % silent_ms)
-	assert_ge(float(silent_ms), float(timeout_ms), "not before the timeout: a hitching host is still the host")
+	# Timed from the last keep-alive, which went out up to one beat before the host stalled.
+	assert_ge(float(silent_ms), float(timeout_ms - NetSession.BEAT_MS), "not before the timeout: a hitching host is still the host")
 	# Halfway to a load's allowance: ENet's own timer, which would end it without the watch, lands later still.
 	assert_lt(float(silent_ms), float(timeout_ms + load_ms) * 0.5, "and not as late as a host still loading is allowed")
 	await step_ticks(CROSS_TICKS)

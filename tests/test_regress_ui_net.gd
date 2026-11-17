@@ -190,11 +190,13 @@ func test_the_result_offers_rematch_to_everyone_and_the_hub_to_the_host_with_fou
 func _rematch_restarts_for_everyone(clients: int, matches: int) -> void:
 	if not await _start(clients, clients + 2):
 		return
-	for peer: int in _rig.peer_count():
-		_result(peer).headless_inert = false
 	MouseFocus.set_play_wants(true)
 	for played: int in matches:
 		var tag: String = "(rematch %d)" % (played + 1)
+		# Each rematch is a fresh match scene, with a fresh result screen.
+		for peer: int in _rig.peer_count():
+			_result(peer).headless_inert = false
+		var epoch: int = _rig.sessions[HOST].lobby.get_epoch()
 		if not await _end_match():
 			return
 		assert_true(MouseFocus.wanted_mode() == Input.MOUSE_MODE_VISIBLE, "the result shows the cursor %s" % tag)
@@ -211,11 +213,7 @@ func _rematch_restarts_for_everyone(clients: int, matches: int) -> void:
 				assert_true((_result(peer).get_node("%RematchVotes") as Label).visible, "peer %d is shown who asked %s" % [peer, tag])
 		_assert_pressable(_button(last, "RematchButton"), "the last voter's Rematch %s" % tag)
 		_button(last, "RematchButton").pressed.emit()
-		var restarted: bool = await _rig.wait_for(func() -> bool:
-			for peer: int in _rig.peer_count():
-				if _rig.controller(peer).is_match_over() or _result(peer).is_showing():
-					return false
-			return true)
+		var restarted: bool = await _rig.wait_rematch(epoch)
 		assert_true(restarted, "every peer left the result for the rematch %s" % tag)
 		if not restarted:
 			return
@@ -286,12 +284,9 @@ func test_a_rematch_goes_ahead_when_the_holdout_leaves() -> void:
 		_button(peer, "RematchButton").pressed.emit()
 	await step_ticks(CROSS_TICKS)
 	assert_true(_rig.controller(HOST).is_match_over(), "the match waits on the holdout")
+	var epoch: int = _rig.sessions[HOST].lobby.get_epoch()
 	_rig.sessions[holdout].leave()
-	var restarted: bool = await _rig.wait_for(func() -> bool:
-		for peer: int in holdout:
-			if _rig.controller(peer).is_match_over() or _result(peer).is_showing():
-				return false
-		return true)
+	var restarted: bool = await _rig.wait_rematch(epoch)
 	assert_true(restarted, "the rematch starts for those who asked once the holdout is gone")
 	if not restarted:
 		return
@@ -312,7 +307,7 @@ func _free_scenes() -> void:
 		_rig.matches[peer] = null
 
 
-## The match scene on every machine after a hub launch, as NetLevel loads it.
+## The match scene on every machine after a hub launch, as SessionFlow loads it.
 func _bind_matches() -> bool:
 	for peer: int in _rig.peer_count():
 		_rig.matches[peer] = _rig._bind(_rig.sessions[peer])
@@ -330,13 +325,13 @@ func _relaunch_with(bots: Variant, tower: int) -> bool:
 	settings.tower_seat_index = maxi(tower, 0)
 	HubLobby.relaunch_bot_seats = bots
 	HubLobby.relaunch_on_arrival = true
-	_rig.net_match(HOST).return_all_to_hub()
+	_rig.sessions[HOST].flow.everyone_to_hub()
 	if not await _lobbies_reach(NetLobby.Phase.GATHERING):
 		fail("not every lobby went back to gathering: %s" % [_phases()])
 		return false
 	_free_scenes()
 	_rig.bind_hubs()
-	if not await _lobbies_reach(NetLobby.Phase.LAUNCHING):
+	if not await _lobbies_reach(NetLobby.Phase.IN_MATCH):
 		fail("the hub did not relaunch the map for everyone: %s" % [_phases()])
 		return false
 	assert_false(HubLobby.relaunch_on_arrival, "the relaunch is spent")
@@ -615,31 +610,36 @@ func _free_scene(peer: int) -> void:
 	_rig.matches[peer] = null
 
 
+## Everyone to the hub: the clients' hubs stand before the host's, and are let in once it stands.
 func _a_client_back_in_the_hub_first_waits_quietly_and_is_let_in(clients: int) -> void:
 	if not await _start(clients, clients + 2):
 		return
 	if not await _end_match():
 		return
-	# Every client leaves for the hub; the host is still reading its result.
+	_rig.sessions[HOST].flow.everyone_to_hub()
+	assert_true(await _lobbies_reach(NetLobby.Phase.GATHERING), "every lobby is gathering again: %s" % [_phases()])
+	# Every client is in the hub; the host is still taking its match down.
+	var held: Dictionary[int, Vector3] = {}
 	for peer: int in range(1, _rig.peer_count()):
+		var old: PlayerNetLink = _rig.net_match(HOST).call(
+			"_link_for_seat", _rig.sessions[peer].lobby.get_local_seat_index()) as PlayerNetLink
+		if old != null:
+			held[peer] = old.controller.global_position
 		_free_scene(peer)
 		_bind_hub(peer)
-	await step_ticks(CROSS_TICKS)
-	var sent: Array[int] = []
-	for peer: int in range(1, _rig.peer_count()):
-		sent.append(_rig.sessions[peer].replicator.intent_tick)
 		_rig.drive(peer, Vector2(0.0, 1.0))
 	await step_ticks(CROSS_TICKS * 2)
+	assert_eq_int(held.size(), clients, "the host's old match has every client's body")
+	for peer: int in held:
+		var old: PlayerNetLink = _rig.net_match(HOST).call(
+			"_link_for_seat", _rig.sessions[peer].lobby.get_local_seat_index()) as PlayerNetLink
+		assert_lt(old.controller.global_position.distance_to(held[peer]), 0.05,
+			"the host's old match does not move client %d's body for its hub input" % peer)
 	for peer: int in range(1, _rig.peer_count()):
-		assert_eq_int(_rig.sessions[peer].replicator.intent_tick, sent[peer - 1],
-			"client %d sends no input for a hub the host is not in" % peer)
-	assert_true(_rig.controller(HOST).is_match_over(), "the host still holds its finished match")
-	assert_true(_result(HOST).is_showing(), "and its result")
-	assert_eq_int(int(_rig.sessions[HOST].lobby.get_phase()), int(NetLobby.Phase.POST_MATCH), "and its lobby is after the match")
+		assert_false(_rig.net_match(peer).get_local_link().is_predicting(), "client %d waits for the host's hub" % peer)
 	# The host follows: everybody stands in one hub and the clients can walk.
 	_free_scene(HOST)
 	_bind_hub(HOST)
-	assert_true(await _lobbies_reach(NetLobby.Phase.GATHERING), "every lobby is gathering again: %s" % [_phases()])
 	for peer: int in range(1, _rig.peer_count()):
 		var seat: int = _rig.sessions[peer].lobby.get_local_seat_index()
 		var world: Viewport = _rig.matches[peer].get_viewport()
@@ -683,9 +683,9 @@ func test_a_hub_that_has_left_the_tree_answers_no_late_client() -> void:
 	for link: Node in late.get_node("NetMatch").get_children():
 		if link is PlayerNetLink:
 			link.set_physics_process(false)
+	var client_id: int = _rig.sessions[1].multiplayer.get_unique_id()
 	var acknowledged: bool = await _rig.wait_for(func() -> bool:
-		var bound: Dictionary = _rig.sessions[HOST].lobby.get("_bound_epochs")
-		return bound.has(_rig.sessions[1].multiplayer.get_unique_id()))
+		return _rig.sessions[HOST].lobby.peer_state(client_id) == NetLobby.PeerState.STANDING)
 	assert_true(acknowledged, "the client's hub acknowledged its scene to the host")
 	await step_ticks(4)
 	assert_eq_int(told.size(), 0, "a hub out of the tree announces no peer to its cats")

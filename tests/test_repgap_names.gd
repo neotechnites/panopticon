@@ -119,11 +119,6 @@ func _names_through_a_match(peers: int, map: StringName) -> void:
 		if not await _rig.wait_for(func() -> bool: return controller.is_match_over()):
 			fail("machine %d never saw the match end" % peer)
 			return
-	var heard: Array[PackedStringArray] = []
-	for peer: int in peers:
-		heard.append(PackedStringArray())
-		var at: int = peer
-		_rig.net_match(peer).rematch_votes_changed.connect(func(names: PackedStringArray) -> void: heard[at] = names)
 	for peer: int in peers:
 		var screen: MatchResultScreen = _find(peer, "MatchResultScreen") as MatchResultScreen
 		if not assert_not_null(screen, "machine %d has a result screen" % peer):
@@ -134,15 +129,16 @@ func _names_through_a_match(peers: int, map: StringName) -> void:
 		assert_eq_string(_rig.controller(peer).get_match_winner().display_name, guard, "machine %d's winner is %s" % [peer, guard])
 	# The last machine asks for a rematch: every result screen says who, by name.
 	var voter: int = peers - 1
-	_rig.net_match(voter).request_rematch()
+	_rig.sessions[voter].flow.rematch()
+	var said: String = _said(asked[voter])
 	var told: bool = await _rig.wait_for(func() -> bool:
 		for peer: int in peers:
-			if heard[peer].size() != 1:
+			if _marks(peer) != said:
 				return false
 		return true)
 	assert_true(told, "every machine heard the vote")
 	for peer: int in peers:
-		assert_eq_string(", ".join(heard[peer]), asked[voter], "machine %d reads who asked for the rematch" % peer)
+		assert_eq_string(_marks(peer), said, "machine %d reads who asked for the rematch" % peer)
 
 
 func test_two_machines_name_each_other_in_the_hub() -> void:
@@ -194,12 +190,19 @@ func test_a_player_with_no_name_is_one_name_on_every_screen() -> void:
 	if not await _rig.wait_for(func() -> bool: return client.is_match_over()):
 		fail("the client never saw the match end")
 		return
-	var heard: Array[PackedStringArray] = [PackedStringArray(), PackedStringArray()]
-	_rig.net_match(HOST).rematch_votes_changed.connect(func(names: PackedStringArray) -> void: heard[0] = names)
-	_rig.net_match(1).rematch_votes_changed.connect(func(names: PackedStringArray) -> void: heard[1] = names)
-	_rig.net_match(1).request_rematch()
-	if not await _rig.wait_for(func() -> bool: return heard[0].size() == 1 and heard[1].size() == 1):
+	_rig.sessions[1].flow.rematch()
+	if not await _rig.wait_for(func() -> bool: return not _marks(HOST).is_empty() and not _marks(1).is_empty()):
 		fail("the vote was never read on both machines")
 		return
-	assert_eq_string(heard[0][0], shown, "the host reads the vote under the name the match showed")
-	assert_eq_string(heard[1][0], shown, "and so does the client")
+	assert_eq_string(_marks(HOST), _said(shown), "the host reads the vote under the name the match showed")
+	assert_eq_string(_marks(1), _said(shown), "and so does the client")
+
+
+## What a machine's result screen says about who has asked for the rematch, or empty.
+func _marks(peer: int) -> String:
+	var label: Label = (_find(peer, "MatchResultScreen") as MatchResultScreen).get_node("%RematchVotes") as Label
+	return label.text if label.visible else ""
+
+
+func _said(names: String) -> String:
+	return tr("RESULT_REMATCH_VOTES").format({"names": names})

@@ -58,59 +58,66 @@ func _win_the_match() -> bool:
 	return true
 
 
-## CONTROL: all three humans vote -> the rematch starts. Shows the test has teeth.
+func _epoch() -> int:
+	return _rig.sessions[HOST].lobby.get_epoch()
+
+
+## What a machine's result screen says about who has pressed Rematch, or empty when it says nothing.
+func _marks(peer: int) -> String:
+	var label: Label = _rig.matches[peer].get_node("ResultScreen").get_node("%RematchVotes") as Label
+	return label.text if label.visible else ""
+
+
+## CONTROL: all three humans press Rematch -> the match relaunches. Shows the test has teeth.
 func test_control_every_human_votes_and_the_rematch_starts() -> void:
 	if not await _start_round(2, 4, 1):
 		return
 	if not await _win_the_match():
 		return
-	var host: MatchController = _rig.controller(HOST)
+	var epoch: int = _epoch()
 	for peer: int in _rig.peer_count():
-		_rig.net_match(peer).request_rematch()
-	var restarted: bool = await _rig.wait_for(func() -> bool: return not host.is_match_over())
-	assert_true(restarted, "with every human's vote in, the host restarts the match")
+		_rig.sessions[peer].flow.rematch()
+	assert_true(await _rig.wait_rematch(epoch), "with every human's mark up, the host relaunches the match")
+	await step_ticks(CROSS_TICKS)
+	for peer: int in _rig.peer_count():
+		assert_false(_rig.controller(peer).is_match_over(), "peer %d plays the new match" % peer)
 
 
-## Host and client 1 vote; client 2 quits instead. Every human still here has voted.
+## Host and client 1 press Rematch; client 2 quits instead. Every human still here has pressed.
 func test_a_rematch_starts_when_the_one_who_had_not_voted_leaves() -> void:
 	if not await _start_round(2, 4, 1):
 		return
 	if not await _win_the_match():
 		return
-	var host: MatchController = _rig.controller(HOST)
-	_rig.net_match(HOST).request_rematch()
-	_rig.net_match(1).request_rematch()
+	var epoch: int = _epoch()
+	_rig.sessions[HOST].flow.rematch()
+	_rig.sessions[1].flow.rematch()
 	await step_ticks(CROSS_TICKS)
-	assert_true(host.is_match_over(), "two of three votes do not restart it yet")
+	assert_eq_int(_epoch(), epoch, "two of three marks do not relaunch it yet")
+	assert_true(_rig.controller(HOST).is_match_over(), "and the result stays up")
 	_rig.sessions[2].leave()
-	if not await _rig.wait_for(func() -> bool: return _rig.sessions[HOST].get_peer_count() == 2):
-		fail("the host never saw the leaver go")
-		return
-	await step_ticks(CROSS_TICKS * 2)
-	print("PROOF rematch after leaver: match_over=%s" % host.is_match_over())
-	assert_false(host.is_match_over(), "every human still in the match has voted: the rematch starts")
-	# And pressing again cannot rescue it.
-	_rig.net_match(HOST).request_rematch()
-	_rig.net_match(1).request_rematch()
-	await step_ticks(CROSS_TICKS * 2)
-	print("PROOF rematch after re-press: match_over=%s" % host.is_match_over())
-	assert_false(host.is_match_over(), "and pressing Rematch again starts it")
+	var relaunched: bool = await _rig.wait_rematch(epoch)
+	print("PROOF rematch after leaver: relaunched=%s" % relaunched)
+	assert_true(relaunched, "every human still in the match has pressed: the rematch starts")
+	var now: int = _epoch()
+	_rig.sessions[HOST].flow.rematch()
+	await step_ticks(CROSS_TICKS)
+	assert_eq_int(_epoch(), now, "and Rematch means nothing in a match that is running")
 
 
-## The leaver had voted: the names the others read lose it.
+## The leaver had pressed: the marks the others read lose it with the seat.
 func test_a_leavers_vote_leaves_the_result_screen_with_them() -> void:
 	if not await _start_round(2, 4, 1):
 		return
 	if not await _win_the_match():
 		return
-	var names: Array[PackedStringArray] = [PackedStringArray()]
-	_rig.net_match(1).rematch_votes_changed.connect(func(said: PackedStringArray) -> void: names[0] = said)
-	_rig.net_match(2).request_rematch()
-	if not await _rig.wait_for(func() -> bool: return names[0].size() == 1):
-		fail("client 1 never read client 2's vote")
+	var epoch: int = _epoch()
+	_rig.sessions[2].flow.rematch()
+	if not await _rig.wait_for(func() -> bool: return not _marks(1).is_empty()):
+		fail("client 1 never read client 2's mark")
 		return
 	_rig.sessions[2].leave()
-	var cleared: bool = await _rig.wait_for(func() -> bool: return names[0].is_empty(), 2000)
-	print("PROOF leaver's vote: names read on client 1 after the leaver went: %s" % str(names[0]))
-	assert_true(cleared, "the vote of a player who left is no longer shown")
-	assert_true(_rig.controller(HOST).is_match_over(), "and nobody left has asked, so nothing restarts")
+	var cleared: bool = await _rig.wait_for(func() -> bool: return _marks(1).is_empty(), 2000)
+	print("PROOF leaver's mark: read on client 1 after the leaver went: '%s'" % _marks(1))
+	assert_true(cleared, "the mark of a player who left is no longer shown")
+	assert_eq_int(_epoch(), epoch, "and nobody left has pressed, so nothing relaunches")

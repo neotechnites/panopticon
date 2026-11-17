@@ -87,11 +87,11 @@ func test_a_rematch_starts_when_every_human_asked() -> void:
 		return
 	if not await _win(0):
 		return
+	var epoch: int = _rig.sessions[HOST].lobby.get_epoch()
 	for peer: int in [HOST, A, B]:
-		_rig.net_match(peer).request_rematch()
-	var host: MatchController = _rig.controller(HOST)
-	var restarted: bool = await _rig.wait_for(func() -> bool: return not host.is_match_over())
-	assert_true(restarted, "three of three asked: the match restarts")
+		_rig.sessions[peer].flow.rematch()
+	assert_true(await _rig.wait_rematch(epoch), "three of three asked: the match relaunches under a new epoch")
+	assert_false(_rig.controller(HOST).is_match_over(), "and is played again")
 
 
 ## A setting applied mid-match leaves the saved prisoner count in the live rules; the roster is still the seats'.
@@ -102,10 +102,10 @@ func test_a_rematch_keeps_the_seated_roster_after_a_setting_is_applied() -> void
 	SettingsStore.instance().applied.emit()
 	if not await _win(0):
 		return
+	var epoch: int = _rig.sessions[HOST].lobby.get_epoch()
 	for peer: int in [HOST, A]:
-		_rig.net_match(peer).request_rematch()
-	var host: MatchController = _rig.controller(HOST)
-	if not await _rig.wait_for(func() -> bool: return not host.is_match_over()):
+		_rig.sessions[peer].flow.rematch()
+	if not await _rig.wait_rematch(epoch):
 		fail("the rematch never started")
 		return
 	await step_ticks(20)
@@ -169,8 +169,11 @@ func test_a_client_cannot_leave_for_the_hub_ahead_of_the_host() -> void:
 		return
 	var again_host: Button = _result(HOST).get_node("%PlayAgainButton") as Button
 	var again_client: Button = _result(A).get_node("%PlayAgainButton") as Button
-	assert_true(again_host.visible, "the host keeps its way back to the hub")
-	assert_false(again_client.visible, "the client is not offered one of its own")
+	var all_host: Button = _result(HOST).get_node("%HubAllButton") as Button
+	var all_client: Button = _result(A).get_node("%HubAllButton") as Button
+	assert_true(all_host.is_visible_in_tree(), "the host has the one way back to the hub, for everyone")
+	assert_false(again_host.visible, "and no second button that goes alone")
+	assert_false(again_client.visible or all_client.is_visible_in_tree(), "the client is not offered one at all")
 	_result(A).play_again()
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -205,18 +208,20 @@ func test_the_restart_key_does_not_restart_a_seated_match() -> void:
 	assert_true(host.is_match_over(), "and so does the match")
 
 
-## A client still standing in a scene the lobby has left sends the host nothing: no node there hears it.
+## A client still standing in a scene the lobby has left stamps what it sends with no epoch: no host
+## scene can take it.
 func test_a_client_scene_the_lobby_has_left_goes_quiet() -> void:
 	if not await _play(1, 3):
 		return
 	if not await _win(0):
 		return
-	var link: PlayerNetLink = _rig.net_match(A).get_local_link()
-	assert_true(link.is_physics_processing(), "the client's link speaks while the lobby names its match")
-	_rig.net_match(HOST).return_all_to_hub()
-	var client: NetLobby = _rig.sessions[A].lobby
+	var client: NetSession = _rig.sessions[A]
+	var epoch: int = _rig.net_match(A).get_epoch()
+	assert_eq_int(client.replicator.get_scene(), epoch, "the client's packets carry its match's epoch while it is named")
+	_rig.sessions[HOST].flow.everyone_to_hub()
 	assert_true(
-		await _rig.wait_for(func() -> bool: return client.get_phase() == NetLobby.Phase.GATHERING),
+		await _rig.wait_for(func() -> bool: return client.lobby.get_phase() == NetLobby.Phase.GATHERING),
 		"the client hears the host went back to the hub",
 	)
-	assert_false(link.is_physics_processing(), "and its match scene's link stops sending")
+	assert_eq_int(client.replicator.get_scene(), 0, "and its old match scene's packets carry none")
+	assert_eq_int(_rig.sessions[HOST].replicator.get_scene(), 0, "while the host's own old scene takes none either")

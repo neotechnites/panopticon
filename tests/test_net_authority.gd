@@ -179,7 +179,6 @@ func test_a_name_is_only_accepted_while_the_lobby_is_gathering() -> void:
 	host_lobby.set_ready(seat_index, true)
 	host_lobby.set_ready(0, true)
 	assert_true(host_lobby.launch(), "the lobby launched")
-	host_lobby.begin_match()
 	assert_eq_int(
 		int(host_lobby.get_phase()), int(NetLobby.Phase.IN_MATCH), "and the phase moved on"
 	)
@@ -214,9 +213,9 @@ func test_a_name_longer_than_the_host_will_look_at_is_cut_before_it_is_walked() 
 	)
 
 
-# --- Launch acknowledgement ---------------------------------------------------
+# --- Scene acknowledgement ---------------------------------------------------
 
-## Simulated seconds the host waits for a launch acknowledgement in these tests.
+## Seconds the host waits for every machine to stand in the match, in these tests.
 const LAUNCH_TIMEOUT_SECONDS: float = 1.0
 
 
@@ -229,28 +228,22 @@ func test_a_slow_client_acknowledges_late_and_is_caught_up() -> void:
 
 	# The host binds and waits; the client is still loading.
 	var host_match: NetMatch = _bind_match(_host)
-	assert_false(host_match.has_started(), "the host waits for the client's acknowledgement")
+	assert_false(host_match.has_started(), "the host waits for the client to stand")
 	if not await NetFixtures.poll_until(self, func() -> bool: return host_match.has_started(), 3000):
 		fail("the host never gave up waiting")
 		return
-	assert_false(host_lobby.has_launched(client_id), "the client has not acknowledged")
-	assert_eq_int(
-		int(host_lobby.get_phase()), int(NetLobby.Phase.LAUNCHING),
-		"the lobby stays LAUNCHING while a client is still binding"
-	)
+	assert_true(host_lobby.peer_state(client_id) == NetLobby.PeerState.LOADING, "the client is still loading")
+	assert_true(_host.has_peer(client_id), "and is kept, to be caught up")
 
 	# Now the client's scene binds: it acknowledges, and is caught up.
 	var client_match: NetMatch = _bind_match(_client)
-	assert_true(client_match.is_active(), "a slow client binds in LAUNCHING")
+	assert_true(client_match.is_active(), "a slow client binds into the running match")
 	if not await NetFixtures.poll_until(
-		self, func() -> bool: return host_lobby.has_launched(client_id) and client_match.has_started()
+		self, func() -> bool:
+			return host_lobby.peer_state(client_id) == NetLobby.PeerState.STANDING and client_match.has_started()
 	):
 		fail("the late acknowledgement never reached the host, or the catch-up never came back")
 		return
-	assert_eq_int(
-		int(host_lobby.get_phase()), int(NetLobby.Phase.IN_MATCH),
-		"every peer has launched, so the match begins"
-	)
 	assert_eq_string(
 		client_match.controller.get_phase_name(), host_match.controller.get_phase_name(),
 		"the client mirrors the phase the host is in"
@@ -268,8 +261,7 @@ func test_a_client_that_never_acknowledges_is_dropped_by_policy() -> void:
 
 	var host_match: NetMatch = _bind_match(_host)
 	var dropped: Callable = func() -> bool:
-		var gone: bool = host_match.has_started() and not _host.has_peer(client_id)
-		return gone and host_lobby.get_phase() == NetLobby.Phase.IN_MATCH
+		return host_match.has_started() and not _host.has_peer(client_id)
 	if not await NetFixtures.poll_until(self, dropped, 3000):
 		fail("the host never started, dropped the silent client and began the match")
 		return
@@ -299,7 +291,7 @@ func _launch_with_one_client(host_lobby: NetLobby, client_lobby: NetLobby) -> bo
 		fail("the lobby did not launch")
 		return false
 	if not await NetFixtures.poll_until(
-		self, func() -> bool: return client_lobby.get_phase() == NetLobby.Phase.LAUNCHING
+		self, func() -> bool: return client_lobby.get_phase() == NetLobby.Phase.IN_MATCH
 	):
 		fail("the client never learned of the launch")
 		return false

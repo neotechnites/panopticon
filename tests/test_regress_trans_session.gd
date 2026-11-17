@@ -401,31 +401,38 @@ func test_a_client_holds_no_snapshot_of_a_scene_the_lobby_has_left() -> void:
 	assert_eq_int(client.replicator.get_latest_tick(), -1, "nor a moment later, its old scene still standing")
 
 
-## Every machine's level names the match scene for a launch and the hub for the way back from one.
+## Every machine's flow wants the match scene for a launch and the hub for the way back from one.
 func test_every_machines_level_follows_the_hosts_lobby() -> void:
 	if not await _rig.connect_peers(self, 3):
 		fail("the loopback handshake did not complete")
 		return
 	var host: NetSession = _rig.sessions[HOST]
+	var wanted: Array[PackedStringArray] = []
+	for session: NetSession in _rig.sessions:
+		var paths: PackedStringArray = PackedStringArray()
+		wanted.append(paths)
+		var at: int = wanted.size() - 1
+		session.flow.scene_wanted.connect(func(path: String) -> void: wanted[at].append(path))
 	host.lobby.fill_with_bots(5)
 	for seat: LobbySeat in host.lobby.get_occupied_seats():
 		host.lobby.set_ready(seat.index, true)
 	var before: int = host.lobby.get_epoch()
 	assert_true(host.lobby.launch(), "the host launches")
-	for session: NetSession in _rig.sessions:
-		if not await _rig.wait_for(func() -> bool: return session.lobby.get_phase() == NetLobby.Phase.LAUNCHING):
+	for index: int in _rig.sessions.size():
+		var session: NetSession = _rig.sessions[index]
+		if not await _rig.wait_for(func() -> bool: return session.lobby.get_phase() == NetLobby.Phase.IN_MATCH):
 			fail("a lobby never heard of the launch")
 			return
 		assert_gt(float(session.lobby.get_epoch()), float(before), "%s is on the launch's epoch" % session.get_parent().name)
-		assert_eq_int(int(session.level.get(&"_epoch")), session.lobby.get_epoch(), "%s's level took that epoch" % session.get_parent().name)
-		for phase: NetLobby.Phase in [NetLobby.Phase.LAUNCHING, NetLobby.Phase.IN_MATCH, NetLobby.Phase.POST_MATCH]:
-			assert_eq_string(str(session.level.call(&"_scene_for", phase)), NetLevel.MATCH_SCENE_PATH, "%s loads the match in phase %d" % [session.get_parent().name, phase])
+		assert_eq_string(wanted[index][-1] if not wanted[index].is_empty() else "", SessionFlow.MATCH_SCENE_PATH,
+			"%s's flow wants the match" % session.get_parent().name)
 	assert_true(host.lobby.conclude_match(-1), "the host ends the match")
 	var launched: int = host.lobby.get_epoch()
 	assert_true(host.lobby.return_to_lobby(), "and calls everyone back")
-	for session: NetSession in _rig.sessions:
+	for index: int in _rig.sessions.size():
+		var session: NetSession = _rig.sessions[index]
 		if not await _rig.wait_for(func() -> bool: return session.lobby.get_phase() == NetLobby.Phase.GATHERING):
 			fail("a lobby never heard of the return")
 			return
 		assert_gt(float(session.lobby.get_epoch()), float(launched), "%s is on a new epoch for the hub" % session.get_parent().name)
-		assert_eq_int(int(session.level.get(&"_epoch")), session.lobby.get_epoch(), "%s's level took the hub's epoch" % session.get_parent().name)
+		assert_eq_string(wanted[index][-1], SessionFlow.HUB_SCENE_PATH, "%s's flow wants the hub" % session.get_parent().name)

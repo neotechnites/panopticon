@@ -117,8 +117,8 @@ func leave(machine: int) -> void:
 	hubs[machine] = null
 
 
-## Wait until the first [param machines] machines each hold a body per seat and every client
-## predicts its own. Bodies are taken off each other's layers as each roster is built.
+## Wait until the first [param machines] machines each hold a body per seat, every client predicts
+## its own and every machine stands in the hub. Bodies are taken off each other's layers as each roster is built.
 func settle(machines: int = 3) -> bool:
 	var built: bool = await until(
 		func() -> bool:
@@ -140,7 +140,11 @@ func settle(machines: int = 3) -> bool:
 	)
 	if not placed:
 		fail("a client's own body was never placed by a snapshot")
-	return placed
+		return false
+	var standing: bool = await until(func() -> bool: return sessions[HOST].lobby.get_unstanding_peers().is_empty())
+	if not standing:
+		fail("not every machine's hub stood: %s" % str(sessions[HOST].lobby.get_unstanding_peers()))
+	return standing
 
 
 func roster_sizes() -> Array[int]:

@@ -201,6 +201,7 @@ func test_a_roster_survives_the_round_trip() -> void:
 	seats[0].display_name = "Ryan"
 	seats[0].role = LobbySeat.Role.GUARD
 	seats[0].is_ready = true
+	seats[0].standing_epoch = 7
 	seats[1].occupancy = LobbySeat.Occupancy.BOT
 	seats[1].display_name = "Bot 2"
 	seats[1].role = LobbySeat.Role.PRISONER
@@ -220,6 +221,7 @@ func test_a_roster_survives_the_round_trip() -> void:
 	assert_eq_int(got[0].peer_id, 1, "the human's peer id")
 	assert_true(got[0].role == LobbySeat.Role.GUARD, "the human is the guard")
 	assert_true(got[0].is_ready, "the human is ready")
+	assert_eq_int(got[0].standing_epoch, 7, "the epoch its machine stands in")
 	assert_true(got[1].occupancy == LobbySeat.Occupancy.BOT, "the bot is a bot")
 	assert_eq_int(got[1].peer_id, 0, "a bot has no peer, and that is the point")
 	assert_false(got[2].is_occupied(), "the empty seat is still empty")

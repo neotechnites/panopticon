@@ -35,6 +35,7 @@ func connect_peers(case: Node, clients: int) -> bool:
 	SettingsStore.instance().settings = GameSettings.new()
 	var host: NetSession = NetFixtures.make_peer(case, "Host", NetFixtures.settings())
 	sessions.append(host)
+	host.flow.scene_wanted.connect(_on_scene_wanted.bind(0))
 	var port: int = NetFixtures.reserve_port()
 	if port < 0 or host.host(port) != OK:
 		return false
@@ -45,6 +46,7 @@ func connect_peers(case: Node, clients: int) -> bool:
 	for i: int in clients:
 		var client: NetSession = NetFixtures.make_peer(case, "Client%d" % (i + 1), NetFixtures.settings())
 		sessions.append(client)
+		client.flow.scene_wanted.connect(_on_scene_wanted.bind(i + 1))
 		if i < client_names.size():
 			client.lobby.local_name = client_names[i]
 		if client.join("127.0.0.1", port) != OK:
@@ -101,7 +103,7 @@ func launch(seats: int, guard_seat: int, late: Array[int] = []) -> bool:
 	for session: NetSession in sessions:
 		if not await NetFixtures.poll_until(
 			_case,
-			func() -> bool: return session.lobby.get_phase() == NetLobby.Phase.LAUNCHING,
+			func() -> bool: return session.lobby.get_phase() == NetLobby.Phase.IN_MATCH,
 			STEP_TIMEOUT_MS,
 		):
 			return false
@@ -125,7 +127,34 @@ func _all_started() -> bool:
 			everyone = false
 		elif not net_match(peer).has_started():
 			return false
-	return not everyone or sessions[0].lobby.get_phase() == NetLobby.Phase.IN_MATCH
+	return not everyone or sessions[0].lobby.get_unstanding_peers().is_empty()
+
+
+## A rematch relaunches the match scene on every machine already in one: the rig stands the new one
+## where [SessionFlow] would. A peer held back keeps waiting for [method bind_late].
+func _on_scene_wanted(path: String, peer: int) -> void:
+	if path == MATCH_SCENE_PATH and peer < matches.size() and matches[peer] != null and matches[peer].name == MATCH_NAME:
+		_rebind.call_deferred(peer)
+
+
+## Every bound peer still in the session stands in a started match under a newer epoch than
+## [param epoch]: a rematch.
+func wait_rematch(epoch: int) -> bool:
+	return await wait_for(func() -> bool:
+		for peer: int in matches.size():
+			if matches[peer] == null or not sessions[peer].is_established():
+				continue
+			var net: NetMatch = net_match(peer)
+			if net.get_epoch() == epoch or net.get_epoch() != sessions[0].lobby.get_epoch() or not net.has_started():
+				return false
+		return true)
+
+
+func _rebind(peer: int) -> void:
+	var world: Node = matches[peer].get_parent()
+	world.get_parent().remove_child(world)
+	world.queue_free()
+	matches[peer] = _bind(sessions[peer])
 
 
 ## The shipped match scene for one peer, in its own world, at the same path on every peer.

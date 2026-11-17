@@ -92,7 +92,7 @@ func _draws(peer: int, which: int) -> bool:
 		HOLOGRAM:
 			return power.get_decoy() != null
 		ARMOR:
-			return body.get_node_or_null("ArmorShell") != null and body.movement_locked
+			return power.get_shell() != null and body.movement_locked
 		CAMO:
 			var mesh: MeshInstance3D = RunnerPower._avatar_mesh(body)
 			var worn: BaseMaterial3D = mesh.material_override as BaseMaterial3D if mesh != null else null
