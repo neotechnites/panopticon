@@ -24,6 +24,9 @@ from collections import defaultdict
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import wire_stats  # noqa: E402
+from scenario_args import peer_options  # noqa: E402
 NL = re.compile(r"^NL w=(\d+) t=([\d.]+) (\w+) ?(.*)$")
 ERROR_HEAD = re.compile(r"^(SCRIPT ERROR|USER SCRIPT ERROR|USER ERROR|ERROR): ?(.*)$")
 WARNING_HEAD = re.compile(r"^(USER WARNING|WARNING): ?(.*)$")
@@ -842,6 +845,14 @@ def check_expect(host: Peer, peers: list[Peer], gone: set[int], scenario: dict, 
             v.warn("expect", "host", f"seat {seat} turned bot too late to tell whether its body plays on ({len(track)} samples)")
 
 
+def check_wire(session: Path, scenario: dict, peers: list[Peer], v: Verdict) -> dict:
+    """The conditioned wire did what the scenario asked: loss, bursts, duplication, order, delay, freezes."""
+    failures, figures = wire_stats.check(session, scenario, {p.index: p.lines for p in peers})
+    for peer, message in failures:
+        v.fail("wire", peer, message)
+    return figures
+
+
 def summarise(host: Peer, peers: list[Peer]) -> dict:
     events = [l.rest.split(" ", 1)[0] for l in host.tagged("EV")]
     won = [l for l in host.tagged("EV") if l.rest.startswith("match_won")]
@@ -901,12 +912,12 @@ def main() -> int:
     if not host.lines:
         v.fail("end", "host", "the host logged nothing")
 
-    def arg(name: str, default: float) -> float:
-        values = [float(d.get(name, default)) for d in (scenario.get("common", {}), scenario.get("host", {}), scenario.get("client", {}))]
-        values += [float(d.get(name, default)) for d in scenario.get("peer", {}).values()]
-        return max(values)
-
-    lag = arg("delay-ms", 0.0) / 1000.0 * 2.0 + (0.4 if arg("loss", 0.0) > 0.0 else 0.0)
+    # How late one machine may see what another did on this scenario's wire: both ways at the worst
+    # conditioned peer's reach, and a resend's worth when anything is lost.
+    options = [peer_options(scenario, i) for i in range(int(scenario.get("peers", len(peers))))]
+    reach = max((wire_stats.one_way_extra_ms(o) for o in options), default=0.0)
+    lossy = any(wire_stats.expected_loss(o) > 0.0 for o in options)
+    lag = reach / 1000.0 * 2.0 + (0.4 if lossy else 0.0)
     slack = SLACK + lag
     stalls: list[tuple[float, float]] = []
     for peer in peers:
@@ -935,6 +946,7 @@ def main() -> int:
         check_role_powers(host, v)
         stats["rifle"] = check_guard(host, v, scenario)
         check_expect(host, peers, gone, scenario, v)
+        stats["wire"] = check_wire(session, scenario, peers, v)
         stats.update(summarise(host, peers))
     verdict = "FAIL" if v.failures else "PASS"
     report = {"name": scenario.get("name", session.name), "verdict": verdict, "failures": v.failures,

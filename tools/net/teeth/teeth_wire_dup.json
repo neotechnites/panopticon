@@ -1,0 +1,26 @@
+{
+ "runner": "match",
+ "peers": 2,
+ "limit": 90,
+ "common": {
+  "seconds": 40,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 0,
+  "delay-ms": 20,
+  "dup": 0.15
+ },
+ "host": {
+  "aim": false,
+  "fire-every": 0,
+  "press-fire": 0,
+  "ghosts": "false"
+ },
+ "client": {
+  "keys": "1@6,4@14"
+ },
+ "name": "teeth_wire_dup",
+ "clean": [
+  "wire"
+ ]
+}

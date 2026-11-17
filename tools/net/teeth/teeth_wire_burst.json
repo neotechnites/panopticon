@@ -1,0 +1,26 @@
+{
+ "runner": "match",
+ "peers": 2,
+ "limit": 110,
+ "common": {
+  "seconds": 60,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 0,
+  "burst-ms": 250,
+  "burst-gap-ms": 2250
+ },
+ "host": {
+  "aim": false,
+  "fire-every": 0,
+  "press-fire": 0,
+  "ghosts": "false"
+ },
+ "client": {
+  "keys": "1@6,4@14"
+ },
+ "name": "teeth_wire_burst",
+ "clean": [
+  "wire"
+ ]
+}

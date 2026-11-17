@@ -47,7 +47,7 @@ fi
 
 [ -n "$OUT" ] || OUT="${TMPDIR:-/tmp}/panopticon-net/$NAME-$(date +%Y%m%dT%H%M%S)-$$"
 mkdir -p "$OUT" || exit 2
-rm -f "$OUT/verdict.json" "$OUT"/peer*.log
+rm -f "$OUT/verdict.json" "$OUT"/peer*.log "$OUT"/peer*.wire
 : > "$OUT/exit.txt"
 if [ -n "$SCENARIO" ]; then cp "$SCENARIO" "$OUT/scenario.json"; else
   printf '{"name": "%s", "runner": "%s", "peers": %d, "limit": %d}\n' "$NAME" "$RUNNER" "$NPEERS" "$LIMIT" > "$OUT/scenario.json"
@@ -59,7 +59,7 @@ launch() {
   local i="$1"; shift
   mkdir -p "$OUT/peer$i/home"
   HOME="$OUT/peer$i/home" PANOPTICON_NET_ISOLATED=1 \
-    "$GODOT" --headless --path "$ROOT" "${ENTRY[@]}" -- "$@" > "$OUT/peer$i.log" 2>&1 &
+    "$GODOT" --headless --path "$ROOT" "${ENTRY[@]}" -- "$@" --wire-log="$OUT/peer$i.wire" > "$OUT/peer$i.log" 2>&1 &
   PIDS+=($!)
 }
 

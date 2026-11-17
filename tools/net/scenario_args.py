@@ -20,11 +20,17 @@ def flag(key: str, value: object) -> str:
     return f"--{key}={value}"
 
 
-def peer_args(scenario: dict, index: int, port: int) -> list[str]:
+def peer_options(scenario: dict, index: int) -> dict:
+    """The options peer [index] runs with: common, then host or client, then its own."""
     merged: dict = {}
     merged.update(scenario.get("common", {}))
     merged.update(scenario.get("host" if index == 0 else "client", {}))
     merged.update(scenario.get("peer", {}).get(str(index), {}))
+    return merged
+
+
+def peer_args(scenario: dict, index: int, port: int) -> list[str]:
+    merged = peer_options(scenario, index)
     merged.setdefault("name", "Host" if index == 0 else f"C{index}")
     merged["role"] = "server" if index == 0 else "client"
     merged["port"] = port

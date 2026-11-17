@@ -28,7 +28,7 @@ var a_wire: LossyPeer
 var host_wire: LossyPeer
 
 var _stubs: Array[MatchController] = []
-var _wires: Dictionary[NetSession, LossyPeer] = {}
+var wires: NetWires = NetWires.new()
 var _saved_hz: int = 0
 var _saved_scale: float = 1.0
 
@@ -48,7 +48,7 @@ func before_each() -> void:
 	a = NetFixtures.make_peer(self, "ClientA", NetFixtures.settings())
 	b = NetFixtures.make_peer(self, "ClientB", NetFixtures.settings())
 	add_child(TestFixtures.make_floor(0.0))
-	_wires.clear()
+	wires.clear()
 	for session: NetSession in [host, a]:
 		session.connection_state_changed.connect(_wrap.bind(session))
 
@@ -67,13 +67,7 @@ func after_each() -> void:
 	for session: NetSession in [b, a, host]:
 		if session != null:
 			session.leave()
-	# The wires' forwarding lambdas hold them alive past exit; let go of them.
-	for wire: LossyPeer in _wires.values():
-		var real: MultiplayerPeer = wire.get("_real") as MultiplayerPeer
-		for forwarded: Signal in [real.peer_connected, real.peer_disconnected]:
-			for link: Dictionary in forwarded.get_connections():
-				forwarded.disconnect(link["callable"] as Callable)
-	_wires.clear()
+	wires.clear()
 	for stub: MatchController in _stubs:
 		if is_instance_valid(stub):
 			stub.free()
@@ -158,10 +152,15 @@ func until(predicate: Callable, timeout_ms: int = WAIT_MS) -> bool:
 
 ## Drop every unreliable packet [param wire] sends for [param ticks] ticks: a burst of loss.
 func black_out(wire: LossyPeer, ticks: int) -> void:
-	var before: float = float(wire.get("_loss"))
-	wire.set("_loss", 1.0)
+	var before: float = wire.conditions.loss
+	wire.conditions.loss = 1.0
 	await step_ticks(ticks)
-	wire.set("_loss", before)
+	wire.conditions.loss = before
+
+
+## Stop the host's or A's machine for [param ms] real milliseconds, socket and scripts.
+func freeze(session: NetSession, ms: float) -> void:
+	await wires.freeze(session, ms)
 
 
 ## Freeze the host for [param ticks] ticks: it simulates nothing while its socket fills.
@@ -174,24 +173,22 @@ func stall_host(ticks: int) -> void:
 ## Turn the knobs of the wire [param session] has had since its handshake: swapped in later,
 ## the engine forgets its peers and refuses every send.
 func _condition(session: NetSession, loss: float, rng_seed: int, delay_ms: int) -> LossyPeer:
-	var wire: LossyPeer = _wires.get(session)
+	var wire: LossyPeer = wires.of(session)
 	if wire == null:
 		return null
-	wire.set("_loss", loss)
-	wire.set("_delay_ms", delay_ms)
-	(wire.get("_rng") as RandomNumberGenerator).seed = rng_seed
+	wire.conditions.loss = loss
+	wire.conditions.delay_ms = delay_ms
+	wire.conditions.reseed(rng_seed)
 	return wire
 
 
 func _wrap(_state: NetTransport.ConnectionState, session: NetSession) -> void:
 	var real: MultiplayerPeer = session.multiplayer.multiplayer_peer
-	if _wires.has(session) or real == null:
+	if wires.of(session) != null or real == null:
 		return
 	if real.get_connection_status() == MultiplayerPeer.CONNECTION_DISCONNECTED:
 		return
-	var wire: LossyPeer = LossyPeer.new(real, 0.0, 1, 0)
-	session.multiplayer.multiplayer_peer = wire
-	_wires[session] = wire
+	wires.wrap(session)
 
 
 func _give_keys(link: PlayerNetLink) -> PressSource:

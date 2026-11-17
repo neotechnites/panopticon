@@ -1,0 +1,29 @@
+{
+ "name": "fault_freeze3s_hub_client_3p",
+ "runner": "hub",
+ "peers": 3,
+ "limit": 150,
+ "tags": [
+  "fault",
+  "stall",
+  "hub"
+ ],
+ "common": {
+  "maps": "bentham_ring",
+  "matches": 1,
+  "win": 15,
+  "hub-wait": 14,
+  "limit": 130
+ },
+ "host": {
+  "prisoners": 3
+ },
+ "peer": {
+  "1": {
+   "freeze": "hub@5+3000"
+  }
+ },
+ "expect": {
+  "matches": 1
+ }
+}

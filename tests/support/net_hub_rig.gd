@@ -25,6 +25,10 @@ var keys: Array[PressSource] = [null, null, null]
 ## In place from the handshake.
 var a_wire: LossyPeer
 var host_wire: LossyPeer
+## Per machine, set before [method stand_up]: what its sends go through. A machine with an entry
+## is wrapped from its handshake, so it can also be frozen ([method freeze]).
+var wire_conditions: Dictionary[int, NetConditions] = {}
+var wires: NetWires = NetWires.new()
 
 var _port: int = -1
 var _wired: bool = false
@@ -59,14 +63,7 @@ func after_each() -> void:
 	for machine: int in [B, A, HOST]:
 		if sessions[machine] != null:
 			sessions[machine].leave()
-	# A wire's forwarding lambdas hold it alive past exit; let go of them.
-	for wire: LossyPeer in [a_wire, host_wire]:
-		if wire == null:
-			continue
-		var real: MultiplayerPeer = wire.get("_real") as MultiplayerPeer
-		for forwarded: Signal in [real.peer_connected, real.peer_disconnected]:
-			for link: Dictionary in forwarded.get_connections():
-				forwarded.disconnect(link["callable"] as Callable)
+	wires.clear()
 
 
 ## Host and A (and B unless [param machines] is 2) connected, seated and standing in the hub.
@@ -81,6 +78,8 @@ func stand_up(loss: float = 0.0, delay_ms: int = 0, machines: int = 3) -> bool:
 	_delay_ms = delay_ms
 	if _wired:
 		host_wire = _condition(sessions[HOST], loss, 7, delay_ms)
+	if wire_conditions.has(HOST):
+		host_wire = wires.wrap(sessions[HOST], wire_conditions[HOST])
 	sessions[HOST].lobby.open("Host")
 	for machine: int in range(1, machines):
 		if not await _join(machine):
@@ -256,10 +255,15 @@ func until(predicate: Callable, timeout_ms: int = WAIT_MS) -> bool:
 
 ## Drop every unreliable packet [param wire] sends for [param ticks] ticks: a burst of loss.
 func black_out(wire: LossyPeer, ticks: int) -> void:
-	var before: float = float(wire.get("_loss"))
-	wire.set("_loss", 1.0)
+	var before: float = wire.conditions.loss
+	wire.conditions.loss = 1.0
 	await step_ticks(ticks)
-	wire.set("_loss", before)
+	wire.conditions.loss = before
+
+
+## Stop [param machine] for [param ms] real milliseconds, socket and scripts (needs a wire).
+func freeze(machine: int, ms: float) -> void:
+	await wires.freeze(sessions[machine], ms)
 
 
 # --- Steps: the cats ---------------------------------------------------------
@@ -335,6 +339,10 @@ func _join(machine: int) -> bool:
 		return false
 	if _wired and machine == A:
 		a_wire = _condition(session, _loss, 11, _delay_ms)
+	if wire_conditions.has(machine):
+		var wire: LossyPeer = wires.wrap(session, wire_conditions[machine])
+		if machine == A:
+			a_wire = wire
 	var joined: bool = await until(
 		func() -> bool:
 			return session.is_established() and sessions[HOST].get_peer_count() >= expected
@@ -352,10 +360,10 @@ func _join(machine: int) -> bool:
 ## Wrap [param session]'s socket. Only before it has a peer: swapped in under a live
 ## connection, the engine forgets who it is connected to.
 func _condition(session: NetSession, loss: float, rng_seed: int, delay_ms: int) -> LossyPeer:
-	var real: MultiplayerPeer = session.multiplayer.multiplayer_peer
-	var wire: LossyPeer = LossyPeer.new(real, loss, rng_seed, delay_ms)
-	session.multiplayer.multiplayer_peer = wire
-	return wire
+	var conditions: NetConditions = NetConditions.new(rng_seed)
+	conditions.loss = loss
+	conditions.delay_ms = delay_ms
+	return wires.wrap(session, conditions)
 
 
 ## The shipped hub on [param machine]'s branch, named Hub everywhere so node paths agree.

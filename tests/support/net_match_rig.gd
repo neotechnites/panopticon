@@ -16,6 +16,10 @@ const LATE_LAUNCH_TIMEOUT_SECONDS: float = 1.0
 ## dropped, and real milliseconds every packet is held.
 var wire_loss: float = 0.0
 var wire_delay_ms: int = 0
+## Per peer index, set before [method connect_peers]: what that peer's sends go through. A peer with
+## an entry is wrapped from its handshake and can be frozen ([method freeze]).
+var wire_conditions: Dictionary[int, NetConditions] = {}
+var wires: NetWires = NetWires.new()
 ## The names the clients ask to be seated under, in joining order; one not given joins with none.
 var client_names: PackedStringArray = PackedStringArray()
 
@@ -23,8 +27,6 @@ var sessions: Array[NetSession] = []
 var matches: Array[Node3D] = []
 var _case: Node = null
 var _saved_settings: GameSettings = null
-## The real peers under each LossyPeer; it hangs closures on their signals that would outlive the test.
-var _wrapped: Array[MultiplayerPeer] = []
 
 
 ## Host plus [param clients] joined and seated. False rather than hanging.
@@ -62,13 +64,23 @@ func connect_peers(case: Node, clients: int) -> bool:
 	return true
 
 
-## Wrap a peer's line as it opens, when [member wire_loss] or [member wire_delay_ms] asks for a bad one.
+## Wrap a peer's line as it opens, when [member wire_conditions], [member wire_loss] or
+## [member wire_delay_ms] asks for a bad one.
 func _condition(session: NetSession, peer: int) -> void:
+	if wire_conditions.has(peer):
+		wires.wrap(session, wire_conditions[peer])
+		return
 	if wire_loss <= 0.0 and wire_delay_ms <= 0:
 		return
-	var api: MultiplayerAPI = session.multiplayer
-	_wrapped.append(api.multiplayer_peer)
-	api.multiplayer_peer = LossyPeer.new(api.multiplayer_peer, wire_loss, 7 + peer * 4, wire_delay_ms)
+	var conditions: NetConditions = NetConditions.new(7 + peer * 4)
+	conditions.loss = wire_loss
+	conditions.delay_ms = wire_delay_ms
+	wires.wrap(session, conditions)
+
+
+## Stop peer [param peer] for [param ms] real milliseconds, socket and scripts (needs a wire).
+func freeze(peer: int, ms: float) -> void:
+	await wires.freeze(sessions[peer], ms)
 
 
 ## The settings every peer's scene will read; edit before [method launch].
@@ -240,12 +252,7 @@ func close() -> void:
 	for i: int in range(sessions.size() - 1, -1, -1):
 		if sessions[i] != null:
 			sessions[i].leave()
-	for real: MultiplayerPeer in _wrapped:
-		for joined: Dictionary in real.peer_connected.get_connections():
-			real.peer_connected.disconnect(joined["callable"])
-		for left: Dictionary in real.peer_disconnected.get_connections():
-			real.peer_disconnected.disconnect(left["callable"])
-	_wrapped.clear()
+	wires.clear()
 	# Static, and read by the result screen in every other test file.
 	HubLobby.returns_to_hub = false
 	if _saved_settings != null:
