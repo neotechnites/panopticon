@@ -141,6 +141,8 @@ var _cover: PackedVector3Array = PackedVector3Array()
 var _cover_facing: PackedVector3Array = PackedVector3Array()
 var _cover_cells: Dictionary = {}
 var _eye: Vector3 = Vector3.ZERO
+## Every eye the guard looks from: its posts' on a map that has them, else the seat's.
+var _eyes: PackedVector3Array = PackedVector3Array()
 
 ## World-space copy of the baked polygons, indexed by 2 m cell.
 var _verts: PackedVector3Array = PackedVector3Array()
@@ -248,6 +250,7 @@ func bake_from(root: Node) -> void:
 		_run_speed = maxf(_movement.ground_speed, 0.1)
 		_jump_speed = maxf(_movement.jump_velocity, 0.1)
 	_eye = _find_eye(root)
+	_eyes = _find_eyes(root)
 
 	var mesh: NavigationMesh = _new_mesh()
 	var source: NavigationMeshSourceGeometryData3D = NavigationMeshSourceGeometryData3D.new()
@@ -304,6 +307,16 @@ func _find_eye(root: Node) -> Vector3:
 	return base + Vector3.UP * EYE_HEIGHT_METRES
 
 
+func _find_eyes(root: Node) -> PackedVector3Array:
+	var eyes: PackedVector3Array = PackedVector3Array()
+	for node: Node in root.find_children("*", "Marker3D", true, false):
+		if node.is_in_group(TowerShooter.POST_GROUP):
+			eyes.append((node as Node3D).global_position + Vector3.UP * EYE_HEIGHT_METRES)
+	if eyes.is_empty():
+		eyes.append(_eye)
+	return eyes
+
+
 func get_polygon_count() -> int:
 	return _polygons
 
@@ -326,6 +339,11 @@ func get_drop_edge_count() -> int:
 
 func get_eye() -> Vector3:
 	return _eye
+
+
+## Every eye cover is baked against: the guard's posts, or the seat alone.
+func get_eyes() -> PackedVector3Array:
+	return _eyes
 
 
 ## True once the baked mesh answers map queries: a known vertex must snap to itself.
@@ -1164,9 +1182,12 @@ func _sample_cover() -> void:
 
 
 func _sight_clear(target: Vector3) -> bool:
-	_sight.from = _eye
 	_sight.to = target
-	return _space.intersect_ray(_sight).is_empty()
+	for eye: Vector3 in _eyes:
+		_sight.from = eye
+		if _space.intersect_ray(_sight).is_empty():
+			return true
+	return false
 
 
 ## The nearest cover point to [param from] that lies ahead along [param forward]
