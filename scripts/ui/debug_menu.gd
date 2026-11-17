@@ -32,6 +32,8 @@ const EXTEND_SECONDS: float = 30.0
 var in_match: bool = false
 
 var _controller: MatchController = null
+## The controller whose rules the widgets write: the match's, or the hub's this machine decides for.
+var _edits: MatchController = null
 var _readout: Label = null
 var _first: Control = null
 var _tower_option: OptionButton = null
@@ -109,10 +111,12 @@ func _rebuild() -> void:
 	_first = null
 	_readout = null
 	_tower_option = null
+	_edits = _controller
 	if not in_match:
 		_build_setup()
 	elif _controller == null:
 		var hub: MatchController = _find_hub()
+		_edits = hub
 		if hub != null:
 			_build_bots(null)
 			_build_movement(hub)
@@ -299,7 +303,8 @@ func _build_sniper() -> void:
 		rules.reload_seconds_by_turn = settings.reload_by_turn.duplicate()
 		rules.sniper_by_visit = settings.sniper_by_visit.duplicate()
 		_controller.debug_refresh_reload()
-		_controller.refresh_sniper_profiles())
+		_controller.refresh_sniper_profiles()
+		_edited())
 
 
 func _build_runners() -> void:
@@ -440,6 +445,12 @@ func _build_mannequins(hub: MatchController) -> void:
 
 # --- Live writes ---------------------------------------------------------------
 
+## A widget wrote: the scene's controller says its rules were edited, for whoever carries them on.
+func _edited() -> void:
+	if is_instance_valid(_edits):
+		_edits.rules_edited.emit()
+
+
 ## Write a rule into the running match and, when the player's saved settings carry it, there too.
 func _rule(property: StringName, value: Variant, setting: StringName) -> void:
 	_controller.get_rules().set(property, value)
@@ -534,7 +545,9 @@ func _toggle(key: String, on: bool, handler: Callable, parent: Control = null) -
 	var check: CheckBox = CheckBox.new()
 	check.text = key
 	check.button_pressed = on
-	check.toggled.connect(handler)
+	check.toggled.connect(func(pressed: bool) -> void:
+		handler.call(pressed)
+		_edited())
 	(parent if parent != null else _body).add_child(check)
 
 
@@ -546,7 +559,9 @@ func _choice(key: String, titles: PackedStringArray, selected: int, handler: Cal
 		option.add_item(title)
 	option.selected = selected
 	option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	option.item_selected.connect(handler)
+	option.item_selected.connect(func(index: int) -> void:
+		handler.call(index)
+		_edited())
 	row.add_child(option)
 	return option
 
@@ -571,7 +586,8 @@ func _slider(key: String, low: float, high: float, step: float, unit: String, va
 	row.add_child(readout)
 	slider.value_changed.connect(func(changed: float) -> void:
 		readout.text = _format(unit, step, changed)
-		handler.call(changed))
+		handler.call(changed)
+		_edited())
 
 
 func _row_label(key: String) -> Label:

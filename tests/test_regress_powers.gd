@@ -671,21 +671,58 @@ func test_a_machine_that_binds_while_a_hologram_runs_ends_with_none() -> void:
 		skip("KNOWN GAP: a machine that binds while a hologram runs never draws that hologram (the spawn is one reliable message, not in the snapshot)")
 
 
+## Flip the host's Crouch and Slide in its debug menu, as a hand on the two checkboxes does.
+func _flip_movement_in_the_debug_menu(want: bool) -> void:
+	var host: MatchController = _rig.controller(HOST)
+	var menu: DebugMenu = (load("res://ui/debug_menu.tscn") as PackedScene).instantiate() as DebugMenu
+	host.add_child(menu)
+	menu.set("_edits", host)
+	menu.call("_build_movement", host)
+	var flipped: int = 0
+	for found: Node in menu.find_children("*", "CheckBox", true, false):
+		var check: CheckBox = found as CheckBox
+		if check.text == "DEBUG_CROUCH" or check.text == "DEBUG_SLIDE":
+			check.button_pressed = want
+			flipped += 1
+	assert_eq_int(flipped, 2, "the debug menu offers the two toggles")
+	menu.queue_free()
+
+
+## Every machine's copy of every body may crouch and slide, or may not, as the host's rules say.
+func _movement_is(want: bool, why: String) -> void:
+	for peer: int in _rig.peer_count():
+		for who: MatchParticipant in _rig.controller(peer).get_participants():
+			assert_true(
+				who.body.slide_enabled == want and who.body.crouch_enabled == want,
+				"peer %d, slot %d: crouch and slide are %s %s" % [peer, who.index, "on" if want else "off", why],
+			)
+
+
 func test_the_hosts_mid_match_crouch_and_slide_flip_reaches_a_client() -> void:
 	if not await _start_round(2, HELL, 1):
 		return
-	var host: MatchController = _rig.controller(HOST)
-	var rules: MatchRules = host.get_rules()
-	var want: bool = not rules.slide_enabled
-	# What the debug menu's two toggles do.
-	rules.slide_enabled = want
-	rules.crouch_enabled = want
-	host.debug_refresh_movement()
-	await step_ticks(CROSS_TICKS * 2)
-	assert_eq_int(int(_rig.body(HOST, _slot).slide_enabled), int(want), "the host's copy of the client's body takes the flip")
-	var mine: PlayerController = _rig.body(1, _slot)
-	if mine.slide_enabled != want or mine.crouch_enabled != want:
-		skip("KNOWN GAP (decision 255): the host's mid-match crouch/slide flip does not reach a client's own body until the next match")
+	var want: bool = not _rig.controller(HOST).get_rules().slide_enabled
+	_movement_is(not want, "before the flip")
+	_flip_movement_in_the_debug_menu(want)
+	await step_ticks(CROSS_TICKS)
+	assert_true(_rig.sessions[1].lobby.get_rules().slide_enabled == want, "the client holds the host's rules as edited")
+	_movement_is(want, "after the flip")
+	_flip_movement_in_the_debug_menu(not want)
+	await step_ticks(CROSS_TICKS)
+	_movement_is(not want, "after it is flipped back")
+
+
+func test_a_machine_that_binds_after_the_hosts_flip_runs_by_it() -> void:
+	if not await _start_round(3, MARBLE, 1, [2]):
+		return
+	var want: bool = not _rig.controller(HOST).get_rules().slide_enabled
+	_flip_movement_in_the_debug_menu(want)
+	await step_ticks(CROSS_TICKS)
+	if not await _rig.bind_late(2):
+		fail("the late machine never bound")
+		return
+	await step_ticks(CROSS_TICKS)
+	_movement_is(want, "on a machine that bound after the flip")
 
 
 # --- PT2-05: what camo is for, in the shipped scene with the AI in the tower ---

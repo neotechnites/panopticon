@@ -118,6 +118,7 @@ func _ready() -> void:
 func _bind_match() -> void:
 	_build_bodies()
 	_apply_opening()
+	_lobby.rules_changed.connect(_on_rules_changed)
 	if _session.is_authority():
 		_subscribe_server()
 		_lobby.peer_launched.connect(_on_peer_launched)
@@ -133,6 +134,8 @@ func _exit_tree() -> void:
 		return
 	# A scene on its way out answers for nothing: a late binder is the next scene's to greet.
 	_lobby.scene_bound.disconnect(_on_scene_bound)
+	if _lobby.rules_changed.is_connected(_on_rules_changed):
+		_lobby.rules_changed.disconnect(_on_rules_changed)
 	_session.replicator.bind_scene(0)
 	_show_world(true)
 
@@ -384,7 +387,22 @@ func _subscribe_server() -> void:
 			_event(&"_ev_ghost_caught", [ghost.index, caught.index, _is_held(caught)])
 	)
 	_lobby.seat_occupancy_changed.connect(_on_seat_occupancy_changed)
+	controller.rules_edited.connect(_publish_rules)
 	_watch_rifle(controller.rifle, TOWER_RIFLE)
+
+
+## The rules are replicated state: the host's edit goes out on the lobby's line, where a peer
+## still loading finds it too.
+func _publish_rules() -> void:
+	_lobby.set_rules(controller.get_rules())
+
+
+## A mirror runs by the host's rules as they stand now, not as they stood at the launch.
+func _on_rules_changed() -> void:
+	if is_authority() or _lobby.get_rules() == null:
+		return
+	NetCodec.copy_rules(_lobby.get_rules(), controller.get_rules())
+	controller.refresh_rules()
 
 
 ## Whether the server still holds a body it has just made a ghost. With no respawn delay it is
