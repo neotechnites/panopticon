@@ -105,9 +105,9 @@ var _scan_index: int = 0
 var _scan_sign: float = 1.0
 var _scan_swept: float = 0.0
 
-# The stand: the seat it was placed on, the map's posts, the one held.
-var _seat: Vector3 = Vector3.ZERO
+# The stand: the map's posts, their middle (bearings are told from it), the one held.
 var _posts: PackedVector3Array = PackedVector3Array()
+var _posts_middle: Vector3 = Vector3.ZERO
 var _post: int = -1
 var _posted: bool = true
 
@@ -163,7 +163,6 @@ func configure(spawn_point: Vector3, initial_yaw: float = 0.0) -> void:
 	_resample_aim_error()
 	_resample_lead_bias()
 	_read_watch_points()
-	_seat = spawn_point
 	_read_posts()
 	if optic != null:
 		optic.reset_zoom()
@@ -188,6 +187,9 @@ func _read_posts() -> void:
 			var marker: Node3D = node as Node3D
 			if marker != null:
 				_posts.append(marker.global_position)
+	_posts_middle = Vector3.ZERO
+	for post: Vector3 in _posts:
+		_posts_middle += post / float(_posts.size())
 	_posted = _posts.is_empty()
 
 
@@ -270,7 +272,7 @@ func _physics_process(delta: float) -> void:
 	if target == null:
 		_forget_target()
 		_scan(delta)
-		_keep_post(_scan_point if _scan_has_point else _seat - controller.global_transform.basis.z)
+		_keep_post(_scan_point if _scan_has_point else _posts_middle - controller.global_transform.basis.z)
 		_drive_optic(0.0, Vector2.ZERO)
 		_set_state(State.RECOVERING if not rifle.can_fire() else State.SCANNING)
 		return
@@ -574,12 +576,12 @@ func _recall_freshest() -> bool:
 	return found
 
 
-## Stand at the post whose bearing from the seat is nearest [param gaze]'s, and
-## walk there when it is not underfoot. Does nothing on a map with no posts.
+## Stand at the post whose bearing from the posts' middle is nearest [param gaze]'s,
+## and walk there when it is not underfoot. Does nothing on a map with no posts.
 func _keep_post(gaze: Vector3) -> void:
 	if _posts.is_empty():
 		return
-	var want: Vector2 = Vector2(gaze.x - _seat.x, gaze.z - _seat.z)
+	var want: Vector2 = Vector2(gaze.x - _posts_middle.x, gaze.z - _posts_middle.z)
 	if want.length_squared() > 0.0001:
 		var held: float = _post_offset(_post, want) - POST_SWITCH_HYSTERESIS if _post >= 0 else INF
 		for index: int in _posts.size():
@@ -603,7 +605,7 @@ func _keep_post(gaze: Vector3) -> void:
 
 
 func _post_offset(index: int, want: Vector2) -> float:
-	var out: Vector2 = Vector2(_posts[index].x - _seat.x, _posts[index].z - _seat.z)
+	var out: Vector2 = Vector2(_posts[index].x - _posts_middle.x, _posts[index].z - _posts_middle.z)
 	return absf(out.angle_to(want))
 
 

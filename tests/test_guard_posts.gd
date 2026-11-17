@@ -63,6 +63,20 @@ func test_a_guard_changes_post_only_when_another_is_clearly_nearer() -> void:
 	assert_lt(_flat_distance(guard.controller.global_position, _at_bearing(0.0, POST_RADIUS)), 0.3, "to the post ahead")
 
 
+## A guard that takes over a body standing anywhere in the room (a seat handed to a bot
+## mid-round) still tells the posts apart from their own middle.
+func test_a_guard_armed_off_the_seat_still_takes_the_post_that_faces_its_target() -> void:
+	_make_posts()
+	var guard: TowerShooter = _make_guard(Vector3(3.0, 0.0, 1.0))
+	var runner: PlayerController = _make_body(_at_bearing(40.0, 30.0))
+	await step_seconds(3.0)
+	assert_same(guard.get_target(), runner, "the runner is tracked")
+	assert_lt(
+		_flat_distance(guard.controller.global_position, _at_bearing(45.0, POST_RADIUS)), 0.3,
+		"it stands at the post 5 degrees off the runner's bearing",
+	)
+
+
 ## With nothing in sight and nothing remembered the guard stands where it faces.
 func test_a_guard_with_nothing_to_look_at_takes_the_post_it_faces() -> void:
 	_make_posts()
