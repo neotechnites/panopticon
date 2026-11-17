@@ -158,3 +158,26 @@ func test_the_host_leaving_by_the_menu_ends_the_session_for_everyone() -> void:
 	assert_true(await _rig.wait_for(func() -> bool: return not client.is_established()), "the client is told at once")
 	assert_true(_result(A).is_showing(), "and its screen says the host is gone")
 	assert_eq_string(_verdict(A), tr("RESULT_HOST_LOST"), "in those words")
+
+
+## Where everyone goes after a match is the host's to say: a client has no button that goes alone.
+func test_a_client_cannot_leave_for_the_hub_ahead_of_the_host() -> void:
+	if not await _play(1, 3):
+		return
+	HubLobby.returns_to_hub = true
+	if not await _win(0):
+		return
+	var again_host: Button = _result(HOST).get_node("%PlayAgainButton") as Button
+	var again_client: Button = _result(A).get_node("%PlayAgainButton") as Button
+	assert_true(again_host.visible, "the host keeps its way back to the hub")
+	assert_false(again_client.visible, "the client is not offered one of its own")
+	_result(A).play_again()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var changed: Node = get_tree().current_scene
+	assert_null(changed, "and asking anyway changes no scene")
+	if changed != null:
+		get_tree().current_scene = null
+		changed.queue_free()
+	assert_true(_result(A).is_showing(), "the client's result stays up")
+	assert_true((_result(A).get_node("%RematchButton") as Button).is_visible_in_tree(), "with Rematch on it")
