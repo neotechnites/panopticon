@@ -227,12 +227,14 @@ hub("quit_client_midmatch_hubflow_4p", 4, 200, ["leave"], {"maps": "bentham_ring
     expect={"matches": 2, "host": ["SEAT seat=s2 occupancy=BOT"], "seat_to_bot": [2]})
 
 # --- H. The finale from both seats ---------------------------------------------
+# The guard here keeps the scope down: a round it won by shooting would never reach the finale under test.
+HOLDS_FIRE = {"aim": False, "fire-every": 0, "press-fire": 0}
 for map_name, map_id in MAPS.items():
     match(f"finale_client_finisher_hostguard_3p_{map_name}", 3, 60, ["finale", "guard"], {"map": map_id, "seats": 4, "tower": 0},
-          host={"arm-finisher": 10},
+          host=dict(HOLDS_FIRE, **{"arm-finisher": 10}),
           expect={"host": ["EV finisher seat=s"], "all": ["EV kill_beat guard=s0", "EV round_started round=2"]})
     match(f"finale_host_finisher_clientguard_3p_{map_name}", 3, 60, ["finale", "guard"], {"map": map_id, "seats": 4, "tower": 1},
-          host={"arm-finisher": 10, "arm-host": True},
+          host={"arm-finisher": 10, "arm-host": True}, peer={"1": HOLDS_FIRE},
           expect={"host": ["EV finisher seat=s0"], "all": ["EV kill_beat guard=s1", "EV round_started round=2 guard=s0"]})
 
 

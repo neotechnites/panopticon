@@ -17,6 +17,13 @@
   "arm-finisher": 10,
   "arm-host": true
  },
+ "peer": {
+  "1": {
+   "aim": false,
+   "fire-every": 0,
+   "press-fire": 0
+  }
+ },
  "expect": {
   "host": [
    "EV finisher seat=s0"
