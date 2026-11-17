@@ -114,6 +114,9 @@ func _stand_down_all() -> void:
 	for shooter: TowerShooter in _shooters.values():
 		if is_instance_valid(shooter):
 			shooter.set_physics_process(false)
+			if shooter.input != null:
+				# A guard walking to a post when it is stood down must not keep walking.
+				shooter.input.command.move_direction = Vector2.ZERO
 
 
 # --- Attachment ---------------------------------------------------------------

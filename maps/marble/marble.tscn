@@ -482,6 +482,33 @@ layers = 1025
 editor_description = "On the room floor's centre (1.70 over the origin), 0.25 m up so the capsule never starts inside the collision plane."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
+[node name="Posts" type="Node3D" parent="Tower"]
+editor_description = "Where the AI guard stands: eight points on the room floor at r 5.5, one behind every second opening of the arcade (bearings 13.75 + 45k, x = cos, z = sin). From the seat on the axis the 1.0 m railing's collider crosses every line to the lane, so the guard walks to the post that faces where it is looking, as a player walks to the rail. Markers only -- nothing is drawn and nothing collides. The bots' cover bake reads the same markers as the guard's eyes."
+
+[node name="Post014" type="Marker3D" parent="Tower/Posts" groups=["guard_post"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.3424, 1.7, 1.3073)
+
+[node name="Post059" type="Marker3D" parent="Tower/Posts" groups=["guard_post"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.8533, 1.7, 4.7020)
+
+[node name="Post104" type="Marker3D" parent="Tower/Posts" groups=["guard_post"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.3073, 1.7, 5.3424)
+
+[node name="Post149" type="Marker3D" parent="Tower/Posts" groups=["guard_post"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.7020, 1.7, 2.8533)
+
+[node name="Post194" type="Marker3D" parent="Tower/Posts" groups=["guard_post"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.3424, 1.7, -1.3073)
+
+[node name="Post239" type="Marker3D" parent="Tower/Posts" groups=["guard_post"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.8533, 1.7, -4.7020)
+
+[node name="Post284" type="Marker3D" parent="Tower/Posts" groups=["guard_post"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.3073, 1.7, -5.3424)
+
+[node name="Post329" type="Marker3D" parent="Tower/Posts" groups=["guard_post"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.7020, 1.7, -2.8533)
+
 [node name="Elements" type="Node3D" parent="."]
 editor_description = "Placed lane elements: six curved walls on the lip at Ryan's six bearings, and the four sections as a grey blockout (tools/modelling/maps/marble/marble_sections_blockout.py writes them): A trapdoors under cover 70-118 deg, B low wall with activators on top 259-295, C buttresses 197-242, D column forest 16-57."
 

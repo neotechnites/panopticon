@@ -26,8 +26,8 @@ extends Node
 ##
 ## The physics delta is pinned at 1/60 s regardless of time compression, every
 ## generator (aim, perception, spread) is seeded through
-## [method BotHarness.stream_seed] from the match seed and the seat, and the
-## optic runs on the physics tick rather than the render tick. Given the same
+## [method BotHarness.stream_seed] from the match seed and the seat, and frames
+## are stepped by count ([code]--fixed-fps 60[/code]), not by the wall clock. Given the same
 ## seed, the same rules and the same machine, two runs execute the same ticks.
 ## Across machines, floating-point differences in the physics solver can still
 ## diverge, which is why a result file records its seed rather than claiming

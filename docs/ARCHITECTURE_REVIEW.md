@@ -351,7 +351,7 @@ bash tools/test.sh
   before: PASS 408 tests, 406 passed, 0 failed, 2 skipped, 4154 checks, 73.0 s
   after:  PASS 408 tests, 406 passed, 0 failed, 2 skipped, 4154 checks, 73.1 s
 
-godot --headless --script res://tools/harness/run_bot_match.gd -- --matches=5
+godot --headless --fixed-fps 60 --script res://tools/harness/run_bot_match.gd -- --matches=5
   after:  CLEAN  5 matches, 0 unresolved
 ```
 
