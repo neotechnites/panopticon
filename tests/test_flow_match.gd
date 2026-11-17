@@ -203,3 +203,20 @@ func test_the_restart_key_does_not_restart_a_seated_match() -> void:
 	assert_eq_int(starts[0], 0, "nor on the result screen")
 	assert_eq_int(int(_rig.sessions[HOST].lobby.get_phase()), int(NetLobby.Phase.POST_MATCH), "the lobby still says the match is over")
 	assert_true(host.is_match_over(), "and so does the match")
+
+
+## A client still standing in a scene the lobby has left sends the host nothing: no node there hears it.
+func test_a_client_scene_the_lobby_has_left_goes_quiet() -> void:
+	if not await _play(1, 3):
+		return
+	if not await _win(0):
+		return
+	var link: PlayerNetLink = _rig.net_match(A).get_local_link()
+	assert_true(link.is_physics_processing(), "the client's link speaks while the lobby names its match")
+	_rig.net_match(HOST).return_all_to_hub()
+	var client: NetLobby = _rig.sessions[A].lobby
+	assert_true(
+		await _rig.wait_for(func() -> bool: return client.get_phase() == NetLobby.Phase.GATHERING),
+		"the client hears the host went back to the hub",
+	)
+	assert_false(link.is_physics_processing(), "and its match scene's link stops sending")

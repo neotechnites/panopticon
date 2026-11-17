@@ -142,7 +142,22 @@ func _bind_epoch() -> void:
 		_lobby.acknowledge_scene(_epoch)
 	if _session.is_authority() and not _started:
 		return
-	_session.replicator.bind_scene(_epoch if _lobby.get_epoch() == _epoch else 0)
+	_session.replicator.bind_scene(_epoch if _is_current() else 0)
+	_hush_stale_links()
+
+
+## True while the lobby names this scene: its epoch is the one this scene was loaded for.
+func _is_current() -> bool:
+	return _epoch != 0 and _lobby.get_epoch() == _epoch
+
+
+## A client's links speak only for a scene the lobby names; the host has no node to hear any other.
+func _hush_stale_links() -> void:
+	if _session.is_authority():
+		return
+	var current: bool = _is_current()
+	for link: PlayerNetLink in _links:
+		link.set_physics_process(current)
 
 
 ## The authority has placed every body: what it sends from now on is this scene's.
@@ -263,6 +278,7 @@ func _build_bodies() -> void:
 		_slot_of_seat[seat.index] = slot
 		_seat_of_slot[slot] = seat.index
 		_add_link(seat, body, seat.index == local_seat)
+	_hush_stale_links()
 	controller.configure_net(bodies, kinds, names, local_slot, not _session.is_authority())
 
 
