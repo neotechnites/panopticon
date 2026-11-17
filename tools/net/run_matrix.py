@@ -12,6 +12,7 @@ Exit 0 every scenario PASS, 1 any FAIL or FLAKY, 2 nothing ran.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -32,6 +33,23 @@ def provenance() -> dict:
         return done.stdout.strip() if done.returncode == 0 else ""
     return {"commit": git("rev-parse", "HEAD"), "dirty": len([l for l in git("status", "--porcelain").splitlines() if l]),
             "load": list(os.getloadavg()), "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
+
+
+def checker_hash() -> str:
+    """Which verdict code judged the logs: a recheck under another checker is not the same result."""
+    digest = hashlib.sha256()
+    for name in ("check_session.py", "wire_stats.py", "scenario_args.py", "error_allowlist.json"):
+        digest.update((HERE / name).read_bytes())
+    return digest.hexdigest()[:16]
+
+
+def ledger_path() -> Path | None:
+    """One append-only file per clone, outside every worktree: each matrix attempt is written there."""
+    done = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--git-common-dir"], capture_output=True, text=True)
+    if done.returncode != 0:
+        return None
+    common = Path(done.stdout.strip())
+    return (common if common.is_absolute() else ROOT / common) / "panopticon-matrix-ledger.jsonl"
 
 
 def classify(reports: list[dict]) -> dict:
@@ -83,6 +101,10 @@ def main() -> int:
     parser.add_argument("--scenarios", default=str(HERE / "scenarios"))
     args = parser.parse_args()
     out = Path(args.out)
+    if (out / "matrix.json").exists() and not args.recheck:
+        # Runs are never overwritten: a second attempt goes to a new directory and into the ledger.
+        print(f"run_matrix: {out} already holds a matrix; use a new --out (or --recheck)", file=sys.stderr)
+        return 2
     out.mkdir(parents=True, exist_ok=True)
     chosen = []
     for path in sorted(Path(args.scenarios).glob("*.json")):
@@ -103,8 +125,11 @@ def main() -> int:
                 work.append((path, target))
     print(f"run_matrix: {len(work)} run(s) of {len(chosen)} scenario(s), {args.jobs} at a time -> {out}", flush=True)
     started = provenance()
+    started["checker"] = checker_hash()
     if args.recheck and (out / "matrix.json").exists():
-        started = json.loads((out / "matrix.json").read_text()).get("provenance", started)
+        ran = json.loads((out / "matrix.json").read_text()).get("provenance", started)
+        ran["rechecked"] = {"at": started["at"], "checker": started["checker"]}
+        started = dict(ran, checker=started["checker"])
     with ThreadPoolExecutor(max_workers=max(args.jobs, 1)) as pool:
         reports = list(pool.map(lambda item: run_one(item[0], item[1], args.strict, args.recheck), work))
     counts = {v: sum(1 for r in reports if r["verdict"] == v) for v in ("PASS", "FAIL", "BROKEN")}
@@ -141,6 +166,13 @@ def main() -> int:
             lines.append(f"- WARN [{warning['check']}] {warning['peer']}: {warning['message']}")
         lines.append("")
     (out / "matrix.md").write_text("\n".join(lines))
+    ledger = ledger_path()
+    if ledger is not None:
+        with ledger.open("a") as handle:
+            handle.write(json.dumps({"out": str(out.resolve()), "commit": started["commit"], "dirty": started["dirty"],
+                                     "checker": started["checker"], "recheck": args.recheck, "repeat": args.repeat,
+                                     "filter": args.filter, "tag": args.tag, "at": started["at"],
+                                     "classes": tally}) + "\n")
     print(f"MATRIX pass={counts['PASS']} fail={counts['FAIL']} broken={counts['BROKEN']} total={len(reports)} "
           f"scenarios pass={tally['PASS']} flaky={tally['FLAKY']} fail={tally['FAIL']} report={out / 'matrix.md'}")
     return 0 if tally["FLAKY"] == 0 and tally["FAIL"] == 0 else 1

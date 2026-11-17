@@ -1,8 +1,10 @@
 class_name LossyPeer
 extends MultiplayerPeerExtension
 
-## Harness-only network conditioner: wraps a real peer and puts this machine's sends through
-## [member conditions], one independent path per remote peer. [method freeze] stops it servicing.
+## Harness-only network conditioner above the transport: wraps a real peer and puts this machine's sends
+## through [member conditions], one path per remote peer, released on the first poll at or after their
+## due time. It models a transport without sequencing (what reaches the game is what the wire did);
+## tools/net/wire_relay.gd models the datagrams below ENet. [method freeze] stops it servicing.
 
 ## What this machine's sends go through. Settable live; [method NetConditions.reseed] restarts it.
 var conditions: NetConditions = null
@@ -18,13 +20,10 @@ var _real: MultiplayerPeer = null
 var _target: int = 0
 var _channel: int = 0
 var _mode: TransferMode = TRANSFER_MODE_RELIABLE
-## Remote peers this machine can reach, so a broadcast becomes one independent send per path.
+## Remote peers this machine can reach, so a broadcast becomes one independent send per path. Learnt
+## from the engine's connect and disconnect only: a rig wraps the socket before it has a peer.
 var _peers: Dictionary[int, bool] = {}
 var _thaw_ms: float = -1.0
-## How often this peer is polled: a packet leaves on the poll nearest its due time, so the frame clock
-## spreads delays by half a poll either way instead of adding up to a whole one.
-var _poll_every_ms: float = 0.0
-var _last_poll_ms: float = -1.0
 
 
 func _init(real: MultiplayerPeer, loss: float = 0.0, rng_seed: int = 1, delay_ms: int = 0) -> void:
@@ -110,10 +109,6 @@ func _now() -> float:
 
 
 func _get_packet_script() -> PackedByteArray:
-	# The engine names the sender of the packet about to be read, so ask before reading it.
-	var from: int = _real.get_packet_peer()
-	if from > 0:
-		_peers[from] = true
 	return _real.get_packet()
 
 
@@ -164,11 +159,7 @@ func _is_server() -> bool:
 func _poll() -> void:
 	if is_frozen():
 		return
-	var now: float = _now()
-	if _last_poll_ms >= 0.0:
-		_poll_every_ms = lerpf(_poll_every_ms, clampf(now - _last_poll_ms, 0.0, 100.0), 0.1)
-	_last_poll_ms = now
-	_release(now + 0.5 * _poll_every_ms)
+	_release(_now())
 	_real.poll()
 
 

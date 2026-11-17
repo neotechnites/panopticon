@@ -10,7 +10,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 GODOT="${GODOT:-godot}"
 SCENARIO=""; OUT=""; CHECK=1; STRICT=""; RUNNER=""; NPEERS=0; LIMIT=180; NAME="adhoc"
-HOST_ARGS=(); CLIENT_ARGS=(); KILLS=(); ARMS=()
+HOST_ARGS=(); CLIENT_ARGS=(); KILLS=(); ARMS=(); RELAY_JSON=""; RELAY_PID=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -54,6 +54,21 @@ if [ -n "$SCENARIO" ]; then cp "$SCENARIO" "$OUT/scenario.json"; else
 fi
 if [ "$RUNNER" = match ]; then ENTRY=(--script res://tools/net/run_net_match.gd); else ENTRY=(res://tools/net/hub_session_runner.tscn); fi
 
+# A socket-layer scenario puts a datagram relay between every client and the host (tools/net/wire_relay.gd).
+if [ -n "$RELAY_JSON" ]; then
+  printf '%s\n' "$RELAY_JSON" > "$OUT/wire.json"
+  mkdir -p "$OUT/relay/home"
+  HOME="$OUT/relay/home" "$GODOT" --headless --path "$ROOT" --script res://tools/net/wire_relay.gd -- \
+    --config="$OUT/wire.json" --log="$OUT/relay.log" > "$OUT/relay.out" 2>&1 &
+  RELAY_PID=$!
+  for _ in $(seq 1 80); do
+    grep -q "RELAY ready" "$OUT/relay.log" 2>/dev/null && break
+    kill -0 "$RELAY_PID" 2>/dev/null || break
+    sleep 0.25
+  done
+  grep -q "RELAY ready" "$OUT/relay.log" 2>/dev/null || { echo "run_session: the wire relay did not start" >&2; kill -KILL "$RELAY_PID" 2>/dev/null; exit 2; }
+fi
+
 PIDS=()
 launch() {
   local i="$1"; shift
@@ -64,7 +79,7 @@ launch() {
 }
 
 cleanup() {
-  for p in ${PIDS[@]+"${PIDS[@]}"}; do kill -KILL "$p" 2>/dev/null; done
+  for p in ${PIDS[@]+"${PIDS[@]}"} $RELAY_PID; do kill -KILL "$p" 2>/dev/null; done
 }
 trap cleanup INT TERM
 
@@ -123,7 +138,7 @@ for p in "${PIDS[@]}"; do
   wait "$p"; echo "peer$i exit=$?" >> "$OUT/exit.txt"
   i=$((i + 1))
 done
-kill "$WATCHDOG" ${ARMS[@]+"${ARMS[@]}"} 2>/dev/null; wait "$WATCHDOG" ${ARMS[@]+"${ARMS[@]}"} 2>/dev/null
+kill "$WATCHDOG" ${ARMS[@]+"${ARMS[@]}"} $RELAY_PID 2>/dev/null; wait "$WATCHDOG" ${ARMS[@]+"${ARMS[@]}"} $RELAY_PID 2>/dev/null
 echo "out=$OUT"
 [ "$CHECK" = 1 ] || exit 0
 python3 "$HERE/check_session.py" "$OUT" $STRICT

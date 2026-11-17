@@ -4,7 +4,7 @@
     python3 tools/net/wire_stats.py <session dir>
 
 Every peer sends a small unreliable probe stream (session_probe.gd) through the same conditioned wire as
-the game, and writes peerN.wire: "me <id>", "s <to> <seq> <sent_ms>", "r <from> <seq> <sent_ms> <recv_ms>".
+the game, and writes peerN.wire: "me <id>", "s <to> <seq> <sent_ms>", "r <from> <to> <seq> <sent_ms> <recv_ms>".
 Per directed path this measures loss and its runs, duplication, reordering (RFC 4737) and one-way delay,
 and check() holds each against the conditions the scenario asked for. Samples whose flight overlaps a
 hitch or a deliberate freeze on either end are left out of the delay figures: those are the machine,
@@ -21,19 +21,20 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from scenario_args import peer_options  # noqa: E402
+from scenario_args import conditioned, peer_options  # noqa: E402
 
-# The frame clock a delay measured above the transport carries: the sender releases a packet on the poll
-# nearest its due time (half a 60 Hz frame either way), the receiver reads it on its next poll. The
-# median may sit up to this much late on a loaded machine; the release alone spreads the quartiles by this.
-QUANT_MS = 30.0
+# The frame clock on a delay measured in the game: above the transport the sender releases a packet on
+# its first poll past due, and the receiver always reads on its next poll. The median may sit up to this
+# much late on a loaded machine; the release alone spreads the quartiles by about this.
+QUANT_MS = 40.0
 QUANT_IQR_MS = 9.0
+# A line asked for no jitter may still spread this much on a loaded machine; jitter worth testing is more.
+NO_JITTER_IQR_MS = 25.0
 # Relative tolerance on a measured rate or spread; a third of the asked value must fall outside it.
 RATE_BAND = 0.4
 # Below this many samples a statistic is not judged.
 MIN_SAMPLES = 150
 FREEZE_FORM = re.compile(r"^(match|hub|any)(\d*)@([\d.]+)\+(\d+)$")
-CONDITION_KEYS = ("loss", "delay-ms", "jitter-ms", "burst-ms", "dup", "reorder")
 
 
 class PeerWire:
@@ -41,7 +42,8 @@ class PeerWire:
         self.index = index
         self.ids: list[int] = []
         self.sends: dict[int, list[tuple[int, float]]] = {}
-        self.arrivals: dict[int, list[tuple[int, float, float]]] = {}
+        # Keyed by (sender id, this machine's id when it was sent): a reconnect starts a new sequence.
+        self.arrivals: dict[tuple[int, int], list[tuple[int, float, float]]] = {}
         for raw in path.read_text(errors="replace").splitlines():
             part = raw.split()
             try:
@@ -50,7 +52,8 @@ class PeerWire:
                 elif part[0] == "s":
                     self.sends.setdefault(int(part[1]), []).append((int(part[2]), float(part[3])))
                 elif part[0] == "r":
-                    self.arrivals.setdefault(int(part[1]), []).append((int(part[2]), float(part[3]), float(part[4])))
+                    self.arrivals.setdefault((int(part[1]), int(part[2])), []).append(
+                        (int(part[3]), float(part[4]), float(part[5])))
             except (IndexError, ValueError):
                 continue  # a line cut short by a killed process
 
@@ -140,15 +143,16 @@ def paths(session: Path, logs: dict[int, list]) -> dict[tuple[int, int], dict]:
     owner = {pid: w.index for w in wires.values() for pid in w.ids}
     out = {}
     for receiver in wires.values():
-        for from_id, arrivals in receiver.arrivals.items():
+        for (from_id, to_id), arrivals in receiver.arrivals.items():
             sender = wires.get(owner.get(from_id, -1))
             if sender is None:
                 continue
-            sends = [s for to in set(receiver.ids) for s in sender.sends.get(to, [])]
+            sends = sender.sends.get(to_id, [])
             quiet = quiet_windows(logs.get(sender.index, [])) + quiet_windows(logs.get(receiver.index, []))
             figures = measure(sends, arrivals, quiet)
-            if figures is not None:
-                out[(sender.index, receiver.index)] = figures
+            key = (sender.index, receiver.index)
+            if figures is not None and (key not in out or figures["sent"] > out[key]["sent"]):
+                out[key] = figures
     return out
 
 
@@ -161,10 +165,6 @@ def _num(opts: dict, key: str, default: float = 0.0) -> float:
         return default
 
 
-def conditioned(opts: dict) -> bool:
-    return any(_num(opts, k) > 0.0 for k in CONDITION_KEYS)
-
-
 def expected_loss(opts: dict) -> float:
     """Stationary loss of the configured link: Bernoulli, or Gilbert-Elliott's two-state mix."""
     good, burst, gap = _num(opts, "loss"), _num(opts, "burst-ms"), _num(opts, "burst-gap-ms")
@@ -174,15 +174,34 @@ def expected_loss(opts: dict) -> float:
     return bad_share * _num(opts, "burst-loss", 1.0) + (1.0 - bad_share) * good
 
 
-def expected_run(opts: dict, spacing: float) -> float:
-    """Mean run of consecutive lost probes [spacing] ms apart: geometric, from the link's persistence."""
+def loss_chain(opts: dict, spacing: float) -> tuple[float, float] | None:
+    """For probes [spacing] ms apart, the chance a loss follows a loss and the lag-one correlation of the
+    loss sequence, when that sequence is a Markov chain: Bernoulli, or a Gilbert link that loses all of a
+    bad spell and nothing else. None for a hidden mix, where runs are not geometric."""
     burst, gap = _num(opts, "burst-ms"), _num(opts, "burst-gap-ms")
-    if burst <= 0.0 or gap <= 0.0 or _num(opts, "burst-loss", 1.0) < 1.0 or _num(opts, "loss") > 0.0:
-        return 1.0 / max(1.0 - expected_loss(opts), 1e-6)
+    if burst <= 0.0 or gap <= 0.0:
+        loss = _num(opts, "loss")
+        return loss, 0.0
+    if _num(opts, "burst-loss", 1.0) < 1.0 or _num(opts, "loss") > 0.0:
+        return None
     to_bad, to_good = 1.0 / gap, 1.0 / burst
     share = to_bad / (to_bad + to_good)
     stay = share + (1.0 - share) * math.exp(-(to_bad + to_good) * spacing)
-    return 1.0 / max(1.0 - stay, 1e-6)
+    return stay, stay - (1.0 - stay) * share / (1.0 - share)
+
+
+def unique_loss(opts: dict) -> float:
+    """Share of probes of which no copy arrives: a duplicated one is lost only when both copies are."""
+    loss, dup = expected_loss(opts), _num(opts, "dup")
+    return loss * (1.0 - dup + dup * loss)
+
+
+def visible_dup(opts: dict) -> float:
+    """Extra copies per probe the game sees. Below ENet a duplicated datagram is dropped by ENet itself."""
+    if opts.get("wire-layer", "peer") == "socket":
+        return 0.0
+    loss, dup = expected_loss(opts), _num(opts, "dup")
+    return dup * (1.0 - loss) / (1.0 + dup * loss)
 
 
 def jitter_iqr(opts: dict) -> float:
@@ -217,21 +236,28 @@ def check_path(opts: dict, m: dict) -> list[str]:
     n = m["sent"]
     if n < MIN_SAMPLES:
         return [f"only {n} probes crossed it, too few to measure the wire"]
-    loss = expected_loss(opts)
-    dup = _num(opts, "dup")
-    if dup == 0.0:
-        run = expected_run(opts, m["spacing"])
-        sigma = math.sqrt(max(loss * (1.0 - loss), 1e-9) * run / n)
+    loss = unique_loss(opts)
+    chain = loss_chain(opts, m["spacing"])
+    bursty = _num(opts, "burst-ms") > 0.0 and _num(opts, "burst-gap-ms") > 0.0
+    if chain is not None or not bursty:
+        # A correlated loss sequence carries fewer independent samples: (1 + rho) / (1 - rho) fewer.
+        rho = chain[1] if chain is not None else 0.0
+        inflation = (1.0 + rho) / max(1.0 - rho, 1e-6)
+        sigma = math.sqrt(max(loss * (1.0 - loss), 1e-9) * inflation / n)
         allowed = max(RATE_BAND * loss, 3.0 * sigma, 0.01)
         if abs(m["loss"] - loss) > allowed:
             bad.append(f"lost {m['loss']:.3f} of probes, asked {loss:.3f} (+-{allowed:.3f})")
-        if loss > 0.0 and m["runs"] >= 20 and abs(m["run_mean"] - run) > RATE_BAND * run:
-            bad.append(f"losses came in runs of {m['run_mean']:.2f}, the link makes {run:.2f} at {m['spacing']:.0f} ms")
-    if loss == 0.0 or dup > 0.0:
-        want = dup * (1.0 - loss)
-        allowed = max(RATE_BAND * want, 3.0 * math.sqrt(max(want, 1e-9) / n), 0.005)
-        if abs(m["dup"] - want) > allowed:
-            bad.append(f"duplicated {m['dup']:.3f} of probes, asked {want:.3f} (+-{allowed:.3f})")
+    if chain is not None and chain[0] > 0.0 and m["runs"] >= 10 and _num(opts, "dup") == 0.0:
+        stay = chain[0]
+        run = 1.0 / max(1.0 - stay, 1e-6)
+        allowed = max(3.0 * math.sqrt(stay) / max(1.0 - stay, 1e-6) / math.sqrt(m["runs"]), 0.1 * run)
+        if abs(m["run_mean"] - run) > allowed:
+            bad.append(f"losses came in runs of {m['run_mean']:.2f}, the link makes {run:.2f} (+-{allowed:.2f}) "
+                       f"at {m['spacing']:.0f} ms")
+    want = visible_dup(opts)
+    allowed = max(RATE_BAND * want, 3.0 * math.sqrt(max(want, 1e-9) / n), 0.005)
+    if abs(m["dup"] - want) > allowed:
+        bad.append(f"duplicated {m['dup']:.3f} of probes, asked {want:.3f} (+-{allowed:.3f})")
     reorder, held = _num(opts, "reorder"), _num(opts, "reorder-ms")
     free = str(opts.get("jitter-reorders", "false")).lower() in ("true", "1", "yes", "on")
     spread = _num(opts, "jitter-ms")
@@ -258,7 +284,7 @@ def check_path(opts: dict, m: dict) -> list[str]:
         bad.append(f"delay interquartile range {excess:.1f} ms beyond the frame clock, asked {iqr:.1f} ms")
     elif coupled and excess < 0.25 * iqr:
         bad.append(f"delay interquartile range {excess:.1f} ms: the jitter asked ({spread:.0f} ms) is not on the wire")
-    elif spread == 0.0 and excess > 15.0:
+    elif spread == 0.0 and excess > NO_JITTER_IQR_MS:
         bad.append(f"delay interquartile range {excess:.1f} ms on a line asked for no jitter")
     return bad
 

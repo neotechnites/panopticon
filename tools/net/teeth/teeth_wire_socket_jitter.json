@@ -1,0 +1,29 @@
+{
+ "runner": "match",
+ "peers": 2,
+ "limit": 90,
+ "common": {
+  "seconds": 40,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 0,
+  "wire-layer": "socket",
+  "delay-ms": 40,
+  "jitter-ms": 25,
+  "jitter-dist": "normal",
+  "jitter-tau-ms": 200
+ },
+ "host": {
+  "aim": false,
+  "fire-every": 0,
+  "press-fire": 0,
+  "ghosts": "false"
+ },
+ "client": {
+  "keys": "1@6,4@14"
+ },
+ "name": "teeth_wire_socket_jitter",
+ "clean": [
+  "wire"
+ ]
+}

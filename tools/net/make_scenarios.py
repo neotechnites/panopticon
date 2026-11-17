@@ -203,14 +203,19 @@ for map_name, map_id in MAPS.items():
 # --- F2. The conditions the netcode design claims to survive (DESIGN.md Phase T) -----
 # Each mode alone, then the design's own line: 80 ms one way, 20 ms of jitter, 2% held back. Jitter here
 # remembers itself for 200 ms (a queue filling and draining), except "jitteriid": fresh per packet, in order.
+# Below ENet (tools/net/wire_relay.gd), as on a real line, except the "_peer" pair: the same reordering and
+# duplication above the transport, which is what a transport without sequencing (Steam) hands the game.
+SOCKET = {"wire-layer": "socket"}
 WIRE_MODES = {
-    "jitter20u": {"delay-ms": 40, "jitter-ms": 20, "jitter-tau-ms": 200},
-    "jitter20n": {"delay-ms": 40, "jitter-ms": 20, "jitter-dist": "normal", "jitter-tau-ms": 200},
-    "jitteriid": {"delay-ms": 40, "jitter-ms": 15},
-    "reorder5": {"delay-ms": 30, "reorder": 0.05, "reorder-ms": 100},
-    "dup10": {"delay-ms": 20, "dup": 0.1},
-    "burst5": {"burst-ms": 150, "burst-gap-ms": 2850},
-    "wan80": {"delay-ms": 80, "jitter-ms": 20, "jitter-tau-ms": 200, "reorder": 0.02, "reorder-ms": 60},
+    "jitter20u": dict(SOCKET, **{"delay-ms": 40, "jitter-ms": 20, "jitter-tau-ms": 200}),
+    "jitter20n": dict(SOCKET, **{"delay-ms": 40, "jitter-ms": 20, "jitter-dist": "normal", "jitter-tau-ms": 200}),
+    "jitteriid": dict(SOCKET, **{"delay-ms": 40, "jitter-ms": 15}),
+    "reorder5": dict(SOCKET, **{"delay-ms": 30, "reorder": 0.05, "reorder-ms": 100}),
+    "dup10": dict(SOCKET, **{"delay-ms": 20, "dup": 0.1}),
+    "burst5": dict(SOCKET, **{"burst-ms": 150, "burst-gap-ms": 2850}),
+    "wan80": dict(SOCKET, **{"delay-ms": 80, "jitter-ms": 20, "jitter-tau-ms": 200, "reorder": 0.02, "reorder-ms": 60}),
+    "reorder5_peer": {"delay-ms": 30, "reorder": 0.05, "reorder-ms": 100},
+    "dup10_peer": {"delay-ms": 20, "dup": 0.1},
 }
 for map_name, map_id in MAPS.items():
     for mode, flags in WIRE_MODES.items():

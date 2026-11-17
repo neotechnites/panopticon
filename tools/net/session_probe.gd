@@ -10,7 +10,7 @@ const OPTIONS: Dictionary = {
 	"prisoners": -1, "ability": -1, "rounds": -1, "lives": -1, "ghosts": "", "brawl": false,
 	"loss": 0.0, "delay-ms": 0, "jitter-ms": 0.0, "jitter-dist": "uniform", "jitter-tau-ms": 0.0, "jitter-reorders": false,
 	"burst-ms": 0.0, "burst-gap-ms": 0.0, "burst-loss": 1.0, "dup": 0.0, "reorder": 0.0, "reorder-ms": 0.0,
-	"wire-probe-hz": 20.0, "wire-log": "", "freeze": "", "stall-at": 0.0, "stall-ms": 0, "stall-match": 1,
+	"wire-layer": "peer", "wire-probe-hz": 20.0, "wire-log": "", "freeze": "", "stall-at": 0.0, "stall-ms": 0, "stall-match": 1,
 	"quit-at": -1.0, "quit-match": 1, "quit-mode": "leave", "host-lost-exit": 4.0,
 	"mode": "play", "aim": true, "marksman": false, "fire-every": 2.6, "press-fire": 3.0, "pitch-rate": 0.0,
 	"keys": "", "hub-keys": "", "keys-wait": true, "sample": 0.5,
@@ -21,9 +21,9 @@ const MATCH_SCENE: String = "res://match/match.tscn"
 const HUB_SCENE: String = "res://hub/hub.tscn"
 const HITCH_MS: int = 100
 const ISOLATION_ENV: String = "PANOPTICON_NET_ISOLATED"
-## The wire probe's packets: magic, u32 sequence per destination, f64 send time (unix ms).
+## The wire probe's packets: magic, u32 destination peer id, u32 sequence per destination, f64 send time (unix ms).
 const PROBE_MAGIC: int = 0x5750
-const PROBE_SIZE: int = 14
+const PROBE_SIZE: int = 18
 const WIRE_FLUSH_MS: int = 1000
 
 signal match_bound(authority: bool)
@@ -193,9 +193,13 @@ func attach(net_session: NetSession) -> void:
 
 
 ## Put this machine's sends through [LossyPeer] when a wire option asks for it. Call after host/join.
+## With --wire-layer=socket the launcher's relay conditions the datagrams below ENet instead.
 func condition_wire() -> void:
 	var enet: ENetMultiplayerPeer = session.multiplayer.multiplayer_peer as ENetMultiplayerPeer
 	if enet == null:
+		return
+	if String(o["wire-layer"]) == "socket":
+		line("WIRE layer=socket (tools/net/wire_relay.gd)")
 		return
 	var conditions: NetConditions = NetConditions.from_options(o, 7 if is_server() else 11 + OS.get_process_id() % 97)
 	match String(o["break"]):
@@ -549,7 +553,7 @@ func _freeze_when_due() -> void:
 # --- The wire probe ----------------------------------------------------------------
 
 ## A small unreliable stream to every peer this machine talks to, through the same conditioned wire as
-## the game's packets. Both ends write --wire-log ("me id", "s to seq sent_ms", "r from seq sent_ms recv_ms"),
+## the game's packets. Both ends write --wire-log ("me id", "s to seq sent_ms", "r from to seq sent_ms recv_ms"),
 ## and tools/net/check_session.py measures what the wire really did from the two.
 func _send_probes(now: int) -> void:
 	var hz: float = float(o["wire-probe-hz"])
@@ -568,8 +572,9 @@ func _send_probes(now: int) -> void:
 		var bytes: PackedByteArray = PackedByteArray()
 		bytes.resize(PROBE_SIZE)
 		bytes.encode_u16(0, PROBE_MAGIC)
-		bytes.encode_u32(2, seq)
-		bytes.encode_double(6, sent_ms)
+		bytes.encode_u32(2, peer)
+		bytes.encode_u32(6, seq)
+		bytes.encode_double(10, sent_ms)
 		api.send_bytes(bytes, peer, MultiplayerPeer.TRANSFER_MODE_UNRELIABLE, 0)
 		_wire_log.store_line("s %d %d %.3f" % [peer, seq, sent_ms])
 	if now - _wire_flushed_ms >= WIRE_FLUSH_MS:
@@ -580,8 +585,8 @@ func _send_probes(now: int) -> void:
 func _on_probe_packet(from: int, bytes: PackedByteArray) -> void:
 	if _wire_log == null or bytes.size() != PROBE_SIZE or bytes.decode_u16(0) != PROBE_MAGIC:
 		return
-	_wire_log.store_line("r %d %d %.3f %.3f" % [from, bytes.decode_u32(2), bytes.decode_double(6),
-		Time.get_unix_time_from_system() * 1000.0])
+	_wire_log.store_line("r %d %d %d %.3f %.3f" % [from, bytes.decode_u32(2), bytes.decode_u32(6),
+		bytes.decode_double(10), Time.get_unix_time_from_system() * 1000.0])
 
 
 ## --break: deliberate faults on this one machine, to prove tools/net/check_session.py sees them.

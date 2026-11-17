@@ -12,6 +12,7 @@
   "map": "bentham_ring",
   "seats": 4,
   "tower": 3,
+  "wire-layer": "socket",
   "delay-ms": 40,
   "jitter-ms": 15
  },

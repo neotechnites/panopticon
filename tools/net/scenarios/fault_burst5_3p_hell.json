@@ -12,6 +12,7 @@
   "map": "bentham_ring",
   "seats": 4,
   "tower": 3,
+  "wire-layer": "socket",
   "burst-ms": 150,
   "burst-gap-ms": 2850
  },

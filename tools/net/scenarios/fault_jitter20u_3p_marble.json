@@ -12,6 +12,7 @@
   "map": "marble",
   "seats": 4,
   "tower": 3,
+  "wire-layer": "socket",
   "delay-ms": 40,
   "jitter-ms": 20,
   "jitter-tau-ms": 200
