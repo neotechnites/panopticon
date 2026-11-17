@@ -453,3 +453,19 @@ func test_a_shoved_runner_flops_on_every_peer() -> void:
 	# A client shoves the other client; then the bot is shoved by a client.
 	await _watch_a_shove(1, 2)
 	await _watch_a_shove(2, 3)
+
+
+func test_a_body_shoved_in_the_hub_flops_on_every_peer() -> void:
+	if not await _rig.connect_peers(self, 2):
+		fail("the loopback handshake did not complete")
+		return
+	_rig.bind_hubs()
+	await step_ticks(_cross)
+	for peer: int in _rig.peer_count():
+		assert_eq_int(_rig.controller(peer).get_participants().size(), 3, "peer %d stands three people in the hub" % peer)
+	if is_failed():
+		return
+	# The host shoves a client, a client shoves the host, a client shoves the other client.
+	await _watch_a_shove(0, 1)
+	await _watch_a_shove(1, 0)
+	await _watch_a_shove(2, 1)

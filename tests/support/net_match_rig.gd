@@ -3,6 +3,7 @@ extends RefCounted
 ## Built on NetFixtures; a viewport per peer keeps one machine's bodies out of another's space.
 
 const MATCH_SCENE_PATH: String = "res://match/match.tscn"
+const HUB_SCENE_PATH: String = "res://hub/hub.tscn"
 const RULES_PATH: String = "res://match/rules/default_match_rules.tres"
 const WORLD_NAME: String = "World"
 const MATCH_NAME: String = "Match"
@@ -134,13 +135,7 @@ func _bind(session: NetSession) -> Node3D:
 	scene.name = MATCH_NAME
 	TestFixtures.silence_human_input(scene)
 	(scene.get_node("NetMatch") as NetMatch).session_path = session.get_path()
-	# Driven by a bot source, so a test can push the local body without a keyboard.
-	var body: PlayerController = scene.get_node("Player") as PlayerController
-	var input: BotIntentSource = BotIntentSource.new()
-	input.name = "TestInput"
-	input.shove_enabled = false
-	body.add_child(input)
-	body.intent_source = input
+	_give_test_input(scene.get_node("Player") as PlayerController)
 	# The death views switch themselves off headless; these tests read them.
 	(scene.get_node("DeathScreen") as MatchDeathScreen).headless_inert = false
 	(scene.get_node("SpectatorView") as FxSpectatorView).headless_inert = false
@@ -152,6 +147,39 @@ func _bind(session: NetSession) -> Node3D:
 		music.free()
 	world.add_child(scene)
 	return scene
+
+
+## The shipped hub on every peer instead of a match: no launch, one body per seated human.
+func bind_hubs() -> void:
+	matches.resize(sessions.size())
+	for peer: int in sessions.size():
+		var world: SubViewport = SubViewport.new()
+		world.name = WORLD_NAME
+		world.own_world_3d = true
+		world.size = Vector2i(64, 64)
+		sessions[peer].get_parent().add_child(world)
+		var hub: Node3D = (load(HUB_SCENE_PATH) as PackedScene).instantiate() as Node3D
+		hub.name = "Hub"
+		TestFixtures.silence_human_input(hub)
+		var lobby: HubLobby = hub.get_node("HubLobby") as HubLobby
+		lobby.changes_scene = false
+		lobby.session_path = sessions[peer].get_path()
+		(hub.get_node("NetMatch") as NetMatch).session_path = sessions[peer].get_path()
+		_give_test_input(hub.get_node("Player") as PlayerController)
+		var audio: Node = hub.get_node_or_null("GameAudio")
+		if audio != null:
+			audio.free()
+		world.add_child(hub)
+		matches[peer] = hub
+
+
+## Driven by a bot source, so a test can push the local body without a keyboard.
+func _give_test_input(body: PlayerController) -> void:
+	var input: BotIntentSource = BotIntentSource.new()
+	input.name = "TestInput"
+	input.shove_enabled = false
+	body.add_child(input)
+	body.intent_source = input
 
 
 func controller(peer: int) -> MatchController:
@@ -214,6 +242,8 @@ func close() -> void:
 		for left: Dictionary in real.peer_disconnected.get_connections():
 			real.peer_disconnected.disconnect(left["callable"])
 	_wrapped.clear()
+	# Static, and read by the result screen in every other test file.
+	HubLobby.returns_to_hub = false
 	if _saved_settings != null:
 		SettingsStore.instance().settings = _saved_settings
 		_saved_settings = null
