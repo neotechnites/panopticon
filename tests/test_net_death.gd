@@ -619,3 +619,131 @@ func test_a_finisher_that_drops_is_carried_on_by_a_bot_that_hunts_the_guard() ->
 		fail("the client left never saw the next round")
 		return
 	assert_same(mirror.get_seat_participant(), _rig.participant(2, 1), "the client left sees the bot take the tower")
+
+
+## Every peer holds [param slot] as a living runner in its own colour, awake where it should be.
+func _assert_runs(slot: int, why: String) -> void:
+	for peer: int in _rig.peer_count():
+		var who: MatchParticipant = _rig.participant(peer, slot)
+		assert_true(who.is_running and not who.is_ghost, "peer %d: slot %d runs %s" % [peer, slot, why])
+		assert_false(_rig.controller(peer).is_awaiting_respawn(who), "peer %d: slot %d waits on no respawn %s" % [peer, slot, why])
+		assert_almost_eq(_rig.controller(peer).get_body_color(who).a, 1.0, 0.001, "peer %d: slot %d is solid %s" % [peer, slot, why])
+		assert_false(_lies_dead(peer, slot), "peer %d: slot %d is on its feet %s" % [peer, slot, why])
+		assert_eq_int(who.body.collision_layer, who.home_collision_layer, "peer %d: slot %d collides as a runner %s" % [peer, slot, why])
+		if _rig.local_slot(peer) == slot or peer == HOST:
+			assert_true(who.body.is_physics_processing(), "peer %d simulates slot %d %s" % [peer, slot, why])
+
+
+func test_a_ghost_catch_swaps_the_two_on_every_peer() -> void:
+	if not await _start_round(2, 4):
+		return
+	var host: MatchController = _rig.controller(HOST)
+	TestFixtures.pin_the_field(host, null)
+	# Off the start place the ghost comes back to: the places are shared, and it would land on a head.
+	_stand_in_front(3, 2)
+	_shoot(1)
+	if not await _respawned(1):
+		return
+	var ghost: MatchParticipant = _rig.participant(HOST, 1)
+	if not await _rig.wait_for(func() -> bool: return ghost.ghost_grace_remaining <= 0.0):
+		fail("the ghost's catch grace never ran out")
+		return
+	_stand_in_front(1, 2)
+	await step_ticks(_cross)
+	assert_same(host.apply_shove(ghost), _rig.participant(HOST, 2), "the ghost's shove lands on the other client")
+	if not await _rig.wait_for(func() -> bool:
+		for peer: int in _rig.peer_count():
+			if not _rig.participant(peer, 2).is_ghost or _rig.participant(peer, 1).is_ghost:
+				return false
+		return true):
+		fail("the swap never reached every peer")
+		return
+	var caught_view: MatchController = _rig.controller(2)
+	assert_eq_int(
+		int(caught_view.get_spectating_state(_rig.participant(2, 2))), int(MatchController.Spectating.RESPAWNING),
+		"the caught client is shown its respawn"
+	)
+	assert_false(_rig.body(2, 2).is_physics_processing(), "and is held on its own machine")
+	if not await _respawned(2):
+		return
+	_assert_runs(1, "after its catch")
+	for peer: int in _rig.peer_count():
+		var caught: MatchParticipant = _rig.participant(peer, 2)
+		assert_true(caught.is_ghost and not caught.is_running, "peer %d: the caught client is the ghost now" % peer)
+		assert_lt(_rig.controller(peer).get_body_color(caught).a, 1.0, "peer %d: in the ghost colour" % peer)
+		assert_false(_lies_dead(peer, 2), "peer %d: and on its feet at the start line" % peer)
+	assert_true(_rig.body(2, 2).is_physics_processing(), "the caught client drives its ghost")
+	assert_eq_int(host.get_catch_count(), 1, "one catch")
+
+
+func test_a_new_round_puts_every_ghost_and_corpse_back_on_its_feet() -> void:
+	if not await _start_round(2, 5, 0):
+		return
+	var host: MatchController = _rig.controller(HOST)
+	TestFixtures.pin_the_field(host, null)
+	# A respawned ghost, a body still held where it was shot, and one that fell: then the round turns over.
+	_shoot(1)
+	if not await _respawned(1):
+		return
+	_shoot(3)
+	assert_true(host.handle_fall(_rig.participant(HOST, 4)), "the host rules a lava death")
+	if not await _every_peer_sees_limp(3, "before the round turns over"):
+		return
+	var round_before: int = host.get_round_number()
+	host.call(&"_score_and_restart", _rig.participant(HOST, 2))
+	for peer: int in _rig.peer_count():
+		var controller: MatchController = _rig.controller(peer)
+		if not await _rig.wait_for(func() -> bool: return controller.get_round_number() == round_before + 1):
+			fail("peer %d never saw the next round" % peer)
+			return
+	await step_ticks(_cross)
+	for peer: int in _rig.peer_count():
+		assert_same(_rig.controller(peer).get_seat_participant(), _rig.participant(peer, 2), "peer %d: the scorer holds the tower" % peer)
+		assert_eq_int(_rig.controller(peer).get_ghost_participants().size(), 0, "peer %d: no ghost outlives its round" % peer)
+	for slot: int in [0, 1, 3, 4]:
+		_assert_runs(slot, "in the new round")
+		for peer: int in _rig.peer_count():
+			assert_false(_rig.ragdoll(peer, slot).is_active(), "peer %d: slot %d left no corpse behind" % [peer, slot])
+
+
+func test_a_racer_who_falls_is_out_on_every_peer_and_runs_the_first_round() -> void:
+	if not await _rig.connect_peers(self, 2):
+		fail("the loopback handshake did not complete")
+		return
+	_rig.settings().rounds_to_win_match = 3
+	if not await _rig.launch(4, -1):
+		fail("the match never started on every peer")
+		return
+	for peer: int in _rig.peer_count():
+		var controller: MatchController = _rig.controller(peer)
+		if not await _rig.wait_for(func() -> bool: return controller.get_phase() == MatchController.Phase.RACE):
+			fail("peer %d never reached the opening race" % peer)
+			return
+	await step_ticks(_cross)
+	var host: MatchController = _rig.controller(HOST)
+	TestFixtures.pin_the_field(host, null)
+	assert_true(host.handle_fall(_rig.participant(HOST, 1)), "the host rules the client's fall")
+	if not await _rig.wait_for(func() -> bool:
+		return not _rig.participant(1, 1).is_running and not _rig.participant(2, 1).is_running):
+		fail("the fall never reached the clients")
+		return
+	for peer: int in _rig.peer_count():
+		assert_false(_rig.body(peer, 1).visible, "peer %d: the racer who fell is out of sight" % peer)
+		assert_false(_rig.participant(peer, 1).is_ghost, "peer %d: and no ghost, the race has no guard" % peer)
+	assert_eq_int(
+		int(_rig.controller(1).get_spectating_state(_rig.participant(1, 1))), int(MatchController.Spectating.ELIMINATED),
+		"the client who fell is told it is out"
+	)
+	# A racer arrives: the tower is theirs and the first round starts.
+	host.take_seat(_rig.participant(HOST, 3))
+	host.start_round()
+	for peer: int in _rig.peer_count():
+		var controller: MatchController = _rig.controller(peer)
+		if not await _rig.wait_for(func() -> bool: return controller.get_phase() == MatchController.Phase.ROUND):
+			fail("peer %d never reached the first round" % peer)
+			return
+	await step_ticks(_cross)
+	for slot: int in [0, 1, 2]:
+		_assert_runs(slot, "in the first round")
+		for peer: int in _rig.peer_count():
+			assert_true(_rig.body(peer, slot).visible, "peer %d: slot %d is drawn" % [peer, slot])
