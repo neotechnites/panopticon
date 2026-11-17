@@ -65,6 +65,9 @@ var shove_pressed: bool = false
 var emote_pressed: bool = false
 ## True on the tick the alternate emote key was tapped; toggles the emote with the alternate object.
 var emote_alt_pressed: bool = false
+## The emote to be in, outright (0 none, 1, 2 with the alternate object), or -1 from a source that
+## taps. On the wire, where the sender's own toggle stands; [RemoteIntentSource] hands on a change.
+var emote_state: int = -1
 ## Wire only: running counts of the one-tick keys below (3 bits each), written by [PlayerNetLink]
 ## so a press outlives a lost packet; and the slots of the newest power press and the one before
 ## it (0 = the picked power), so two keys pressed inside one burst of loss stay two keys.
@@ -100,6 +103,7 @@ func clear() -> void:
 	shove_pressed = false
 	emote_pressed = false
 	emote_alt_pressed = false
+	emote_state = -1
 	press_counts = 0
 	press_slot = 0
 	press_slot_prior = 0
@@ -134,6 +138,7 @@ func copy_from(other: MoveIntent) -> void:
 	shove_pressed = other.shove_pressed
 	emote_pressed = other.emote_pressed
 	emote_alt_pressed = other.emote_alt_pressed
+	emote_state = other.emote_state
 	press_counts = other.press_counts
 	press_slot = other.press_slot
 	press_slot_prior = other.press_slot_prior
@@ -145,8 +150,8 @@ func copy_from(other: MoveIntent) -> void:
 # --- Press counts ---------------------------------------------------------------
 
 ## The keys [member press_counts] counts, in bit order.
-enum Press { POWER, COOK, SHOVE, EMOTE, EMOTE_ALT }
-const PRESS_KEYS: int = 5
+enum Press { POWER, COOK, SHOVE }
+const PRESS_KEYS: int = 3
 const PRESS_BITS: int = 3
 const PRESS_MODULUS: int = 1 << PRESS_BITS
 const PRESS_COUNTS_MASK: int = (1 << (PRESS_KEYS * PRESS_BITS)) - 1
@@ -173,8 +178,4 @@ func presses(key: int) -> bool:
 			return cook_pressed
 		Press.SHOVE:
 			return shove_pressed
-		Press.EMOTE:
-			return emote_pressed
-		Press.EMOTE_ALT:
-			return emote_alt_pressed
 	return false

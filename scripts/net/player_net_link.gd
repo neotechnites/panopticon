@@ -635,6 +635,8 @@ func _send_intent() -> void:
 	if _predicting:
 		if controller.is_physics_processing():
 			_scratch_intent.copy_from(controller.get_intent())
+			# The emote is a toggle this body has already run: the host is told where it stands.
+			_scratch_intent.emote_state = controller.get_emote_state()
 		else:
 			# Held by the match: nothing polled the source, so its last intent is no longer being made.
 			_scratch_intent.clear()

@@ -31,9 +31,8 @@ func test_two_power_keys_inside_one_blackout_run_as_the_keys_they_were() -> void
 	assert_eq_int(drawn(A_SEAT)[1], SHIELD, "which A still draws")
 
 
-## The emote toggled on then off inside one burst of loss: the host spends the two presses a tick
-## apart, so its copy is up for that tick and A's own body may be put right to it for a snapshot.
-## Bounded, and it ends down everywhere: the server's replay of two real presses, not a stuck emote.
+## The emote toggled on then off inside one burst of loss: the wire says where A's toggle stands, so
+## the host, which heard neither tap, never has it up, and A's own body is never put back up.
 func test_an_emote_put_up_and_down_inside_a_blackout_ends_down_everywhere() -> void:
 	if not await stand_up(0.0, 1):
 		return
@@ -58,8 +57,8 @@ func test_an_emote_put_up_and_down_inside_a_blackout_ends_down_everywhere() -> v
 		if copy.is_emoting():
 			host_up += 1
 	print("PROOF emote-flicker: in the second after, A's own emote was up on %d ticks; the host's copy on %d" % [came_back, host_up])
-	assert_le(float(host_up), 1.0, "the host's copy is up for the one tick between the two presses at most")
-	assert_le(float(came_back), 3.0, "A's own body follows it for a snapshot at most")
+	assert_eq_int(host_up, 0, "the host's copy is never up for an emote it did not see go up")
+	assert_eq_int(came_back, 0, "and A's own body is never put back up")
 	assert_false(mine.is_emoting(), "and it ends down on A's machine")
 	assert_false(copy.is_emoting(), "and on the host")
 

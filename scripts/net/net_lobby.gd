@@ -689,6 +689,7 @@ static func wire_fingerprint() -> int:
 		str(NetCodec.INTENT_SIZE), str(NetCodec.SNAPSHOT_HEADER_SIZE), str(NetCodec.SNAPSHOT_BODY_SIZE),
 		str(NetCodec.ROSTER_HEADER_SIZE), str(NetCodec.ROSTER_SEAT_FIXED_SIZE),
 		str(NetCodec.GAMESTATE_HEADER), str(NetCodec.GAMESTATE_PARTICIPANT), str(NetCodec.DECOY_VERSION),
+		str(MoveIntent.PRESS_KEYS),
 	])
 	parts.append_array(NetCodec.rules_field_names(MatchRules.new()))
 	for map: MapDefinition in MapCatalog.all():
