@@ -16,6 +16,8 @@ const LATE_LAUNCH_TIMEOUT_SECONDS: float = 1.0
 ## dropped, and real milliseconds every packet is held.
 var wire_loss: float = 0.0
 var wire_delay_ms: int = 0
+## The names the clients ask to be seated under, in joining order; one not given joins with none.
+var client_names: PackedStringArray = PackedStringArray()
 
 var sessions: Array[NetSession] = []
 var matches: Array[Node3D] = []
@@ -43,6 +45,8 @@ func connect_peers(case: Node, clients: int) -> bool:
 	for i: int in clients:
 		var client: NetSession = NetFixtures.make_peer(case, "Client%d" % (i + 1), NetFixtures.settings())
 		sessions.append(client)
+		if i < client_names.size():
+			client.lobby.local_name = client_names[i]
 		if client.join("127.0.0.1", port) != OK:
 			return false
 		_condition(client, i + 1)

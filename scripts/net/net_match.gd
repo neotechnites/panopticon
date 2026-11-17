@@ -566,9 +566,12 @@ func _tally_rematch() -> void:
 
 func _send_rematch_votes() -> void:
 	var names: PackedStringArray = PackedStringArray()
+	var participants: Array[MatchParticipant] = controller.get_participants()
 	for seat: LobbySeat in _lobby.seats:
-		if seat.is_human() and _rematch_peers.has(seat.peer_id):
-			names.append(seat.display_name)
+		var slot: int = _slot_of_seat.get(seat.index, -1)
+		if seat.is_human() and _rematch_peers.has(seat.peer_id) and slot >= 0 and slot < participants.size():
+			# The name the match has shown for this player all along.
+			names.append(participants[slot].display_name)
 	_event(&"_ev_rematch_votes", [names])
 	rematch_votes_changed.emit(names)
 
