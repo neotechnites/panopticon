@@ -221,6 +221,10 @@ extends Resource
 ## ring wondering. Wall clock, for the same reason.
 @export_range(1.0, 60.0, 0.5) var peer_timeout_seconds: float = 8.0
 
+## Seconds after a scene change or a join in which a peer may be silent this long: a machine loading a
+## map freezes for the length of the load (7 to 11 s measured on a cold shader cache), and is not a dead line.
+@export_range(1.0, 120.0, 0.5) var load_stall_seconds: float = 30.0
+
 ## Smallest number of seconds between two accepted lobby requests from one peer.
 ##
 ## [member NetLobby] answers a ready or a name change with a reliable broadcast

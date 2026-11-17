@@ -123,6 +123,12 @@ func _process(_delta: float) -> void:
 	transport.abort()
 
 
+## Every machine is about to load a scene; see [method NetTransport.expect_load_stall].
+func expect_load_stall() -> void:
+	if transport != null:
+		transport.expect_load_stall()
+
+
 ## Become the listen server. [param port] and [param max_players] default to
 ## [member settings]; [param max_players] counts this machine, so matches run 2
 ## to [constant NetTransport.MAX_PLAYERS].

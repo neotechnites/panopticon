@@ -25,6 +25,7 @@ func _on_roster_changed() -> void:
 	if lobby.get_epoch() == _epoch:
 		return
 	_epoch = lobby.get_epoch()
+	session.expect_load_stall()
 	var path: String = _scene_for(lobby.get_phase())
 	if not follows or path.is_empty():
 		return

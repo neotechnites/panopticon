@@ -68,6 +68,9 @@ const SAFE_PAYLOAD_BYTES: int = 1200
 ## The peer currently installed on the multiplayer API, or null when offline.
 var _peer: ENetMultiplayerPeer = null
 
+## Until this tick of the wall clock the silence ceiling is the load one; 0 when no load is expected.
+var _load_until_ms: int = 0
+
 ## Whether this node's handlers are attached to the multiplayer API. Bound at
 ## host/join and released at leave, so a transport that is offline is not
 ## holding connections to an API another branch of the tree may be using.
@@ -230,16 +233,29 @@ func _apply_compression(peer: ENetMultiplayerPeer) -> void:
 	)
 
 
-## Drop a peer only after [member NetSettings.peer_timeout_seconds] of silence, never sooner:
+func expect_load_stall() -> void:
+	_load_until_ms = Time.get_ticks_msec() + int(get_settings().load_stall_seconds * 1000.0)
+	_apply_timeouts()
+
+
+func get_silence_ceiling_seconds() -> float:
+	return get_settings().load_stall_seconds if _load_until_ms > 0 else get_settings().peer_timeout_seconds
+
+
+func _process(_delta: float) -> void:
+	if _load_until_ms > 0 and Time.get_ticks_msec() >= _load_until_ms:
+		_load_until_ms = 0
+		_apply_timeouts()
+
+
+## Drop a peer only after the silence ceiling, never sooner:
 ## a hitching machine is still a player, and a quarter-ceiling floor dropped one in 3 s.
-func _apply_timeout(peer_id: int) -> void:
-	if _peer == null:
+func _apply_timeouts() -> void:
+	if _peer == null or _peer.host == null:
 		return
-	var packet_peer: ENetPacketPeer = _peer.get_peer(peer_id)
-	if packet_peer == null:
-		return
-	var ceiling_ms: int = int(get_settings().peer_timeout_seconds * 1000.0)
-	packet_peer.set_timeout(TIMEOUT_RETRANSMISSIONS, ceiling_ms, ceiling_ms)
+	var ceiling_ms: int = int(get_silence_ceiling_seconds() * 1000.0)
+	for packet_peer: ENetPacketPeer in _peer.host.get_peers():
+		packet_peer.set_timeout(TIMEOUT_RETRANSMISSIONS, ceiling_ms, ceiling_ms)
 
 
 ## Never let ENet's RTT throttle drop unreliable sends: our packets are tiny, so it
@@ -251,9 +267,10 @@ func _apply_throttle(peer_id: int) -> void:
 
 
 func _on_peer_connected(peer_id: int) -> void:
+	# Whoever has just connected is about to load the scene everybody is in.
+	expect_load_stall()
 	# A client's only ENet connection is the host's; another client is a name the host relays.
 	if _peer != null and (_peer.get_unique_id() == AUTHORITY_PEER_ID or peer_id == AUTHORITY_PEER_ID):
-		_apply_timeout(peer_id)
 		_apply_throttle(peer_id)
 	peer_connected.emit(peer_id)
 
@@ -263,7 +280,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 
 
 func _on_connected_to_server() -> void:
-	_apply_timeout(AUTHORITY_PEER_ID)
+	expect_load_stall()
 	_apply_throttle(AUTHORITY_PEER_ID)
 	_set_state(ConnectionState.CONNECTED)
 
