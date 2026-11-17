@@ -100,12 +100,8 @@ func _pose(cat_id: int, at: Vector3, yaw: float, holder: int) -> void:
 	_track_held(cat_id, holder, mesh)
 
 
-@rpc("authority", "reliable", "call_remote", 0)
-func _blast(cat_id: int, at: Vector3) -> void:
-	_gone(cat_id)
-	var scene: Node = _stage()
-	if not at.is_finite():
-		return
+## The blast's billboard, not yet played.
+static func build_blast_sprite() -> AnimatedSprite3D:
 	var blast_sprite: AnimatedSprite3D = AnimatedSprite3D.new()
 	var frames: SpriteFrames = SpriteFrames.new()
 	frames.add_animation(&"boom")
@@ -123,6 +119,16 @@ func _blast(cat_id: int, at: Vector3) -> void:
 	blast_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	blast_sprite.shaded = false
 	blast_sprite.no_depth_test = true
+	return blast_sprite
+
+
+@rpc("authority", "reliable", "call_remote", 0)
+func _blast(cat_id: int, at: Vector3) -> void:
+	_gone(cat_id)
+	var scene: Node = _stage()
+	if not at.is_finite():
+		return
+	var blast_sprite: AnimatedSprite3D = build_blast_sprite()
 	scene.add_child(blast_sprite)
 	blast_sprite.global_position = at
 	blast_sprite.animation_finished.connect(blast_sprite.queue_free)

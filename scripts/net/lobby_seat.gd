@@ -81,6 +81,10 @@ var role: Role = Role.UNASSIGNED
 ## what enforces that, so a seat read straight off the wire cannot lie about it.
 var is_ready: bool = false
 
+## The last scene epoch this seat's machine acknowledged standing in; it is LOADING while this is not the
+## lobby's epoch. 0 is none.
+var standing_epoch: int = 0
+
 
 func is_occupied() -> bool:
 	return occupancy != Occupancy.EMPTY
@@ -103,6 +107,7 @@ func clear() -> void:
 	display_name = ""
 	role = Role.UNASSIGNED
 	is_ready = false
+	standing_epoch = 0
 
 
 func copy_from(other: LobbySeat) -> void:
@@ -112,17 +117,19 @@ func copy_from(other: LobbySeat) -> void:
 	display_name = other.display_name
 	role = other.role
 	is_ready = other.is_ready
+	standing_epoch = other.standing_epoch
 
 
 ## One line, for logs and the harness.
 func describe() -> String:
 	if not is_occupied():
 		return "seat %d: empty" % index
-	return "seat %d: %s %s (peer %d, %s%s)" % [
+	return "seat %d: %s %s (peer %d, %s%s, standing %d)" % [
 		index,
 		String(Occupancy.keys()[occupancy]),
 		display_name,
 		peer_id,
 		String(Role.keys()[role]),
 		", ready" if is_ready else "",
+		standing_epoch,
 	]

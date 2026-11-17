@@ -42,9 +42,6 @@ signal vote_changed()
 ## The vote ended with a winner. [param tied] when the seed had to break it.
 signal vote_closed(winner: MapWedge, rng_seed: int, tied: bool)
 
-## Client: the host is gone, so this hub is over; the main menu says why.
-signal session_lost()
-
 const RULES_PATH: String = "res://match/rules/default_match_rules.tres"
 
 ## Physical key that toggles the rules panel. A scancode rather than an action
@@ -72,9 +69,6 @@ static var relaunch_bot_seats: Variant = null
 ## The hub's seat-to-body bridge, in [member NetMatch.hub_mode]. Null in a scene
 ## with no networking at all.
 @export var net_match: NetMatch
-
-## The hub's pause menu: its way out to the main menu is the one teardown, used when the host is lost.
-@export var pause_menu: PauseMenu
 
 ## The local player's body, for the trigger test.
 @export var player: PlayerController
@@ -169,8 +163,6 @@ func _ready() -> void:
 	_preload_launch_scenes.call_deferred()
 	if vote_label != null:
 		vote_label.visible = false
-	if net_match != null:
-		net_match.host_lost.connect(_on_host_lost)
 	if _session != null and _session.is_established():
 		_bind_lobby(_session.lobby)
 	if setup_screen != null:
@@ -186,30 +178,34 @@ func _ready() -> void:
 	_refresh()
 
 
-## Adopt the session's seat table and put it back in a state a launch can come
-## out of.
+## Adopt the session's seat table.
 func _bind_lobby(lobby: NetLobby) -> void:
 	if lobby == null:
 		return
 	_lobby = lobby
 	_lobby.roster_changed.connect(_on_roster_changed)
 	_lobby.match_launching.connect(_on_launching)
-	_lobby.phase_changed.connect(func(_phase: NetLobby.Phase) -> void: _refresh())
+	_lobby.phase_changed.connect(_on_phase_changed)
 	if not _session.is_authority():
 		return
-	match _lobby.get_phase():
-		NetLobby.Phase.IDLE:
-			# Hosting was started somewhere that did not open a lobby -- the
-			# menu's Host online, or an offline host. Open one now.
-			_lobby.open(_store.settings.player_name)
-		NetLobby.Phase.POST_MATCH:
-			# Back from a match. Same session, same people, readiness dropped.
-			_lobby.return_to_lobby()
 	# So a client knows how the map gets picked before the host presses anything.
 	_publish_rules()
 	if relaunch_on_arrival:
 		relaunch_on_arrival = false
 		_relaunch.call_deferred()
+
+
+## A hub leaving the tree answers the lobby no more: a scene change frees it at the end of the frame.
+func _exit_tree() -> void:
+	if _lobby == null:
+		return
+	_lobby.roster_changed.disconnect(_on_roster_changed)
+	_lobby.match_launching.disconnect(_on_launching)
+	_lobby.phase_changed.disconnect(_on_phase_changed)
+
+
+func _on_phase_changed(_phase: NetLobby.Phase) -> void:
+	_refresh()
 
 
 ## Queues every decided wedge's map to load off the main thread, so a launch instantiates it from
@@ -587,25 +583,13 @@ func _start_on(wedge: MapWedge) -> bool:
 		return true
 
 	_starting = true
-	_publish_rules()
+	_store.settings.apply_to_match_rules(_rules)
 	# Standing on the dais IS the host saying go, and in a hub there is no ready
 	# button for anybody else to have pressed. The lobby's readiness gate stays
 	# where it is -- the hub simply answers it.
 	for seat: LobbySeat in _lobby.get_occupied_seats():
 		_lobby.set_ready(seat.index, true)
-	_lobby.fill_with_bots(_store.settings.prisoner_count + 1)
-	# Fewer bots than last match: the seats left over from it are emptied.
-	for i: int in range(_lobby.seats.size() - 1, -1, -1):
-		if _lobby.get_occupant_count() <= _store.settings.prisoner_count + 1:
-			break
-		if _lobby.seats[i].is_bot():
-			_lobby.remove_occupant(i)
-	if _rules.open_with_race:
-		_lobby.clear_roles()
-	else:
-		var wanted: LobbySeat = _lobby.get_seat(_rules.opening_seat_index)
-		_lobby.assign_guard(wanted.index if wanted != null and wanted.is_occupied() else 0)
-	var launched: bool = _lobby.launch()
+	var launched: bool = _session.flow.start(_rules, _store.settings.prisoner_count + 1)
 	_starting = false
 	if not launched:
 		# Refused -- the roster moved while the panel was open, say. The hub is
@@ -623,7 +607,7 @@ func _begin(map_id: StringName) -> void:
 	HubLobby.returns_to_hub = true
 	match_starting.emit(map_id)
 	if not changes_scene or _lobby != null:
-		# Networked, [NetLevel] loads the match on every machine.
+		# Networked, [SessionFlow] loads the match on every machine.
 		return
 	# Deferred: change_scene_to_file takes the hub out of the tree the moment it
 	# is called, and this runs inside the hub's own input frame.
@@ -636,17 +620,6 @@ func _change_scene() -> void:
 	var error: Error = get_tree().change_scene_to_file(match_scene_path)
 	if error != OK:
 		push_error("HubLobby could not load %s: %s" % [match_scene_path, error_string(error)])
-
-
-## The host quit, crashed or timed out: there is no hub without it. Out to the join screen, told why.
-func _on_host_lost() -> void:
-	session_lost.emit()
-	if not changes_scene:
-		return
-	MultiplayerScreen.arrival_notice = &"RESULT_HOST_LOST_DETAIL"
-	if pause_menu != null:
-		# Deferred: this runs inside the session's own ending.
-		pause_menu.return_to_main_menu.call_deferred()
 
 
 func _on_launching() -> void:

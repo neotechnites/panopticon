@@ -221,15 +221,12 @@ func _decides() -> bool:
 	return _session == null or not _session.is_established() or _session.is_authority()
 
 
+## The pull, to every machine standing in this scene; one still loading has no door to hear it.
 func _broadcast() -> void:
-	if _session == null or not _session.is_established() or not _session.is_authority():
+	var net: NetMatch = NetMatch.of(self)
+	if net == null or not net.is_authority():
 		return
-	var lobby: NetLobby = _session.lobby
-	for peer: int in _session.get_peer_ids():
-		if peer == NetTransport.AUTHORITY_PEER_ID:
-			continue
-		if lobby != null and not lobby.has_launched(peer):
-			continue
+	for peer: int in net.get_scene_peers():
 		rpc_id(peer, &"_net_pulled", _cycle, _since_pull)
 
 

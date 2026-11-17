@@ -259,6 +259,11 @@ func get_shield() -> StaticBody3D:
 	return _shield
 
 
+## The armor lock's shell this body is drawing, or null.
+func get_shell() -> MeshInstance3D:
+	return _shell
+
+
 func get_decoy() -> PlayerController:
 	return _decoy if is_instance_valid(_decoy) else null
 
@@ -300,6 +305,16 @@ func _teardown(keep_decoy: bool = false) -> void:
 		_camo_saved = null
 
 
+static func _build_shield_mesh() -> MeshInstance3D:
+	var mesh: MeshInstance3D = MeshInstance3D.new()
+	var sphere_mesh: SphereMesh = SphereMesh.new()
+	sphere_mesh.radius = SHIELD_RADIUS
+	sphere_mesh.height = SHIELD_RADIUS * 2.0
+	mesh.mesh = sphere_mesh
+	mesh.material_override = _glow_material(Color(0.35, 0.75, 1.0, 0.3), Color(0.2, 0.6, 1.0), 1.5)
+	return mesh
+
+
 # --- Bubble shield ------------------------------------------------------------
 
 func _raise_shield() -> void:
@@ -312,13 +327,7 @@ func _raise_shield() -> void:
 	sphere.radius = SHIELD_RADIUS
 	shape.shape = sphere
 	shield.add_child(shape)
-	var mesh: MeshInstance3D = MeshInstance3D.new()
-	var sphere_mesh: SphereMesh = SphereMesh.new()
-	sphere_mesh.radius = SHIELD_RADIUS
-	sphere_mesh.height = SHIELD_RADIUS * 2.0
-	mesh.mesh = sphere_mesh
-	mesh.material_override = _glow_material(Color(0.35, 0.75, 1.0, 0.3), Color(0.2, 0.6, 1.0), 1.5)
-	shield.add_child(mesh)
+	shield.add_child(_build_shield_mesh())
 	body.get_parent().add_child(shield)
 	var said: bool = _shield_at.is_finite() and Engine.get_physics_frames() - _shield_said_tick <= SHIELD_SAID_TICKS
 	shield.global_position = _shield_at if said else body.global_position + Vector3.UP * 0.9
@@ -437,6 +446,13 @@ func _lock() -> void:
 func _raise_shell() -> void:
 	if body != null:
 		body.movement_locked = true
+	var shell: MeshInstance3D = _build_shell()
+	body.add_child(shell)
+	shell.position = Vector3.UP * 0.9
+	_shell = shell
+
+
+static func _build_shell() -> MeshInstance3D:
 	var shell: MeshInstance3D = MeshInstance3D.new()
 	shell.name = "ArmorShell"
 	var capsule: CapsuleMesh = CapsuleMesh.new()
@@ -444,9 +460,7 @@ func _raise_shell() -> void:
 	capsule.height = 2.1
 	shell.mesh = capsule
 	shell.material_override = _glow_material(Color(1.0, 0.85, 0.4, 0.6), Color(1.0, 0.7, 0.2), 2.0)
-	body.add_child(shell)
-	shell.position = Vector3.UP * 0.9
-	_shell = shell
+	return shell
 
 
 # --- Cat grenade --------------------------------------------------------------
@@ -479,11 +493,15 @@ func _cloak() -> void:
 		return
 	_camo_mesh = mesh
 	_camo_saved = mesh.material_override
+	mesh.material_override = _camo_for(mesh)
+
+
+## A duplicate of whatever [param mesh] wears, so the model's texture and the team tint on it survive
+## the cloak; a fresh flat material only if it has none.
+static func _camo_for(mesh: MeshInstance3D) -> BaseMaterial3D:
 	var base: Material = mesh.material_override
 	if base == null:
 		base = mesh.get_active_material(0)
-	# A duplicate of whatever the body is wearing, so the model's texture and the
-	# team tint on it survive the cloak; a fresh flat material only if it has none.
 	var camo: BaseMaterial3D = (
 		(base.duplicate() as BaseMaterial3D) if base is BaseMaterial3D else StandardMaterial3D.new()
 	)
@@ -491,7 +509,22 @@ func _cloak() -> void:
 	camo.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
 	camo.albedo_color = CAMO_COLOR
 	camo.emission_enabled = false
-	mesh.material_override = camo
+	return camo
+
+
+## What this body's powers draw when they run, for [SceneWarmup]; built by the code that draws them.
+func warmup_samples() -> Array[Node3D]:
+	var samples: Array[Node3D] = [_build_shell(), _build_shield_mesh(), CatGrenadeRelay.build_blast_sprite()]
+	var cat: MeshInstance3D = MeshInstance3D.new()
+	cat.mesh = CatGrenade.MESH
+	samples.append(cat)
+	var avatar: MeshInstance3D = _avatar_mesh(body) if body != null else null
+	if avatar != null and avatar.mesh != null:
+		var cloaked: MeshInstance3D = MeshInstance3D.new()
+		cloaked.mesh = avatar.mesh
+		cloaked.material_override = _camo_for(avatar)
+		samples.append(cloaked)
+	return samples
 
 
 # --- Helpers ------------------------------------------------------------------

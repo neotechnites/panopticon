@@ -213,16 +213,12 @@ extends Resource
 ## is not something to vary per player.
 @export var compress_traffic: bool = true
 
-## Seconds of silence before ENet gives up on a peer mid-session.
-##
-## Distinct from [member connect_timeout_seconds], which is about a join that
-## never completed. This one is a player whose line died mid-match, and ENet's
-## own default runs to 30 seconds -- long enough that a 1v1 sits in an empty
-## ring wondering. Wall clock, for the same reason.
+## Seconds a machine standing in its scene may go without a keep-alive before it is let go, timed on the
+## listen clock ([NetSession]). Distinct from [member connect_timeout_seconds], a join that never completed.
 @export_range(1.0, 60.0, 0.5) var peer_timeout_seconds: float = 8.0
 
-## Seconds after a scene change or a join in which a peer may be silent this long: a machine loading a
-## map freezes for the length of the load (7 to 11 s measured on a cold shader cache), and is not a dead line.
+## Seconds a machine may take from a launch (or being seated) to standing in its scene: a load, its
+## first-draw freezes (7 to 11 s measured on a cold shader cache) and the warm-up. ENet's own backstop too.
 @export_range(1.0, 120.0, 0.5) var load_stall_seconds: float = 30.0
 
 ## Smallest number of seconds between two accepted lobby requests from one peer.
@@ -257,13 +253,12 @@ extends Resource
 ## body is the match layer's job, and it is free to ignore this.
 @export var fill_vacated_seats_with_bots: bool = true
 
-## Seconds the host waits for every client to acknowledge the launch (see
-## [method NetLobby.acknowledge_launch]) before the match starts without them.
+## Seconds after a launch the host waits for every machine to stand in the match (see
+## [method NetLobby.acknowledge_scene]) before the match starts without the late.
 @export_range(1.0, 60.0, 0.5) var launch_timeout_seconds: float = 10.0
 
-## What becomes of a client that has not acknowledged by then: dropped from
-## the session, its seat handled as any leaver's, or kept and caught up with
-## the match when its acknowledgement arrives.
+## What becomes of a machine not standing by then: dropped from the session at once, its seat
+## handled as any leaver's, or kept and caught up when it stands ([member load_stall_seconds] still applies).
 @export var drop_unlaunched_peers: bool = false
 
 

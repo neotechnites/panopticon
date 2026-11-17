@@ -55,21 +55,14 @@ signal seat_occupancy_changed(seat_index: int, occupancy: LobbySeat.Occupancy)
 ## a listener can tell a player quitting from a seat being freed by the host.
 signal seat_vacated(seat_index: int, peer_id: int)
 
-## The roster is frozen and every machine should build its bodies now. The hook
-## the match layer waits on.
+## A match was launched under a new epoch, on every machine: a launch from the hub or a rematch.
 signal match_launching()
 
-## A client reported its match scene bound at its seat. Authority only; see
-## [method acknowledge_launch].
-signal peer_launched(peer_id: int, seat_index: int)
-## Authority: [param peer_id] has the scene of [param epoch] standing and can be sent its events.
-signal scene_bound(peer_id: int, epoch: int)
+## Authority: the machine in [param peer_id]'s seat now stands in the lobby's epoch. Once per peer per epoch.
+signal peer_standing(peer_id: int)
 
 ## The host's match rules arrived or changed. See [method get_rules].
 signal rules_changed()
-
-## Authority: the seated human [param peer_id] asked to play the finished match again.
-signal rematch_requested(peer_id: int)
 
 ## A peer connected and could not be seated. [param reason] is a readable line
 ## for a log or a disconnect message.
@@ -87,16 +80,23 @@ enum Phase {
 	## Seats are filling and people are readying up. The only phase in which a
 	## peer can be seated or a bot added.
 	GATHERING,
-	## The roster is frozen and bodies are being built, on every machine at
-	## once; each client acknowledges its own with [method acknowledge_launch].
-	## Ends when the match layer calls [method begin_match].
-	LAUNCHING,
-	## A match is running. The lobby is a spectator here: roles move around the
-	## tower without it.
+	## A match is running, from its launch. Who has loaded it is the per-peer table, not a phase.
 	IN_MATCH,
-	## The match is over and its result is on screen. Ends when the host calls
+	## The match is over and its result is on screen. Ends with a rematch's launch or
 	## [method return_to_lobby].
 	POST_MATCH,
+}
+
+## Where a connected peer stands, on any machine; GONE is not being here. See [method peer_state].
+enum PeerState {
+	## Connected, not yet seated or refused.
+	CONNECTED,
+	## Turned away, waiting to be dropped.
+	REFUSED,
+	## Seated, its machine not yet standing in the lobby's epoch.
+	LOADING,
+	## Seated and standing in the lobby's epoch.
+	STANDING,
 }
 
 ## Why a host turns a joiner away; the number that goes on the wire.
@@ -108,9 +108,6 @@ enum Refusal {
 	## The two builds do not speak the same game.
 	VERSION,
 }
-
-## Real seconds a refused peer has to hear why and leave before the host drops it.
-const REFUSAL_GRACE_SECONDS: float = 2.0
 
 ## Fewest occupants a match can start with. PANOPTICON is 1v1 at its smallest
 ## and a lone player in a tower has nothing to shoot, so two -- of which one
@@ -136,10 +133,6 @@ var local_name: String = ""
 
 var _phase: Phase = Phase.IDLE
 
-## Peers that have acknowledged the launch. Authority only; cleared by [method launch].
-var _launched: Dictionary[int, bool] = {}
-## Authority: the scene epoch each peer last said it has standing. See [method acknowledge_scene].
-var _bound_epochs: Dictionary[int, int] = {}
 
 ## The host's [MatchRules], on every machine. Set by the host through
 ## [method set_rules]; null until it has.
@@ -159,8 +152,8 @@ var _last_winning_seat: int = -1
 
 ## Authority: the name each connected peer asked to join under. A peer absent here has not asked.
 var _asked: Dictionary[int, String] = {}
-## Authority: peers turned away and waiting to be dropped.
-var _refused: Dictionary[int, bool] = {}
+## Authority: the lifecycle of every connected peer that holds no seat, CONNECTED or REFUSED.
+var _pending: Dictionary[int, PeerState] = {}
 
 ## Each peer's lobby-request allowance, and when it was last topped up, from
 ## [method Time.get_ticks_msec]. Wall clock: a flood arrives over a socket and
@@ -203,17 +196,6 @@ func get_epoch() -> int:
 	return _epoch
 
 
-## The epoch of the scene this machine is in, or 0 while the lobby names another scene.
-func get_epoch_for(hub_scene: bool) -> int:
-	var hub_phase: bool = _phase == Phase.GATHERING
-	return _epoch if (hub_scene and hub_phase) or (not hub_scene and names_match_scene()) else 0
-
-
-## True from the launch until the return to the hub: the scene every machine should be in is the match.
-func names_match_scene() -> bool:
-	return _phase == Phase.LAUNCHING or _phase == Phase.IN_MATCH or _phase == Phase.POST_MATCH
-
-
 ## The host's rules, or null before the host has published any.
 func get_rules() -> MatchRules:
 	return _rules
@@ -230,11 +212,28 @@ func has_asked(peer_id: int) -> bool:
 	return _asked.has(peer_id)
 
 
-## Authority: whether [param peer_id]'s copy of the scene the lobby names stands: bound hub, launched match.
-func is_scene_standing(peer_id: int) -> bool:
-	if _phase == Phase.IDLE or find_seat_by_peer(peer_id) == null:
-		return false
-	return has_bound(peer_id, _epoch) if _phase == Phase.GATHERING else has_launched(peer_id)
+## [param peer_id]'s lifecycle as this machine knows it. A peer it holds no record of (a client's host
+## before the first roster) is STANDING: only its line is timed.
+func peer_state(peer_id: int) -> PeerState:
+	var seat: LobbySeat = find_seat_by_peer(peer_id)
+	if seat != null:
+		return PeerState.STANDING if seat.standing_epoch == _epoch else PeerState.LOADING
+	return _pending.get(peer_id, PeerState.STANDING)
+
+
+## True when [param peer_id]'s machine stands in [param epoch] and the lobby still names it.
+func is_standing_in(peer_id: int, epoch: int) -> bool:
+	var seat: LobbySeat = find_seat_by_peer(peer_id)
+	return seat != null and epoch == _epoch and seat.standing_epoch == epoch
+
+
+## Peers of the human seats, the host's own included, whose machines do not yet stand in the lobby's epoch.
+func get_unstanding_peers() -> PackedInt32Array:
+	var out: PackedInt32Array = PackedInt32Array()
+	for seat: LobbySeat in seats:
+		if seat.is_human() and seat.standing_epoch != _epoch:
+			out.append(seat.peer_id)
+	return out
 
 
 ## The seat a peer is sitting in, or null. Never matches on 0: a peer id of
@@ -349,7 +348,7 @@ func open(local_display_name: String) -> bool:
 	_local_seat_index = 0
 
 	for peer_id: int in session.get_peer_ids():
-		if peer_id != NetTransport.AUTHORITY_PEER_ID and _asked.has(peer_id) and not _refused.has(peer_id):
+		if _asked.has(peer_id) and _pending.get(peer_id, PeerState.CONNECTED) != PeerState.REFUSED:
 			var seat: LobbySeat = _seat_peer(peer_id)
 			if seat != null:
 				seat.display_name = _clean(_asked[peer_id])
@@ -382,7 +381,7 @@ func set_rules(source: MatchRules) -> bool:
 func close() -> void:
 	if not session.is_established():
 		_asked.clear()
-		_refused.clear()
+		_pending.clear()
 	_reset_seats()
 	_local_seat_index = -1
 	_epoch = 0
@@ -557,69 +556,44 @@ func clear_roles() -> bool:
 
 # --- Match flow ---------------------------------------------------------------
 
-## Freeze the roster and tell every machine to build bodies. Authority only.
-##
-## Emits [signal match_launching] on every peer, which is the match layer's cue
-## and the point at which seat indices become body identities.
+## Launch a match on the seated roster under a new epoch: every machine loads it. Authority only.
 func launch() -> bool:
 	if not can_launch():
 		return false
-	_launched.clear()
-	_bump_epoch()
-	_set_phase(Phase.LAUNCHING)
-	_publish()
-	match_launching.emit()
+	_launch_epoch()
 	return true
 
 
-## Client to host, reliable: this machine's match scene is bound, at its seat.
-## The host needs no message for its own scene; the reply is whatever of the
-## match the sender missed, from the match layer.
-func acknowledge_launch() -> void:
-	if _is_authority() or not names_match_scene():
-		return
-	rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_request_launched", get_local_seat_index())
-
-
-## Ask the host to play the finished match again. A client's request; the host casts its own vote.
-func request_rematch() -> void:
-	if not _is_authority():
-		rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_request_rematch")
-
-
-## A client's word that its scene for [param epoch] stands: until then nothing in it can take an RPC.
-func acknowledge_scene(epoch: int) -> void:
-	if not _is_authority():
-		rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_request_scene_bound", epoch)
-
-
-## True once [param peer_id] has the scene of [param epoch] standing. The host always has.
-func has_bound(peer_id: int, epoch: int) -> bool:
-	return peer_id == NetTransport.AUTHORITY_PEER_ID or int(_bound_epochs.get(peer_id, -1)) == epoch
-
-
-## True once [param peer_id] has acknowledged the launch. The host always has.
-func has_launched(peer_id: int) -> bool:
-	return peer_id == NetTransport.AUTHORITY_PEER_ID or bool(_launched.get(peer_id, false))
-
-
-## Seated human peers that have not acknowledged the launch.
-func get_unlaunched_peers() -> PackedInt32Array:
-	var out: PackedInt32Array = PackedInt32Array()
+## A new match epoch from the gathering lobby or a finished match: readiness is spent, the roster kept.
+func _launch_epoch() -> void:
+	_last_winning_seat = -1
 	for seat: LobbySeat in seats:
-		if seat.is_human() and not has_launched(seat.peer_id):
-			out.append(seat.peer_id)
-	return out
-
-
-## The bodies exist and every peer has launched; the match is live. Authority
-## only, called by the match layer.
-func begin_match() -> bool:
-	if not _is_authority() or _phase != Phase.LAUNCHING:
-		return false
+		seat.is_ready = seat.is_bot()
+	_bump_epoch()
 	_set_phase(Phase.IN_MATCH)
 	_publish()
-	return true
+	match_launching.emit()
+
+
+## This machine's scene for [param epoch] is loaded, bound and warm. The host's counts at once; a
+## client's is a reliable request. Idempotent per epoch.
+func acknowledge_scene(epoch: int) -> void:
+	if _is_authority():
+		_stand(get_local_seat(), epoch)
+	else:
+		rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_request_standing", epoch)
+
+
+## Whether a finished match has the rematch agreed: every human standing in it has pressed Rematch.
+## The one place the rule lives (a question for Ryan: everyone present, the host, or a majority).
+func _rematch_agreed() -> bool:
+	var standing: int = 0
+	for seat: LobbySeat in seats:
+		if seat.is_human() and seat.standing_epoch == _epoch:
+			if not seat.is_ready:
+				return false
+			standing += 1
+	return standing > 0
 
 
 ## The match is over. Authority only. [param winning_seat_index] is -1 for a
@@ -630,22 +604,10 @@ func begin_match() -> bool:
 ## to the match layer, which is the only thing that understands rounds; the
 ## lobby only needs to know that play has stopped.
 func conclude_match(winning_seat_index: int = -1) -> bool:
-	if not _is_authority():
-		return false
-	if _phase != Phase.IN_MATCH and _phase != Phase.LAUNCHING:
+	if not _is_authority() or _phase != Phase.IN_MATCH:
 		return false
 	_last_winning_seat = winning_seat_index
 	_set_phase(Phase.POST_MATCH)
-	_publish()
-	return true
-
-
-## A rematch: the finished match restarts on the same map. Authority only.
-func resume_match() -> bool:
-	if not _is_authority() or _phase != Phase.POST_MATCH:
-		return false
-	_last_winning_seat = -1
-	_set_phase(Phase.IN_MATCH)
 	_publish()
 	return true
 
@@ -676,12 +638,10 @@ func return_to_lobby() -> bool:
 
 # --- Session events -----------------------------------------------------------
 
-## Authority: a peer that connects and never asks to join holds a connection for nothing; it gets the same grace.
+## Authority: a connected peer is CONNECTED until it asks to join; [NetSession] times it.
 func _on_peer_joined(peer_id: int) -> void:
 	if _is_authority() and peer_id != NetTransport.AUTHORITY_PEER_ID:
-		get_tree().create_timer(REFUSAL_GRACE_SECONDS, true, false, true).timeout.connect(
-			_drop_refused.bind(peer_id)
-		)
+		_pending[peer_id] = PeerState.CONNECTED
 
 
 ## A client says who it is the moment it is connected; the host seats nobody it has not heard from.
@@ -717,6 +677,8 @@ func _request_join(fingerprint: int, display_name: String) -> void:
 	if not session.has_peer(peer_id) or _asked.has(peer_id):
 		return
 	_asked[peer_id] = display_name.substr(0, MAX_RAW_NAME_LENGTH)
+	# It has asked: no longer CONNECTED. Waiting on a lobby nobody opened is the host's delay, timed only on silence.
+	_pending.erase(peer_id)
 	if fingerprint != build_fingerprint:
 		_refuse(peer_id, Refusal.VERSION)
 		return
@@ -736,26 +698,18 @@ func _admit(peer_id: int) -> void:
 		if seat == null:
 			_refuse(peer_id, Refusal.FULL)
 			return
+	_pending.erase(peer_id)
 	if _phase == Phase.GATHERING:
 		seat.display_name = _clean(_asked.get(peer_id, ""))
 	_publish()
 	_send_rules_to(peer_id)
 
 
-## Turn a peer away: it is told why, and dropped if it has not left by itself.
+## Turn a peer away: it is told why, and REFUSED until it leaves or [NetSession] drops it.
 func _refuse(peer_id: int, reason: Refusal) -> void:
-	_refused[peer_id] = true
+	_pending[peer_id] = PeerState.REFUSED
 	join_refused.emit(peer_id, String(Refusal.keys()[reason]))
 	rpc_id(peer_id, &"_receive_refusal", int(reason))
-	get_tree().create_timer(REFUSAL_GRACE_SECONDS, true, false, true).timeout.connect(
-		_drop_refused.bind(peer_id)
-	)
-
-
-## Drop a peer that was refused, or that never asked, once its grace is up.
-func _drop_refused(peer_id: int) -> void:
-	if session.has_peer(peer_id) and (_refused.has(peer_id) or not _asked.has(peer_id)):
-		session.kick_peer(peer_id)
 
 
 @rpc("authority", "reliable", "call_remote", 0)
@@ -769,11 +723,9 @@ func _receive_refusal(reason: int) -> void:
 
 func _on_peer_left(peer_id: int) -> void:
 	_asked.erase(peer_id)
-	_refused.erase(peer_id)
+	_pending.erase(peer_id)
 	_request_tokens.erase(peer_id)
 	_request_filled_ms.erase(peer_id)
-	_launched.erase(peer_id)
-	_bound_epochs.erase(peer_id)
 	if not _is_authority():
 		return
 	var seat: LobbySeat = find_seat_by_peer(peer_id)
@@ -797,6 +749,7 @@ func _on_peer_left(peer_id: int) -> void:
 	seat.occupancy = LobbySeat.Occupancy.BOT
 	seat.peer_id = 0
 	seat.is_ready = true
+	seat.standing_epoch = 0
 	seat_occupancy_changed.emit(seat_index, seat.occupancy)
 	seat_vacated.emit(seat_index, peer_id)
 	_publish.call_deferred()
@@ -825,6 +778,7 @@ func _receive_roster(payload: PackedByteArray) -> void:
 	if phase < 0 or phase > int(Phase.POST_MATCH):
 		return
 	_relearn_local_seat()
+	var previous_epoch: int = _epoch
 	_epoch = NetCodec.roster_epoch(payload)
 
 	var previous: Phase = _phase
@@ -832,8 +786,8 @@ func _receive_roster(payload: PackedByteArray) -> void:
 	roster_changed.emit()
 	if _phase != previous:
 		phase_changed.emit(_phase)
-		if _phase == Phase.LAUNCHING:
-			match_launching.emit()
+	if _epoch != previous_epoch and _phase == Phase.IN_MATCH:
+		match_launching.emit()
 
 
 ## Authority to one client or everyone: the rules the match will run under.
@@ -857,39 +811,19 @@ func _request_ready(ready: bool) -> void:
 	_apply_ready(seat.index, ready)
 
 
-## Client to authority: my scene for this epoch stands.
+## Client to authority: my scene for this epoch stands. Not rate limited: it counts once per epoch.
 @rpc("any_peer", "reliable", "call_remote", 0)
-func _request_scene_bound(epoch: int) -> void:
-	# Not rate limited, as one dropped is a peer told nothing in its scene: it counts once, and only
-	# for the scene the lobby names now, so repeating or alternating it gets no second answer.
-	var seat: LobbySeat = find_seat_by_peer(multiplayer.get_remote_sender_id())
-	if seat == null or not _is_authority() or epoch != _epoch or has_bound(seat.peer_id, epoch):
+func _request_standing(epoch: int) -> void:
+	if _is_authority():
+		_stand(find_seat_by_peer(multiplayer.get_remote_sender_id()), epoch)
+
+
+func _stand(seat: LobbySeat, epoch: int) -> void:
+	if seat == null or not seat.is_human() or epoch != _epoch or seat.standing_epoch == epoch:
 		return
-	_bound_epochs[seat.peer_id] = epoch
-	scene_bound.emit(seat.peer_id, epoch)
-
-
-## Client to authority: my match scene is bound, at this seat.
-@rpc("any_peer", "reliable", "call_remote", 0)
-func _request_launched(seat_index: int) -> void:
-	# Not rate limited, as one dropped is a peer left out of its match: it counts once a launch,
-	# for as long as the lobby names the match scene, however late that peer's scene stands.
-	var seat: LobbySeat = find_seat_by_peer(multiplayer.get_remote_sender_id())
-	if seat == null or not _is_authority() or seat.index != seat_index or not names_match_scene():
-		return
-	if _launched.get(seat.peer_id, false):
-		return
-	_launched[seat.peer_id] = true
-	peer_launched.emit(seat.peer_id, seat.index)
-
-
-## Client to authority: play that again. Taken here and not in the match scene, which the host
-## may already have left.
-@rpc("any_peer", "reliable", "call_remote", 0)
-func _request_rematch() -> void:
-	var seat: LobbySeat = _requesting_seat()
-	if seat != null:
-		rematch_requested.emit(seat.peer_id)
+	seat.standing_epoch = epoch
+	peer_standing.emit(seat.peer_id)
+	_publish()
 
 
 ## Client to authority: this is what to call me.
@@ -1037,9 +971,10 @@ func _seat_peer(peer_id: int) -> LobbySeat:
 	return seat
 
 
+## Ready in the gathering lobby means start; in a finished match it means Rematch.
 func _apply_ready(seat_index: int, ready: bool) -> bool:
 	var seat: LobbySeat = get_seat(seat_index)
-	if seat == null or not seat.is_occupied() or _phase != Phase.GATHERING:
+	if seat == null or not seat.is_occupied() or (_phase != Phase.GATHERING and _phase != Phase.POST_MATCH):
 		return false
 	# A bot is ready and stays ready.
 	var wanted: bool = true if seat.is_bot() else ready
@@ -1096,9 +1031,12 @@ func _set_phase(phase: Phase) -> void:
 
 
 ## Tell everyone, and tell this machine. Authority only; a no-op elsewhere, so
-## the mutators can call it unconditionally.
+## the mutators can call it unconditionally. A finished match whose rematch is agreed launches instead.
 func _publish() -> void:
 	if not _is_authority():
+		return
+	if _phase == Phase.POST_MATCH and _rematch_agreed():
+		_launch_epoch()
 		return
 	roster_changed.emit()
 	if session.is_established() and session.get_peer_count() > 1:
