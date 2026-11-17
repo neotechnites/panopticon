@@ -568,6 +568,8 @@ const GAMESTATE_PARTICIPANT: int = 3
 const GAMESTATE_RUNNING: int = 1
 const GAMESTATE_GHOST: int = 2
 const GAMESTATE_SHOOTER: int = 4
+## A ghost still held where it died; clear on a ghost, its respawn has already landed.
+const GAMESTATE_HELD: int = 8
 
 
 ## The whole match state a client binding late converges to (Quake's gamestate). Indices are
@@ -581,6 +583,7 @@ static func pack_gamestate(controller: MatchController) -> PackedInt32Array:
 	])
 	for p: MatchParticipant in participants:
 		var flags: int = (GAMESTATE_RUNNING if p.is_running else 0) | (GAMESTATE_GHOST if p.is_ghost else 0)
+		flags |= GAMESTATE_HELD if p.respawn_hold_remaining > 0.0 else 0
 		out.append(flags | (GAMESTATE_SHOOTER if p.is_shooter else 0))
 		out.append(p.rounds_won)
 		out.append(p.turns_in_tower)

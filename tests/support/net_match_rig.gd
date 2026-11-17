@@ -8,6 +8,8 @@ const WORLD_NAME: String = "World"
 const MATCH_NAME: String = "Match"
 ## Real milliseconds a loopback step may take before the rig gives up.
 const STEP_TIMEOUT_MS: int = 4000
+## Simulated seconds the host waits on a peer that is deliberately bound late.
+const LATE_LAUNCH_TIMEOUT_SECONDS: float = 1.0
 
 var sessions: Array[NetSession] = []
 var matches: Array[Node3D] = []
@@ -45,7 +47,8 @@ func settings() -> GameSettings:
 
 
 ## Fill to [param seats] with bots, name the guard (or -1 for the opening race), launch and bind every scene.
-func launch(seats: int, guard_seat: int) -> bool:
+## A peer in [param late] is left unbound: the host starts without it and [method bind_late] brings it in.
+func launch(seats: int, guard_seat: int, late: Array[int] = []) -> bool:
 	var host: NetSession = sessions[0]
 	var store: GameSettings = settings()
 	store.skip_opening_race = guard_seat >= 0
@@ -61,6 +64,8 @@ func launch(seats: int, guard_seat: int) -> bool:
 		host.lobby.clear_roles()
 	for seat: LobbySeat in host.lobby.get_occupied_seats():
 		host.lobby.set_ready(seat.index, true)
+	if not late.is_empty():
+		host.get_settings().launch_timeout_seconds = LATE_LAUNCH_TIMEOUT_SECONDS
 	if not host.lobby.launch():
 		return false
 	for session: NetSession in sessions:
@@ -70,16 +75,27 @@ func launch(seats: int, guard_seat: int) -> bool:
 			STEP_TIMEOUT_MS,
 		):
 			return false
-	for session: NetSession in sessions:
-		matches.append(_bind(session))
+	matches.resize(sessions.size())
+	for peer: int in sessions.size():
+		if not late.has(peer):
+			matches[peer] = _bind(sessions[peer])
 	return await NetFixtures.poll_until(_case, _all_started, STEP_TIMEOUT_MS)
 
 
+## Bind a peer [method launch] left out, and wait for the host's catch-up to land on it.
+func bind_late(peer: int) -> bool:
+	matches[peer] = _bind(sessions[peer])
+	return await NetFixtures.poll_until(_case, func() -> bool: return net_match(peer).has_started(), STEP_TIMEOUT_MS)
+
+
 func _all_started() -> bool:
-	for scene: Node3D in matches:
-		if not net_match(matches.find(scene)).has_started():
+	var everyone: bool = true
+	for peer: int in matches.size():
+		if matches[peer] == null:
+			everyone = false
+		elif not net_match(peer).has_started():
 			return false
-	return sessions[0].lobby.get_phase() == NetLobby.Phase.IN_MATCH
+	return not everyone or sessions[0].lobby.get_phase() == NetLobby.Phase.IN_MATCH
 
 
 ## The shipped match scene for one peer, in its own world, at the same path on every peer.

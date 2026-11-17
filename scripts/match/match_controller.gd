@@ -228,6 +228,9 @@ signal ghost_respawned(participant: MatchParticipant)
 ## prisoner who is now the ghost. The swap has already happened when it fires.
 signal ghost_caught(ghost: MatchParticipant, caught: MatchParticipant)
 
+## A ghost fell to a hazard and is held where it fell until its respawn. Before the hold is armed.
+signal ghost_fell(participant: MatchParticipant)
+
 ## Emitted on the tick one prisoner shoves another. [param victim] has already
 ## been launched when it fires.
 signal participant_shoved(shover: MatchParticipant, victim: MatchParticipant)
@@ -1673,9 +1676,23 @@ func net_start_round(seat_index: int, round_number: int) -> void:
 	_applying = false
 
 
-func net_convert(index: int) -> void:
+func net_convert(index: int, cause: MatchParticipant.DeathCause = MatchParticipant.DeathCause.SHOT) -> void:
+	var participant: MatchParticipant = _participant_at(index)
+	if participant != null:
+		participant.death_cause = cause
 	_applying = true
-	convert_participant(_participant_at(index))
+	convert_participant(participant)
+	_applying = false
+
+
+## The server's ghost fell to a hazard: held here too, with the countdown, until its respawn arrives.
+func net_ghost_fall(index: int, cause: MatchParticipant.DeathCause) -> void:
+	var participant: MatchParticipant = _participant_at(index)
+	if participant == null or not participant.is_ghost:
+		return
+	participant.death_cause = cause
+	_applying = true
+	_place_ghost_at_start(participant)
 	_applying = false
 
 
@@ -2249,6 +2266,7 @@ func handle_fall(participant: MatchParticipant, from_pit: bool = false) -> bool:
 				_place_finisher_in_tower(participant)
 				return true
 			if participant.is_ghost:
+				ghost_fell.emit(participant)
 				_place_ghost_at_start(participant)
 				return true
 			return convert_participant(participant)

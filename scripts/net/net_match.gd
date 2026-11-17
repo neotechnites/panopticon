@@ -314,7 +314,12 @@ func _subscribe_server() -> void:
 	)
 	controller.round_started.connect(_on_round_started)
 	controller.participant_converted.connect(
-		func(participant: MatchParticipant) -> void: _event(&"_ev_removed", [participant.index])
+		func(participant: MatchParticipant) -> void:
+			_event(&"_ev_removed", [participant.index, int(participant.death_cause)])
+	)
+	controller.ghost_fell.connect(
+		func(participant: MatchParticipant) -> void:
+			_event(&"_ev_ghost_fell", [participant.index, int(participant.death_cause)])
 	)
 	controller.round_resolved.connect(
 		func(outcome: MatchController.Outcome) -> void: _event(&"_ev_round_resolved", [int(outcome)])
@@ -633,7 +638,10 @@ func _ev_gamestate(state: PackedInt32Array) -> void:
 	for i: int in participants.size():
 		var flags: int = state[NetCodec.GAMESTATE_HEADER + i * NetCodec.GAMESTATE_PARTICIPANT]
 		if flags & (NetCodec.GAMESTATE_RUNNING | NetCodec.GAMESTATE_SHOOTER) == 0 and participants[i].is_running:
-			_ev_removed(i)
+			_ev_removed(i, int(MatchParticipant.DeathCause.SHOT))
+		if flags & NetCodec.GAMESTATE_GHOST != 0 and flags & NetCodec.GAMESTATE_HELD == 0:
+			# Its respawn landed before this machine was listening.
+			controller.net_ghost_respawn(i)
 	for i: int in participants.size():
 		var at: int = NetCodec.GAMESTATE_HEADER + i * NetCodec.GAMESTATE_PARTICIPANT
 		participants[i].rounds_won = state[at + 1]
@@ -659,13 +667,27 @@ func _ev_round_started(seat_index: int, round_number: int) -> void:
 
 
 @rpc("authority", "reliable", "call_remote", 0)
-func _ev_removed(index: int) -> void:
+func _ev_removed(index: int, cause: int) -> void:
 	if not _replays():
 		return
 	if controller.get_phase() == MatchController.Phase.RACE:
 		controller.net_race_out(index)
 	else:
-		controller.net_convert(index)
+		controller.net_convert(index, _cause_of(cause))
+
+
+@rpc("authority", "reliable", "call_remote", 0)
+func _ev_ghost_fell(index: int, cause: int) -> void:
+	if not _replays():
+		return
+	controller.net_ghost_fall(index, _cause_of(cause))
+
+
+## A death cause off the wire, or SHOT for a number this build has no cause for.
+func _cause_of(cause: int) -> MatchParticipant.DeathCause:
+	if cause < 0 or cause >= MatchParticipant.DeathCause.size():
+		return MatchParticipant.DeathCause.SHOT
+	return cause as MatchParticipant.DeathCause
 
 
 @rpc("authority", "reliable", "call_remote", 0)
