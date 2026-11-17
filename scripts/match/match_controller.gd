@@ -724,6 +724,8 @@ func _physics_process(delta: float) -> void:
 				_wake_bodies()
 		# A client decides no respawn -- the server says when it lands -- but the
 		# death view and its countdown are drawn off this clock.
+		# The server's respawn arms the same settle here; unticked, a client's own ghost never moves again.
+		_wake_settled_ghosts()
 		_tick_mirror_respawn_holds(delta)
 		return
 	if _settle_frames > 0:
