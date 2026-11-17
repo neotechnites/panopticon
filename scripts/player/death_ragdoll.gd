@@ -25,9 +25,6 @@ extends Node
 @export var hip_twist: float = 20.0
 @export var elbow_bend: float = 135.0
 @export var knee_bend: float = 125.0
-## Joint give, 0..1 (Godot physics only; Jolt holds its limits hard).
-@export var joint_softness: float = 0.8
-@export var joint_bias: float = 0.3
 ## What the parts land on: the map's layers. The parts are on no layer, so no ray sees them.
 @export_flags_3d_physics var collision_mask: int = 1
 
@@ -79,15 +76,17 @@ const LIMB_MOST_TURN: float = 6.0
 const STRIKE_MOST_DV: float = 4.0
 ## How far the drawn body reaches past a part's centre (half a limb, a hand, a foot), m.
 const PART_REACH: float = 0.6
-## Most a joint may pull apart, m, before the part is put back on it (joint projection): a hard hit never tears the body.
-const JOINT_MOST_GAP: float = 0.03
+## Fastest a part closes on a face another part is meeting, m/s: under a limb's own thickness a tick, so it lands on it.
+const MEET_MOST_SPEED: float = 2.5
+## A part put back from a face it crossed stops this far short of it, m.
+const FACE_MARGIN: float = 0.02
 
 enum Flop { NONE, THROWN, RISING }
 
 var _skeleton: Skeleton3D = null
 var _simulator: PhysicalBoneSimulator3D = null
 var _lengths: RigidLengths = null
-var _bones: Array[PhysicalBone3D] = []
+var _bones: Array[Part] = []
 var _active: bool = false
 var _flop: Flop = Flop.NONE
 ## What the flop is pinned to (the avatar), and the pinned pelvis, chest and the tumble's pivot in its space.
@@ -101,13 +100,9 @@ var _tumble: float = 0.0
 var _spin: float = 0.0
 var _rise: float = 0.0
 var _last_anchor: Vector3 = Vector3.ZERO
-## Parts that went limp inside the map: they collide again once clear, so nothing is shot out of a wall.
-var _embedded: Array[PhysicalBone3D] = []
-## Each part's parent part (-1 for the pelvis), and its joint point in the parent's and its own space.
-var _parent_part: PackedInt32Array = PackedInt32Array()
-var _joint_in_parent: PackedVector3Array = PackedVector3Array()
-var _joint_in_part: PackedVector3Array = PackedVector3Array()
-var _part_xf: Array[Transform3D] = []
+## The map's faces as a limp part's centre meets them, and each face met since the last tick as a point and a normal.
+var _face_ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.new()
+var _met: PackedVector3Array = PackedVector3Array()
 
 
 func _ready() -> void:
@@ -139,12 +134,8 @@ func build(skeleton: Skeleton3D) -> bool:
 		total += float(part[5])
 	for part: Array in PARTS:
 		_bones.append(_make_part(part, float(part[5]) / total))
-	_parent_part.resize(PARTS.size())
-	_joint_in_parent.resize(PARTS.size())
-	_joint_in_part.resize(PARTS.size())
-	_part_xf.resize(PARTS.size())
-	for i: int in PARTS.size():
-		_parent_part[i] = _parent_of(i)
+	_face_ray.hit_back_faces = false
+	_face_ray.hit_from_inside = false
 	# Joints are made against the rest pose, so every limit is measured from standing.
 	var saved: Array[Transform3D] = []
 	for i: int in skeleton.get_bone_count():
@@ -240,6 +231,7 @@ func start(velocity: Vector3, at: Vector3, direction: Vector3) -> void:
 		bone.linear_velocity = carried
 	_bones[0].linear_velocity = carried + Vector3.DOWN * buckle
 	_land_strike(at, direction)
+	_watch_faces()
 	set_physics_process(true)
 
 
@@ -258,9 +250,9 @@ func throw_out(velocity: Vector3) -> void:
 	_go_limp()
 	for bone: PhysicalBone3D in _bones:
 		bone.linear_velocity = velocity * carry_velocity
-		bone.angular_velocity = Vector3.ZERO
 	if not velocity.is_zero_approx():
 		_bones[CHEST_PART].apply_central_impulse(velocity.normalized() * impulse)
+	_watch_faces()
 	set_physics_process(true)
 
 
@@ -275,20 +267,20 @@ func stop() -> void:
 	_simulator.active = false
 	_simulator.influence = 1.0
 	_lengths.active = false
-	_embedded.clear()
-	for bone: PhysicalBone3D in _bones:
+	_met.clear()
+	for bone: Part in _bones:
+		bone.watching = false
 		bone.collision_mask = 0
 		bone.angular_damp = angular_damp
 		bone.linear_damp = linear_damp
 
 
 func _physics_process(delta: float) -> void:
-	_free_embedded()
 	if _active:
 		# A kill mid-get-up: the blend returns to the corpse instead of popping to it.
 		_simulator.influence = move_toward(_simulator.influence, 1.0, delta * DEATH_BLEND_RATE)
 		_hold_together(_mean_velocity(), 0)
-		_project_joints()
+		_meet_as_one(delta)
 		return
 	if _flop == Flop.NONE or _anchor == null:
 		return
@@ -297,7 +289,6 @@ func _physics_process(delta: float) -> void:
 		stop()
 		return
 	_hold_together((frame.origin - _last_anchor) / maxf(delta, 0.001), 2)
-	_project_joints()
 	_last_anchor = frame.origin
 	var angle: float = _tumble
 	if _flop == Flop.THROWN:
@@ -345,6 +336,11 @@ func part_positions() -> PackedVector3Array:
 func _go_limp() -> void:
 	# Live bodies share the map's layer; a pack running over a corpse would bulldoze it.
 	var walkers: Array[Node] = get_tree().root.find_children("*", "CharacterBody3D", true, false)
+	var walker_rids: Array[RID] = []
+	for walker: Node in walkers:
+		walker_rids.append((walker as CharacterBody3D).get_rid())
+	_face_ray.collision_mask = collision_mask
+	_face_ray.exclude = walker_rids
 	for bone: PhysicalBone3D in _bones:
 		bone.collision_mask = collision_mask
 		# Swept, so a thrown body meets a wall instead of tunnelling through it.
@@ -352,34 +348,47 @@ func _go_limp() -> void:
 		for walker: Node in walkers:
 			bone.add_collision_exception_with(walker)
 	_simulator.physical_bones_start_simulation()
-	for i: int in range(1, _bones.size()):
-		var joint: Vector3 = _bones[i].global_transform * _bones[i].joint_offset.origin
-		_joint_in_part[i] = _bones[i].joint_offset.origin
-		_joint_in_parent[i] = _bones[_parent_part[i]].global_transform.affine_inverse() * joint
-	# A part starting inside a wall would be shoved out of it at once: it waits, colliding with nothing.
-	_embedded.clear()
+	# No spin left over from the last time it lay limp.
 	for bone: PhysicalBone3D in _bones:
-		if _in_map(bone):
-			bone.collision_mask = 0
-			_embedded.append(bone)
+		bone.angular_velocity = Vector3.ZERO
 
 
-## Give each waiting part its collision back once it has left the map's geometry.
-func _free_embedded() -> void:
-	for i: int in range(_embedded.size() - 1, -1, -1):
-		if not _in_map(_embedded[i]):
-			_embedded[i].collision_mask = collision_mask
-			_embedded.remove_at(i)
+## From here every part keeps its centre on the side of each map face it is on now.
+func _watch_faces() -> void:
+	_met.clear()
+	for bone: Part in _bones:
+		bone.face_ray = _face_ray
+		bone.met = _met
+		bone.last_centre = bone.global_position
+		bone.watching = true
 
 
-func _in_map(bone: PhysicalBone3D) -> bool:
-	var shape: CollisionShape3D = bone.get_child(0) as CollisionShape3D
-	var query: PhysicsShapeQueryParameters3D = PhysicsShapeQueryParameters3D.new()
-	query.shape = shape.shape
-	query.transform = bone.global_transform * shape.transform
-	query.collision_mask = collision_mask
-	query.exclude = [bone.get_rid()]
-	return not bone.get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
+## What one part meets, the body meets as one: no part closes on a face a part is about to cross, or was put
+## back from, faster than it has room to, so a hard landing neither whips the limbs nor leaves any behind it.
+func _meet_as_one(delta: float) -> void:
+	var space: PhysicsDirectSpaceState3D = _bones[0].get_world_3d().direct_space_state
+	for i: int in _bones.size():
+		var velocity: Vector3 = _bones[i].linear_velocity
+		var step: float = velocity.length() * delta
+		var radius: float = float(PARTS[i][3])
+		# Slower than half its own thickness a tick, the engine's own contact holds it.
+		if step < radius * 0.5:
+			continue
+		_face_ray.from = _bones[i].global_position
+		_face_ray.to = _face_ray.from + velocity / step * delta * (step + radius)
+		var hit: Dictionary = space.intersect_ray(_face_ray)
+		if not hit.is_empty():
+			_met.append(hit["position"])
+			_met.append(hit["normal"])
+	for at: int in range(0, _met.size(), 2):
+		var normal: Vector3 = _met[at + 1]
+		for i: int in _bones.size():
+			var room: float = (_bones[i].global_position - _met[at]).dot(normal) - float(PARTS[i][3])
+			var most: float = maxf(room / delta, MEET_MOST_SPEED)
+			var closing: float = -_bones[i].linear_velocity.dot(normal)
+			if closing > most:
+				_bones[i].linear_velocity += normal * (closing - most)
+	_met.clear()
 
 
 ## The whole body's velocity, mass-weighted: the clamp follows the body, not one jostled part.
@@ -407,6 +416,7 @@ func _die_from_flop(velocity: Vector3, at: Vector3, direction: Vector3) -> void:
 	_bones[CHEST_PART].linear_velocity = carried
 	_bones[0].linear_velocity = carried + Vector3.DOWN * buckle
 	_land_strike(at, direction)
+	_watch_faces()
 	set_physics_process(true)
 
 
@@ -426,42 +436,6 @@ func _hold_together(torso: Vector3, first: int) -> void:
 		var spin: Vector3 = bone.angular_velocity - turn
 		if spin.length_squared() > LIMB_MOST_TURN * LIMB_MOST_TURN:
 			bone.angular_velocity = turn + spin.limit_length(LIMB_MOST_TURN)
-
-
-## Put every part torn off its joint back on it and stop it moving further off (joint projection):
-## the solver alone lets a hard hit, a body tripped by a window sill, pull limbs metres apart.
-func _project_joints() -> void:
-	for i: int in _bones.size():
-		_part_xf[i] = PhysicsServer3D.body_get_state(_bones[i].get_rid(), PhysicsServer3D.BODY_STATE_TRANSFORM)
-	for i: int in range(1, _bones.size()):
-		var parent: int = _parent_part[i]
-		var gap: Vector3 = _part_xf[parent] * _joint_in_parent[i] - _part_xf[i] * _joint_in_part[i]
-		var size: float = gap.length()
-		if size <= JOINT_MOST_GAP:
-			continue
-		var rid: RID = _bones[i].get_rid()
-		if PhysicsServer3D.body_get_mode(rid) == PhysicsServer3D.BODY_MODE_KINEMATIC:
-			continue
-		var along: Vector3 = gap / size
-		var placed: Transform3D = _part_xf[i]
-		placed.origin += along * (size - JOINT_MOST_GAP)
-		_part_xf[i] = placed
-		PhysicsServer3D.body_set_state(rid, PhysicsServer3D.BODY_STATE_TRANSFORM, placed)
-		var off: Vector3 = _bones[i].linear_velocity - _bones[parent].linear_velocity
-		var away: float = off.dot(-along)
-		if away > 0.0:
-			_bones[i].linear_velocity += along * away
-
-
-## The nearest ancestor bone that is a part, as its index; -1 for the pelvis.
-func _parent_of(part: int) -> int:
-	var bone: int = _skeleton.get_bone_parent(_skeleton.find_bone(String(PARTS[part][0])))
-	while bone >= 0:
-		for i: int in PARTS.size():
-			if StringName(_skeleton.get_bone_name(bone)) == PARTS[i][0]:
-				return i
-		bone = _skeleton.get_bone_parent(bone)
-	return -1
 
 
 ## The part of a hit's knock the struck part cannot take, as whole-body velocity.
@@ -502,7 +476,7 @@ func _exit_tree() -> void:
 	stop()
 
 
-func _make_part(part: Array, share: float) -> PhysicalBone3D:
+func _make_part(part: Array, share: float) -> Part:
 	var bone_index: int = _skeleton.find_bone(String(part[0]))
 	var head: Transform3D = _skeleton.get_bone_global_rest(bone_index)
 	var along: Vector3
@@ -519,7 +493,7 @@ func _make_part(part: Array, share: float) -> PhysicalBone3D:
 	var y: Vector3 = z.cross(x)
 	var frame: Transform3D = Transform3D(Basis(x, y, z), head.origin + dir * length * 0.5)
 
-	var body: PhysicalBone3D = PhysicalBone3D.new()
+	var body: Part = Part.new()
 	body.name = String(part[0])
 	body.set(&"bone_name", String(part[0]))
 	body.body_offset = head.affine_inverse() * frame
@@ -549,46 +523,41 @@ func _make_part(part: Array, share: float) -> PhysicalBone3D:
 	return body
 
 
-## The joint to the parent part. Cones twist about the bone; hinges turn about X.
+## The joint to the parent part: six-axis, with X down the bone for a ball joint (twist) and across the body for a hinge.
+## Never a cone or a hinge joint: Godot physics over-corrects both past their limits and spins a hard-hit body apart.
 func _set_joint(bone: PhysicalBone3D, kind: StringName) -> void:
 	var half: Vector3 = bone.joint_offset.origin
+	var across: Basis = Basis.IDENTITY
+	var turn: Vector2 = Vector2.ZERO
+	var swing: float = 0.0
 	match kind:
 		&"none":
 			return
-		&"elbow", &"knee":
-			# Hinge axis (joint Z) on the body's sideways X.
-			bone.joint_offset = Transform3D(Basis(Vector3.BACK, Vector3.DOWN, Vector3.RIGHT), half)
-			bone.joint_type = PhysicalBone3D.JOINT_TYPE_HINGE
-			var bend: float = elbow_bend if kind == &"elbow" else knee_bend
-			bone.set(&"joint_constraints/angular_limit_enabled", true)
-			if kind == &"knee":
-				bone.set(&"joint_constraints/angular_limit_upper", 2.0)
-				bone.set(&"joint_constraints/angular_limit_lower", -bend)
-			else:
-				bone.set(&"joint_constraints/angular_limit_upper", bend)
-				bone.set(&"joint_constraints/angular_limit_lower", -2.0)
-			bone.set(&"joint_constraints/angular_limit_softness", joint_softness)
-			bone.set(&"joint_constraints/angular_limit_bias", joint_bias)
+		&"elbow":
+			turn = Vector2(-2.0, elbow_bend)
+		&"knee":
+			turn = Vector2(-knee_bend, 2.0)
+		&"neck":
+			turn = Vector2(-neck_twist, neck_twist)
+			swing = neck_swing
+		&"shoulder":
+			turn = Vector2(-shoulder_twist, shoulder_twist)
+			swing = shoulder_swing
+		&"hip":
+			turn = Vector2(-hip_twist, hip_twist)
+			swing = hip_swing
 		_:
-			# Twist axis (joint X) down the bone.
-			bone.joint_offset = Transform3D(Basis(Vector3.FORWARD, Vector3.UP, Vector3.RIGHT), half)
-			bone.joint_type = PhysicalBone3D.JOINT_TYPE_CONE
-			var swing: float = spine_swing
-			var twist: float = spine_twist
-			match kind:
-				&"neck":
-					swing = neck_swing
-					twist = neck_twist
-				&"shoulder":
-					swing = shoulder_swing
-					twist = shoulder_twist
-				&"hip":
-					swing = hip_swing
-					twist = hip_twist
-			bone.set(&"joint_constraints/swing_span", swing)
-			bone.set(&"joint_constraints/twist_span", twist)
-			bone.set(&"joint_constraints/softness", joint_softness)
-			bone.set(&"joint_constraints/bias", joint_bias)
+			turn = Vector2(-spine_twist, spine_twist)
+			swing = spine_swing
+	if swing > 0.0:
+		across = Basis(Vector3.FORWARD, Vector3.UP, Vector3.RIGHT)
+	bone.joint_offset = Transform3D(across, half)
+	bone.joint_type = PhysicalBone3D.JOINT_TYPE_6DOF
+	bone.set(&"joint_constraints/x/angular_limit_lower", turn.x)
+	bone.set(&"joint_constraints/x/angular_limit_upper", turn.y)
+	for axis: String in ["y", "z"]:
+		bone.set("joint_constraints/%s/angular_limit_lower" % axis, -swing)
+		bone.set("joint_constraints/%s/angular_limit_upper" % axis, swing)
 
 
 func _nearest_part(at: Vector3) -> PhysicalBone3D:
@@ -602,6 +571,44 @@ func _nearest_part(at: Vector3) -> PhysicalBone3D:
 			best_distance = d
 			best = bone
 	return best
+
+
+## One limp part. While watched its centre never crosses a map face: a one-sided face pushes back only what
+## is still in front of it, so a centre that got past in one tick would be through for good.
+class Part extends PhysicalBone3D:
+	var watching: bool = false
+	var face_ray: PhysicsRayQueryParameters3D = null
+	var last_centre: Vector3 = Vector3.ZERO
+	## Shared with the ragdoll: the point and normal of each face this part was put back from.
+	var met: PackedVector3Array = PackedVector3Array()
+
+	func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
+		if not watching:
+			return
+		var now: Transform3D = state.transform
+		var path: Vector3 = now.origin - last_centre
+		var length: float = path.length()
+		if length < 0.001:
+			return
+		face_ray.from = last_centre
+		face_ray.to = now.origin
+		var hit: Dictionary = state.get_space_state().intersect_ray(face_ray) # hot-ok: one ray a moving part, only while the body is limp
+		if not hit.is_empty():
+			var normal: Vector3 = hit["normal"]
+			var on: Vector3 = hit["position"]
+			# Back to this side of the face, then on along it: a part dragged over the ground slides, never sticks.
+			var stop: Vector3 = last_centre + path / length * maxf(last_centre.distance_to(on) - FACE_MARGIN, 0.0)
+			var rest: Vector3 = now.origin - on
+			face_ray.from = stop
+			face_ray.to = stop + rest - normal * (rest.dot(normal) - FACE_MARGIN)
+			now.origin = face_ray.to if state.get_space_state().intersect_ray(face_ray).is_empty() else stop # hot-ok: only on the tick a part crossed a face
+			state.transform = now
+			var closing: float = -state.linear_velocity.dot(normal)
+			if closing > 0.0:
+				state.linear_velocity += normal * closing
+			met.append(on)
+			met.append(normal)
+		last_centre = now.origin
 
 
 ## Every ragdoll bone but the pelvis keeps its rest offset from its parent: the drawn body cannot stretch.

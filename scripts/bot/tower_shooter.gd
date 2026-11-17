@@ -309,7 +309,7 @@ func _physics_process(delta: float) -> void:
 	if _confidence < profile.shot_confidence_threshold:
 		shot_declined.emit(_confidence)
 		return
-	if not _has_line_of_sight(target):
+	if not _shot_line_is_clear(distance):
 		return
 	# Reload discipline: a runner a step from cover is not worth the reload.
 	if _confidence < profile.sure_shot_confidence and _about_to_be_covered(target):
@@ -480,10 +480,24 @@ func _about_to_be_covered(body: PlayerController) -> bool:
 	return not _line_clear_to(body, ahead)
 
 
+## The line the shot takes, from the eye along the aim, meets nothing but a body within [param distance]:
+## a led or erring aim that has swung onto the tower's own column, or onto cover, is not fired.
+func _shot_line_is_clear(distance: float) -> bool:
+	var eye: Node3D = _eye()
+	var met: Object = _first_on_line(eye.global_position - eye.global_transform.basis.z.normalized() * distance)
+	return met == null or met is PlayerController
+
+
 func _line_clear_to(body: PlayerController, point: Vector3) -> bool:
+	var met: Object = _first_on_line(point)
+	return met == null or met == body
+
+
+## What a ray from the eye to [param point] meets first, or null; the guard's own body is no obstacle.
+func _first_on_line(point: Vector3) -> Object:
 	var space: PhysicsDirectSpaceState3D = controller.get_world_3d().direct_space_state
 	if space == null:
-		return false
+		return self
 	_ray.from = _eye_position()
 	_ray.to = point
 	_ray.collision_mask = rifle.profile.hit_mask if rifle.profile != null else 0xFFFFF
@@ -492,9 +506,7 @@ func _line_clear_to(body: PlayerController, point: Vector3) -> bool:
 		_ray_exclude.append(controller.get_rid())
 		_ray.exclude = _ray_exclude
 	var hit: Dictionary = space.intersect_ray(_ray)
-	if hit.is_empty():
-		return true
-	return (hit.get("collider", null) as Node3D) == body
+	return null if hit.is_empty() else hit.get("collider", null)
 
 
 func _aim_point(body: PlayerController) -> Vector3:

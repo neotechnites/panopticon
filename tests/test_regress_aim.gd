@@ -16,12 +16,13 @@ const BAD_LINE_DELAY_MS: int = 3
 const VIEW_TOLERANCE: float = 0.0088
 ## What a third machine's drawing of that view may differ by: the snapshot's angle step and more.
 const MIRROR_TOLERANCE: float = 0.02
-## Shots a bot guard is watched for.
-const GUARD_SHOTS: int = 20
-const GUARD_STRAYS: int = 2
+## Shots a bot guard is watched for in one match; ten matches, five a map, make 500.
+const GUARD_SHOTS: int = 50
 
 var _rig: Rig = null
 var _cross: int = CROSS_TICKS
+## Rounds the match is played to.
+var _rounds: int = 5
 
 
 func before_each() -> void:
@@ -44,7 +45,7 @@ func _start_round(map: StringName, clients: int, seats: int, guard_slot: int, ba
 	if not await _rig.connect_peers(self, clients):
 		fail("the loopback handshake did not complete")
 		return false
-	_rig.settings().rounds_to_win_match = 5
+	_rig.settings().rounds_to_win_match = _rounds
 	_rig.settings().map_id = map
 	if not await _rig.launch(seats, guard_slot):
 		fail("the match never started on every peer")
@@ -276,10 +277,13 @@ func _is_tower(node: Node) -> bool:
 	return node != null and String(node.get_path()).contains("/Tower/")
 
 
-## A bot holds the tower against running bots; the shots it takes are aimed out of the tower, not into it.
-## [constant GUARD_STRAYS] of [constant GUARD_SHOTS] may meet the tower: about 1 shot in 100 on either map
-## is fired with a column across the guard's led, erring aim. The line of sight it checks is to the body.
+## A bot holds the tower against running bots; no shot it takes is aimed into the tower. The line it checks
+## before it fires is the one the shot takes, so a led or erring aim across a column is held, not fired.
 func _a_bot_guard_aims_out_of_its_own_tower(map: StringName) -> void:
+	var shots: Array[int] = [0]
+	var into_tower: PackedStringArray = PackedStringArray()
+	# One long match: the tower changes hands between bots and the shots keep coming.
+	_rounds = 99
 	if not await _start_round(map, 0, 5, 1):
 		return
 	var host: MatchController = _rig.controller(HOST)
@@ -287,8 +291,6 @@ func _a_bot_guard_aims_out_of_its_own_tower(map: StringName) -> void:
 	var mask: int = rifle.profile.hit_mask
 	# The human on the start line is no part of this.
 	_rig.body(HOST, HOST).movement_locked = true
-	var shots: Array[int] = [0]
-	var into_tower: PackedStringArray = PackedStringArray()
 	rifle.fired.connect(
 		func(_origin: Vector3, _end: Vector3) -> void:
 			var eye: Node3D = rifle.aim_source
@@ -305,8 +307,8 @@ func _a_bot_guard_aims_out_of_its_own_tower(map: StringName) -> void:
 			ray.hit_from_inside = true
 			var hit: Dictionary = space.intersect_ray(ray)
 			if not hit.is_empty() and _is_tower(hit["collider"] as Node):
-				into_tower.append("shot %d from %v aimed %v met %s after %.2f m" % [
-					shots[0], from, aim, (hit["collider"] as Node).name, from.distance_to(hit["position"] as Vector3),
+				into_tower.append("%s shot %d from %v aimed %v met %s after %.2f m" % [
+					map, shots[0], from, aim, (hit["collider"] as Node).name, from.distance_to(hit["position"] as Vector3),
 				])
 			var muzzle: Node3D = rifle.muzzle
 			if muzzle != null:
@@ -315,25 +317,55 @@ func _a_bot_guard_aims_out_of_its_own_tower(map: StringName) -> void:
 				barrel.hit_from_inside = true
 				var poke: Dictionary = space.intersect_ray(barrel)
 				if not poke.is_empty() and _is_tower(poke["collider"] as Node):
-					into_tower.append("shot %d: the barrel is through %s" % [shots[0], (poke["collider"] as Node).name])
+					into_tower.append("%s shot %d: the barrel is through %s" % [map, shots[0], (poke["collider"] as Node).name])
 	)
-	for _second: int in 180:
+	var seconds: int = 0
+	while shots[0] < GUARD_SHOTS and seconds < 3600 and host.get_phase() != MatchController.Phase.MATCH_OVER:
 		await step_ticks(60)
-		if shots[0] >= GUARD_SHOTS:
-			break
+		seconds += 1
+	print("          BOT GUARD %s: %d shots in %d s of play, %d aimed into the tower" % [map, shots[0], seconds, into_tower.size()])
 	if not assert_ge(float(shots[0]), float(GUARD_SHOTS), "the bot guard took shots to judge"):
 		return
-	if into_tower.size() > GUARD_STRAYS:
-		for line: String in into_tower:
-			fail("the bot guard aimed into its own tower: %s" % line)
-	assert_le(
-		float(into_tower.size()), float(GUARD_STRAYS), "of %d shots, the ones aimed into the tower" % shots[0]
-	)
+	for line: String in into_tower:
+		fail("the bot guard aimed into its own tower: %s" % line)
+	assert_eq_int(into_tower.size(), 0, "of %d shots, the ones aimed into the tower" % shots[0])
 
 
-func test_a_bot_guard_aims_out_of_its_own_tower_hell() -> void:
+func test_a_bot_guard_aims_out_of_its_own_tower_hell_first_match() -> void:
 	await _a_bot_guard_aims_out_of_its_own_tower(HELL)
 
 
-func test_a_bot_guard_aims_out_of_its_own_tower_marble() -> void:
+func test_a_bot_guard_aims_out_of_its_own_tower_hell_second_match() -> void:
+	await _a_bot_guard_aims_out_of_its_own_tower(HELL)
+
+
+func test_a_bot_guard_aims_out_of_its_own_tower_hell_third_match() -> void:
+	await _a_bot_guard_aims_out_of_its_own_tower(HELL)
+
+
+func test_a_bot_guard_aims_out_of_its_own_tower_hell_fourth_match() -> void:
+	await _a_bot_guard_aims_out_of_its_own_tower(HELL)
+
+
+func test_a_bot_guard_aims_out_of_its_own_tower_hell_fifth_match() -> void:
+	await _a_bot_guard_aims_out_of_its_own_tower(HELL)
+
+
+func test_a_bot_guard_aims_out_of_its_own_tower_marble_first_match() -> void:
+	await _a_bot_guard_aims_out_of_its_own_tower(MARBLE)
+
+
+func test_a_bot_guard_aims_out_of_its_own_tower_marble_second_match() -> void:
+	await _a_bot_guard_aims_out_of_its_own_tower(MARBLE)
+
+
+func test_a_bot_guard_aims_out_of_its_own_tower_marble_third_match() -> void:
+	await _a_bot_guard_aims_out_of_its_own_tower(MARBLE)
+
+
+func test_a_bot_guard_aims_out_of_its_own_tower_marble_fourth_match() -> void:
+	await _a_bot_guard_aims_out_of_its_own_tower(MARBLE)
+
+
+func test_a_bot_guard_aims_out_of_its_own_tower_marble_fifth_match() -> void:
 	await _a_bot_guard_aims_out_of_its_own_tower(MARBLE)
