@@ -10,7 +10,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 GODOT="${GODOT:-godot}"
 SCENARIO=""; OUT=""; CHECK=1; STRICT=""; RUNNER=""; NPEERS=0; LIMIT=180; NAME="adhoc"
-HOST_ARGS=(); CLIENT_ARGS=(); KILLS=()
+HOST_ARGS=(); CLIENT_ARGS=(); KILLS=(); ARMS=()
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -40,13 +40,14 @@ if [ -n "$SCENARIO" ]; then
 else
   [ -n "$RUNNER" ] && [ "$NPEERS" -ge 1 ] || { echo "run_session: need --scenario, or --runner and --peers" >&2; exit 2; }
   PEER_ARGS_0=(--role=server --port="$PORT" --humans="$NPEERS" --name=Host ${HOST_ARGS[@]+"${HOST_ARGS[@]}"})
-  for i in $(seq 1 $((NPEERS - 1))); do
+  for ((i = 1; i < NPEERS; i++)); do
     eval "PEER_ARGS_$i=(--role=client --port=$PORT --name=C$i \${CLIENT_ARGS[@]+\"\${CLIENT_ARGS[@]}\"})"
   done
 fi
 
 [ -n "$OUT" ] || OUT="${TMPDIR:-/tmp}/panopticon-net/$NAME-$(date +%Y%m%dT%H%M%S)-$$"
 mkdir -p "$OUT" || exit 2
+rm -f "$OUT/verdict.json" "$OUT"/peer*.log
 : > "$OUT/exit.txt"
 if [ -n "$SCENARIO" ]; then cp "$SCENARIO" "$OUT/scenario.json"; else
   printf '{"name": "%s", "runner": "%s", "peers": %d, "limit": %d}\n' "$NAME" "$RUNNER" "$NPEERS" "$LIMIT" > "$OUT/scenario.json"
@@ -74,9 +75,14 @@ for _ in $(seq 1 120); do
   kill -0 "${PIDS[0]}" 2>/dev/null || break
   sleep 0.25
 done
-for i in $(seq 1 $((NPEERS - 1))); do
+for ((i = 1; i < NPEERS; i++)); do
   eval "launch $i \"\${PEER_ARGS_$i[@]}\""
-  sleep 0.4
+  # Seats go by arrival: client i is seated before client i+1 starts, so peer N is seat N.
+  for _ in $(seq 1 80); do
+    grep -q "SEAT seat=s$i occupancy=HUMAN" "$OUT/peer0.log" 2>/dev/null && break
+    kill -0 "${PIDS[$i]}" 2>/dev/null || break
+    sleep 0.25
+  done
 done
 
 # Wall-clock limit: macOS has no timeout(1). Kills only the peers this script started.
@@ -102,13 +108,14 @@ for spec in ${KILLS[@]+"${KILLS[@]}"}; do
     while kill -0 "${PIDS[$peer]}" 2>/dev/null; do
       if grep -q -- "$pattern" "$OUT/peer$peer.log" 2>/dev/null; then
         sleep "$after"
-        echo "killed peer$peer after=$after when=$pattern" >> "$OUT/exit.txt"
-        kill -KILL "${PIDS[$peer]}" 2>/dev/null
+        # Only a peer this arm really killed is excused its exit code.
+        kill -KILL "${PIDS[$peer]}" 2>/dev/null && echo "killed peer$peer after=$after when=$pattern" >> "$OUT/exit.txt"
         exit 0
       fi
       sleep 0.25
     done
   ) &
+  ARMS+=($!)
 done
 
 i=0
@@ -116,7 +123,7 @@ for p in "${PIDS[@]}"; do
   wait "$p"; echo "peer$i exit=$?" >> "$OUT/exit.txt"
   i=$((i + 1))
 done
-kill "$WATCHDOG" 2>/dev/null; wait "$WATCHDOG" 2>/dev/null
+kill "$WATCHDOG" ${ARMS[@]+"${ARMS[@]}"} 2>/dev/null; wait "$WATCHDOG" ${ARMS[@]+"${ARMS[@]}"} 2>/dev/null
 echo "out=$OUT"
 [ "$CHECK" = 1 ] || exit 0
 python3 "$HERE/check_session.py" "$OUT" $STRICT

@@ -203,11 +203,11 @@ func _process(_delta: float) -> void:
 	if not is_instance_valid(controller):
 		return
 	_install_actor()
+	_break()
 	_watch_state()
 	_watch_bodies()
 	_watch_result()
 	_stall_once()
-	_break()
 	if now - _last_sample_ms >= int(float(o.sample) * 1000.0):
 		_last_sample_ms = now
 		_sample()
@@ -215,7 +215,7 @@ func _process(_delta: float) -> void:
 
 ## Whether this process should leave now, by --quit-at; the runner does the leaving.
 func wants_quit() -> bool:
-	if _quit_done or float(o["quit-at"]) < 0.0 or matches_bound != int(o["quit-match"]):
+	if _quit_done or float(o["quit-at"]) < 0.0 or matches_bound != int(o["quit-match"]) or _scene_kind != "match":
 		return false
 	if match_seconds() < float(o["quit-at"]):
 		return false
@@ -466,7 +466,7 @@ func _watch_result() -> void:
 ## Freeze this whole process once, the way a hitching machine does.
 func _stall_once() -> void:
 	var at: float = float(o["stall-at"])
-	if _stalled or at <= 0.0 or matches_bound != int(o["stall-match"]) or match_seconds() < at:
+	if _stalled or at <= 0.0 or matches_bound != int(o["stall-match"]) or _scene_kind != "match" or match_seconds() < at:
 		return
 	_stalled = true
 	line("STALL ms=%d" % int(o["stall-ms"]))
@@ -498,6 +498,27 @@ func _break() -> void:
 				controller.net_resolve(MatchController.Outcome.LOSS)
 		"die":
 			OS.kill(OS.get_process_id())
+		"event":
+			if not _broke and not is_server():
+				controller.round_started.emit()
+		"emote", "role":
+			for p: MatchParticipant in controller.get_participants_ref():
+				if p != mine and p.body != null and p.is_running:
+					if kind == "emote":
+						p.body.net_emote = 1
+					else:
+						p.is_running = false
+						p.is_ghost = true
+					break
+		"hide-world":
+			get_viewport().disable_3d = true
+		"flood":
+			if not _broke:
+				for i: int in 60:
+					push_error("Invalid packet received. Requested node was not found.")
+		"leave":
+			if not _broke:
+				session.leave()
 	if not _broke:
 		_broke = true
 		line("BREAK kind=%s" % kind)

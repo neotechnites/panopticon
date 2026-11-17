@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run scenarios through tools/net/run_session.sh, several at once, and print one line each.
 
-    python3 tools/net/run_matrix.py --out <dir> [--filter REGEX] [--tag TAG] [--jobs N] [--repeat N] [--strict]
+    python3 tools/net/run_matrix.py --out <dir> [--filter REGEX] [--tag TAG] [--jobs N] [--repeat N] [--strict] [--recheck]
 
 Writes <dir>/<scenario>[.rN]/ (logs, verdict.json), <dir>/matrix.json and <dir>/matrix.md.
 Exit 0 every scenario PASS, 1 any FAIL, 2 nothing ran.
@@ -21,9 +21,12 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 
 
-def run_one(path: Path, out: Path, strict: bool) -> dict:
+def run_one(path: Path, out: Path, strict: bool, recheck: bool = False) -> dict:
     started = time.time()
     command = ["bash", str(HERE / "run_session.sh"), "--scenario", str(path), "--out", str(out)]
+    if recheck:
+        # The logs stand; only the verdict is taken again (after a change to the checker or the allowlist).
+        command = [sys.executable, str(HERE / "check_session.py"), str(out)]
     if strict:
         command.append("--strict")
     proc = subprocess.run(command, capture_output=True, text=True)
@@ -51,6 +54,7 @@ def main() -> int:
     parser.add_argument("--jobs", type=int, default=3)
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--strict", action="store_true")
+    parser.add_argument("--recheck", action="store_true", help="re-verdict the sessions already under --out; runs nothing")
     parser.add_argument("--scenarios", default=str(HERE / "scenarios"))
     args = parser.parse_args()
     out = Path(args.out)
@@ -69,10 +73,12 @@ def main() -> int:
     work = []
     for path in chosen:
         for n in range(args.repeat):
-            work.append((path, out / (path.stem if args.repeat == 1 else f"{path.stem}.r{n + 1}")))
+            target = out / (path.stem if args.repeat == 1 else f"{path.stem}.r{n + 1}")
+            if not args.recheck or (target / "scenario.json").exists():
+                work.append((path, target))
     print(f"run_matrix: {len(work)} run(s) of {len(chosen)} scenario(s), {args.jobs} at a time -> {out}", flush=True)
     with ThreadPoolExecutor(max_workers=max(args.jobs, 1)) as pool:
-        reports = list(pool.map(lambda item: run_one(item[0], item[1], args.strict), work))
+        reports = list(pool.map(lambda item: run_one(item[0], item[1], args.strict, args.recheck), work))
     counts = {v: sum(1 for r in reports if r["verdict"] == v) for v in ("PASS", "FAIL", "BROKEN")}
     (out / "matrix.json").write_text(json.dumps({"counts": counts, "reports": reports}, indent=1))
     lines = [f"# Net matrix: {counts['PASS']} PASS, {counts['FAIL']} FAIL, {counts['BROKEN']} BROKEN of {len(reports)}", ""]

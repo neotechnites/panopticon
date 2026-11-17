@@ -33,6 +33,9 @@ var _result_ms: int = -1
 var _acted: bool = false
 var _rematches_left: int = 0
 var _rematch_ms: int = -1
+var _launch_ms: int = -1
+var _gathered: bool = false
+var _interact_down: int = 0
 var _relaunched: int = 0
 var _next_shove: float = 0.0
 var _exit_code: int = -1
@@ -138,6 +141,7 @@ func _on_scene_changed(kind: String) -> void:
 	_scene_ms = Time.get_ticks_msec()
 	if kind == "hub":
 		_hub_visits += 1
+		_launch_ms = -1
 		_started = _auto_relaunch
 		_auto_relaunch = false
 	elif kind == "match":
@@ -168,7 +172,14 @@ func _in_hub(scene: Node, now: int, elapsed: float) -> void:
 		return
 	if float(_o["shove-at"]) >= 0.0 and elapsed > float(_o["shove-at"]):
 		_shove_client(scene, elapsed)
-	if _started or _humans() < int(_o.humans) or elapsed < float(_o.wait) or in_hub < float(_o["hub-wait"]):
+	if _launch_ms >= 0 and now - _launch_ms > 3000 and _lobby.get_phase() == NetLobby.Phase.GATHERING:
+		# The press did not take (the body had stepped off the dais): stand on it again.
+		_probe.line("START retry")
+		_launch_ms = -1
+		_started = false
+	# Everyone is waited for once; a peer who leaves later does not hold the next map back.
+	_gathered = _gathered or _humans() >= int(_o.humans)
+	if _started or not _gathered or elapsed < float(_o.wait) or in_hub < float(_o["hub-wait"]):
 		return
 	var hub: HubLobby = null
 	for n: Node in scene.find_children("*", "Node", true, false):
@@ -206,18 +217,29 @@ func _press_start(hub: HubLobby, wedge: MapWedge) -> void:
 		hub.player.velocity = Vector3.ZERO
 		return
 	_started = true
+	_launch_ms = Time.get_ticks_msec()
 	if not bool(_o.press_key):
 		_physics_start = wedge
 		_physics_hub = hub
 		return
-	var press: InputEventAction = InputEventAction.new()
-	press.action = &"interact"
-	press.pressed = true
-	Input.parse_input_event(press)
+	_send_interact(true)
+	_interact_down = 3
 	_probe.line("START pressed interact on wedge=%s" % wedge.map_id)
 
 
+func _send_interact(pressed: bool) -> void:
+	var event: InputEventAction = InputEventAction.new()
+	event.action = &"interact"
+	event.pressed = pressed
+	Input.parse_input_event(event)
+
+
 func _physics_process(_delta: float) -> void:
+	if _interact_down > 0:
+		# The key comes back up, or the action stays pressed and E never reads as pressed again.
+		_interact_down -= 1
+		if _interact_down == 0:
+			_send_interact(false)
 	if _physics_start != null:
 		_probe.line("START in physics wedge=%s result=%s" % [_physics_start.map_id, str(_physics_hub.start_map())])
 		_physics_start = null

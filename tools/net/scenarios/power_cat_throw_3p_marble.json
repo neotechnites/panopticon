@@ -10,12 +10,26 @@
   "seconds": 60,
   "map": "marble",
   "seats": 4,
-  "tower": 3
+  "tower": 2
  },
  "host": {
   "keys": "5@6,f@>1.2,5@>6,f@>1.2,5@>6,f@>1.2"
  },
- "client": {
-  "keys": "5@8,f@>1.2,5@>6,f@>1.2,5@>6,f@>1.2"
+ "peer": {
+  "1": {
+   "keys": "5@8,f@>1.2,5@>6,f@>1.2,5@>6,f@>1.2"
+  },
+  "2": {
+   "aim": false,
+   "fire-every": 0,
+   "press-fire": 0,
+   "keys": ""
+  }
+ },
+ "expect": {
+  "valid_presses": {
+   "0": 1,
+   "1": 1
+  }
  }
 }

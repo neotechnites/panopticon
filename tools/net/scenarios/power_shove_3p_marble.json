@@ -10,12 +10,26 @@
   "seconds": 60,
   "map": "marble",
   "seats": 4,
-  "tower": 3
+  "tower": 2
  },
  "host": {
   "keys": "f@5/2"
  },
- "client": {
-  "keys": "f@6/2"
+ "peer": {
+  "1": {
+   "keys": "f@6/2"
+  },
+  "2": {
+   "aim": false,
+   "fire-every": 0,
+   "press-fire": 0,
+   "keys": ""
+  }
+ },
+ "expect": {
+  "valid_presses": {
+   "0": 1,
+   "1": 1
+  }
  }
 }

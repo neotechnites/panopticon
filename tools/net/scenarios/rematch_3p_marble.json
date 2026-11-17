@@ -17,6 +17,12 @@
   "prisoners": 3
  },
  "expect": {
-  "matches": 1
+  "matches": 1,
+  "all": [
+   "REMATCH pressed left=0"
+  ],
+  "never": [
+   "REMATCH gave up"
+  ]
  }
 }

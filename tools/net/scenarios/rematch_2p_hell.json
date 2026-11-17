@@ -18,11 +18,11 @@
  },
  "expect": {
   "matches": 1,
-  "host": [
-   "REMATCH pressed left=0"
-  ],
   "all": [
    "REMATCH pressed left=0"
+  ],
+  "never": [
+   "REMATCH gave up"
   ]
  }
 }

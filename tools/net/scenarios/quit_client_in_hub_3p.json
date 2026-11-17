@@ -11,7 +11,7 @@
   "maps": "bentham_ring",
   "matches": 1,
   "win": 15,
-  "hub-wait": 12,
+  "hub-wait": 26,
   "limit": 130
  },
  "host": {

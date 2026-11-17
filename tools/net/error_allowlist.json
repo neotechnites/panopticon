@@ -52,7 +52,7 @@
   "reason": "BUGS PT2-08 / task 335 leftover, BASELINE 5: a packet for a scene this machine has already left (or not yet built)."
  },
  {
-  "pattern": "Parameter \"node\" is null",
+  "pattern": "Parameter \"node\" is null.*process_simplify_path",
   "class": "known",
   "id": "K-old-scene-packet",
   "max": 40,

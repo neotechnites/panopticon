@@ -50,6 +50,7 @@ WORLD_HIDDEN_GRACE = 8.0
 STUCK_SECONDS = 15.0
 STUCK_METRES = 1.0
 SILENT_GUARD_SECONDS = 30.0
+STALL_RECOVERY = 3.0
 ABILITY_NAMES = {1: "bubble shield", 2: "hologram", 3: "armor lock", 4: "active camo", 5: "cat grenade"}
 
 
@@ -79,6 +80,7 @@ class Peer:
         self.parse()
 
     def parse(self) -> None:
+        at_pending = False
         with self.path.open(errors="replace") as handle:
             for no, raw in enumerate(handle, 1):
                 self.raw_count = no
@@ -90,7 +92,13 @@ class Peer:
                 e = ERROR_HEAD.match(text)
                 if e:
                     self.errors.append((no, e.group(1), e.group(2)))
+                    at_pending = True
                     continue
+                if at_pending and text.lstrip().startswith("at: "):
+                    # The engine's own "at: function (file:line)": what tells two null-node errors apart.
+                    no0, kind0, text0 = self.errors[-1]
+                    self.errors[-1] = (no0, kind0, f"{text0} @ {text.strip()[4:].split(' (')[0]}")
+                at_pending = False
                 wm = WARNING_HEAD.match(text)
                 if wm:
                     self.warnings.append((no, wm.group(2)))
@@ -266,8 +274,14 @@ def check_errors(peers: list[Peer], v: Verdict, strict: bool) -> None:
         grouped: dict[str, list[int]] = defaultdict(list)
         for no, kind, text in peer.errors:
             grouped[f"{kind}: {text}"].append(no)
+        per_id: dict[str, list] = defaultdict(lambda: [0, None, ""])
         for message, numbers in grouped.items():
             entry = next((a for a in allow if a["_re"].search(message)), None)
+            if entry is not None and entry.get("class") == "known" and "max" in entry:
+                tally = per_id[entry["id"]]
+                tally[0] += len(numbers)
+                tally[1] = entry
+                tally[2] = tally[2] or peer.ref(numbers[0], message)
             ref = peer.ref(numbers[0], message)
             if entry is None:
                 v.fail("error", peer.name, f"{message[:240]} (x{len(numbers)})", ref)
@@ -277,9 +291,9 @@ def check_errors(peers: list[Peer], v: Verdict, strict: bool) -> None:
                 v.known.append(item)
                 if strict:
                     v.fail("known-error", peer.name, item["message"], ref)
-                elif len(numbers) > int(entry.get("max", 1000000)):
-                    v.fail("error-flood", peer.name, f"{message[:200]} x{len(numbers)} (known [{entry.get('id')}], "
-                           f"but past its ceiling of {entry['max']})", ref)
+        for known_id, (count, entry, ref) in per_id.items():
+            if not strict and count > int(entry["max"]):
+                v.fail("error-flood", peer.name, f"{count} errors of known family [{known_id}], past its ceiling of {entry['max']}", ref)
         for no, text in peer.crashes:
             v.fail("crash", peer.name, text[:240], peer.ref(no, text))
 
@@ -387,7 +401,7 @@ def states_in_window(timeline: list[tuple[float, tuple]], lo: float, hi: float) 
     return found
 
 
-def check_state(host: Peer, clients: list[Peer], scenario: dict, v: Verdict, slack: float) -> None:
+def check_state(host: Peer, clients: list[Peer], scenario: dict, v: Verdict, slack: float, quiet) -> None:
     timeline = host_state_timeline(host)
     split_ok = scenario.get("expect", {}).get("scene_split", False)
     for client in clients:
@@ -398,7 +412,7 @@ def check_state(host: Peer, clients: list[Peer], scenario: dict, v: Verdict, sla
                 break
             mine = state_of(line.kv)
             theirs = states_in_window(timeline, line.w - slack, line.w + slack)
-            agree = mine in theirs or not theirs
+            agree = mine in theirs or not theirs or quiet(line.w)
             if not agree and split_ok and all(mine[0] != t[0] for t in theirs):
                 agree = True
             if agree:
@@ -425,13 +439,13 @@ def check_frozen(peers: list[Peer], v: Verdict) -> None:
             if line.tag == "POS":
                 state = state_of(line.kv)
                 paused = line.kv.get("paused") == "1"
-            if line.tag in ("SCENE", "STATE"):
+            if line.tag == "SCENE":
                 since = None
                 reported = False
             if line.tag != "LOCAL" or not state:
                 continue
             live = (state[0] == "match" and state[2] in ("RACE", "ROUND") and state[5] == "IN_PROGRESS" and not paused)
-            frozen = (live and line.kv.get("role") in ("RUNNING", "GHOST") and line.kv.get("sim") == "0"
+            frozen = (live and line.kv.get("role") in ("RUNNING", "GHOST", "HUNTING") and line.kv.get("sim") == "0"
                       and float(line.kv.get("hold", "0")) <= 0.0)
             if not frozen:
                 since = None
@@ -446,13 +460,14 @@ def check_frozen(peers: list[Peer], v: Verdict) -> None:
                        f"in a live {state[2]} (settle={line.kv.get('settle')})", peer.ref(since))
 
 
-def check_positions(host: Peer, clients: list[Peer], scenario: dict, v: Verdict, lag: float) -> dict:
+def check_positions(host: Peer, clients: list[Peer], scenario: dict, v: Verdict, lag: float, quiet) -> dict:
     host_pos = [(l.w, state_of(l.kv), parse_bodies(l.rest), l) for l in host.tagged("POS")]
     stats = {"samples": 0, "max": 0.0}
     window = POSITION_WINDOW + lag
     tolerance = float(scenario.get("position_tolerance", POSITION_TOLERANCE))
     for client in clients:
         runs: dict[str, list] = defaultdict(list)
+        role_runs: dict[str, list] = defaultdict(list)
         reported: set[str] = set()
         hidden_since: Line | None = None
         hidden_reported = False
@@ -462,7 +477,7 @@ def check_positions(host: Peer, clients: list[Peer], scenario: dict, v: Verdict,
             while cursor < len(host_pos) and host_pos[cursor][0] < line.w - window:
                 cursor += 1
             near = []
-            i = max(cursor - 1, 0)
+            i = cursor
             while i < len(host_pos) and host_pos[i][0] <= line.w + window:
                 near.append(host_pos[i])
                 i += 1
@@ -478,9 +493,31 @@ def check_positions(host: Peer, clients: list[Peer], scenario: dict, v: Verdict,
                            f"3D world still covered {line.w - hidden_since.w:.0f} s into a live scene", client.ref(hidden_since)[:300])
                 continue
             hidden_since = None
-            if len(near) < 2:
+            if len(near) < 2 or quiet(line.w):
                 continue
-            for seat, body in parse_bodies(line.rest).items():
+            mine_bodies = parse_bodies(line.rest)
+            host_seats = set.intersection(*(set(h[2]) for h in near))
+            for seat in host_seats:
+                roles = {h[2][seat]["role"] for h in near}
+                body = mine_bodies.get(seat)
+                problem = ""
+                if body is None:
+                    problem = "has no body here"
+                elif body["role"] not in roles:
+                    problem = f"is {body['role']} here and {'/'.join(sorted(roles))} on the host"
+                elif not body["vis"] and all(h[2][seat]["vis"] for h in near):
+                    problem = "is hidden here and shown on the host"
+                key = f"{seat}:{problem.split(' here')[0]}"
+                if not problem:
+                    for k in [k for k in role_runs if k.startswith(seat + ":")]:
+                        role_runs[k] = []
+                    continue
+                role_runs[key].append(line)
+                if len(role_runs[key]) == SUSTAIN_SAMPLES * 2 and key not in reported:
+                    reported.add(key)
+                    v.fail("body-state", client.name, f"body {seat} {problem}, for {SUSTAIN_SAMPLES}+ s "
+                           f"(state {state_text(mine_state)})", client.ref(role_runs[key][0])[:260])
+            for seat, body in mine_bodies.items():
                 track = [h[2][seat]["pos"] for h in near if seat in h[2]]
                 if len(track) < 2 or not body["vis"]:
                     runs[seat] = []
@@ -536,7 +573,7 @@ def check_world(peers: list[Peer], v: Verdict) -> None:
                        f"{STUCK_SECONDS:.0f}+ s at ({anchor[1][0]:.1f}, {anchor[1][1]:.1f}, {anchor[1][2]:.1f})", host.ref(anchor[0])[:200])
 
 
-def check_presentation(host: Peer, clients: list[Peer], v: Verdict, lag: float) -> None:
+def check_presentation(host: Peer, clients: list[Peer], v: Verdict, lag: float, quiet) -> None:
     watched = [
         ("POWER", "power", lambda l: l.kv.get("ability", "0"), 0.4),
         ("EMOTE", "emote", lambda l: ("alt" if l.kv.get("alt") == "1" else "on") if l.kv.get("on") == "1" else "0", 0.4),
@@ -551,42 +588,62 @@ def check_presentation(host: Peer, clients: list[Peer], v: Verdict, lag: float) 
             mine = intervals(client, tag, value_of)
 
             def had(side: dict, seat: str, value: str, lo: float, hi: float) -> bool:
-                return any(val == value and start <= hi and end >= lo for val, start, end, _ in side.get(seat, []))
+                """A stretch of the same value on the other machine that starts and ends when this one does."""
+                end_slack = slack * (3.0 if tag == "RAG" else 2.0)
+                return any(val == value and abs(start - (lo + slack)) <= slack and abs(end - (hi - slack)) <= end_slack
+                           for val, start, end, _ in side.get(seat, []))
 
             def present(start: float, end: float) -> bool:
                 return any(b < start for b in bound) and min(client.last_w, client.session_end) > end + slack
 
             for seat, spans in theirs.items():
                 for value, start, end, line in spans:
-                    if value == "0" or end - start < least or not present(start, end):
+                    if value == "0" or end - start < least or not present(start, end) or quiet(start) or quiet(end):
                         continue
+                    if end >= host.last_w - 0.1:
+                        continue  # cut short by the end of the host's log, not by the game
                     if not had(mine, seat, value, start - slack, end + slack):
                         v.fail("presentation", client.name,
-                               f"never drew {label}={value} for {seat} that the host had for {end - start:.1f} s", host.ref(line))
+                               f"never drew {label}={value} for {seat} over the stretch the host had it ({end - start:.1f} s)", host.ref(line))
             for seat, spans in mine.items():
                 for value, start, end, line in spans:
-                    if value == "0" or end - start < 1.5 or end > host.last_w - slack:
+                    if value == "0" or end - start < 1.5 or start > host.last_w - slack - 1.5 or quiet(start) or quiet(end):
+                        continue
+                    if end > host.last_w - slack:
+                        # Still up when the host's log ends: the host must have it up at the end too, from the same start.
+                        if any(val == value and abs(a - start) <= slack and b >= host.last_w - 2.0 * slack
+                               for val, a, b, _ in theirs.get(seat, [])):
+                            continue
+                        v.fail("presentation", client.name,
+                               f"drew {label}={value} for {seat} from t+{start - client.first_w:.0f} s to the end, which the host never had",
+                               client.ref(line))
                         continue
                     if not had(theirs, seat, value, start - slack, end + slack):
                         v.fail("presentation", client.name,
-                               f"drew {label}={value} for {seat} for {end - start:.1f} s that the host never had", client.ref(line))
+                               f"drew {label}={value} for {seat} for {end - start:.1f} s, a stretch the host never had", client.ref(line))
 
 
-def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float) -> dict:
+def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, scenario: dict) -> dict:
     stats: dict[str, list[int]] = defaultdict(lambda: [0, 0])
     powers = host.tagged("POWER")
     emotes = host.tagged("EMOTE")
     cats = host.tagged("CATHOST")
     rules = [l for l in host.tagged("MATCH") if l.rest.startswith("rules")]
     window = PRESS_WINDOW + 2.0 * lag
+    valid_by_peer: dict[int, int] = defaultdict(int)
     for peer in peers:
         releases = peer.tagged("RELEASE")
         for press in peer.tagged("PRESS"):
             key = press.kv.get("key", "?")
             seat = press.kv.get("seat")
-            if press.kv.get("valid") != "1" or key in ("f", "j"):
+            note = press.kv.get("note", "")
+            if press.kv.get("valid") != "1" and not note.startswith(("role-", "no-cat", "no-picked")):
+                # The key was held back for a moment the body could use it, and none came.
+                v.fail("press", peer.name, f"key {key} could never be used as {seat}: {note} for the whole wait", peer.ref(press))
+            if press.kv.get("valid") != "1":
                 continue
-            if press.w > host.last_w - window:
+            valid_by_peer[peer.index] += 1
+            if key in ("f", "j") or press.w > host.last_w - window or quiet(press.w):
                 continue
             lo, hi = press.w - 0.3, press.w + window
             ok = True
@@ -618,6 +675,10 @@ def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float) -> dict
                 stats[key][1] += 1
             else:
                 v.fail("press", peer.name, f"pressed {key} ({what}) as {seat} and the host never ran it within {window:.1f} s", peer.ref(press))
+    for index, least in scenario.get("expect", {}).get("valid_presses", {}).items():
+        if valid_by_peer[int(index)] < int(least):
+            v.fail("press", peers[int(index)].name if int(index) < len(peers) else f"peer{index}",
+                   f"{valid_by_peer[int(index)]} usable key press(es), {least} expected: the scenario tested nothing here")
     return {k: {"pressed": a, "ran": b} for k, (a, b) in stats.items()}
 
 
@@ -686,9 +747,16 @@ def check_expect(host: Peer, peers: list[Peer], gone: set[int], scenario: dict, 
                 continue
             if not any(re.search(pattern, f"{l.tag} {l.rest}") for l in peer.lines):
                 v.fail("expect", peer.name, f"expected line never logged: /{pattern}/")
+    host_end = next((l.w for l in host.lines if l.tag in ("END", "QUIT")), host.last_w)
+    for peer in peers[1:]:
+        own_end = next((l.w for l in peer.lines if l.tag in ("END", "QUIT")), float("inf"))
+        if peer.index in gone or expect.get("host_lost") or peer.session_end >= min(host_end - 1.0, own_end - 0.05):
+            continue
+        ended = next(l for l in peer.lines if l.tag == "SESSION")
+        v.fail("dropped", peer.name, f"its session ended {host_end - peer.session_end:.0f} s before the host left", peer.ref(ended))
     for pattern in expect.get("never", []):
         for peer in peers:
-            hit = next((l for l in peer.lines if re.search(pattern, f"{l.tag} {l.rest}")), None)
+            hit = next((l for l in peer.lines if l.w < min(peer.session_end, host_end) and re.search(pattern, f"{l.tag} {l.rest}")), None)
             if hit is not None:
                 v.fail("expect", peer.name, f"line that must not appear: /{pattern}/", peer.ref(hit))
     if "matches" in expect:
@@ -728,6 +796,8 @@ def check_expect(host: Peer, peers: list[Peer], gone: set[int], scenario: dict, 
         acted = moved or any(b["role"] == "TOWER" for b in track)
         if len(track) >= 10 and not acted:
             v.fail("expect", "host", f"seat {seat} turned bot and its body never moved again (no brain)", host.ref(turned))
+        elif len(track) < 10:
+            v.warn("expect", "host", f"seat {seat} turned bot too late to tell whether its body plays on ({len(track)} samples)")
 
 
 def summarise(host: Peer, peers: list[Peer]) -> dict:
@@ -794,8 +864,18 @@ def main() -> int:
         values += [float(d.get(name, default)) for d in scenario.get("peer", {}).values()]
         return max(values)
 
-    lag = arg("delay-ms", 0.0) / 1000.0 * 2.0 + (0.4 if arg("loss", 0.0) > 0.0 else 0.0) + arg("stall-ms", 0.0) / 1000.0
+    lag = arg("delay-ms", 0.0) / 1000.0 * 2.0 + (0.4 if arg("loss", 0.0) > 0.0 else 0.0)
     slack = SLACK + lag
+    stalls: list[tuple[float, float]] = []
+    for peer in peers:
+        starts = [l.w for l in peer.lines if l.tag == "STALL" and l.rest.startswith("ms=")]
+        overs = [l.w for l in peer.lines if l.tag == "STALL" and l.rest.startswith("over")]
+        stalls += [(a - 0.5, b + STALL_RECOVERY) for a, b in zip(starts, overs)]
+
+    def in_stall(w: float) -> bool:
+        """Inside a deliberate stall or the seconds a machine needs to catch up after one."""
+        return any(a <= w <= b for a, b in stalls)
+
     gone = check_exits(session, peers, scenario, v)
     check_errors(peers, v, strict)
     stats: dict = {}
@@ -803,12 +883,12 @@ def main() -> int:
         check_rules(host, clients, v)
         check_bound(host, clients, gone, v)
         check_events(host, clients, v, slack)
-        check_state(host, clients, scenario, v, slack)
+        check_state(host, clients, scenario, v, slack, in_stall)
         check_frozen(peers, v)
-        stats["position"] = check_positions(host, clients, scenario, v, lag)
+        stats["position"] = check_positions(host, clients, scenario, v, lag, in_stall)
         check_world(peers, v)
-        check_presentation(host, clients, v, lag)
-        stats["presses"] = check_presses(host, peers, v, lag)
+        check_presentation(host, clients, v, lag, in_stall)
+        stats["presses"] = check_presses(host, peers, v, lag, in_stall, scenario)
         check_roster(host, v)
         check_role_powers(host, v)
         stats["rifle"] = check_guard(host, v, scenario)

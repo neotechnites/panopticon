@@ -10,12 +10,26 @@
   "seconds": 60,
   "map": "bentham_ring",
   "seats": 4,
-  "tower": 3
+  "tower": 2
  },
  "host": {
   "keys": "2@6/11"
  },
- "client": {
-  "keys": "2@9/11"
+ "peer": {
+  "1": {
+   "keys": "2@9/11"
+  },
+  "2": {
+   "aim": false,
+   "fire-every": 0,
+   "press-fire": 0,
+   "keys": ""
+  }
+ },
+ "expect": {
+  "valid_presses": {
+   "0": 1,
+   "1": 1
+  }
  }
 }

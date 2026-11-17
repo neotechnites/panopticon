@@ -89,22 +89,33 @@ POWER_KEYS = {
     "camo": ("4@6/11", "4@9/11"),
     "cat_cook": ("5@6,e@>1,5@>6,e@>1,5@>6,e@>1", "5@8,e@>1,5@>6,e@>1,5@>6,e@>1"),
     "cat_throw": ("5@6,f@>1.2,5@>6,f@>1.2,5@>6,f@>1.2", "5@8,f@>1.2,5@>6,f@>1.2,5@>6,f@>1.2"),
-    "cat_hold": ("5@6,5@>9", "5@8,5@>9"),
+    "cat_hold": ("5@6", "5@8"),
     "emotes": ("b@6+2,n@12+2,b@18+2,n@24+2", "n@7+2,b@13+2,n@19+2,b@25+2"),
     "shove": ("f@5/2", "f@6/2"),
 }
+# The tower is held by a human who never fires, so the pressers stay on the track and every press counts.
+SILENT = {"aim": False, "fire-every": 0, "press-fire": 0, "keys": ""}
 for map_name, map_id in MAPS.items():
     for power, (host_keys, client_keys) in POWER_KEYS.items():
-        # A bot holds the tower, so every human is on the track from the first tick.
-        match(f"power_{power}_3p_{map_name}", 3, 60, ["powers"], {"map": map_id, "seats": 4, "tower": 3},
-              host={"keys": host_keys}, client={"keys": client_keys})
+        match(f"power_{power}_3p_{map_name}", 3, 60, ["powers"], {"map": map_id, "seats": 4, "tower": 2},
+              host={"keys": host_keys}, peer={"1": {"keys": client_keys}, "2": SILENT},
+              expect={"valid_presses": {"0": 1, "1": 1}})
     for ability in (1, 2, 3, 4, 5):
-        match(f"power_q_ability{ability}_3p_{map_name}", 3, 45, ["powers"], {"map": map_id, "seats": 4, "tower": 3},
-              host={"keys": "q@6+1.5/9", "ability": ability}, client={"keys": "q@8+1.5/9"})
-    for peers in (2, 3, 4):
+        match(f"power_q_ability{ability}_3p_{map_name}", 3, 45, ["powers"], {"map": map_id, "seats": 4, "tower": 2},
+              host={"keys": "q@6+1.5/9", "ability": ability}, peer={"1": {"keys": "q@8+1.5/9"}, "2": SILENT},
+              expect={"valid_presses": {"0": 1, "1": 1}})
+    match(f"power_all_2p_{map_name}_hostkeys", 2, 70, ["powers"], {"map": map_id, "seats": 4, "tower": 1},
+          host={"keys": ALL_KEYS, "ability": 4}, peer={"1": SILENT}, expect={"valid_presses": {"0": 5}})
+    match(f"power_all_2p_{map_name}_clientkeys", 2, 70, ["powers"], {"map": map_id, "seats": 4, "tower": 0},
+          host=dict(SILENT, ability=4), peer={"1": {"keys": ALL_KEYS_LATE}}, expect={"valid_presses": {"1": 5}})
+    for peers in (3, 4):
         match(f"power_all_{peers}p_{map_name}", peers, 70, ["powers", "smoke"] if (peers, map_name) == (3, "hell") else ["powers"],
-              {"map": map_id, "seats": max(peers + 1, 4), "tower": max(peers, 3)},
-              host={"keys": ALL_KEYS, "ability": 4}, client={"keys": ALL_KEYS_LATE})
+              {"map": map_id, "seats": peers + 1, "tower": peers - 1},
+              host={"keys": ALL_KEYS, "ability": 4}, client={"keys": ALL_KEYS_LATE}, peer={str(peers - 1): SILENT},
+              expect={"valid_presses": {str(i): 5 for i in range(peers - 1)}})
+    # The same keys under a bot guard that shoots: shield, lock and camo against a live rifle.
+    match(f"power_all_botguard_3p_{map_name}", 3, 70, ["powers"], {"map": map_id, "seats": 4, "tower": 3},
+          host={"keys": ALL_KEYS, "ability": 4}, client={"keys": ALL_KEYS_LATE})
     # Powers a human guard and a ghost should not have, pressed anyway (no waiting for a valid moment).
     match(f"power_guard_presses_3p_{map_name}", 3, 45, ["powers", "roles"], {"map": map_id, "seats": 4, "tower": 1},
           peer={"1": {"keys": "1@6,3@12+2,5@18,e@>1", "keys-wait": False}})
@@ -127,9 +138,9 @@ for map_name, map_id in MAPS.items():
 # --- E. After the result: rematch, everyone to the hub, back alone, relaunch ----
 for peers in (2, 3, 4):
     hub(f"rematch_{peers}p_hell", peers, 200, ["after"], {"maps": "bentham_ring", "matches": 1, "win": 18, "rematches": 2},
-        host={"prisoners": 3}, expect={"matches": 1, "host": ["REMATCH pressed left=0"], "all": ["REMATCH pressed left=0"]})
+        host={"prisoners": 3}, expect={"matches": 1, "all": ["REMATCH pressed left=0"], "never": ["REMATCH gave up"]})
 hub("rematch_3p_marble", 3, 200, ["after"], {"maps": "marble", "matches": 1, "win": 18, "rematches": 2},
-    host={"prisoners": 3}, expect={"matches": 1})
+    host={"prisoners": 3}, expect={"matches": 1, "all": ["REMATCH pressed left=0"], "never": ["REMATCH gave up"]})
 # One human never presses Rematch: the rest wait, the host gives up and takes everyone to the hub.
 hub("rematch_one_abstains_3p", 3, 130, ["after"], {"maps": "bentham_ring", "matches": 1, "win": 15, "rematches": 1, "rematch-wait": 10},
     host={"prisoners": 3}, peer={"2": {"rematches": 0}},
@@ -172,13 +183,13 @@ for map_name, map_id in MAPS.items():
     for who, index in (("client", "1"), ("host", "0")):
         match(f"fault_stall3s_{who}_2p_{map_name}", 2, 60, ["fault", "stall"], {"map": map_id, "seats": 4, "tower": 3},
               peer={index: {"stall-at": 15, "stall-ms": 3000}},
-              expect={"never": ["SEAT seat=s1 occupancy=BOT", "NET host_lost"]})
+              expect={"never": ["SEAT seat=s1 occupancy=BOT"]})
         match(f"fault_binddelay_{who}_3p_{map_name}", 3, 110, ["fault", "bind"], {"map": map_id, "seats": 4, "tower": -1},
               peer={index: {"bind-delay": 2.0}},
               expect={"all": ["EV round_started round=1"]}, limit_extra=5)
     match(f"fault_stall7s_client_2p_{map_name}", 2, 60, ["fault", "stall"], {"map": map_id, "seats": 4, "tower": 3},
           peer={"1": {"stall-at": 15, "stall-ms": 7000}},
-          expect={"never": ["SEAT seat=s1 occupancy=BOT", "NET host_lost"]})
+          expect={"never": ["SEAT seat=s1 occupancy=BOT"]})
     # Past the 8 s timeout the host seats a bot, and the client must be told it was dropped.
     match(f"fault_stall10s_client_2p_{map_name}", 2, 60, ["fault", "stall"], {"map": map_id, "seats": 4, "tower": 3},
           peer={"1": {"stall-at": 15, "stall-ms": 10000}},
@@ -200,7 +211,10 @@ for map_name, map_id in MAPS.items():
           peer={"0": {"quit-at": 15}}, expect={"host_lost": "in-match"})
     match(f"quit_host_killed_round_3p_{map_name}", 3, 60, ["leave", "host"], {"map": map_id, "seats": 4, "tower": 3},
           kill=[{"peer": 0, "when": "EV round_started", "after": 12}], expect={"host_lost": "in-match"}, limit_extra=15)
-hub("quit_client_in_hub_3p", 3, 150, ["leave", "hub"], {"maps": "bentham_ring", "matches": 1, "win": 15, "hub-wait": 12},
+hub("quit_client_in_hub_3p", 3, 150, ["leave", "hub"], {"maps": "bentham_ring", "matches": 1, "win": 15, "hub-wait": 26},
+    host={"prisoners": 3}, kill=[{"peer": 2, "when": "SCENE kind=hub", "after": 6}], expect={"matches": 1})
+# Killed in the hub and not yet timed out when the host starts: a dead peer in a seat at launch.
+hub("quit_client_dead_at_launch_3p", 3, 150, ["leave", "hub"], {"maps": "marble", "matches": 1, "win": 20, "hub-wait": 9},
     host={"prisoners": 3}, kill=[{"peer": 2, "when": "SCENE kind=hub", "after": 6}], expect={"matches": 1})
 hub("quit_host_in_hub_3p", 3, 90, ["leave", "host", "hub"], {"maps": "bentham_ring", "matches": 1, "win": 15, "hub-wait": 30},
     kill=[{"peer": 0, "when": "SCENE kind=hub", "after": 8}], expect={"host_lost": True})

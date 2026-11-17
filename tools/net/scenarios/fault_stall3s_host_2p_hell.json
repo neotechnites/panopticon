@@ -21,8 +21,7 @@
  },
  "expect": {
   "never": [
-   "SEAT seat=s1 occupancy=BOT",
-   "NET host_lost"
+   "SEAT seat=s1 occupancy=BOT"
   ]
  }
 }

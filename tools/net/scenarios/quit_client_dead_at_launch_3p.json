@@ -1,0 +1,30 @@
+{
+ "name": "quit_client_dead_at_launch_3p",
+ "runner": "hub",
+ "peers": 3,
+ "limit": 150,
+ "tags": [
+  "leave",
+  "hub"
+ ],
+ "common": {
+  "maps": "marble",
+  "matches": 1,
+  "win": 20,
+  "hub-wait": 9,
+  "limit": 130
+ },
+ "host": {
+  "prisoners": 3
+ },
+ "expect": {
+  "matches": 1
+ },
+ "kill": [
+  {
+   "peer": 2,
+   "when": "SCENE kind=hub",
+   "after": 6
+  }
+ ]
+}
