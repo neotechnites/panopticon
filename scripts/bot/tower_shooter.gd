@@ -108,6 +108,7 @@ var _scan_swept: float = 0.0
 # The stand: the map's posts, their middle (bearings are told from it), the one held.
 var _posts: PackedVector3Array = PackedVector3Array()
 var _posts_middle: Vector3 = Vector3.ZERO
+var _posts_reach: float = 0.0
 var _post: int = -1
 var _posted: bool = true
 
@@ -184,12 +185,15 @@ func _read_posts() -> void:
 	_post = -1
 	if is_inside_tree():
 		for node: Node in get_tree().get_nodes_in_group(POST_GROUP):
-			var marker: Node3D = node as Node3D
+			var marker: Marker3D = node as Marker3D
 			if marker != null:
 				_posts.append(marker.global_position)
 	_posts_middle = Vector3.ZERO
 	for post: Vector3 in _posts:
 		_posts_middle += post / float(_posts.size())
+	_posts_reach = INF if not _posts.is_empty() else 0.0
+	for post: Vector3 in _posts:
+		_posts_reach = minf(_posts_reach, Vector2(post.x - _posts_middle.x, post.z - _posts_middle.z).length())
 	_posted = _posts.is_empty()
 
 
@@ -272,7 +276,7 @@ func _physics_process(delta: float) -> void:
 	if target == null:
 		_forget_target()
 		_scan(delta)
-		_keep_post(_scan_point if _scan_has_point else _posts_middle - controller.global_transform.basis.z)
+		_keep_post(_scan_point if _scan_has_point else _posts_middle - controller.global_transform.basis.z * (_posts_reach + 1.0))
 		_drive_optic(0.0, Vector2.ZERO)
 		_set_state(State.RECOVERING if not rifle.can_fire() else State.SCANNING)
 		return
@@ -582,7 +586,8 @@ func _keep_post(gaze: Vector3) -> void:
 	if _posts.is_empty():
 		return
 	var want: Vector2 = Vector2(gaze.x - _posts_middle.x, gaze.z - _posts_middle.z)
-	if want.length_squared() > 0.0001:
+	# A gaze inside the ring of posts (somebody in the room) has no bearing worth a walk.
+	if want.length() > _posts_reach or _post < 0:
 		var held: float = _post_offset(_post, want) - POST_SWITCH_HYSTERESIS if _post >= 0 else INF
 		for index: int in _posts.size():
 			var offset: float = _post_offset(index, want)

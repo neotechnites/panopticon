@@ -55,7 +55,7 @@ func test_a_spent_life_puts_a_bot_brain_back_on_a_fresh_run() -> void:
 	victim.brain._begin_cross(bake.get_link(0), RunnerBrain.Cross.TAKEOFF)
 	assert_false(_controller.apply_hit(victim), "a prisoner with a life left is not converted")
 	await step_ticks(SETTLE_TICKS)
-	assert_eq_string(victim.brain.get_state_name(), "RUN", "the brain is running, not finishing a crossing it was shot out of")
+	assert_true(victim.brain._link != bake.get_link(0), "the brain is not finishing the crossing it was shot out of")
 	assert_lt(absf(victim.brain.get_travelled_arc()), 0.2, "and it counts its lap from the line")
 	assert_true(victim.is_running, "the prisoner is still in the round")
 

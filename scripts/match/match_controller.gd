@@ -1202,12 +1202,14 @@ func _drive_brawl_bot(participant: MatchParticipant, standing: Array[MatchPartic
 		and forward.dot(outward) > 0.3 and participant.shove_cooldown_remaining <= 0.0
 		and not near_edge
 	)
-	if not lined_up:
-		state["shove_at"] = -1.0
-	elif float(state.get("shove_at", -1.0)) < 0.0:
+	# Drawn once per target and again after each shove: a line-up that flickers keeps its wait.
+	if float(state.get("shove_at", -1.0)) < 0.0 and lined_up:
 		state["shove_at"] = _brawl_elapsed + _brawl_rng.randf() * BRAWL_BOT_HESITATION_SECONDS
 	var pressed_last: bool = bool(state.get("pressed", false))
-	command.shove_pressed = lined_up and _brawl_elapsed >= float(state["shove_at"]) and not pressed_last
+	var due: bool = float(state.get("shove_at", -1.0)) >= 0.0 and _brawl_elapsed >= float(state["shove_at"])
+	command.shove_pressed = lined_up and due and not pressed_last
+	if command.shove_pressed:
+		state["shove_at"] = -1.0
 	state["pressed"] = command.shove_pressed
 
 
@@ -1233,6 +1235,8 @@ func _brawl_target(participant: MatchParticipant, standing: Array[MatchParticipa
 			best_score = score
 			best = other
 	if best != null:
+		if int(state.get("target", -1)) != best.index:
+			state["shove_at"] = -1.0
 		state["target"] = best.index
 		state["until"] = _brawl_elapsed + BRAWL_BOT_COMMIT_SECONDS
 	return best

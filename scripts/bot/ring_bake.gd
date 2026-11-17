@@ -141,6 +141,7 @@ var _dead_pads: Array[BoostPad] = []
 ## Per live pad, where its flight is steered down; per pad, where its bare arc meets the world.
 var _pad_landing: Dictionary[BoostPad, Vector3] = {}
 var _pad_ballistic: Dictionary[BoostPad, Vector3] = {}
+var _idle_pads: Array[BoostPad] = []
 var _all_pads: Array[BoostPad] = []
 var _cover: PackedVector3Array = PackedVector3Array()
 var _cover_facing: PackedVector3Array = PackedVector3Array()
@@ -290,6 +291,7 @@ func bake_from(root: Node) -> void:
 		mesh = _new_mesh()
 		NavigationServer3D.bake_from_source_geometry_data(mesh, source)
 		_index_mesh(mesh)
+		_resolve_pad_landings()
 	navigation_mesh = mesh
 	_polygons = mesh.get_polygon_count()
 	_build_links()
@@ -828,37 +830,35 @@ func _build_pad_links() -> void:
 		_pads += 1
 
 
-## Where every live pad's flight is steered down, to a fixpoint: a landing on another pad
-## counts only once that pad has a landing of its own, so no flight ends on a dead one.
+## Where every live pad's flight is steered down. Pads with nowhere to land are found
+## first, to a fixpoint, so a flight may end on a live pad (a chain) and never on an idle one.
 func _resolve_pad_landings() -> void:
-	_pad_landing.clear()
-	var waiting: Array[BoostPad] = []
-	for pad: BoostPad in _all_pads:
-		if is_instance_valid(pad) and not _dead_pads.has(pad):
-			waiting.append(pad)
+	_idle_pads.clear()
+	_idle_pads.append_array(_dead_pads)
 	var settled: bool = false
 	while not settled:
 		settled = true
-		for index: int in range(waiting.size() - 1, -1, -1):
-			var pad: BoostPad = waiting[index]
+		_pad_landing.clear()
+		for pad: BoostPad in _all_pads:
+			if not is_instance_valid(pad) or _idle_pads.has(pad):
+				continue
+			var end: Vector3 = Vector3.INF
 			var ballistic: Vector3 = _pad_ballistic_landing(pad)
-			if not is_finite(ballistic.x):
-				continue
-			var flat: Vector3 = pad.get_launch_velocity()
-			flat.y = 0.0
-			var direction: Vector3 = flat.normalized() if flat.length() > 0.001 else Vector3.FORWARD
-			var end: Vector3 = _steerable_landing(ballistic, direction)
-			if not is_finite(end.x):
-				continue
-			_pad_landing[pad] = end
-			waiting.remove_at(index)
-			settled = false
+			if is_finite(ballistic.x):
+				var flat: Vector3 = pad.get_launch_velocity()
+				flat.y = 0.0
+				end = _steerable_landing(ballistic, flat.normalized() if flat.length() > 0.001 else Vector3.FORWARD)
+			if is_finite(end.x):
+				_pad_landing[pad] = end
+			else:
+				_idle_pads.append(pad)
+				settled = false
 
 
 ## True when a body coming down at [param point] trips a pad that has no flight of its own.
 func _lands_on_idle_pad(point: Vector3) -> bool:
 	for pad: BoostPad in _all_pads:
-		if not is_instance_valid(pad) or _pad_landing.has(pad):
+		if not is_instance_valid(pad) or not _idle_pads.has(pad):
 			continue
 		var local: Vector3 = pad.global_transform.affine_inverse() * point
 		var half: Vector3 = pad.footprint_metres * 0.5

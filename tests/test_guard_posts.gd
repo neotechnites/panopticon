@@ -77,6 +77,20 @@ func test_a_guard_armed_off_the_seat_still_takes_the_post_that_faces_its_target(
 	)
 
 
+## Somebody inside the ring of posts (the finisher, come for the guard) is not walked at.
+func test_a_target_inside_the_ring_of_posts_does_not_move_the_guard() -> void:
+	_make_posts()
+	var guard: TowerShooter = _make_guard(Vector3.ZERO)
+	var runner: PlayerController = _make_body(_at_bearing(40.0, 30.0))
+	runner.set_physics_process(false)
+	await step_seconds(3.0)
+	var held: int = guard.get_post()
+	runner.global_position = _at_bearing(200.0, POST_RADIUS * 0.5)
+	await step_seconds(3.0)
+	assert_eq_int(guard.get_post(), held, "the post is kept")
+	assert_lt(_flat_distance(guard.controller.global_position, _at_bearing(45.0, POST_RADIUS)), 0.3, "and the guard is still on it")
+
+
 ## With nothing in sight and nothing remembered the guard stands where it faces.
 func test_a_guard_with_nothing_to_look_at_takes_the_post_it_faces() -> void:
 	_make_posts()
