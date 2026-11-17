@@ -694,6 +694,8 @@ func _ev_gamestate(state: PackedInt32Array) -> void:
 	var phase: MatchController.Phase = state[0] as MatchController.Phase
 	if phase == MatchController.Phase.RACE:
 		controller.net_start_race()
+	elif phase == MatchController.Phase.BRAWL:
+		controller.net_start_brawl()
 	elif state[2] >= 0:
 		controller.net_start_round(state[2], state[1])
 	if state[3] >= 0:
@@ -743,10 +745,14 @@ func _take_rounds_won(index: int, rounds_won: int) -> void:
 func _ev_removed(index: int, cause: int) -> void:
 	if not _replays():
 		return
-	if controller.get_phase() == MatchController.Phase.RACE:
-		controller.net_race_out(index)
-	else:
-		controller.net_convert(index, _cause_of(cause))
+	match controller.get_phase():
+		MatchController.Phase.RACE:
+			controller.net_race_out(index)
+		MatchController.Phase.BRAWL:
+			# Only a late peer's catch-up comes this way: it was out before this machine could see the throw.
+			controller.net_brawl_out(index, Vector3.ZERO)
+		_:
+			controller.net_convert(index, _cause_of(cause))
 
 
 @rpc("authority", "reliable", "call_remote", 0)
