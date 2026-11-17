@@ -48,6 +48,7 @@ var _pet_tween: Tween = null
 var _fuse: int = 0
 var _gone: bool = false
 var _purr: AudioStreamPlayer3D = null
+var _net: NetMatch = null
 
 
 func _ready() -> void:
@@ -59,6 +60,8 @@ func _ready() -> void:
 	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
 	freeze = true
 	_all.append(self)
+	# Once the scene stands: the match layer beside this cat says who may be told about it.
+	_net_match.call_deferred()
 
 
 func _exit_tree() -> void:
@@ -185,11 +188,12 @@ static func make_pet_prompt() -> CanvasLayer:
 func _announce_held(held: bool) -> void:
 	var peer: int = 1
 	if held and is_instance_valid(_carrier):
-		for child: Node in _carrier.get_children():
-			if child is PlayerNetLink:
-				peer = (child as PlayerNetLink).owner_peer_id
+		# The carrier's link sits under NetMatch; with none there is no session and peer 1 is this machine.
+		var link: PlayerNetLink = PlayerNetLink.of(_carrier)
+		if link != null:
+			peer = link.owner_peer_id
 	if _networked():
-		rpc(&"_held_by", peer if held else 0)
+		_tell(&"_held_by", [peer if held else 0])
 	_held_by(peer if held else 0)
 
 
@@ -215,7 +219,7 @@ static func claim_shove(body: PlayerController, forward: Vector3, reach: float) 
 			return true
 	var here: Vector3 = body.global_position
 	for cat: HubCat in _all:
-		if cat._state == State.HELD or cat._gone:
+		if cat._state == State.HELD or cat._gone or cat.multiplayer != body.multiplayer:
 			continue
 		var offset: Vector3 = cat.global_position - here
 		if absf(offset.y) > REACH_HEIGHT:
@@ -272,9 +276,54 @@ func _throw() -> void:
 func _explode(fuse: int) -> void:
 	if fuse != _fuse or _gone or not is_inside_tree():
 		return
+	var at: Vector3 = global_position + Vector3.UP * 0.3
+	_state = State.REST
+	freeze = true
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	if _networked():
+		_tell(&"_exploded", [at, true])
+	_exploded(at, true)
+	get_tree().create_timer(RESPAWN_SECONDS).timeout.connect(_respawn)
+
+
+func _respawn() -> void:
+	if _networked():
+		_tell(&"_returned", [])
+	_returned()
+
+
+## Authority to everyone: the cat went off at [param at], and is hidden at home until it returns.
+## [param loud] is false for a machine that arrived after the blast.
+@rpc("authority", "reliable", "call_remote", 0)
+func _exploded(at: Vector3, loud: bool) -> void:
+	if not at.is_finite():
+		return
 	_gone = true
 	_become_neutral()
+	_set_local_held(false)
+	if loud:
+		_show_blast(at)
+	visible = false
+	collision_layer = 0
+	collision_mask = 0
+	global_transform = _home
+
+
+## Authority to everyone: the cat is back on its spot.
+@rpc("authority", "reliable", "call_remote", 0)
+func _returned() -> void:
+	_gone = false
+	visible = true
+	collision_layer = CAT_LAYER
+	collision_mask = 1
+	global_transform = _home
+
+
+func _show_blast(at: Vector3) -> void:
 	var scene: Node = get_tree().current_scene
+	if scene == null:
+		scene = get_parent()
 	var blast: AnimatedSprite3D = AnimatedSprite3D.new()
 	var frames: SpriteFrames = SpriteFrames.new()
 	frames.add_animation(&"boom")
@@ -293,31 +342,15 @@ func _explode(fuse: int) -> void:
 	blast.shaded = false
 	blast.no_depth_test = true
 	scene.add_child(blast)
-	blast.global_position = global_position + Vector3.UP * 0.3
+	blast.global_position = at
 	blast.animation_finished.connect(blast.queue_free)
 	blast.play(&"boom")
 	var sound: AudioStreamPlayer3D = AudioStreamPlayer3D.new()
 	sound.stream = EXPLOSION_SOUND
 	scene.add_child(sound)
-	sound.global_position = blast.global_position
+	sound.global_position = at
 	sound.finished.connect(sound.queue_free)
 	sound.play()
-	visible = false
-	_state = State.REST
-	freeze = true
-	collision_layer = 0
-	collision_mask = 0
-	linear_velocity = Vector3.ZERO
-	angular_velocity = Vector3.ZERO
-	global_transform = _home
-	get_tree().create_timer(RESPAWN_SECONDS).timeout.connect(_respawn)
-
-
-func _respawn() -> void:
-	_gone = false
-	visible = true
-	collision_layer = CAT_LAYER
-	collision_mask = 1
 
 
 func _carry_basis() -> Basis:
@@ -349,7 +382,7 @@ func _physics_process(_delta: float) -> void:
 		_settle(Transform3D(Basis(Vector3.UP, rotation.y), global_position))
 		return
 	if _networked():
-		rpc(&"_pose", global_position, rotation.y)
+		_tell_pose()
 
 
 func _drop() -> void:
@@ -370,7 +403,40 @@ func _settle(where: Transform3D) -> void:
 	angular_velocity = Vector3.ZERO
 	global_transform = where
 	if _networked():
-		rpc(&"_rest", where.origin, where.basis.get_euler().y)
+		_tell(&"_rest", [where.origin, where.basis.get_euler().y])
+
+
+## Send [param method] to every machine whose hub stands; one still loading has no cat to hear it.
+func _tell(method: StringName, args: Array) -> void:
+	var net: NetMatch = _net_match()
+	if net == null:
+		return
+	for peer: int in net.get_scene_peers():
+		callv(&"rpc_id", [peer, method] + args)
+
+
+func _tell_pose() -> void:
+	var net: NetMatch = _net_match()
+	if net == null:
+		return
+	for peer: int in net.get_scene_peers():
+		rpc_id(peer, &"_pose", global_position, rotation.y)
+
+
+func _net_match() -> NetMatch:
+	if not is_instance_valid(_net):
+		_net = NetMatch.of(self)
+		if _net != null and multiplayer.is_server():
+			_net.peer_bound.connect(_on_peer_bound)
+	return _net
+
+
+## A machine whose hub has just stood up is told where this cat is.
+func _on_peer_bound(peer: int) -> void:
+	if _gone:
+		rpc_id(peer, &"_exploded", global_position, false)
+	else:
+		rpc_id(peer, &"_rest", global_position, rotation.y)
 
 
 ## True on the machine that moves the cat: the host, or a game with no session. A session that
@@ -387,7 +453,7 @@ func _networked() -> bool:
 ## Authority to everyone, every tick the cat is carried or flying.
 @rpc("authority", "unreliable_ordered", "call_remote", 3)
 func _pose(at: Vector3, yaw: float) -> void:
-	if multiplayer.is_server() or not at.is_finite() or not is_finite(yaw):
+	if multiplayer.is_server() or _gone or not at.is_finite() or not is_finite(yaw):
 		return
 	global_transform = Transform3D(Basis(Vector3.UP, yaw), at)
 

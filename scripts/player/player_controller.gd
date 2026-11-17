@@ -567,6 +567,20 @@ func apply_speed_boost(multiplier: float, seconds: float) -> void:
 
 
 ## Seconds left on the current speed boost; 0.0 when none is active.
+## The authority's word on this body's boost. A running timer within [param tolerance] of it is kept.
+func set_speed_boost(multiplier: float, seconds: float, tolerance: float = 0.0) -> void:
+	var live: bool = seconds > 0.0
+	if (
+		live == (_speed_boost_timer > 0.0)
+		and absf(_speed_boost_timer - seconds) <= tolerance
+		and (not live or absf(_speed_boost_multiplier - multiplier) < 0.06)
+	):
+		return
+	_speed_boost_multiplier = multiplier if live else 1.0
+	_speed_boost_timer = maxf(seconds, 0.0)
+	speed_boost_changed.emit(_speed_boost_timer)
+
+
 func get_speed_boost_remaining() -> float:
 	return _speed_boost_timer
 
@@ -623,6 +637,12 @@ func is_emote_alt() -> bool:
 
 
 ## The emote key toggles it on the floor; any move, jump, slide, crouch or leaving the floor ends it.
+## The authority's word on this body's emote, for a prediction being put right.
+func set_emote_state(emoting: bool, alt: bool) -> void:
+	_emoting = emoting
+	_emote_alt = alt
+
+
 func _update_emote(on_floor: bool) -> void:
 	if _intent.emote_pressed or _intent.emote_alt_pressed:
 		var alt: bool = _intent.emote_alt_pressed

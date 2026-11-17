@@ -12,8 +12,8 @@ const EXPLOSION_FRAMES: int = 17
 const EXPLOSION_FPS: float = 16.0
 const ENDED_MEMORY: int = 64
 
-static var _instance: CatGrenadeRelay = null
-
+## The relay under each multiplayer root, by that root's instance id: one in the game, one a peer in a test.
+static var _by_root: Dictionary[int, CatGrenadeRelay] = {}
 var _shown: Dictionary[int, MeshInstance3D] = {}
 ## Cats already gone here, so a late unreliable pose cannot redraw one.
 var _ended: Dictionary[int, bool] = {}
@@ -25,21 +25,39 @@ var _purr: AudioStreamPlayer3D = null
 var _pet_tween: Tween = null
 
 
-## Put the relay in [param tree] if it is not there yet.
-static func ensure(tree: SceneTree) -> void:
-	if tree == null or is_instance_valid(_instance):
+## Put the relay beside [param node]'s multiplayer root if it is not there yet. [NetSession] asks
+## on every machine as it comes up, so no peer of a session is ever without one.
+static func ensure(node: Node) -> void:
+	if node == null or not node.is_inside_tree() or of(node) != null:
 		return
-	var existing: Node = tree.root.get_node_or_null(NodePath(NODE_NAME))
-	if existing is CatGrenadeRelay:
-		_instance = existing
-		return
-	_instance = CatGrenadeRelay.new()
-	_instance.name = NODE_NAME
-	tree.root.add_child.call_deferred(_instance)
+	var root: Node = _root_of(node)
+	var existing: CatGrenadeRelay = root.get_node_or_null(NodePath(NODE_NAME)) as CatGrenadeRelay
+	if existing == null:
+		existing = CatGrenadeRelay.new()
+		existing.name = NODE_NAME
+		root.add_child.call_deferred(existing)
+	_by_root[root.get_instance_id()] = existing
 
 
-static func get_relay() -> CatGrenadeRelay:
-	return _instance if is_instance_valid(_instance) else null
+## The relay [param node]'s machine draws cats through, or null before [method ensure].
+static func of(node: Node) -> CatGrenadeRelay:
+	if node == null or not node.is_inside_tree():
+		return null
+	var relay: CatGrenadeRelay = _by_root.get(_root_of(node).get_instance_id(), null)
+	return relay if is_instance_valid(relay) else null
+
+
+## The node RPC paths are relative to for [param node]: the tree's root in the game.
+static func _root_of(node: Node) -> Node:
+	var api: SceneMultiplayer = node.multiplayer as SceneMultiplayer
+	var root: Node = node.get_node_or_null(api.root_path) if api != null else null
+	return root if root != null else node.get_tree().root
+
+
+## Where a cat or its blast is drawn: the running scene, or beside this node when there is none.
+func _stage() -> Node:
+	var scene: Node = get_tree().current_scene
+	return scene if scene != null else get_parent()
 
 
 func next_id() -> int:
@@ -74,12 +92,9 @@ func _pose(cat_id: int, at: Vector3, yaw: float, holder: int) -> void:
 		return
 	var mesh: MeshInstance3D = _shown.get(cat_id, null)
 	if not is_instance_valid(mesh):
-		var scene: Node = get_tree().current_scene
-		if scene == null:
-			return
 		mesh = MeshInstance3D.new()
 		mesh.mesh = CatGrenade.MESH
-		scene.add_child(mesh)
+		_stage().add_child(mesh)
 		_shown[cat_id] = mesh
 	mesh.global_transform = Transform3D(Basis(Vector3.UP, yaw), at)
 	_track_held(cat_id, holder, mesh)
@@ -88,8 +103,8 @@ func _pose(cat_id: int, at: Vector3, yaw: float, holder: int) -> void:
 @rpc("authority", "reliable", "call_remote", 0)
 func _blast(cat_id: int, at: Vector3) -> void:
 	_gone(cat_id)
-	var scene: Node = get_tree().current_scene
-	if scene == null or not at.is_finite():
+	var scene: Node = _stage()
+	if not at.is_finite():
 		return
 	var blast_sprite: AnimatedSprite3D = AnimatedSprite3D.new()
 	var frames: SpriteFrames = SpriteFrames.new()
@@ -167,5 +182,7 @@ func _track_held(cat_id: int, holder: int, mesh: MeshInstance3D) -> void:
 
 
 func _networked() -> bool:
+	if not is_inside_tree():
+		return false
 	var peer: MultiplayerPeer = multiplayer.multiplayer_peer
 	return peer != null and not (peer is OfflineMultiplayerPeer) and multiplayer.is_server()

@@ -14,6 +14,11 @@ signal host_lost()
 
 ## Who has asked for a rematch since the match ended, by display name.
 signal rematch_votes_changed(names: PackedStringArray)
+## Authority: [param peer_id]'s copy of this scene now stands; what it missed can be sent.
+signal peer_bound(peer_id: int)
+
+## Every NetMatch in the tree: how a scene prop finds the one on its own machine.
+const GROUP: StringName = &"net_match"
 
 const SESSION_PATH: NodePath = ^"/root/NetSession"
 const LINK_SCENE_PATH: String = "res://match/net/player_net_link.tscn"
@@ -58,6 +63,10 @@ var _cover: LoadingCover = null
 var _epoch: int = 0
 ## Authority: peers that have pressed Rematch on this result.
 var _rematch_peers: Dictionary[int, bool] = {}
+## Reused by [method get_scene_peers], which a carried cat asks every tick.
+var _scene_peers: PackedInt32Array = PackedInt32Array()
+## Client, hub: the authority has been told this scene stands.
+var _acknowledged: bool = false
 
 
 func _ready() -> void:
@@ -70,6 +79,8 @@ func _ready() -> void:
 		set_physics_process(false)
 		return
 	_session.session_ended.connect(_on_session_ended)
+	add_to_group(GROUP)
+	_lobby.scene_bound.connect(_on_scene_bound)
 	controller.auto_start = false
 	_bound = true
 	# Nothing of this scene is drawn until this machine's body has been placed in it.
@@ -126,6 +137,9 @@ func _bind_epoch() -> void:
 		return
 	if _epoch == 0:
 		_epoch = _lobby.get_epoch_for(hub_mode)
+	if hub_mode and _epoch != 0 and not _acknowledged and not _session.is_authority():
+		_acknowledged = true
+		_lobby.acknowledge_scene(_epoch)
 	if _session.is_authority() and not _started:
 		return
 	_session.replicator.bind_scene(_epoch if _lobby.get_epoch() == _epoch else 0)
@@ -516,8 +530,39 @@ func _on_rifle_hit(collider: Node3D, at: Vector3, normal: Vector3, which: int) -
 ## [method _catch_up] when it acknowledges the launch.
 func _event(method: StringName, args: Array = []) -> void:
 	for peer: int in _session.get_peer_ids():
-		if peer != NetTransport.AUTHORITY_PEER_ID and (hub_mode or _lobby.has_launched(peer)):
+		if peer != NetTransport.AUTHORITY_PEER_ID and _has_scene(peer):
 			callv(&"rpc_id", [peer, method] + args)
+
+
+## Whether [param peer]'s copy of this scene stands: launched for a match, acknowledged for a hub.
+func _has_scene(peer: int) -> bool:
+	return _lobby.has_bound(peer, _epoch) if hub_mode else _lobby.has_launched(peer)
+
+
+## The other machines whose copy of this scene stands; who a prop in it may send to.
+func get_scene_peers() -> PackedInt32Array:
+	_scene_peers.clear()
+	if not _bound or not _session.is_authority():
+		return _scene_peers
+	for peer: int in _session.get_peer_ids():
+		if peer != NetTransport.AUTHORITY_PEER_ID and _has_scene(peer):
+			_scene_peers.append(peer)
+	return _scene_peers
+
+
+## The NetMatch on [param node]'s machine, or null: off a session there is none bound.
+static func of(node: Node) -> NetMatch:
+	if node == null or not node.is_inside_tree():
+		return null
+	for found: Node in node.get_tree().get_nodes_in_group(GROUP):
+		if found.multiplayer == node.multiplayer:
+			return found as NetMatch
+	return null
+
+
+func _on_scene_bound(peer_id: int, epoch: int) -> void:
+	if hub_mode and epoch == _epoch and _session.is_authority():
+		peer_bound.emit(peer_id)
 
 
 ## The finisher is in the tower; every peer is told who, for the role.
@@ -580,6 +625,7 @@ func _replays() -> bool:
 func _on_peer_launched(peer_id: int, _seat_index: int) -> void:
 	if _started:
 		_catch_up(peer_id)
+		peer_bound.emit(peer_id)
 		_begin_if_launched()
 	elif _lobby.get_unlaunched_peers().is_empty():
 		_start_now()

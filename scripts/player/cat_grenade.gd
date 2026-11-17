@@ -56,7 +56,7 @@ func _init() -> void:
 
 
 func _ready() -> void:
-	_relay = CatGrenadeRelay.get_relay()
+	_relay = CatGrenadeRelay.of(self)
 	if _relay != null:
 		id = _relay.next_id()
 	if is_instance_valid(carrier):
@@ -130,6 +130,9 @@ func _push(participant: MatchParticipant, at: Vector3) -> void:
 		return
 	if not participant.is_running and not participant.is_ghost and not participant.is_shooter:
 		return
+	if not target.is_physics_processing():
+		# Held out of the world: a launch stored on it would fire when it is let go.
+		return
 	var offset: Vector3 = target.global_position + Vector3.UP * BODY_CENTRE - at
 	var distance: float = offset.length()
 	if distance > BLAST_RADIUS:
@@ -142,14 +145,12 @@ func _push(participant: MatchParticipant, at: Vector3) -> void:
 	)
 
 
+## The peer driving [param body]: its link's owner in a session, this machine for its own human, 0 for a bot.
 func _peer_of(body: PlayerController) -> int:
-	if body.intent_source is HumanIntentSource:
-		return multiplayer.get_unique_id()
-	if body.intent_source is RemoteIntentSource:
-		for child: Node in body.get_children():
-			if child is PlayerNetLink:
-				return (child as PlayerNetLink).owner_peer_id
-	return 0
+	var link: PlayerNetLink = PlayerNetLink.of(body)
+	if link != null:
+		return link.owner_peer_id
+	return multiplayer.get_unique_id() if body.intent_source is HumanIntentSource else 0
 
 
 func _carry_basis() -> Basis:

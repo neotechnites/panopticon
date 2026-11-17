@@ -65,6 +65,10 @@ var shove_pressed: bool = false
 var emote_pressed: bool = false
 ## True on the tick the alternate emote key was tapped; toggles the emote with the alternate object.
 var emote_alt_pressed: bool = false
+## Wire only: running counts of the one-tick keys below (3 bits each), written by [PlayerNetLink]
+## so a press outlives a lost packet; and the slot of the newest power press (0 = the picked power).
+var press_counts: int = 0
+var press_slot: int = 0
 ## True while the scope is asked up. Ignored by movement; the host drives the seat's optic with it.
 var aim_held: bool = false
 ## Dev: hold for 300% ground speed. Local only; never on the wire.
@@ -94,9 +98,21 @@ func clear() -> void:
 	shove_pressed = false
 	emote_pressed = false
 	emote_alt_pressed = false
+	press_counts = 0
+	press_slot = 0
 	aim_held = false
 	turbo_held = false
 	godmode = false
+
+
+## Drop every one-tick key: what a body out of the world sends, so no press waits for its return.
+func clear_presses() -> void:
+	ability_pressed = false
+	ability_slot = 0
+	cook_pressed = false
+	shove_pressed = false
+	emote_pressed = false
+	emote_alt_pressed = false
 
 
 ## Clamp [member move_direction] to the unit disc.
@@ -125,6 +141,46 @@ func copy_from(other: MoveIntent) -> void:
 	shove_pressed = other.shove_pressed
 	emote_pressed = other.emote_pressed
 	emote_alt_pressed = other.emote_alt_pressed
+	press_counts = other.press_counts
+	press_slot = other.press_slot
 	aim_held = other.aim_held
 	turbo_held = other.turbo_held
 	godmode = other.godmode
+
+
+# --- Press counts ---------------------------------------------------------------
+
+## The keys [member press_counts] counts, in bit order.
+enum Press { POWER, COOK, SHOVE, EMOTE, EMOTE_ALT }
+const PRESS_KEYS: int = 5
+const PRESS_BITS: int = 3
+const PRESS_MODULUS: int = 1 << PRESS_BITS
+const PRESS_COUNTS_MASK: int = (1 << (PRESS_KEYS * PRESS_BITS)) - 1
+
+
+## How many times [param key] has been pressed, modulo [constant PRESS_MODULUS].
+static func press_count(counts: int, key: int) -> int:
+	return (counts >> (key * PRESS_BITS)) & (PRESS_MODULUS - 1)
+
+
+## [param counts] with one more press of [param key].
+static func press_added(counts: int, key: int) -> int:
+	var shift: int = key * PRESS_BITS
+	var next: int = (press_count(counts, key) + 1) & (PRESS_MODULUS - 1)
+	return (counts & ~((PRESS_MODULUS - 1) << shift)) | (next << shift)
+
+
+## Whether this intent presses [param key] on this tick.
+func presses(key: int) -> bool:
+	match key:
+		Press.POWER:
+			return ability_pressed or ability_slot > 0
+		Press.COOK:
+			return cook_pressed
+		Press.SHOVE:
+			return shove_pressed
+		Press.EMOTE:
+			return emote_pressed
+		Press.EMOTE_ALT:
+			return emote_alt_pressed
+	return false

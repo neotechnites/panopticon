@@ -287,6 +287,13 @@ func get_jitter_seconds() -> float:
 	return _jitter_seconds
 
 
+## This machine's intent sequence -- the tick its own link stamps and the press counts it
+## carries. The connection's, not a body's: a rebuilt link carries on where the last stopped.
+var intent_tick: int = 0
+var intent_presses: int = 0
+var intent_press_slot: int = 0
+
+
 # --- Sending ------------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
@@ -454,7 +461,7 @@ func _decoy_spawned(seat_index: int, epoch: int, position: Vector3, yaw: float) 
 	if _is_authority or not position.is_finite() or not is_finite(yaw):
 		return
 	_decoy_epochs[seat_index] = epoch
-	_place_decoy(seat_index, position, yaw)
+	_place_decoy(seat_index, position, yaw, true)
 
 
 ## Authority to everyone, every tick the hologram moved.
@@ -484,10 +491,10 @@ func _decoy_ended(seat_index: int, epoch: int) -> void:
 		power.clear_decoy()
 
 
-func _place_decoy(seat_index: int, position: Vector3, yaw: float) -> void:
+func _place_decoy(seat_index: int, position: Vector3, yaw: float, spawn: bool = false) -> void:
 	var power: RunnerPower = _power_of(seat_index)
 	if power != null:
-		power.present_decoy(position, yaw)
+		power.present_decoy(position, yaw, spawn)
 
 
 ## The ability node of the body in [param seat_index], or null.

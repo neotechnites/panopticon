@@ -84,6 +84,13 @@ var _ticks_since_packet: int = 0
 ## True once staleness has zeroed the command, so it is only zeroed once.
 var _stale: bool = false
 
+## The sender's press counts as of the last command run, or -1 before one: see [member MoveIntent.press_counts].
+var _seen_presses: int = -1
+## Presses counted and not yet handed to the body, per [enum MoveIntent.Press]; one is spent a tick.
+var _owed: PackedByteArray = PackedByteArray()
+var _owed_slot: int = 0
+const _OWED_MAX: int = MoveIntent.PRESS_MODULUS - 1
+
 ## A trigger press that arrived and has not been taken by the rifle yet, and the tick the
 ## sender was drawing when it pressed (see [member MoveIntent.view_tick]).
 var _fire_latched: bool = false
@@ -131,6 +138,7 @@ func poll(_delta: float) -> MoveIntent:
 		applied_tick = _buffer_ticks[_buffer_start]
 		_buffer_start = (_buffer_start + 1) % BUFFER_SIZE
 		_buffer_count -= 1
+		_count_presses(command)
 		if command.fire_pressed:
 			# Latched as the command runs, so the shot goes with that command's aim and view tick.
 			_fire_latched = true
@@ -141,15 +149,58 @@ func poll(_delta: float) -> MoveIntent:
 
 	command.normalise()
 	_intent.copy_from(command)
+	_spend_presses()
 	# Consume the edges. Everything else stands until the next packet.
 	command.jump_pressed = false
 	command.slide_pressed = false
 	command.fire_pressed = false
 	command.ability_pressed = false
+	command.ability_slot = 0
 	command.shove_pressed = false
 	command.cook_pressed = false
 	command.emote_pressed = false
+	command.emote_alt_pressed = false
 	return _intent
+
+
+## Count what [param from] says was pressed since the last command run: its own edges on the
+## first, the advance of its counts after, so a press on a command that never arrived still lands.
+func _count_presses(from: MoveIntent) -> void:
+	if _owed.is_empty():
+		_owed.resize(MoveIntent.PRESS_KEYS)
+	for key: int in MoveIntent.PRESS_KEYS:
+		var pressed: int = 1 if from.presses(key) else 0
+		if _seen_presses >= 0:
+			pressed = posmod(
+				MoveIntent.press_count(from.press_counts, key)
+				- MoveIntent.press_count(_seen_presses, key),
+				MoveIntent.PRESS_MODULUS,
+			)
+		if pressed > 0 and key == MoveIntent.Press.POWER:
+			# This command's own press names its slot; one made on a lost command is the newest's.
+			_owed_slot = from.ability_slot if from.presses(key) else from.press_slot
+		_owed[key] = mini(_owed[key] + pressed, _OWED_MAX)
+	_seen_presses = from.press_counts
+
+
+## Hand the body one owed press of each key, as the edge it was made as.
+func _spend_presses() -> void:
+	if _owed.is_empty():
+		return
+	var power: bool = _spend(MoveIntent.Press.POWER)
+	_intent.ability_slot = _owed_slot if power else 0
+	_intent.ability_pressed = power and _owed_slot == 0
+	_intent.cook_pressed = _spend(MoveIntent.Press.COOK)
+	_intent.shove_pressed = _spend(MoveIntent.Press.SHOVE)
+	_intent.emote_pressed = _spend(MoveIntent.Press.EMOTE)
+	_intent.emote_alt_pressed = _spend(MoveIntent.Press.EMOTE_ALT)
+
+
+func _spend(key: int) -> bool:
+	if _owed[key] == 0:
+		return false
+	_owed[key] -= 1
+	return true
 
 
 ## The pending trigger press, consumed.
@@ -173,3 +224,10 @@ func reset() -> void:
 	_buffer_count = 0
 	_ticks_since_packet = 0
 	_stale = false
+	forget_presses()
+
+
+## A fresh start: the next command's counts are a new baseline.
+func forget_presses() -> void:
+	_seen_presses = -1
+	_owed.fill(0)

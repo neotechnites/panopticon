@@ -87,8 +87,10 @@ func _find_shape_holder() -> CollisionShape3D:
 # --- Contact --------------------------------------------------------------
 
 
+## The authority alone awards it: the boost reaches its body's owner in the snapshot, and
+## every machine is told the orb is gone.
 func _on_body_entered(body: Node3D) -> void:
-	if not _armed:
+	if not _armed or not multiplayer.is_server():
 		return
 	if race_only and _controller != null and int(_controller.call(&"get_phase")) != MatchController.Phase.RACE:
 		return
@@ -96,12 +98,48 @@ func _on_body_entered(body: Node3D) -> void:
 	if player == null:
 		return
 	player.apply_speed_boost(speed_multiplier, duration_seconds)
+	_tell_taken()
+	_taken()
+
+
+## Tell the machines whose map stands; with no match layer beside this node, every machine.
+func _tell_taken() -> void:
+	if not _networked():
+		return
+	var net: NetMatch = NetMatch.of(self)
+	if net == null:
+		rpc(&"_taken")
+		return
+	if not net.peer_bound.is_connected(_on_peer_bound):
+		net.peer_bound.connect(_on_peer_bound)
+	for peer: int in net.get_scene_peers():
+		rpc_id(peer, &"_taken")
+
+
+## A machine that stood its map up after the orb went is told it is gone.
+func _on_peer_bound(peer: int) -> void:
+	if not _armed:
+		rpc_id(peer, &"_taken")
+
+
+## Authority to everyone: somebody took the orb.
+@rpc("authority", "reliable", "call_remote", 0)
+func _taken() -> void:
 	_armed = false
 	if orb != null:
 		orb.visible = false
 	# Deferred: Area3D refuses to change monitoring from inside its own
 	# body_entered dispatch.
 	set_deferred(&"monitoring", false)
+
+
+func is_armed() -> bool:
+	return _armed
+
+
+func _networked() -> bool:
+	var peer: MultiplayerPeer = multiplayer.multiplayer_peer
+	return peer != null and not (peer is OfflineMultiplayerPeer)
 
 
 ## Re-arm when a new race starts, exactly as [PhaseGate] re-presents its

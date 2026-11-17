@@ -82,7 +82,14 @@ static func decoy_of(collider: Node) -> PlayerController:
 
 
 func _ready() -> void:
-	CatGrenadeRelay.ensure(get_tree())
+	CatGrenadeRelay.ensure(self)
+
+
+## A body leaving the tree takes its shield, hologram, shell, tint and cat with it.
+func _exit_tree() -> void:
+	_teardown()
+	_active = MatchRules.RunnerAbility.NONE
+	_remaining = 0.0
 
 
 func _physics_process(delta: float) -> void:
@@ -125,7 +132,7 @@ func arm(match_rules: MatchRules, controller: MatchController) -> void:
 ## Start the selected power. False when none is selected, one is running, or
 ## the cooldown has not run out.
 func activate(which: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE) -> bool:
-	if rules == null or body == null or _active != MatchRules.RunnerAbility.NONE or _cooldown > 0.0:
+	if rules == null or body == null or is_active() or _cooldown > 0.0:
 		return false
 	if which == MatchRules.RunnerAbility.NONE:
 		which = rules.runner_ability
@@ -170,21 +177,22 @@ func present(
 	_remaining = maxf(remaining, 0.0)
 	# The client's own HUD reads this; nothing on a mirror counts it down.
 	_cooldown = maxf(cooldown, 0.0)
+	if _active != MatchRules.RunnerAbility.NONE:
+		# A power this machine predicted is the authority's to describe now: what it drew is
+		# kept when they agree and dropped when they do not, and one flag is left standing.
+		if _active == which:
+			_presented = which
+		else:
+			_teardown()
+		_active = MatchRules.RunnerAbility.NONE
 	if which == _presented:
 		return
-	# A hologram already placed by the authority's own spawn message is kept:
-	# tearing it down here would put the replacement back at this body's
-	# position for a frame, which is the drift this machine is being told where
-	# the real one is in order to avoid.
-	var keep_decoy: bool = which == MatchRules.RunnerAbility.HOLOGRAM and get_decoy() != null
-	_teardown(keep_decoy)
+	# The hologram is not this call's: its own stream spawns, moves and ends the mirrored one.
+	_teardown(true)
 	_presented = which
 	match which:
 		MatchRules.RunnerAbility.BUBBLE_SHIELD:
 			_raise_shield()
-		MatchRules.RunnerAbility.HOLOGRAM:
-			if not keep_decoy:
-				_spawn_decoy(true)
 		MatchRules.RunnerAbility.ARMOR_LOCK:
 			_raise_shell()
 		MatchRules.RunnerAbility.ACTIVE_CAMO:
@@ -331,6 +339,8 @@ func _spawn_decoy(mirrored: bool = false) -> void:
 		source.name = "DecoyInput"
 		decoy.add_child(source)
 		decoy.intent_source = source
+	# A hologram is a target and never a runner: nothing that lists runners may list it.
+	decoy.remove_from_group(MatchController.RUNNER_GROUP)
 	decoy.add_to_group(DECOY_GROUP)
 	var container: Node3D = match_controller.runner_container
 	var ahead: Vector3 = -body.global_transform.basis.z
@@ -352,11 +362,13 @@ func _spawn_decoy(mirrored: bool = false) -> void:
 	_decoy = decoy
 
 
-## Put the mirrored hologram where the authority says it is, spawning it if this
-## machine has not drawn it yet. The client's whole view of where a decoy is.
-func present_decoy(position: Vector3, yaw: float) -> void:
+## Put the mirrored hologram where the authority says it is. Only [param spawn], the
+## authority's reliable word that one exists, may build it: a late position cannot.
+func present_decoy(position: Vector3, yaw: float, spawn: bool = false) -> void:
 	if get_decoy() == null:
 		_decoy = null
+		if not spawn:
+			return
 		_spawn_decoy(true)
 		_decoy_seen_msec = 0
 	if _decoy == null:

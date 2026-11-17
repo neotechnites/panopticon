@@ -95,6 +95,13 @@ var crouching: bool = false
 var emoting: bool = false
 var emote_alt: bool = false
 
+## Shove swings this body has made, modulo [constant NetCodec.SHOVE_COUNTER_MODULUS]: an edge, so a counter.
+var shove_counter: int = 0
+
+## The timed speed boost on this body: seconds left and the multiplier (1.0 when none).
+var boost_remaining: float = 0.0
+var boost_multiplier: float = 1.0
+
 
 func clear() -> void:
 	seat_index = 0
@@ -117,6 +124,9 @@ func clear() -> void:
 	crouching = false
 	emoting = false
 	emote_alt = false
+	shove_counter = 0
+	boost_remaining = 0.0
+	boost_multiplier = 1.0
 
 
 func copy_from(other: PlayerState) -> void:
@@ -140,6 +150,9 @@ func copy_from(other: PlayerState) -> void:
 	crouching = other.crouching
 	emoting = other.emoting
 	emote_alt = other.emote_alt
+	shove_counter = other.shove_counter
+	boost_remaining = other.boost_remaining
+	boost_multiplier = other.boost_multiplier
 
 
 ## Blend towards [param other] by [param weight], writing into this state.
@@ -169,6 +182,9 @@ func interpolate_from(from: PlayerState, to: PlayerState, weight: float) -> void
 	crouching = to.crouching
 	emoting = to.emoting
 	emote_alt = to.emote_alt
+	shove_counter = to.shove_counter
+	boost_remaining = to.boost_remaining
+	boost_multiplier = to.boost_multiplier
 	view_base = to.view_base
 	position = from.position.lerp(to.position, t)
 	velocity = from.velocity.lerp(to.velocity, t)
