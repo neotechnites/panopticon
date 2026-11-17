@@ -10,6 +10,7 @@ extends Node
 ##   view onto the nearest runner and fires; shove (host) stands behind each client in turn and shoves.
 ## --program: steps split by ';'. '3h4' hold key 3 four seconds, '3t' tap, 'j' jump, 's' shove,
 ##   'e' interact, 'b'/'n' emotes, 'w1.5' wait. Loops for the whole session, hub included.
+## --zap (host): the rifle's hit lands on every armor-locked body, every 0.6 s.
 ## --phase: seconds the program start is held back. --mute=false keeps the game's volume.
 
 const MENU_SCENE: String = "res://ui/main_menu.tscn"
@@ -52,6 +53,7 @@ var _next_shove: float = 0.0
 var _shove_turn: int = 0
 var _session_over: bool = false
 var _retries: int = 0
+var _zap_ms: int = 0
 var _flung_ms: Dictionary = {}
 var _trails: Dictionary = {}
 var _last_physics_ms: int = 0
@@ -65,7 +67,7 @@ func _ready() -> void:
 		"role": "server", "address": "127.0.0.1", "port": 27960, "name": "", "humans": 2,
 		"maps": "bentham_ring,marble", "loops": 1, "hub-seconds": 8.0, "match-seconds": 60.0,
 		"prisoners": 0, "guard": -2, "limit": 600.0, "act": "keys", "program": "", "phase": 0.0,
-		"mute": true, "fire-every": 1.2, "width": 0, "height": 0,
+		"mute": true, "fire-every": 1.2, "width": 0, "height": 0, "zap": false,
 	})
 	_t0 = Time.get_ticks_msec()
 	_maps = String(_o.maps).split(",", false)
@@ -179,7 +181,8 @@ func _process(_delta: float) -> void:
 		_retry_at = 0.0
 		_line("JOIN retry %d %s" % [_retries, error_string(_screen.join_game())])
 	if _session_over:
-		var whole: bool = _matches_seen >= _maps.size() * int(_o.loops)
+		# Whole only if the host ended it from the hub after the last map; anything sooner is a drop.
+		var whole: bool = _hub_visits > _maps.size() * int(_o.loops) and _scene == HUB_SCENE
 		_end("ok" if whole and not _is_server() else "session-lost", 0 if whole else 3)
 		return
 	if now > float(_o.limit):
@@ -274,6 +277,9 @@ func _drive_match(scene_node: Node) -> void:
 		if controller.get_phase() != MatchController.Phase.MATCH_OVER and not controller.get_participants().is_empty():
 			controller.call(&"_win_match", controller.get_participants()[0])
 			_line("WIN forced")
+	if bool(_o.zap) and controller != null and controller.rifle != null and Time.get_ticks_msec() - _zap_ms > 600:
+		_zap_ms = Time.get_ticks_msec()
+		_zap_locked(scene_node, controller)
 	if screen != null and screen.is_showing() and _result_ms < 0:
 		_result_ms = Time.get_ticks_msec()
 		_line("RESULT showing")
@@ -285,6 +291,22 @@ func _drive_match(scene_node: Node) -> void:
 			return
 		_line("BACK hub-all")
 		screen.call(&"_on_hub_all_pressed")
+
+
+## The rifle's own hit signal on every armor-locked body: the refusal on the host, the hit shown on every client.
+func _zap_locked(scene_node: Node, controller: MatchController) -> void:
+	var net: NetMatch = scene_node.get_node_or_null(^"NetMatch") as NetMatch
+	if net == null:
+		return
+	for child: Node in net.get_children():
+		var link: PlayerNetLink = child as PlayerNetLink
+		if link == null or link.controller == null or not link.controller.is_inside_tree():
+			continue
+		var power: RunnerPower = RunnerPower.of(link.controller)
+		if power == null or not power.is_hit_immune():
+			continue
+		_line("ZAP seat=%d" % link.seat_index)
+		controller.rifle.target_hit.emit(link.controller, link.controller.global_position + Vector3.UP * 0.9, Vector3.UP)
 
 
 # --- What this peer sees ------------------------------------------------------

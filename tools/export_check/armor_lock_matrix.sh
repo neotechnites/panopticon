@@ -21,7 +21,7 @@ AIR='j;w0.15;3h1.5;w1;j;w0.3;3t;w1.5'
 MIX='1t;w0.3;3h1;w5;5t;w0.3;3h1;e;w1;s;3t;w2;b;3h1;n;3t;w1'
 ALL="$HOLD;$TAP;$P23;$P43;$AIR;$MIX"
 
-COMMON="--maps=$MAPS --loops=$LOOPS --match-seconds=$SECONDS_PER_MAP --hub-seconds=8 --limit=$LIMIT"
+COMMON="--zap=true --maps=$MAPS --loops=$LOOPS --match-seconds=$SECONDS_PER_MAP --hub-seconds=8 --limit=$LIMIT"
 keys() { echo "--act=keys --program=$1 --phase=${2:-0} $COMMON"; }
 AIM="--act=aim $COMMON"
 
@@ -33,15 +33,16 @@ run() {  # name, then the peer groups split by --
   # shellcheck disable=SC2068
   OUT="$out" "$HERE/tools/pc_export_session.sh" "${MODE:0:1}_$name" "$MODE" $((LIMIT + 30)) $@ > "$out.result" 2>&1
   local verdict; verdict="$(tr '\n' ' ' < "$out.result")"
-  local held=0 flung=0 errors=0 hits=0 shoves=0
+  local held=0 flung=0 errors=0 hits=0 shoves=0 locked_shoves=0
   if ls "$out"/*.log >/dev/null 2>&1; then
     held=$(cat "$out"/c*.log | grep -c 'POWER seat=.* shown=3' || true)
     flung=$(cat "$out"/*.log | grep -c ' FLUNG ' || true)
     hits=$(grep -c 'RIFLE hit=[0-9]* shown=3' "$out/host.log" || true)
+    locked_shoves=$(grep -c 'SHOVE try at locked=true' "$out/host.log" || true)
     shoves=$(grep -c 'EV shoved' "$out/host.log" || true)
     errors=$(cat "$out"/*.err "$out"/*.log | grep -c 'SCRIPT ERROR\|CrashHandler\|Program crashed' || true)
   fi
-  echo "$name | $verdict| armor_shown=$held shot_while_locked=$hits shoves=$shoves flung=$flung script_errors=$errors"
+  echo "$name | $verdict| armor_shown=$held shot_while_locked=$hits shoves=$shoves shoved_while_locked=$locked_shoves flung=$flung script_errors=$errors"
 }
 
 # Seats: host 0, clients 1.., bots after. --guard is a seat; -1 opens with the race.
