@@ -105,6 +105,7 @@ func test_a_peer_that_asked_before_the_lobby_opened_is_kept_and_seated_when_it_o
 	var until: int = Time.get_ticks_msec() + int(NetSession.REFUSAL_GRACE_SECONDS * 1000.0) + 1000
 	while Time.get_ticks_msec() < until:
 		await get_tree().process_frame
-	assert_true(_host.has_peer(client_id), "a peer that asked is not dropped at the grace")
+	assert_true(host_lobby.peer_state(client_id) == NetLobby.PeerState.ASKED, "a peer that asked is ASKED")
+	assert_true(_host.has_peer(client_id), "and is not dropped at the grace")
 	host_lobby.open("Host")
 	assert_not_null(host_lobby.find_seat_by_peer(client_id), "and is seated when the lobby opens")

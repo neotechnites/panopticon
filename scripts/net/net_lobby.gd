@@ -51,10 +51,6 @@ signal roster_changed()
 ## seat rather than the table -- the match layer swapping a brain, say.
 signal seat_occupancy_changed(seat_index: int, occupancy: LobbySeat.Occupancy)
 
-## A seat was emptied because its occupant left. Carries the peer id it had, so
-## a listener can tell a player quitting from a seat being freed by the host.
-signal seat_vacated(seat_index: int, peer_id: int)
-
 ## A match was launched under a new epoch, on every machine: a launch from the hub or a rematch.
 signal match_launching()
 
@@ -89,8 +85,10 @@ enum Phase {
 
 ## Where a connected peer stands, on any machine; GONE is not being here. See [method peer_state].
 enum PeerState {
-	## Connected, not yet seated or refused.
+	## Connected, has not asked to join yet.
 	CONNECTED,
+	## Asked to join a lobby nobody has opened: waiting on the host, timed only on silence.
+	ASKED,
 	## Turned away, waiting to be dropped.
 	REFUSED,
 	## Seated, its machine not yet standing in the lobby's epoch.
@@ -442,11 +440,9 @@ func remove_occupant(seat_index: int) -> bool:
 	var seat: LobbySeat = get_seat(seat_index)
 	if seat == null or not seat.is_occupied() or seat_index == _local_seat_index:
 		return false
-	var was_peer: int = seat.peer_id
 	seat.clear()
 	seat.index = seat_index
 	seat_occupancy_changed.emit(seat_index, seat.occupancy)
-	seat_vacated.emit(seat_index, was_peer)
 	_publish()
 	return true
 
@@ -584,6 +580,14 @@ func acknowledge_scene(epoch: int) -> void:
 		rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_request_standing", epoch)
 
 
+## After a change that can agree a rematch (a ready mark, a leaver): relaunch if it is agreed, else publish.
+func _settle() -> void:
+	if _phase == Phase.POST_MATCH and get_occupant_count() >= MIN_OCCUPANTS and _rematch_agreed():
+		_launch_epoch()
+	else:
+		_publish()
+
+
 ## Whether a finished match has the rematch agreed: every human standing in it has pressed Rematch.
 ## The one place the rule lives (a question for Ryan: everyone present, the host, or a majority).
 func _rematch_agreed() -> bool:
@@ -677,8 +681,7 @@ func _request_join(fingerprint: int, display_name: String) -> void:
 	if not session.has_peer(peer_id) or _asked.has(peer_id):
 		return
 	_asked[peer_id] = display_name.substr(0, MAX_RAW_NAME_LENGTH)
-	# It has asked: no longer CONNECTED. Waiting on a lobby nobody opened is the host's delay, timed only on silence.
-	_pending.erase(peer_id)
+	_pending[peer_id] = PeerState.ASKED
 	if fingerprint != build_fingerprint:
 		_refuse(peer_id, Refusal.VERSION)
 		return
@@ -737,9 +740,8 @@ func _on_peer_left(peer_id: int) -> void:
 		seat.clear()
 		seat.index = seat_index
 		seat_occupancy_changed.emit(seat_index, seat.occupancy)
-		seat_vacated.emit(seat_index, peer_id)
 		# Deferred: the leaving peer's ENet link is mid-teardown inside this signal.
-		_publish.call_deferred()
+		_settle.call_deferred()
 		return
 
 	# Mid-match. The body exists, other bodies are racing it, and deleting it
@@ -751,8 +753,7 @@ func _on_peer_left(peer_id: int) -> void:
 	seat.is_ready = true
 	seat.standing_epoch = 0
 	seat_occupancy_changed.emit(seat_index, seat.occupancy)
-	seat_vacated.emit(seat_index, peer_id)
-	_publish.call_deferred()
+	_settle.call_deferred()
 
 
 func _on_session_ended(_failed: bool) -> void:
@@ -981,7 +982,7 @@ func _apply_ready(seat_index: int, ready: bool) -> bool:
 	if seat.is_ready == wanted:
 		return true
 	seat.is_ready = wanted
-	_publish()
+	_settle()
 	return true
 
 
@@ -1034,9 +1035,6 @@ func _set_phase(phase: Phase) -> void:
 ## the mutators can call it unconditionally. A finished match whose rematch is agreed launches instead.
 func _publish() -> void:
 	if not _is_authority():
-		return
-	if _phase == Phase.POST_MATCH and _rematch_agreed():
-		_launch_epoch()
 		return
 	roster_changed.emit()
 	if session.is_established() and session.get_peer_count() > 1:

@@ -180,7 +180,7 @@ func _watch_peers() -> void:
 			_seen_state[peer_id] = key
 			_seen_since_ms[peer_id] = _listen_ms
 		var since_ms: int = _seen_since_ms[peer_id]
-		if state == NetLobby.PeerState.STANDING:
+		if state == NetLobby.PeerState.STANDING or state == NetLobby.PeerState.ASKED:
 			# Silence is timed within the state: none kept while loading is held to this limit.
 			since_ms = maxi(since_ms, int(_heard_ms.get(peer_id, since_ms)))
 		if _listen_ms - since_ms > _limit_ms(state):
@@ -196,13 +196,14 @@ func _state_key(state: NetLobby.PeerState) -> int:
 	return int(state) + (lobby.get_epoch() << 4 if state == NetLobby.PeerState.LOADING else 0)
 
 
-## The one limit of [param state], in listen-clock milliseconds: silence while STANDING, time in it otherwise.
+## The one limit of [param state], in listen-clock milliseconds: silence while STANDING or ASKED, else time in it.
 func _limit_ms(state: NetLobby.PeerState) -> int:
 	match state:
 		NetLobby.PeerState.CONNECTED, NetLobby.PeerState.REFUSED:
 			return int(REFUSAL_GRACE_SECONDS * 1000.0)
 		NetLobby.PeerState.LOADING:
 			return int(get_settings().load_stall_seconds * 1000.0)
+	# STANDING and ASKED: silence.
 	return int(get_settings().peer_timeout_seconds * 1000.0)
 
 
