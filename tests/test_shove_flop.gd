@@ -31,7 +31,7 @@ func after_each() -> void:
 
 func _shove() -> void:
 	_body.launch(THROW, 1.4)
-	PrisonerAvatar.shove_landed(_body.global_position)
+	_avatar.shove_hit()
 
 
 ## Distance from a point to the capsule's centre line (0.4 to 1.4 m over the feet).

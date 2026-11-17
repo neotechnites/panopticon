@@ -407,3 +407,49 @@ func test_a_finale_over_a_bad_line_holds_on_every_peer() -> void:
 	if not await _start_round(2, 4, 1):
 		return
 	await _watch_a_finale(1, 0)
+
+
+## Stand [param victim_slot] a pace in front of [param shover_slot] on the host, both still.
+func _stand_in_front(shover_slot: int, victim_slot: int) -> void:
+	var shover: PlayerController = _rig.body(HOST, shover_slot)
+	var victim: PlayerController = _rig.body(HOST, victim_slot)
+	var forward: Vector3 = -shover.global_transform.basis.z
+	forward.y = 0.0
+	victim.global_position = shover.global_position + forward.normalized() * 1.0
+	victim.velocity = Vector3.ZERO
+
+
+## Every peer draws [param victim_slot] flopping and nobody else, then sees it get up.
+func _watch_a_shove(shover_slot: int, victim_slot: int) -> void:
+	var host: MatchController = _rig.controller(HOST)
+	_stand_in_front(shover_slot, victim_slot)
+	await step_ticks(_cross)
+	assert_same(
+		host.apply_shove(_rig.participant(HOST, shover_slot)), _rig.participant(HOST, victim_slot),
+		"the host lands the shove on slot %d" % victim_slot
+	)
+	var flopped: bool = await _rig.wait_for(func() -> bool:
+		for peer: int in _rig.peer_count():
+			if not _rig.avatar(peer, victim_slot).is_flopping():
+				return false
+		return true)
+	for peer: int in _rig.peer_count():
+		assert_true(flopped or _rig.avatar(peer, victim_slot).is_flopping(), "peer %d draws the shoved body flop" % peer)
+		for slot: int in host.get_participants().size():
+			if slot != victim_slot:
+				assert_false(_rig.avatar(peer, slot).is_flopping(), "peer %d: slot %d was not shoved and does not flop" % [peer, slot])
+	var up: bool = await _rig.wait_for(func() -> bool:
+		for peer: int in _rig.peer_count():
+			if _rig.avatar(peer, victim_slot).is_flopping():
+				return false
+		return true)
+	assert_true(up, "and every peer sees it get up")
+
+
+func test_a_shoved_runner_flops_on_every_peer() -> void:
+	if not await _start_round(2, 4):
+		return
+	TestFixtures.pin_the_field(_rig.controller(HOST), null)
+	# A client shoves the other client; then the bot is shoved by a client.
+	await _watch_a_shove(1, 2)
+	await _watch_a_shove(2, 3)

@@ -1778,11 +1778,18 @@ func net_kill_beat(guard_index: int, throw: Vector3) -> void:
 	kill_beat_started.emit(guard, maxf(get_rules().kill_beat_seconds, 0.0), throw)
 
 
-## The server says a shove landed on somebody at [param at]. The cue and the drawn
+## The server says a shove landed on [param index], who stood at [param at]. The cue and the drawn
 ## flop only: the victim's launch rides the snapshot.
-func net_shove_landed(at: Vector3) -> void:
+func net_shove_landed(index: int, at: Vector3) -> void:
 	AudioDirector.post_event_at(AudioEvents.PLAYER_CATCH_MADE, at)
-	PrisonerAvatar.shove_landed(at)
+	_flop_shoved(_participant_at(index))
+
+
+## The drawn flop of a shoved body, on the body itself: a mirror's copy lags the server's position.
+func _flop_shoved(victim: MatchParticipant) -> void:
+	var avatar: PrisonerAvatar = PrisonerAvatar.of(victim.body) if victim != null else null
+	if avatar != null:
+		avatar.shove_hit()
 
 
 ## A human seat became a bot's mid-match: the body stays, the brain takes over.
@@ -2437,7 +2444,7 @@ func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 		match_rules.shove_air_lock_seconds,
 	)
 	AudioDirector.post_event_at(AudioEvents.PLAYER_CATCH_MADE, victim.body.global_position)
-	PrisonerAvatar.shove_landed(victim.body.global_position)
+	_flop_shoved(victim)
 	participant_shoved.emit(shover, victim)
 	# THE CATCH. A ghost takes a spot by shoving the prisoner who holds it and by
 	# nothing else -- touching them does nothing -- so it is ruled on here, after

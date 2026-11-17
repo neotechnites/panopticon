@@ -142,8 +142,6 @@ const RAGDOLL_WAIT_MSEC: int = 400
 const REUSED_DISTANCE: float = 1.5
 ## After a death, the replicated run (snapshots still in flight) cannot revive the body.
 const DEATH_SETTLE_SECONDS: float = 0.6
-## A shove lands on the drawn body nearest its point, within this, metres.
-const SHOVE_CLAIM_METRES: float = 2.5
 ## A shoved body flops once it is seen thrown (rising this fast, or jolted this much, m/s), or after the wait.
 const FLOP_RISE: float = 2.0
 const FLOP_JOLT: float = 5.0
@@ -601,20 +599,12 @@ func _enter_tree() -> void:
 		_drawn.append(self)
 
 
-## A shove landed at [param at]: the living runner drawn nearest it flops. Called on every machine from its own shove.
-static func shove_landed(at: Vector3) -> void:
-	var best: PrisonerAvatar = null
-	var best_distance: float = SHOVE_CLAIM_METRES * SHOVE_CLAIM_METRES
-	for avatar: PrisonerAvatar in _drawn:
-		if avatar.body == null or avatar._dead or avatar.body.is_guard or avatar._ragdoll == null:
-			continue
-		var distance: float = avatar.body.global_position.distance_squared_to(at)
-		if distance < best_distance:
-			best_distance = distance
-			best = avatar
-	if best != null and best._ragdoll.flop_enabled:
-		best._flop_wait = 0.0
-		best._flop_before = best.body.velocity
+## A shove landed on this body: it flops once it is seen thrown. Every machine calls it on the body the server named.
+func shove_hit() -> void:
+	if body == null or _dead or body.is_guard or _ragdoll == null or not _ragdoll.flop_enabled:
+		return
+	_flop_wait = 0.0
+	_flop_before = body.velocity
 
 
 ## The drawn avatar of [param of_body], or null.

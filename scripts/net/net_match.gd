@@ -546,7 +546,7 @@ func _on_participant_shoved(shover: MatchParticipant, victim: MatchParticipant) 
 ## The victim's cue, to everyone: the launch rides the snapshot, the sound does not.
 func _on_shove_landed(victim: MatchParticipant) -> void:
 	if victim != null and victim.body != null:
-		_event(&"_ev_shove_landed", [victim.body.global_position])
+		_event(&"_ev_shove_landed", [_seat_index_of(victim.index), victim.body.global_position])
 
 
 func _on_seat_occupancy_changed(seat_index: int, occupancy: LobbySeat.Occupancy) -> void:
@@ -778,10 +778,10 @@ func _ev_brawl_out(index: int, throw: Vector3) -> void:
 
 
 @rpc("authority", "reliable", "call_remote", 0)
-func _ev_shove_landed(at: Vector3) -> void:
+func _ev_shove_landed(seat_index: int, at: Vector3) -> void:
 	if not _replays() or not at.is_finite():
 		return
-	controller.net_shove_landed(at)
+	controller.net_shove_landed(_slot_of_seat.get(seat_index, -1), at)
 
 
 ## Which gun an event names, or null for one this build has not got. Callers have
