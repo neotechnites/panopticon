@@ -2,8 +2,12 @@ extends TestCase
 ## Joining and losing a session: who is seated under what name, who is turned away and told why,
 ## and how long a silent peer is waited for.
 
+const SessionRig: GDScript = preload("res://tests/support/net_session_rig.gd")
+
 const WAIT_MS: int = 3000
 const SILENCE_SECONDS: float = 0.6
+## A load's allowance long enough to outlast two timeouts and short enough to end inside a wait.
+const LOAD_SECONDS: float = 2.5
 
 var _sessions: Array[NetSession] = []
 var _port: int = -1
@@ -163,9 +167,11 @@ func test_opening_a_lobby_seats_only_peers_that_asked_and_were_not_refused() -> 
 
 
 ## A silent peer is one whose game has stopped while its socket still answers; ENet alone never drops it.
-func _silent_pair() -> Array[NetSession]:
+## With [param host_stands] the client has had a snapshot from the host: the host's scene is up, not loading.
+func _silent_pair(host_stands: bool = true) -> Array[NetSession]:
 	var quick: NetSettings = NetFixtures.settings()
 	quick.peer_timeout_seconds = SILENCE_SECONDS
+	quick.load_stall_seconds = LOAD_SECONDS
 	var host: NetSession = await _host(quick)
 	if host == null:
 		return []
@@ -179,6 +185,10 @@ func _silent_pair() -> Array[NetSession]:
 	if not await _until(func() -> bool: return host.lobby.is_scene_standing(client.get_local_peer_id())):
 		fail("the host never heard the client's scene stands")
 		return []
+	if host_stands:
+		var snapshot: WorldSnapshot = WorldSnapshot.new()
+		snapshot.tick = 1
+		client.replicator.apply_snapshot(snapshot)
 	return [host, client]
 
 
@@ -212,6 +222,43 @@ func test_a_host_gone_silent_is_given_up_at_the_timeout() -> void:
 		"the client gives the silent host up",
 	)
 	assert_lt(float(Time.get_ticks_msec() - began) / 1000.0, SILENCE_SECONDS + 0.5, "at the timeout, not long after")
+
+
+## ENet closes a dropped peer's channels before the peer is gone; a broadcast must not find it still listed.
+func test_a_peer_the_host_drops_is_out_of_every_broadcast_at_once() -> void:
+	var pair: Array[NetSession] = await _silent_pair()
+	if pair.is_empty():
+		return
+	var host: NetSession = pair[0]
+	var client: NetSession = pair[1]
+	var errors: Logger = SessionRig.ErrorLog.new()
+	OS.add_logger(errors)
+	host.kick_peer(client.get_local_peer_id())
+	assert_eq_int(host.get_peer_count(), 1, "the host's roster lets it go at once")
+	host.rpc(&"_beat")
+	var told: bool = await _until(func() -> bool: return not client.is_established())
+	OS.remove_logger(errors)
+	assert_true(told, "the dropped client is told")
+	var first: String = errors.lines[0] if errors.count() > 0 else ""
+	assert_eq_int(errors.count(), 0, "a broadcast right after the drop goes to no closed line (first: %s)" % first)
+
+
+## A host that has shown this client no scene yet may be loading one: it is allowed the load's silence, no more.
+func test_a_host_silent_before_its_scene_stands_is_allowed_a_load() -> void:
+	var pair: Array[NetSession] = await _silent_pair(false)
+	if pair.is_empty():
+		return
+	var host: NetSession = pair[0]
+	var client: NetSession = pair[1]
+	host.set_process(false)
+	var began: int = Time.get_ticks_msec()
+	await step_seconds_real(SILENCE_SECONDS * 2.0)
+	assert_true(client.is_established(), "the client waits past the timeout for a host that may be loading")
+	assert_true(
+		await _until(func() -> bool: return client.get_connection_state() == NetTransport.ConnectionState.FAILED),
+		"and gives it up when a load's allowance is spent",
+	)
+	assert_lt(float(Time.get_ticks_msec() - began) / 1000.0, LOAD_SECONDS + 0.5, "then, not long after")
 
 
 func step_seconds_real(seconds: float) -> void:

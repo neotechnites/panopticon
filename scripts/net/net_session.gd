@@ -140,20 +140,20 @@ func expect_load_stall() -> void:
 		transport.expect_load_stall()
 
 
-## Become the listen server. [param port] and [param max_players] default to
-## [member settings]; [param max_players] counts this machine, so matches run 2
-## to [constant NetTransport.MAX_PLAYERS].
-## Keep-alives out, and anyone silent past [member NetSettings.peer_timeout_seconds] dropped: the
-## host drops that client and tells it, a client gives the host up. ENet's own timer lands late.
-## A machine that froze reads the host's drop from its socket the moment it wakes.
+## Keep-alives out, and anyone silent past [member NetSettings.peer_timeout_seconds] dropped: the host
+## drops that client and tells it, a client gives the host up. ENet's own timer lands late.
 func _watch_peers() -> void:
 	var now: int = Time.get_ticks_msec()
 	var frame_gap: int = now - _frame_ms if _frame_ms > 0 else 0
 	_frame_ms = now
 	if not is_established():
 		return
-	var limit: int = int(get_settings().peer_timeout_seconds * 1000.0)
 	var hosting: bool = is_authority()
+	# No snapshot of this client's scene yet: the host may be loading it, or holding the launch for another.
+	var host_loading: bool = not hosting and (replicator == null or replicator.get_latest_tick() < 0)
+	var limit: int = int(get_settings().peer_timeout_seconds * 1000.0)
+	if host_loading:
+		limit = maxi(limit, int(get_settings().load_stall_seconds * 1000.0))
 	if now - _beat_sent_ms >= BEAT_MS:
 		_beat_sent_ms = now
 		if not hosting:
@@ -172,17 +172,23 @@ func _watch_peers() -> void:
 			if not hosting:
 				transport.abort()
 				return
-			kick_peer(peer_id, true)
+			kick_peer(peer_id)
 
 
 ## The keep-alive. Unreliable: one lost is the next one's problem.
 @rpc("any_peer", "unreliable", "call_remote", 0)
 func _beat() -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
-	if is_authority() or sender == NetTransport.AUTHORITY_PEER_ID:
-		_heard_ms[sender] = Time.get_ticks_msec()
+	heard_from(multiplayer.get_remote_sender_id())
 
 
+## A packet of any kind came from [param peer_id]: its line is alive now. A client hears only the host.
+func heard_from(peer_id: int) -> void:
+	if _peers.has(peer_id) and (is_authority() or peer_id == NetTransport.AUTHORITY_PEER_ID):
+		_heard_ms[peer_id] = Time.get_ticks_msec()
+
+
+## Become the listen server. [param port] and [param max_players] default to [member settings];
+## [param max_players] counts this machine, so matches run 2 to [constant NetTransport.MAX_PLAYERS].
 func host(port: int = -1, max_players: int = -1) -> Error:
 	if transport == null:
 		return ERR_UNCONFIGURED
@@ -212,17 +218,12 @@ func leave() -> void:
 	transport.leave()
 
 
-## Disconnect a peer. Authority only, and a no-op anywhere else -- a client
-## cannot throw anybody out of somebody else's game.
-##
-## The lobby uses this for a peer that connected with nowhere to sit. There is
-## no vote, no ban list and no reason string on the wire: the peer simply sees
-## the host go away, which is honest enough for a game where the host IS the
-## server.
-func kick_peer(peer_id: int, now: bool = false) -> void:
-	if transport == null or not is_authority() or peer_id == NetTransport.AUTHORITY_PEER_ID:
+## Disconnect a peer that is in the session. Authority only, and a no-op anywhere else: a client
+## cannot throw anybody out of somebody else's game. No reason on the wire: the peer sees the host go.
+func kick_peer(peer_id: int) -> void:
+	if transport == null or not is_authority() or peer_id == NetTransport.AUTHORITY_PEER_ID or not has_peer(peer_id):
 		return
-	transport.kick_peer(peer_id, now)
+	transport.kick_peer(peer_id)
 
 
 ## True when this machine simulates the match: hosting, or offline. See

@@ -14,9 +14,13 @@ const STAGGER_TICKS: int = 12
 const SPAWN_SLACK: float = 0.6
 ## Metres under the lower of the start line and the tower floor: below it a body is in the pit.
 const PIT_MARGIN: float = 3.0
+## A mirrored body further than this from where the host had it on the tick being drawn is somewhere else.
+const DRAWN_SLACK: float = 0.5
 
 var _rig: RefCounted = null
 var _log: Logger = null
+## Where the host had every slot's body on each of its recent ticks, by host tick.
+var _trail: Dictionary[int, PackedVector3Array] = {}
 
 
 func before_each() -> void:
@@ -54,16 +58,32 @@ func _nearest_spawn(peer: int, at: Vector3) -> Vector2:
 	return best
 
 
-## Every body on every machine stands on a hub spawn, solid, at floor height.
-func _assert_everyone_stands_in_the_hub(why: String) -> void:
+## Where the host has every body now, by slot.
+func _where_everyone_stands() -> Dictionary[int, Vector3]:
+	var stood: Dictionary[int, Vector3] = {}
+	for participant: MatchParticipant in _rig.controller(HOST).get_participants():
+		stood[participant.index] = participant.body.global_position
+	return stood
+
+
+## Every body on every machine stands solid at floor height: on a hub spawn, or for a slot in
+## [param stood] (a seat held across a roster change) where it stood before.
+func _assert_everyone_stands_in_the_hub(why: String, stood: Dictionary[int, Vector3] = {}) -> void:
 	for peer: int in _rig.peer_count():
 		var controller: MatchController = _rig.controller(peer)
 		assert_eq_int(controller.get_participants().size(), _rig.peer_count(), "%s: peer %d holds a body per human" % [why, peer])
 		for participant: MatchParticipant in controller.get_participants():
 			var body: PlayerController = participant.body
-			var off: Vector2 = _nearest_spawn(peer, body.global_position)
 			var who: String = "%s: peer %d's copy of slot %d at %s" % [why, peer, participant.index, body.global_position]
-			assert_lt(off.x, SPAWN_SLACK, "%s stands on a hub spawn" % who)
+			var off: Vector2
+			if stood.has(participant.index):
+				var was: Vector3 = stood[participant.index]
+				off = Vector2(Vector2(body.global_position.x - was.x, body.global_position.z - was.z).length(), body.global_position.y - was.y)
+				assert_lt(off.x, SPAWN_SLACK, "%s stands where it stood before the roster changed" % who)
+				assert_between(_nearest_spawn(peer, body.global_position).y, -0.3, 0.6, "%s is on the hub's floor" % who)
+			else:
+				off = _nearest_spawn(peer, body.global_position)
+				assert_lt(off.x, SPAWN_SLACK, "%s stands on a hub spawn" % who)
 			assert_between(off.y, -0.3, 0.6, "%s is at floor height" % who)
 			assert_true(body.collision_mask != 0, "%s collides with the hub" % who)
 			assert_eq_int(body.collision_mask, participant.home_collision_mask, "%s has its authored mask" % who)
@@ -72,12 +92,12 @@ func _assert_everyone_stands_in_the_hub(why: String) -> void:
 		assert_false(_rig.matches[peer].get_viewport().disable_3d, "%s: peer %d draws its hub" % [why, peer])
 
 
-## Every client walks, and the host sees it move; nobody leaves the floor.
-func _assert_everyone_walks(why: String) -> void:
+## Every client walks, and the host sees it move; nobody leaves the floor. [param ahead] is -1 to walk back.
+func _assert_everyone_walks(why: String, ahead: float = 1.0) -> void:
 	var from: Array[Vector3] = []
 	for peer: int in _rig.peer_count():
 		from.append(_rig.body(HOST, _rig.local_slot(peer)).global_position)
-		_rig.drive(peer, Vector2(0.0, 1.0))
+		_rig.drive(peer, Vector2(0.0, ahead))
 	await step_ticks(45)
 	for peer: int in _rig.peer_count():
 		_rig.drive(peer, Vector2.ZERO)
@@ -107,6 +127,44 @@ func _assert_nobody_is_in_the_pit(why: String) -> void:
 			assert_false(participant.is_ghost, "%s: peer %d has slot %d alive" % [why, peer, participant.index])
 
 
+## Keep where the host has every body on this tick.
+func _remember_where_the_host_has_everyone() -> void:
+	var participants: Array[MatchParticipant] = _rig.controller(HOST).get_participants()
+	var places: PackedVector3Array = PackedVector3Array()
+	places.resize(participants.size())
+	for participant: MatchParticipant in participants:
+		places[participant.index] = participant.body.global_position
+	_trail[(_rig.sessions[HOST] as NetSession).replicator.get_tick()] = places
+
+
+## [param peer] draws another machine's body from its snapshot buffer: no deeper than the buffer is built to
+## be, no further back than that depth, and where the host had the body on the tick being drawn.
+func _assert_drawn_where_the_host_had_it(peer: int, slot: int, who: String) -> void:
+	var session: NetSession = _rig.sessions[peer]
+	var settings: NetSettings = session.get_settings()
+	var view: int = session.replicator.get_view_tick()
+	var now: int = (_rig.sessions[HOST] as NetSession).replicator.get_tick()
+	# A frame here runs up to this many ticks between two polls and two draws.
+	var frame: int = Engine.max_physics_steps_per_frame
+	var snapshot_ticks: int = ceili(SIM_HZ / float(settings.snapshot_hz))
+	var delay: float = session.replicator.get_delay_ticks()
+	var deepest: int = settings.interpolation_delay_ticks + settings.max_interpolation_jitter_ticks
+	if not assert_true(view >= 0, "%s is drawn from a running snapshot clock" % who):
+		return
+	assert_le(delay, float(deepest), "%s is drawn from a buffer no deeper than its settings allow" % who)
+	# The newest snapshot is up to an interval and a frame old when it is read here.
+	assert_between(
+		float(NetCodec.tick_delta(view, now)), 0.0, ceilf(delay) + float(snapshot_ticks + frame),
+		"%s is drawn no further back than the buffer's depth" % who,
+	)
+	var drawn: Vector3 = _rig.body(peer, slot).global_position
+	var nearest: float = INF
+	for tick: int in range(view - frame - 1, view + 2):
+		if _trail.has(tick):
+			nearest = minf(nearest, drawn.distance_to(_trail[tick][slot]))
+	assert_lt(nearest, DRAWN_SLACK, "%s is drawn where the host had it on the tick it draws" % who)
+
+
 ## The map stands, lit for itself, on every machine, and every machine draws the bodies where the host has them.
 func _assert_the_match_stands(map: StringName, why: String) -> void:
 	var wanted: String = MapCatalog.scene_path_for(map)
@@ -129,8 +187,12 @@ func _assert_the_match_stands(map: StringName, why: String) -> void:
 			assert_true(light != null and light.fit == fit, "%s: the bodies are lit for this map" % who)
 			var cache: Dictionary = light.get(&"_cache") if light != null else {}
 			assert_true(cache.values().has(shirt), "%s wears a shirt lit for this map" % who)
-			var there: Vector3 = _rig.body(HOST, participant.index).global_position
-			assert_lt(participant.body.global_position.distance_to(there), 3.0, "%s is drawn where the host has it" % who)
+			if peer != HOST and participant.index != _rig.local_slot(peer):
+				_assert_drawn_where_the_host_had_it(peer, participant.index, who)
+			else:
+				# Its own body runs ahead of the host's copy by the input in flight.
+				var there: Vector3 = _rig.body(HOST, participant.index).global_position
+				assert_lt(participant.body.global_position.distance_to(there), 3.0, "%s is where the host has it" % who)
 		var own: PlayerController = _rig.body(peer, _rig.local_slot(peer))
 		assert_true(own.is_physics_processing(), "%s: peer %d simulates its own body" % [why, peer])
 		assert_false(_rig.matches[peer].get_viewport().disable_3d, "%s: peer %d draws its match" % [why, peer])
@@ -162,8 +224,10 @@ func _play_a_session(clients: int, maps: Array[StringName]) -> void:
 			return
 		for peer: int in _rig.peer_count():
 			_rig.drive(peer, Vector2(0.0, 1.0))
+		_trail.clear()
 		for _tick: int in 60:
 			await step_ticks(1)
+			_remember_where_the_host_has_everyone()
 			_assert_nobody_is_in_the_pit(why)
 			if is_failed():
 				return
@@ -250,8 +314,9 @@ func test_two_machines_go_round_the_hub_six_times() -> void:
 	await _play_a_session(1, [HELL, MARBLE, MARBLE, HELL, HELL, MARBLE])
 
 
-## A third machine walks into a hub two are standing in: the hub is rebuilt, and nobody is left unsolid or off a spawn.
-func test_a_late_joiner_leaves_everyone_solid_on_a_hub_spawn() -> void:
+## A third and a fourth machine walk into a hub others are standing in: each joiner stands on a spawn, everyone
+## already there stays solid where they stood, and all of them still walk.
+func test_a_late_joiner_stands_on_a_spawn_and_leaves_everyone_solid_where_they_stood() -> void:
 	if not await _rig.connect_peers(self, 1):
 		fail("the loopback handshake did not complete")
 		return
@@ -262,7 +327,10 @@ func test_a_late_joiner_leaves_everyone_solid_on_a_hub_spawn() -> void:
 		fail("the hub never settled for two")
 		return
 	_assert_everyone_stands_in_the_hub("two in the hub")
+	# Ahead for the first joiner and back for the second: a body that kept its place may be standing at a wall.
+	var ahead: float = 1.0
 	for joiner: int in [2, 3]:
+		var stood: Dictionary[int, Vector3] = _where_everyone_stands()
 		if not await _rig.join_late():
 			fail("machine %d could not join" % joiner)
 			return
@@ -271,14 +339,17 @@ func test_a_late_joiner_leaves_everyone_solid_on_a_hub_spawn() -> void:
 			fail("the hub never settled for %d" % (joiner + 1))
 			return
 		await step_ticks(CROSS_TICKS)
-		_assert_everyone_stands_in_the_hub("%d in the hub" % (joiner + 1))
+		assert_false(stood.has(_rig.local_slot(joiner)), "machine %d took a slot nobody held" % joiner)
+		_assert_everyone_stands_in_the_hub("%d in the hub" % (joiner + 1), stood)
 		await step_ticks(60)
-		_assert_everyone_stands_in_the_hub("a second later, %d in the hub" % (joiner + 1))
-		await _assert_everyone_walks("%d in the hub" % (joiner + 1))
+		_assert_everyone_stands_in_the_hub("a second later, %d in the hub" % (joiner + 1), stood)
+		await _assert_everyone_walks("%d in the hub" % (joiner + 1), ahead)
 		if is_failed():
 			return
-	# Standing still again before the roster moves, so a spawn is where a body stays.
-	await step_ticks(CROSS_TICKS)
+		ahead = -ahead
+		# Standing still again before the roster moves, so a place is where a body stays.
+		await step_ticks(CROSS_TICKS)
+	var before: Dictionary[int, Vector3] = _where_everyone_stands()
 	# Two roster changes inside one frame: the second rebuild finds the bodies still held by the first.
 	for peer: int in _rig.peer_count():
 		_rig.net_match(peer).rebuild_hub()
@@ -287,10 +358,47 @@ func test_a_late_joiner_leaves_everyone_solid_on_a_hub_spawn() -> void:
 		fail("the hub never settled after two rebuilds in a frame")
 		return
 	await step_ticks(CROSS_TICKS)
-	_assert_everyone_stands_in_the_hub("after two rebuilds in a frame")
-	await _assert_everyone_walks("after two rebuilds in a frame")
+	_assert_everyone_stands_in_the_hub("after two rebuilds in a frame", before)
+	await _assert_everyone_walks("after two rebuilds in a frame", ahead)
 	var first: String = _log.lines[0] if _log.count() > 0 else ""
 	assert_eq_int(_log.count(), 0, "engine errors as the hub fills (first: %s)" % first)
+
+
+## A client waits longer for a host it holds no snapshot from (the host may be loading): it must hold none
+## from the moment the lobby names another scene, in both directions, and hold one once that scene runs.
+func test_a_client_holds_no_snapshot_of_a_scene_the_lobby_has_left() -> void:
+	if not await _rig.connect_peers(self, 1):
+		fail("the loopback handshake did not complete")
+		return
+	_rig.matches.resize(_rig.peer_count())
+	for peer: int in _rig.peer_count():
+		_rig.bind_hub(peer)
+	if not await _rig.hubs_settled():
+		fail("the hub never settled")
+		return
+	var client: NetSession = _rig.sessions[1]
+	assert_true(await _rig.wait_for(func() -> bool: return client.replicator.get_latest_tick() >= 0), "in the hub the client holds the host's snapshots")
+	_rig.settings().map_id = HELL
+	var seen_at_launch: Array[int] = []
+	client.lobby.match_launching.connect(func() -> void: seen_at_launch.append(client.replicator.get_latest_tick()))
+	if not await _rig.launch_staged(4, HOST, _order(false), STAGGER_TICKS):
+		fail("the match never started on every machine")
+		return
+	assert_eq_int(seen_at_launch.size(), 1, "the client heard of the launch")
+	if not seen_at_launch.is_empty():
+		assert_eq_int(seen_at_launch[0], -1, "and held no hub snapshot by the end of the roster that named the match")
+	assert_true(await _rig.wait_for(func() -> bool: return client.replicator.get_latest_tick() >= 0), "in the match it holds the host's snapshots again")
+	var seen_at_return: Array[int] = []
+	client.lobby.phase_changed.connect(func(phase: NetLobby.Phase) -> void:
+		if phase == NetLobby.Phase.GATHERING:
+			seen_at_return.append(client.replicator.get_latest_tick()))
+	if not await _rig.call_everyone_to_the_hub():
+		fail("not every lobby went back to gathering")
+		return
+	assert_eq_int(seen_at_return.size(), 1, "the client heard of the return")
+	if not seen_at_return.is_empty():
+		assert_eq_int(seen_at_return[0], -1, "and held no match snapshot by the end of the roster that named the hub")
+	assert_eq_int(client.replicator.get_latest_tick(), -1, "nor a moment later, its old scene still standing")
 
 
 ## Every machine's level names the match scene for a launch and the hub for the way back from one.

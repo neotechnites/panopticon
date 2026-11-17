@@ -268,6 +268,7 @@ func _receive_intent(payload: PackedByteArray) -> void:
 	if not _is_authority:
 		return
 	var sender: int = multiplayer.get_remote_sender_id()
+	session.heard_from(sender)
 	for link: PlayerNetLink in _links:
 		if link.owner_peer_id == sender:
 			link.accept_intent_payload(sender, payload)
@@ -586,6 +587,7 @@ func _receive_snapshot(payload: PackedByteArray) -> void:
 		# impersonating the server, and the right response is to ignore it
 		# rather than to move every body in the world.
 		return
+	session.heard_from(NetTransport.AUTHORITY_PEER_ID)
 	if _scene == 0 or not NetCodec.unpack_snapshot(payload, _incoming) or _incoming.scene != _scene:
 		return
 	if _playback_count > 0 and not NetCodec.is_newer_tick(_incoming.tick, _newest().tick):

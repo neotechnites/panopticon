@@ -438,7 +438,7 @@ func _launch_timed_out() -> void:
 	_start_now()
 	if _session.get_settings().drop_unlaunched_peers:
 		for peer: int in late:
-			_session.kick_peer(peer, true)
+			_session.kick_peer(peer)
 
 
 func _physics_process(delta: float) -> void:
@@ -663,7 +663,6 @@ func _on_seat_occupancy_changed(seat_index: int, occupancy: LobbySeat.Occupancy)
 	controller.net_seat_to_bot(slot)
 	# Deferred: this runs inside the leaving peer's disconnect signal.
 	_event.call_deferred(&"_ev_seat_to_bot", [slot])
-	_tally_rematch.call_deferred()
 
 
 # --- Wire ---------------------------------------------------------------------
