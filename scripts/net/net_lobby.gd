@@ -731,9 +731,10 @@ func _request_ready(ready: bool) -> void:
 ## Client to authority: my scene for this epoch stands.
 @rpc("any_peer", "reliable", "call_remote", 0)
 func _request_scene_bound(epoch: int) -> void:
-	# Not rate limited: it is sent once a scene, and one dropped is a peer told nothing in it.
+	# Not rate limited, as one dropped is a peer told nothing in its scene: it counts once, and only
+	# for the scene the lobby names now, so repeating or alternating it gets no second answer.
 	var seat: LobbySeat = find_seat_by_peer(multiplayer.get_remote_sender_id())
-	if seat == null or not _is_authority():
+	if seat == null or not _is_authority() or epoch != _epoch or has_bound(seat.peer_id, epoch):
 		return
 	_bound_epochs[seat.peer_id] = epoch
 	scene_bound.emit(seat.peer_id, epoch)
