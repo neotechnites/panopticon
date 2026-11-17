@@ -42,6 +42,9 @@ signal vote_changed()
 ## The vote ended with a winner. [param tied] when the seed had to break it.
 signal vote_closed(winner: MapWedge, rng_seed: int, tied: bool)
 
+## Client: the host is gone, so this hub is over; the main menu says why.
+signal session_lost()
+
 const RULES_PATH: String = "res://match/rules/default_match_rules.tres"
 
 ## Physical key that toggles the rules panel. A scancode rather than an action
@@ -69,6 +72,9 @@ static var relaunch_bot_seats: Variant = null
 ## The hub's seat-to-body bridge, in [member NetMatch.hub_mode]. Null in a scene
 ## with no networking at all.
 @export var net_match: NetMatch
+
+## The hub's pause menu: its way out to the main menu is the one teardown, used when the host is lost.
+@export var pause_menu: PauseMenu
 
 ## The local player's body, for the trigger test.
 @export var player: PlayerController
@@ -163,6 +169,8 @@ func _ready() -> void:
 	_preload_launch_scenes.call_deferred()
 	if vote_label != null:
 		vote_label.visible = false
+	if net_match != null:
+		net_match.host_lost.connect(_on_host_lost)
 	if _session != null and _session.is_established():
 		_bind_lobby(_session.lobby)
 	if setup_screen != null:
@@ -630,6 +638,17 @@ func _change_scene() -> void:
 		push_error("HubLobby could not load %s: %s" % [match_scene_path, error_string(error)])
 
 
+## The host quit, crashed or timed out: there is no hub without it. Out to the join screen, told why.
+func _on_host_lost() -> void:
+	session_lost.emit()
+	if not changes_scene:
+		return
+	MultiplayerScreen.arrival_notice = &"RESULT_HOST_LOST_DETAIL"
+	if pause_menu != null:
+		# Deferred: this runs inside the session's own ending.
+		pause_menu.return_to_main_menu.call_deferred()
+
+
 func _on_launching() -> void:
 	_begin(_lobby.get_rules().map_id if _lobby.get_rules() != null else &"")
 
@@ -652,7 +671,9 @@ func _wedge_for_map(map_id: StringName) -> MapWedge:
 ## A peer joined or left. The hub's bodies are built per seat, so the set is
 ## rebuilt rather than patched; see [method NetMatch.rebuild_hub].
 func _on_roster_changed() -> void:
-	if net_match != null and not _launched and not _starting:
+	# Only a gathering lobby has a roster to stand bodies for; a closed one is a session ending.
+	var gathering: bool = _lobby.get_phase() == NetLobby.Phase.GATHERING
+	if net_match != null and gathering and not _launched and not _starting:
 		net_match.rebuild_hub()
 	if _vote_open and is_host():
 		# A joiner missed the opening; the bodies were just rebuilt anyway.
@@ -680,8 +701,11 @@ func _apply_overlay(open: bool) -> void:
 	if open:
 		MouseFocus.hold(self)
 		if setup_screen != null:
-			setup_screen.refresh()
-			setup_screen.focus_start()
+			# The rules are the host's to set; a client's panel is the seat list alone.
+			setup_screen.visible = is_host()
+			if setup_screen.visible:
+				setup_screen.refresh()
+				setup_screen.focus_start()
 	else:
 		MouseFocus.release(self)
 	_set_body_input(not open)

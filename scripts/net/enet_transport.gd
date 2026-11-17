@@ -86,9 +86,9 @@ func host(port: int, max_players: int = MAX_PLAYERS) -> Error:
 
 	var players: int = clampi(max_players, 1, MAX_PLAYERS)
 	var peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
-	# create_server() counts clients, not players: the listen server is not one
-	# of its own clients.
-	var error: Error = peer.create_server(port, players - 1, ENET_CHANNEL_COUNT)
+	# create_server() counts clients, not players: the listen server is not one of its own
+	# clients. One connection over the seats, so a joiner to a full lobby can be told it is full.
+	var error: Error = peer.create_server(port, players, ENET_CHANNEL_COUNT)
 	if error != OK:
 		push_error("ENetTransport could not host on port %d: %s" % [port, error_string(error)])
 		_set_state(ConnectionState.FAILED)
@@ -189,8 +189,9 @@ func _teardown() -> void:
 	if _peer != null:
 		_peer.close()
 		_peer = null
-	if multiplayer != null and multiplayer.multiplayer_peer != null:
-		multiplayer.multiplayer_peer = null
+	# Back to the engine's own offline peer, never none: offline play still asks who the server is.
+	if multiplayer != null and not multiplayer.multiplayer_peer is OfflineMultiplayerPeer:
+		multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 
 
 func _bind() -> void:

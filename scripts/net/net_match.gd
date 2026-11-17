@@ -73,6 +73,11 @@ func _ready() -> void:
 	_session = get_tree().root.get_node_or_null(session_path) as NetSession
 	if _session == null or not _session.is_established() or controller == null:
 		set_physics_process(false)
+		if _session != null and _session.get_connection_state() == NetTransport.ConnectionState.FAILED:
+			# The host was lost while this scene loaded: say so once the scene stands.
+			if controller != null and not hub_mode:
+				controller.auto_start = false
+			host_lost.emit.call_deferred()
 		return
 	_lobby = _session.lobby
 	if _lobby == null or (not hub_mode and not _lobby.names_match_scene()):
@@ -142,7 +147,22 @@ func _bind_epoch() -> void:
 		_lobby.acknowledge_scene(_epoch)
 	if _session.is_authority() and not _started:
 		return
-	_session.replicator.bind_scene(_epoch if _lobby.get_epoch() == _epoch else 0)
+	_session.replicator.bind_scene(_epoch if _is_current() else 0)
+	_hush_stale_links()
+
+
+## True while the lobby names this scene: its epoch is the one this scene was loaded for.
+func _is_current() -> bool:
+	return _epoch != 0 and _lobby.get_epoch() == _epoch
+
+
+## A client's links speak only for a scene the lobby names; the host has no node to hear any other.
+func _hush_stale_links() -> void:
+	if _session.is_authority():
+		return
+	var current: bool = _is_current()
+	for link: PlayerNetLink in _links:
+		link.set_physics_process(current)
 
 
 ## The authority has placed every body: what it sends from now on is this scene's.
@@ -203,11 +223,16 @@ func get_session() -> NetSession:
 ## body is built per seat at bind time, so a roster that changed needs the set
 ## rebuilt rather than patched. It is cheap and it is total: every remote body
 ## and every link goes, the controller drops its roster, and the hub is armed
-## again, which stands everybody back on their spawn. Nothing is lost by that
-## because a hub holds no state worth keeping.
+## again. A seat that is still held keeps the place its body stood in.
 func rebuild_hub() -> void:
 	if not hub_mode or _lobby == null:
 		return
+	var places: Dictionary[int, Transform3D] = {}
+	var holders: Dictionary[int, int] = {}
+	for link: PlayerNetLink in _links:
+		if link.controller != null and link.controller.is_inside_tree():
+			places[link.seat_index] = link.controller.global_transform
+			holders[link.seat_index] = link.owner_peer_id
 	# Out of the tree BEFORE the free, not merely queued: queue_free defers, and
 	# a Link0 still holding the name when the new Link0 is added is renamed to
 	# Link0@2 -- which is a node path that resolves on nobody else's machine.
@@ -224,6 +249,9 @@ func rebuild_hub() -> void:
 	controller.release_roster()
 	_build_bodies()
 	controller.start_hub()
+	for link: PlayerNetLink in _links:
+		if holders.get(link.seat_index, -1) == link.owner_peer_id:
+			link.controller.global_transform = places[link.seat_index]
 
 
 ## The seats bodies are built for: every occupant in a match, and only the
@@ -263,6 +291,7 @@ func _build_bodies() -> void:
 		_slot_of_seat[seat.index] = slot
 		_seat_of_slot[slot] = seat.index
 		_add_link(seat, body, seat.index == local_seat)
+	_hush_stale_links()
 	controller.configure_net(bodies, kinds, names, local_slot, not _session.is_authority())
 
 

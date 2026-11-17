@@ -212,7 +212,12 @@ func show_result() -> void:
 		_apply_visibility(true)
 		_show_net_buttons()
 		result_shown.emit(controller.get_match_winner())
-	_play_again_button.grab_focus()
+	if _play_again_button.visible:
+		_play_again_button.grab_focus()
+	elif _rematch_button.is_visible_in_tree():
+		_rematch_button.grab_focus()
+	else:
+		_main_menu_button.grab_focus()
 
 
 ## The host is gone, so the match is over here too; the only way out is the menu.
@@ -278,6 +283,8 @@ func returns_to_hub() -> bool:
 
 
 func play_again() -> void:
+	if _follows_host():
+		return
 	if returns_to_hub():
 		# The match came out of a hub, so it goes back into one: same session,
 		# same seats, and the host free to start the next map from the wedge.
@@ -321,8 +328,14 @@ func _on_hub_all_pressed() -> void:
 		net_match.return_all_to_hub()
 
 
+## True on a client in a session: where everyone goes next is the host's to say.
+func _follows_host() -> bool:
+	return net_match != null and net_match.is_active() and not net_match.is_authority()
+
+
 func _show_net_buttons() -> void:
 	var networked: bool = net_match != null and net_match.is_active() and net_match.has_started()
+	_play_again_button.visible = not _follows_host()
 	_net_buttons.visible = networked
 	_rematch_button.disabled = false
 	_hub_all_button.visible = networked and net_match.is_authority()
@@ -415,12 +428,9 @@ func _detail_text(winner: MatchParticipant) -> String:
 	return "\n".join(lines)
 
 
-## The human in the match, or null in an AI-only one.
+## This machine's own player, or null in an AI-only match.
 func _human_participant() -> MatchParticipant:
-	for participant: MatchParticipant in controller.get_participants():
-		if participant.is_human():
-			return participant
-	return null
+	return controller.get_human_participant()
 
 
 # --- The beat -----------------------------------------------------------------

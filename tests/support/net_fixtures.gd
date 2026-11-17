@@ -193,5 +193,6 @@ static func join_and_wait(case: Node, session: NetSession, host_session: NetSess
 	return await poll_until(
 		case,
 		func() -> bool:
-			return session.is_established() and host_session.get_peer_count() >= expected_peers
+			return session.is_established() and host_session.get_peer_count() >= expected_peers \
+				and host_session.lobby.has_asked(session.get_local_peer_id())
 	)

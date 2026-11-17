@@ -103,6 +103,10 @@ func _ready() -> void:
 	_settings_screen.closed.connect(_close_settings)
 
 	_show_main()
+	# A session that ended under the last scene left word: say it where the player would rejoin.
+	if not MultiplayerScreen.arrival_notice.is_empty():
+		open_multiplayer()
+		_multiplayer_screen.show_arrival_notice()
 
 
 ## Aims the tower's eye along the mouse ray; back to idle when the mouse leaves.

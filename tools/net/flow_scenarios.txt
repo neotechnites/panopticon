@@ -1,0 +1,256 @@
+# Match-flow probe scenarios, run by tools/net/flow_probes.py.
+#   scenario <name>
+#   peer <name> <t>:<verb>[=<arg>];...            the plan tools/net/flow_probe.gd follows
+#   expect <peer> <t0> <t1> all|any|none <regex>  over that peer's PROBE lines in the window
+#   exit <peer> <code>                            when a peer is meant to die (default 0)
+#   max_errors <peer> <count>                     engine error lines the peer may log
+
+scenario smoke
+peer Host 1.3:host;8:start=marble;20:win;24:huball;32:start=bentham_ring;45:win;50:end
+peer Cli 4:join;55:end
+expect Host 12 19 all scene=match.tscn .*map=marble
+expect Cli 12 19 all scene=match.tscn .*map=marble
+expect Cli 26 31 all scene=hub.tscn .*cover=false
+expect Host 46 50 all over=true .*map=bentham_ring
+expect Cli 46 50 all over=true .*map=bentham_ring
+expect Host 5 50 all 1:HUM:'Cli'
+
+scenario A_client_leave_menu
+peer Host 1.3:host;8:start=marble;30:huball;38:start=bentham_ring;58:end
+peer Cli 4:join;15:leave_menu;60:end
+expect Cli 16 60 all scene=main_menu.tscn .*conn=OFFLINE
+expect Host 16 29 all 1:BOT
+expect Host 31 37 all scene=hub.tscn .*hub_players=1
+expect Host 42 58 all scene=match.tscn
+max_errors Host 6
+
+scenario A2_client_leave_then_play
+peer Host 1.3:host;8:start=marble;45:end
+peer Cli 4:join;15:leave_menu;20.2:play;46:end
+expect Cli 16 20 all scene=main_menu.tscn .*conn=OFFLINE
+expect Cli 22 46 all scene=hub.tscn .*conn=OFFLINE .*3d_off=false .*cover=false
+expect Host 16 45 all 1:BOT
+
+scenario B_host_leave_menu
+peer Host 1.3:host;8:start=marble;15:leave_menu;20.2:play;26:start=marble;45:end
+peer Cli 4:join;47:end
+expect Cli 16 47 all conn=FAILED .*result='DISCONNECTED
+expect Host 16 20 all scene=main_menu.tscn .*conn=OFFLINE
+expect Host 22 25 all scene=hub.tscn .*conn=OFFLINE .*3d_off=false
+expect Host 30 45 all scene=match.tscn .*conn=OFFLINE .*map=marble
+max_errors Host 6
+
+scenario D_late_join
+peer Host 1.3:host;6:start=marble;36:end
+peer Cli 14:join;37:end
+expect Cli 15.5 37 all scene=main_menu.tscn .*status='That match has already started
+expect Cli 14 37 none scene=hub.tscn
+expect Host 10 36 all scene=match.tscn
+
+scenario D2_late_join_then_recover
+peer Host 1.3:host;6:start=marble;20:win;24:huball;46:end
+peer Cli 10:join;19:join;31:join;47:end
+expect Cli 11.5 18 all scene=main_menu.tscn .*status='That match has already started
+expect Cli 20.5 30 all scene=main_menu.tscn .*status='That match has already started
+expect Cli 33 45.5 all scene=hub.tscn .*conn=CONNECTED .*cover=false
+
+scenario E_host_quit_hub
+peer Host 1.3:host;10:quit
+peer Cli 4:join;36:end
+expect Cli 6 9 all scene=hub.tscn .*conn=CONNECTED .*cover=false
+expect Cli 11 36 all scene=main_menu.tscn .*status='Lost the connection to the host
+
+scenario E2_host_crash_hub
+peer Host 1.3:host;10:crash
+peer Cli 4:join;36:end
+exit Host -9
+expect Cli 18.8 36 all scene=main_menu.tscn .*status='Lost the connection to the host
+
+scenario E3_host_quit_match
+peer Host 1.3:host;8:start=marble;16:quit
+peer Cli 4:join;36:end
+expect Cli 17 36 all scene=match.tscn .*result='DISCONNECTED
+
+scenario E4_host_crash_match
+peer Host 1.3:host;8:start=marble;16:crash
+peer Cli 4:join;42:end
+exit Host -9
+expect Cli 24.8 42 all scene=match.tscn .*result='DISCONNECTED
+
+scenario E5_host_gone_client_tries
+peer Host 1.3:host;10:quit
+peer Cli 4:join;15:start=marble;24.1:play;28:start=marble;38:end
+expect Cli 11 24 all scene=main_menu.tscn
+expect Cli 25 27 all scene=hub.tscn .*conn=OFFLINE .*mp_peer=OfflineMultiplayerPeer .*hub_is_host=true
+expect Cli 31 38 all scene=match.tscn .*conn=OFFLINE .*mp_peer=OfflineMultiplayerPeer
+
+scenario F_client_back_early
+peer Host 1.3:host;8:start=marble;15:win;35:huball;46:end
+peer Cli 4:join;20.1:back;47:end
+expect Cli 17 34 all scene=match.tscn .*over=true
+expect Cli 37 45.5 all scene=hub.tscn .*3d_off=false .*cover=false
+max_errors Host 6
+
+# The rematch itself restarting once the leaver is gone is review_net W5 (branch demo/netfix).
+scenario F2_rematch_leaver
+peer Host 1.3:host;10:start=marble;18:win;21:rematch;45:huball;56:end
+peer C1 4:join;22:rematch;57:end
+peer C2 6:join;24:leave_menu;34:quit
+expect C2 25 34 all scene=main_menu.tscn .*conn=OFFLINE
+expect Host 25 44 all 2:BOT
+expect Host 47 56 all scene=hub.tscn .*hub_players=2
+expect C1 47 55.5 all scene=hub.tscn .*cover=false
+
+scenario F3_rematch_quitter
+peer Host 1.3:host;10:start=marble;18:win;21:rematch;45:huball;56:end
+peer C1 4:join;22:rematch;57:end
+peer C2 6:join;26:quit
+expect Host 27 44 all 2:BOT
+expect C1 47 55.5 all scene=hub.tscn .*cover=false
+
+scenario H_client_stall
+peer Host 1.3:host;8:start=marble;56:end
+peer Cli 4:join;15:stall=9500;57:end
+expect Host 23.8 56 all 1:BOT
+expect Cli 25.2 57 all conn=FAILED .*result='DISCONNECTED
+
+scenario H2_client_stall_6s
+peer Host 1.3:host;8:start=marble;41:end
+peer Cli 4:join;15:stall=6000;42:end
+expect Host 9 40 all 1:HUM
+expect Cli 9 40 all conn=CONNECTED
+
+scenario I_host_R_key
+peer Host 1.3:host;8:start=marble;16:restart_key;22:win;26:restart_key;32:win;36:huball;42:end
+peer Cli 4:join;43:end
+expect Host 23 31 all lobby=POST_MATCH .*over=true
+expect Cli 23 31 all lobby=POST_MATCH .*over=true
+expect Cli 38 41.5 all scene=hub.tscn .*cover=false
+
+scenario J_settings_restart
+peer Host 0.5:setting=prisoner_count,1;1.3:host;10:start=marble;17:setting=prisoner_count,1;19:win;21:rematch;30:win;40:end
+peer C1 4:join;22:rematch;45:end
+peer C2 6:join;14:quit
+expect Host 23 29 all over=false .*parts=\[[^,\]]*,[^,\]]*,[^,\]]*\]
+expect Host 31 40 all over=true .*parts=\[[^,\]]*,[^,\]]*,[^,\]]*\]
+expect C1 31 39.5 all conn=CONNECTED .*over=true
+
+scenario J2_control_no_setting
+peer Host 0.5:setting=prisoner_count,1;1.3:host;10:start=marble;19:win;21:rematch;30:win;40:end
+peer C1 4:join;22:rematch;41:end
+peer C2 6:join;14:quit
+expect Host 31 40 all over=true .*parts=\[[^,\]]*,[^,\]]*,[^,\]]*\]
+
+scenario J3_max_bots
+peer Host 0.5:setting=prisoner_count,8;1.3:host;10:start=bentham_ring;15:setting=mouse_sensitivity,0.002;19:win;21:rematch;30:win;40:end
+peer C1 4:join;22:rematch;41:end
+expect Host 23 29 all over=false .*parts=\[([^,\]]*,){7}[^,\]]*\]
+expect Host 31 40 all over=true .*parts=\[([^,\]]*,){7}[^,\]]*\]
+expect C1 31 39.5 all conn=CONNECTED .*over=true .*parts=\[([^,\]]*,){7}[^,\]]*\]
+
+scenario J4_R_key
+peer Host 0.5:setting=prisoner_count,1;1.3:host;10:start=marble;17:setting=mouse_sensitivity,0.002;20:restart_key;30:win;40:end
+peer C1 4:join;41:end
+peer C2 6:join;14:quit
+expect Host 31 40 all over=true .*parts=\[[^,\]]*,[^,\]]*,[^,\]]*\]
+expect C1 31 39.5 all conn=CONNECTED .*over=true
+
+scenario J5_default_4humans
+peer Host 1.3:host;10:start=marble;17:setting=mouse_sensitivity,0.002;20:restart_key;30:win;40:end
+peer C1 4:join;41:end
+peer C2 5:join;14:quit
+peer C3 6:join;41:end
+expect Host 31 40 all over=true .*parts=\[[^,\]]*,[^,\]]*,[^,\]]*,[^,\]]*\]
+expect C3 31 39.5 all conn=CONNECTED .*over=true
+
+scenario L1_client_crash_at_launch
+peer Host 1.3:host;8:start=marble;41:end
+peer Cli 4:join;8.2:crash
+exit Cli -9
+expect Host 17 41 all scene=match.tscn .*1:BOT.* started=true
+
+scenario L2_client_quit_at_launch
+peer Host 1.3:host;8:start=marble;26:end
+peer Cli 4:join;8.3:quit
+expect Host 10 26 all scene=match.tscn .*1:BOT.* started=true
+
+scenario M1_rehost
+peer Host 1.3:host;8:leave_menu;12.1:host;36:end
+peer Cli 4:join;21:join;37:end
+expect Host 9 12 all scene=main_menu.tscn .*conn=OFFLINE
+expect Cli 9 20 all scene=main_menu.tscn .*status='Lost the connection to the host
+expect Cli 23 35.5 all scene=hub.tscn .*conn=CONNECTED .*cover=false
+expect Host 23 36 all scene=hub.tscn .*1:HUM:'Cli'
+
+scenario N1_natural_hell
+peer Host 1.3:host;8:start=bentham_ring;236:end
+peer Cli 4:join;237:end
+expect Host 60 236 any over=true
+expect Cli 60 237 any over=true
+expect Cli 5 235 all conn=CONNECTED
+
+scenario N2_natural_marble
+peer Host 1.3:host;8:start=marble;236:end
+peer Cli 4:join;237:end
+expect Host 60 236 any over=true
+expect Cli 60 237 any over=true
+expect Cli 5 235 all conn=CONNECTED
+
+scenario O1_named_guard_client
+peer Host 0.3:setting=skip_opening_race,true;0.6:setting=tower_seat_index,1;1.3:host;8:start=bentham_ring;36:end
+peer Cli 4:join;37:end
+expect Host 10 14 any guard=Cli
+expect Cli 10 14 any guard=Cli
+
+scenario O2_brawl
+peer Host 0.3:setting=tower_brawl,true;1.3:host;8:start=marble;66:end
+peer Cli 4:join;67:end
+expect Host 9 20 any ctl=BRAWL
+expect Cli 9 20 any ctl=BRAWL
+expect Host 20 66 any ctl=ROUND
+expect Cli 20 67 any ctl=ROUND
+
+scenario R1_start_while_joiner_loads
+peer Host 1.3:host;2:start_when=2,marble;14:win;36:end
+peer Cli 5:join;20.1:back;37:end
+expect Cli 9 13 all scene=match.tscn .*started=true .*cover=false
+expect Cli 15 35.5 all scene=match.tscn .*over=true
+
+scenario R2_four_peers
+peer Host 1.3:host;12:start=bentham_ring;24:win;27:rematch;40:win;44:huball;52:start=marble;64:win;70:end
+peer C1 4:join;28:rematch;71:end
+peer C2 6:join;18:quit
+peer C3 8:join;29:rematch;58:quit
+expect Host 19 43 all 2:BOT
+expect Host 31 39 all over=false .*map=bentham_ring
+expect C1 31 39 all over=false .*map=bentham_ring
+expect C1 46 51 all scene=hub.tscn .*cover=false
+expect Host 46 51 all scene=hub.tscn .*hub_players=3
+expect Host 65 70 all over=true .*map=marble
+expect C1 65 70 all over=true .*map=marble
+
+scenario R3_join_no_host_then_retry
+peer Host 12.3:host;36:end
+peer Cli 1:join;16:join;37:end
+expect Cli 7 15 all scene=main_menu.tscn .*status='Connection failed
+expect Cli 18 35.5 all scene=hub.tscn .*conn=CONNECTED .*cover=false
+
+scenario R4_host_lost_then_offline
+peer Host 1.3:host;8:start=bentham_ring;14:quit
+peer Cli 4:join;18:result_menu;21.1:play;25:start=bentham_ring;40:end
+expect Cli 15 17 all result='DISCONNECTED
+expect Cli 22 24 all scene=hub.tscn .*mp_peer=OfflineMultiplayerPeer
+expect Cli 28 40 all scene=match.tscn .*conn=OFFLINE .*mp_peer=OfflineMultiplayerPeer
+
+scenario R6_bots_fill_lobby
+peer Host 0.5:setting=prisoner_count,8;1.3:host;5:start=marble;12:win;15:huball;41:end
+peer Cli 22:join;42:end
+expect Cli 24 40.5 all scene=hub.tscn .*conn=CONNECTED .*cover=false
+expect Host 24 41 all hub_players=2
+
+scenario R7_port_in_use
+peer Host 1.3:host;18:end
+peer Host2 6:host;16:end
+expect Host2 5 7 any DO host -> Can't create
+expect Host2 7 16 all scene=main_menu.tscn .*status='Could not host
+expect Host 3 18 all scene=hub.tscn .*conn=HOSTING
