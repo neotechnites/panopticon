@@ -35,7 +35,7 @@ Short answer up front: it is the design. See §2 for where it is not.
    │  19 B/intent + 5 B header                    │       ▲  one taken per tick
    │  redundancy = 2 (repeats prior ticks)        │       │
    ▼                                              │       │
- rpc_id(1, _receive_intent)  ══ ch 1, unreliable_ordered ═╪══► PlayerNetLink._receive_intent
+ rpc_id(1, _receive_intent)  ══ ch 1, unreliable_ordered ═╪══► NetReplicator._receive_intent
                                                   │       │      · sender_id == owner_peer_id?
                                                   │       │      · ≤ max_intent_packets_per_tick
                                                   │       │      · codec well-formed? finite?

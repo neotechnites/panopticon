@@ -635,7 +635,7 @@ func _send_intent() -> void:
 		replicator.intent_tick = _tick
 		replicator.intent_presses = _press_counts
 		replicator.intent_press_slot = _press_slot
-	rpc_id(session.get_authority_peer_id(), &"_receive_intent", _last_packet)
+		replicator.send_intent(_last_packet)
 
 
 ## The intent packet this body last sent, or an empty array before the first.
@@ -685,30 +685,8 @@ func _remember_intent(intent: MoveIntent, redundancy: int) -> void:
 
 # --- Receiving ----------------------------------------------------------------
 
-## Client to authority, every tick.
-##
-## Every tick, and not at the snapshot rate: an input that is not sent is an
-## input the player made and the game ignored, which is a different and much
-## worse thing than a position drawn 33 ms late. Unreliable and ordered,
-## because a late input is worth less than the next one and retransmitting it
-## would add delay to buy back a tick nobody wants any more.
-@rpc("any_peer", "unreliable_ordered", "call_remote", 1)
-func _receive_intent(payload: PackedByteArray) -> void:
-	if not _is_authority:
-		# Only the authority consumes intent. Reaching here on a client means
-		# a peer is impersonating the server, and the right response is to
-		# ignore it rather than to move a body.
-		return
-	if owner_peer_id == 0:
-		# Nothing remote drives this seat. A bot's body and the host's own can
-		# never be moved by a packet, however well formed.
-		return
-	accept_intent_payload(multiplayer.get_remote_sender_id(), payload)
-
-
-## Take one intent packet from [param sender_id]. Authority-side, and it repeats
-## every guard [method _receive_intent] makes, so it is safe to call from a test
-## harness carrying real bytes over a wire of its own.
+## Take one intent packet from [param sender_id]. Authority-side, and it makes
+## every check itself: [NetReplicator] hands it whatever a peer sent.
 func accept_intent_payload(sender_id: int, payload: PackedByteArray) -> void:
 	if not _is_authority or owner_peer_id == 0 or sender_id != owner_peer_id:
 		# The one check that stops a peer driving somebody else's body.
