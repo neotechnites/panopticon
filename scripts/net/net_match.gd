@@ -126,6 +126,8 @@ func _bind_match() -> void:
 func _exit_tree() -> void:
 	if not _bound:
 		return
+	# A scene on its way out answers for nothing: a late binder is the next scene's to greet.
+	_lobby.scene_bound.disconnect(_on_scene_bound)
 	_session.replicator.bind_scene(0)
 	_show_world(true)
 
@@ -487,6 +489,13 @@ func _vote_rematch(peer: int) -> void:
 		return
 	_rematch_peers[peer] = true
 	_send_rematch_votes()
+	_rematch_if_all_asked()
+
+
+## Restart once a rematch has been asked for and no human still seated has yet to ask.
+func _rematch_if_all_asked() -> void:
+	if _rematch_peers.is_empty() or not controller.is_match_over():
+		return
 	for seat: LobbySeat in _lobby.seats:
 		if seat.is_human() and seat.peer_id > 0 and not _rematch_peers.has(seat.peer_id):
 			return
@@ -609,6 +618,7 @@ func _on_seat_occupancy_changed(seat_index: int, occupancy: LobbySeat.Occupancy)
 	controller.net_seat_to_bot(slot)
 	# Deferred: this runs inside the leaving peer's disconnect signal.
 	_event.call_deferred(&"_ev_seat_to_bot", [slot])
+	_rematch_if_all_asked.call_deferred()
 
 
 # --- Wire ---------------------------------------------------------------------
