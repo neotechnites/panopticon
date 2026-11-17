@@ -224,10 +224,10 @@ func reset() -> void:
 	_buffer_count = 0
 	_ticks_since_packet = 0
 	_stale = false
-	_forget_presses()
+	forget_presses()
 
 
 ## A fresh start: the next command's counts are a new baseline.
-func _forget_presses() -> void:
+func forget_presses() -> void:
 	_seen_presses = -1
 	_owed.fill(0)

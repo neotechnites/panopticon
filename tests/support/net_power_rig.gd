@@ -28,6 +28,7 @@ var a_wire: LossyPeer
 var host_wire: LossyPeer
 
 var _stubs: Array[MatchController] = []
+var _wires: Dictionary[NetSession, LossyPeer] = {}
 var _saved_hz: int = 0
 var _saved_scale: float = 1.0
 
@@ -47,6 +48,9 @@ func before_each() -> void:
 	a = NetFixtures.make_peer(self, "ClientA", NetFixtures.settings())
 	b = NetFixtures.make_peer(self, "ClientB", NetFixtures.settings())
 	add_child(TestFixtures.make_floor(0.0))
+	_wires.clear()
+	for session: NetSession in [host, a]:
+		session.connection_state_changed.connect(_wrap.bind(session))
 
 
 ## Every machine reads its socket once a tick, whatever the frame rate: the engine polls on
@@ -63,6 +67,13 @@ func after_each() -> void:
 	for session: NetSession in [b, a, host]:
 		if session != null:
 			session.leave()
+	# The wires' forwarding lambdas hold them alive past exit; let go of them.
+	for wire: LossyPeer in _wires.values():
+		var real: MultiplayerPeer = wire.get("_real") as MultiplayerPeer
+		for forwarded: Signal in [real.peer_connected, real.peer_disconnected]:
+			for link: Dictionary in forwarded.get_connections():
+				forwarded.disconnect(link["callable"] as Callable)
+	_wires.clear()
 	for stub: MatchController in _stubs:
 		if is_instance_valid(stub):
 			stub.free()
@@ -160,11 +171,27 @@ func stall_host(ticks: int) -> void:
 	host.get_parent().process_mode = Node.PROCESS_MODE_INHERIT
 
 
+## Turn the knobs of the wire [param session] has had since its handshake: swapped in later,
+## the engine forgets its peers and refuses every send.
 func _condition(session: NetSession, loss: float, rng_seed: int, delay_ms: int) -> LossyPeer:
-	var real: MultiplayerPeer = session.multiplayer.multiplayer_peer
-	var wire: LossyPeer = LossyPeer.new(real, loss, rng_seed, delay_ms)
-	session.multiplayer.multiplayer_peer = wire
+	var wire: LossyPeer = _wires.get(session)
+	if wire == null:
+		return null
+	wire.set("_loss", loss)
+	wire.set("_delay_ms", delay_ms)
+	(wire.get("_rng") as RandomNumberGenerator).seed = rng_seed
 	return wire
+
+
+func _wrap(_state: NetTransport.ConnectionState, session: NetSession) -> void:
+	var real: MultiplayerPeer = session.multiplayer.multiplayer_peer
+	if _wires.has(session) or real == null:
+		return
+	if real.get_connection_status() == MultiplayerPeer.CONNECTION_DISCONNECTED:
+		return
+	var wire: LossyPeer = LossyPeer.new(real, 0.0, 1, 0)
+	session.multiplayer.multiplayer_peer = wire
+	_wires[session] = wire
 
 
 func _give_keys(link: PlayerNetLink) -> PressSource:

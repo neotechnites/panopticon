@@ -98,9 +98,28 @@ func _on_body_entered(body: Node3D) -> void:
 	if player == null:
 		return
 	player.apply_speed_boost(speed_multiplier, duration_seconds)
-	if _networked():
-		rpc(&"_taken")
+	_tell_taken()
 	_taken()
+
+
+## Tell the machines whose map stands; with no match layer beside this node, every machine.
+func _tell_taken() -> void:
+	if not _networked():
+		return
+	var net: NetMatch = NetMatch.of(self)
+	if net == null:
+		rpc(&"_taken")
+		return
+	if not net.peer_bound.is_connected(_on_peer_bound):
+		net.peer_bound.connect(_on_peer_bound)
+	for peer: int in net.get_scene_peers():
+		rpc_id(peer, &"_taken")
+
+
+## A machine that stood its map up after the orb went is told it is gone.
+func _on_peer_bound(peer: int) -> void:
+	if not _armed:
+		rpc_id(peer, &"_taken")
 
 
 ## Authority to everyone: somebody took the orb.

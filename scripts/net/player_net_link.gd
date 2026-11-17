@@ -344,6 +344,9 @@ func _physics_process(delta: float) -> void:
 	_tick += 1
 	if _is_authority:
 		_packets_this_tick = 0
+		if remote_source != null and controller != null and not controller.is_physics_processing():
+			# A parked body runs no command: presses made meanwhile are not owed to it on its return.
+			remote_source.forget_presses()
 		return
 	if session == null or controller == null:
 		return
@@ -619,6 +622,9 @@ func _send_intent() -> void:
 	_scratch_intent.view_tick = replicator.get_view_tick() if replicator != null else -1
 	_scratch_intent.look_delta = Vector2.ZERO
 	_scratch_intent.normalise()
+	if not controller.is_physics_processing():
+		# Parked: its last intent stands unpolled, and a key pressed now is pressed at nothing.
+		_scratch_intent.clear_presses()
 	_count_presses(_scratch_intent)
 	var redundancy: int = clampi(
 		session.get_settings().intent_redundancy, 1, NetCodec.MAX_INTENT_REDUNDANCY

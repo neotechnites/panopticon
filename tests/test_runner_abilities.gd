@@ -96,7 +96,8 @@ func test_hologram_runs_ahead_and_shatters_without_converting() -> void:
 	assert_not_null(decoy, "a decoy was spawned")
 	if decoy == null:
 		return
-	assert_true(decoy.is_in_group(MatchController.RUNNER_GROUP), "the decoy is a guard candidate")
+	assert_true(decoy.is_in_group(RunnerPower.DECOY_GROUP), "the decoy is a guard candidate")
+	assert_false(decoy.is_in_group(MatchController.RUNNER_GROUP), "and is not listed as a runner")
 	assert_null(_controller.resolve_participant(decoy), "the decoy is no participant")
 	assert_null(decoy.get_node_or_null(^"Brain"), "the decoy has no brain")
 	var start: Vector3 = decoy.global_position

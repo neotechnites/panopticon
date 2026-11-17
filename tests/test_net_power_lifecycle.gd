@@ -1,0 +1,312 @@
+extends "res://tests/support/net_power_wired_rig.gd"
+
+## What a power leaves behind: nothing when its body is freed, one drawing per power on a client
+## however the flags got there, and a hologram that is a target, never a runner, built once.
+
+const NONE: int = MatchRules.RunnerAbility.NONE
+const SHIELD: int = MatchRules.RunnerAbility.BUBBLE_SHIELD
+const HOLOGRAM: int = MatchRules.RunnerAbility.HOLOGRAM
+const ARMOR: int = MatchRules.RunnerAbility.ARMOR_LOCK
+const CAMO: int = MatchRules.RunnerAbility.ACTIVE_CAMO
+const CAT: int = MatchRules.RunnerAbility.CAT_GRENADE
+## How late B draws other bodies in the re-press tests: a jittery line's buffer, in ticks.
+const B_DELAY_TICKS: int = 12
+
+
+func test_the_hosts_body_freed_under_its_shield_leaves_no_shield() -> void:
+	if not await stand_up():
+		return
+	host_keys.tap_slot(SHIELD)
+	await until(func() -> bool: return all_draw(HOST_SEAT, SHIELD))
+	assert_eq_int(_live_nodes(host.get_parent(), "BubbleShield"), 1, "the host raised one shield")
+	_free_body(body_of(host_links, HOST_SEAT))
+	await step_ticks(3)
+	assert_eq_int(
+		_live_nodes(host.get_parent(), "BubbleShield"), 0,
+		"shields left on the host after the body that raised one was freed",
+	)
+
+
+func test_the_hosts_body_freed_while_its_hologram_runs_leaves_no_hologram() -> void:
+	if not await stand_up():
+		return
+	host_keys.tap_slot(HOLOGRAM)
+	await until(func() -> bool: return all_draw(HOST_SEAT, HOLOGRAM))
+	assert_eq_int(_decoys_under(host.get_parent()), 1, "the host sent out one hologram")
+	_free_body(body_of(host_links, HOST_SEAT))
+	await step_ticks(3)
+	assert_eq_int(
+		_decoys_under(host.get_parent()), 0,
+		"holograms left on the host after the body that sent one was freed",
+	)
+
+
+func test_a_mirror_freed_under_its_shield_leaves_no_shield_on_that_client() -> void:
+	if not await stand_up():
+		return
+	a_keys.tap_slot(SHIELD)
+	await until(func() -> bool: return all_draw(A_SEAT, SHIELD))
+	assert_eq_int(_live_nodes(b.get_parent(), "BubbleShield"), 1, "B drew A's shield")
+	_free_body(body_of(b_links, A_SEAT))
+	await step_ticks(3)
+	assert_eq_int(
+		_live_nodes(b.get_parent(), "BubbleShield"), 0,
+		"shields left on B after its copy of the body under one was freed",
+	)
+	assert_eq_int(_live_nodes(host.get_parent(), "BubbleShield"), 1, "the host's shield stands")
+
+
+func test_a_mirror_freed_while_its_hologram_runs_leaves_no_hologram_on_that_client() -> void:
+	if not await stand_up():
+		return
+	a_keys.tap_slot(HOLOGRAM)
+	await until(func() -> bool: return _decoys_under(b.get_parent()) == 1)
+	assert_eq_int(_decoys_under(b.get_parent()), 1, "B drew A's hologram")
+	_free_body(body_of(b_links, A_SEAT))
+	await step_ticks(3)
+	assert_eq_int(
+		_decoys_under(b.get_parent()), 0,
+		"holograms left on B after its copy of the body that sent one was freed",
+	)
+	# The host's hologram keeps moving: its positions must find nothing to build on B.
+	await step_ticks(20)
+	assert_eq_int(_decoys_under(b.get_parent()), 0, "holograms a late position rebuilt on B")
+
+
+func test_a_presented_armor_lock_refuses_a_second_start() -> void:
+	if not await stand_up():
+		return
+	var power: RunnerPower = power_of(b_links, A_SEAT)
+	var body: PlayerController = body_of(b_links, A_SEAT)
+	power.present(MatchRules.RunnerAbility.ARMOR_LOCK, 1.0)
+	var started: bool = power.activate(MatchRules.RunnerAbility.ARMOR_LOCK)
+	assert_false(started, "a press under a presented armor lock starts nothing")
+	assert_eq_int(_live_nodes(body, "ArmorShell"), 1, "shells on the body while the lock is drawn")
+	power.present(MatchRules.RunnerAbility.NONE, 0.0)
+	assert_eq_int(_live_nodes(body, "ArmorShell"), 0, "shells on the body once the lock is over")
+	assert_false(body.movement_locked, "the body is free once the presented lock is over")
+
+
+func test_a_presented_shield_refuses_a_second_start() -> void:
+	if not await stand_up():
+		return
+	var power: RunnerPower = power_of(b_links, A_SEAT)
+	power.present(MatchRules.RunnerAbility.BUBBLE_SHIELD, 1.0)
+	var started: bool = power.activate(MatchRules.RunnerAbility.BUBBLE_SHIELD)
+	assert_false(started, "a press under a presented shield starts nothing")
+	assert_eq_int(
+		_live_nodes(b.get_parent(), "BubbleShield"), 1, "shields on B while one is drawn"
+	)
+	power.present(MatchRules.RunnerAbility.NONE, 0.0)
+	assert_eq_int(
+		_live_nodes(b.get_parent(), "BubbleShield"), 0, "shields on B once the shield is over"
+	)
+
+
+func test_a_presented_camo_refuses_a_second_start_and_gives_the_skin_back() -> void:
+	if not await stand_up():
+		return
+	var power: RunnerPower = power_of(b_links, A_SEAT)
+	var mesh: MeshInstance3D = _skin_of(body_of(b_links, A_SEAT))
+	if not assert_not_null(mesh, "the fixture body has a mesh for camo to tint"):
+		return
+	var worn: Material = mesh.material_override
+	power.present(MatchRules.RunnerAbility.ACTIVE_CAMO, 1.0)
+	assert_true(mesh.material_override != worn, "presented camo tints the body")
+	var started: bool = power.activate(MatchRules.RunnerAbility.ACTIVE_CAMO)
+	assert_false(started, "a press under presented camo starts nothing")
+	power.present(MatchRules.RunnerAbility.NONE, 0.0)
+	assert_same(mesh.material_override, worn, "the body wears what it wore before the camo")
+
+
+func test_presenting_a_predicted_power_leaves_one_drawing_and_one_flag() -> void:
+	if not await stand_up():
+		return
+	var power: RunnerPower = power_of(b_links, A_SEAT)
+	var body: PlayerController = body_of(b_links, A_SEAT)
+	assert_true(power.activate(MatchRules.RunnerAbility.ARMOR_LOCK), "the lock starts on a press")
+	power.present(MatchRules.RunnerAbility.ARMOR_LOCK, 1.0)
+	assert_eq_int(_live_nodes(body, "ArmorShell"), 1, "shells after the host confirmed the lock")
+	assert_eq_int(int(power.get_active()), NONE, "the confirmed lock is the host's, not a prediction")
+	assert_eq_int(int(power.get_shown()), ARMOR, "the confirmed lock is still drawn")
+	power.present(MatchRules.RunnerAbility.NONE, 0.0)
+	assert_eq_int(_live_nodes(body, "ArmorShell"), 0, "shells once the host says it is over")
+	assert_eq_int(int(power.get_shown()), NONE, "nothing drawn once the host says it is over")
+	assert_false(body.movement_locked, "the body is free once the host says it is over")
+	assert_true(power.activate(MatchRules.RunnerAbility.BUBBLE_SHIELD), "a shield starts on a press")
+	power.present(MatchRules.RunnerAbility.ACTIVE_CAMO, 1.0)
+	assert_eq_int(
+		_live_nodes(b.get_parent(), "BubbleShield"), 0,
+		"shields left when the host ran a different power than the one predicted",
+	)
+	power.present(MatchRules.RunnerAbility.NONE, 0.0)
+
+
+func test_a_hologram_is_a_decoy_and_not_a_runner_on_every_machine() -> void:
+	if not await stand_up():
+		return
+	a_keys.tap_slot(HOLOGRAM)
+	var built: bool = await until(
+		func() -> bool:
+			return (
+				power_of(host_links, A_SEAT).get_decoy() != null
+				and power_of(a_links, A_SEAT).get_decoy() != null
+				and power_of(b_links, A_SEAT).get_decoy() != null
+			)
+	)
+	if not assert_true(built, "A's hologram exists on host, A and B"):
+		return
+	var machines: Array[String] = ["the host", "A", "B"]
+	var all_links: Array = [host_links, a_links, b_links]
+	for index: int in machines.size():
+		var links: Array[PlayerNetLink] = all_links[index]
+		var decoy: PlayerController = power_of(links, A_SEAT).get_decoy()
+		assert_false(
+			decoy.is_in_group(MatchController.RUNNER_GROUP),
+			"the hologram on %s is listed as a runner" % machines[index],
+		)
+		assert_true(
+			decoy.is_in_group(RunnerPower.DECOY_GROUP),
+			"the hologram on %s is listed as a decoy" % machines[index],
+		)
+	var listed: int = 0
+	for node: Node in get_tree().get_nodes_in_group(MatchController.RUNNER_GROUP):
+		if node.is_in_group(RunnerPower.DECOY_GROUP):
+			listed += 1
+	assert_eq_int(listed, 0, "decoys anywhere in the runner group")
+
+
+func test_a_late_position_builds_no_hologram_after_it_ended() -> void:
+	if not await stand_up():
+		return
+	a_keys.tap_slot(HOLOGRAM)
+	var up: bool = await until(func() -> bool: return all_draw(A_SEAT, HOLOGRAM))
+	assert_true(up, "A's hologram ran: %s" % str(drawn(A_SEAT)))
+	var over: bool = await until(
+		func() -> bool:
+			return (
+				all_draw(A_SEAT, NONE)
+				and power_of(a_links, A_SEAT).get_decoy() == null
+				and power_of(b_links, A_SEAT).get_decoy() == null
+			)
+	)
+	assert_true(over, "A's hologram ended on every machine")
+	for links: Array[PlayerNetLink] in [a_links, b_links]:
+		var power: RunnerPower = power_of(links, A_SEAT)
+		power.present_decoy(Vector3(1.0, 0.0, 1.0), 0.0)
+		assert_null(power.get_decoy(), "a position with no spawn before it built a hologram")
+	assert_eq_int(
+		_decoys_under(a.get_parent()) + _decoys_under(b.get_parent()), 0,
+		"holograms on the clients after the power ended",
+	)
+
+
+func test_the_hosts_hologram_pressed_again_the_tick_the_last_ended_is_placed_once_on_b() -> void:
+	await _repress_the_tick_it_ended(HOST_SEAT)
+
+
+func test_a_clients_hologram_pressed_again_the_tick_the_last_ended_is_placed_once_on_b() -> void:
+	await _repress_the_tick_it_ended(A_SEAT)
+
+
+func test_powers_running_at_stand_down_come_down_quietly() -> void:
+	if not await stand_up():
+		return
+	a_keys.held.ability_held = true
+	a_keys.tap_slot(ARMOR)
+	host_keys.tap_slot(HOLOGRAM)
+	var up: bool = await until(
+		func() -> bool: return all_draw(A_SEAT, ARMOR) and all_draw(HOST_SEAT, HOLOGRAM)
+	)
+	assert_true(up, "an armor lock and a hologram are running as the session comes down")
+	assert_eq_int(_decoys_under(b.get_parent()), 1, "B is drawing the host's hologram")
+
+
+func test_a_shield_and_a_held_cat_at_stand_down_come_down_quietly() -> void:
+	if not await stand_up():
+		return
+	a_keys.tap_slot(CAT)
+	host_keys.tap_slot(SHIELD)
+	var up: bool = await until(
+		func() -> bool: return all_draw(A_SEAT, CAT) and all_draw(HOST_SEAT, SHIELD)
+	)
+	assert_true(up, "a held cat and a shield are running as the session comes down")
+	a_keys.tap(&"cook_pressed")
+	await step_ticks(10)
+	assert_eq_int(drawn(A_SEAT)[0], CAT, "the cat is cooking as the session comes down")
+
+
+## The owner of [param seat] presses 2, and again on the first tick its hologram is over. B draws
+## the world a jitter buffer late, so the last hologram's ending is drawn after the new one is built.
+func _repress_the_tick_it_ended(seat: int) -> void:
+	b.get_settings().interpolation_delay_ticks = B_DELAY_TICKS
+	if not await stand_up():
+		return
+	var keys: PressSource = host_keys if seat == HOST_SEAT else a_keys
+	var owner_links: Array[PlayerNetLink] = host_links if seat == HOST_SEAT else a_links
+	var owner_power: RunnerPower = power_of(owner_links, seat)
+	var host_power: RunnerPower = power_of(host_links, seat)
+	var b_power: RunnerPower = power_of(b_links, seat)
+	# Past a connection's first seconds, so a client's press is not inside ENet's opening pass.
+	await step_ticks(150)
+	keys.tap_slot(HOLOGRAM)
+	var up: bool = await until(func() -> bool: return all_draw(seat, HOLOGRAM))
+	assert_true(up, "the first hologram ran: %s" % str(drawn(seat)))
+	var ended: bool = false
+	for _tick: int in 240:
+		await step_ticks(1)
+		if int(owner_power.get_shown()) == NONE:
+			ended = true
+			break
+	if not assert_true(ended, "the first hologram ended on its owner's machine"):
+		return
+	var old: PlayerController = b_power.get_decoy()
+	var old_id: int = old.get_instance_id() if old != null else 0
+	keys.tap_slot(HOLOGRAM)
+	var built: Dictionary[int, bool] = {}
+	for _tick: int in 30:
+		await step_ticks(1)
+		var now: PlayerController = b_power.get_decoy()
+		if now != null and now.get_instance_id() != old_id:
+			built[now.get_instance_id()] = true
+	var on_host: PlayerController = host_power.get_decoy()
+	var on_b: PlayerController = b_power.get_decoy()
+	if not assert_not_null(on_host, "the host runs the second hologram"):
+		return
+	if not assert_not_null(on_b, "B draws the second hologram 30 ticks after the press"):
+		return
+	var apart: float = on_b.global_position.distance_to(on_host.global_position)
+	print("    second hologram: B is %.3f m from the host's, built %d time(s)" % [apart, built.size()])
+	assert_lt(apart, 0.5, "metres between B's copy of the second hologram and the host's")
+	assert_eq_int(built.size(), 1, "times B built the second hologram")
+
+
+func _free_body(body: PlayerController) -> void:
+	body.get_parent().remove_child(body)
+	body.queue_free()
+
+
+## Live holograms under [param root].
+func _decoys_under(root: Node) -> int:
+	var found: int = 0
+	for node: Node in get_tree().get_nodes_in_group(RunnerPower.DECOY_GROUP):
+		if root.is_ancestor_of(node) and not node.is_queued_for_deletion():
+			found += 1
+	return found
+
+
+## Nodes under [param root] whose name carries [param fragment] and that are not on their way out.
+func _live_nodes(root: Node, fragment: String) -> int:
+	var found: int = 0
+	for node: Node in root.find_children("*%s*" % fragment, "", true, false):
+		if not node.is_queued_for_deletion():
+			found += 1
+	return found
+
+
+## The mesh camo repaints: the avatar's, or the plain body mesh.
+func _skin_of(body: PlayerController) -> MeshInstance3D:
+	var avatar: PrisonerAvatar = body.get_node_or_null(^"Avatar") as PrisonerAvatar
+	if avatar != null and avatar.mesh != null:
+		return avatar.mesh
+	return body.get_node_or_null(^"BodyMesh") as MeshInstance3D

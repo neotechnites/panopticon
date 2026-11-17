@@ -62,6 +62,8 @@ signal match_launching()
 ## A client reported its match scene bound at its seat. Authority only; see
 ## [method acknowledge_launch].
 signal peer_launched(peer_id: int, seat_index: int)
+## Authority: [param peer_id] has the scene of [param epoch] standing and can be sent its events.
+signal scene_bound(peer_id: int, epoch: int)
 
 ## The host's match rules arrived or changed. See [method get_rules].
 signal rules_changed()
@@ -109,6 +111,8 @@ var _phase: Phase = Phase.IDLE
 
 ## Peers that have acknowledged the launch. Authority only; cleared by [method launch].
 var _launched: Dictionary[int, bool] = {}
+## Authority: the scene epoch each peer last said it has standing. See [method acknowledge_scene].
+var _bound_epochs: Dictionary[int, int] = {}
 
 ## The host's [MatchRules], on every machine. Set by the host through
 ## [method set_rules]; null until it has.
@@ -524,6 +528,17 @@ func acknowledge_launch() -> void:
 	rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_request_launched", get_local_seat_index())
 
 
+## A client's word that its scene for [param epoch] stands: until then nothing in it can take an RPC.
+func acknowledge_scene(epoch: int) -> void:
+	if not _is_authority():
+		rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_request_scene_bound", epoch)
+
+
+## True once [param peer_id] has the scene of [param epoch] standing. The host always has.
+func has_bound(peer_id: int, epoch: int) -> bool:
+	return peer_id == NetTransport.AUTHORITY_PEER_ID or int(_bound_epochs.get(peer_id, -1)) == epoch
+
+
 ## True once [param peer_id] has acknowledged the launch. The host always has.
 func has_launched(peer_id: int) -> bool:
 	return peer_id == NetTransport.AUTHORITY_PEER_ID or bool(_launched.get(peer_id, false))
@@ -629,6 +644,7 @@ func _on_peer_left(peer_id: int) -> void:
 	_request_tokens.erase(peer_id)
 	_request_filled_ms.erase(peer_id)
 	_launched.erase(peer_id)
+	_bound_epochs.erase(peer_id)
 	if not _is_authority():
 		return
 	var seat: LobbySeat = find_seat_by_peer(peer_id)
@@ -710,6 +726,17 @@ func _request_ready(ready: bool) -> void:
 	if seat == null:
 		return
 	_apply_ready(seat.index, ready)
+
+
+## Client to authority: my scene for this epoch stands.
+@rpc("any_peer", "reliable", "call_remote", 0)
+func _request_scene_bound(epoch: int) -> void:
+	# Not rate limited: it is sent once a scene, and one dropped is a peer told nothing in it.
+	var seat: LobbySeat = find_seat_by_peer(multiplayer.get_remote_sender_id())
+	if seat == null or not _is_authority():
+		return
+	_bound_epochs[seat.peer_id] = epoch
+	scene_bound.emit(seat.peer_id, epoch)
 
 
 ## Client to authority: my match scene is bound, at this seat.

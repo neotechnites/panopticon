@@ -48,6 +48,7 @@ var _pet_tween: Tween = null
 var _fuse: int = 0
 var _gone: bool = false
 var _purr: AudioStreamPlayer3D = null
+var _net: NetMatch = null
 
 
 func _ready() -> void:
@@ -59,6 +60,8 @@ func _ready() -> void:
 	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
 	freeze = true
 	_all.append(self)
+	# Once the scene stands: the match layer beside this cat says who may be told about it.
+	_net_match.call_deferred()
 
 
 func _exit_tree() -> void:
@@ -190,7 +193,7 @@ func _announce_held(held: bool) -> void:
 		if link != null:
 			peer = link.owner_peer_id
 	if _networked():
-		rpc(&"_held_by", peer if held else 0)
+		_tell(&"_held_by", [peer if held else 0])
 	_held_by(peer if held else 0)
 
 
@@ -279,26 +282,28 @@ func _explode(fuse: int) -> void:
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	if _networked():
-		rpc(&"_exploded", at)
-	_exploded(at)
+		_tell(&"_exploded", [at, true])
+	_exploded(at, true)
 	get_tree().create_timer(RESPAWN_SECONDS).timeout.connect(_respawn)
 
 
 func _respawn() -> void:
 	if _networked():
-		rpc(&"_returned")
+		_tell(&"_returned", [])
 	_returned()
 
 
 ## Authority to everyone: the cat went off at [param at], and is hidden at home until it returns.
+## [param loud] is false for a machine that arrived after the blast.
 @rpc("authority", "reliable", "call_remote", 0)
-func _exploded(at: Vector3) -> void:
+func _exploded(at: Vector3, loud: bool) -> void:
 	if not at.is_finite():
 		return
 	_gone = true
 	_become_neutral()
 	_set_local_held(false)
-	_show_blast(at)
+	if loud:
+		_show_blast(at)
 	visible = false
 	collision_layer = 0
 	collision_mask = 0
@@ -377,7 +382,7 @@ func _physics_process(_delta: float) -> void:
 		_settle(Transform3D(Basis(Vector3.UP, rotation.y), global_position))
 		return
 	if _networked():
-		rpc(&"_pose", global_position, rotation.y)
+		_tell_pose()
 
 
 func _drop() -> void:
@@ -398,7 +403,40 @@ func _settle(where: Transform3D) -> void:
 	angular_velocity = Vector3.ZERO
 	global_transform = where
 	if _networked():
-		rpc(&"_rest", where.origin, where.basis.get_euler().y)
+		_tell(&"_rest", [where.origin, where.basis.get_euler().y])
+
+
+## Send [param method] to every machine whose hub stands; one still loading has no cat to hear it.
+func _tell(method: StringName, args: Array) -> void:
+	var net: NetMatch = _net_match()
+	if net == null:
+		return
+	for peer: int in net.get_scene_peers():
+		callv(&"rpc_id", [peer, method] + args)
+
+
+func _tell_pose() -> void:
+	var net: NetMatch = _net_match()
+	if net == null:
+		return
+	for peer: int in net.get_scene_peers():
+		rpc_id(peer, &"_pose", global_position, rotation.y)
+
+
+func _net_match() -> NetMatch:
+	if not is_instance_valid(_net):
+		_net = NetMatch.of(self)
+		if _net != null and multiplayer.is_server():
+			_net.peer_bound.connect(_on_peer_bound)
+	return _net
+
+
+## A machine whose hub has just stood up is told where this cat is.
+func _on_peer_bound(peer: int) -> void:
+	if _gone:
+		rpc_id(peer, &"_exploded", global_position, false)
+	else:
+		rpc_id(peer, &"_rest", global_position, rotation.y)
 
 
 func _networked() -> bool:
