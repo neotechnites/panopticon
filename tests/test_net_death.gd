@@ -116,8 +116,9 @@ func _every_peer_sees_limp(slot: int, why: String) -> bool:
 ## The host's ghost in [param slot] is back in the world, and the peers have heard.
 func _respawned(slot: int) -> bool:
 	var host_side: MatchParticipant = _rig.participant(HOST, slot)
-	if not await _rig.wait_for(
-		func() -> bool: return host_side.is_ghost and host_side.body.is_physics_processing()
+	var host: MatchController = _rig.controller(HOST)
+	if not await _rig.wait_for(func() -> bool:
+		return host_side.is_ghost and not host.is_awaiting_respawn(host_side) and host_side.body.is_physics_processing()
 	):
 		fail("the host never put slot %d back as a ghost" % slot)
 		return false
@@ -557,3 +558,64 @@ func _distance_to_path(point: Vector3, path: PackedVector3Array) -> float:
 		var closest: Vector3 = Geometry3D.get_closest_point_to_segment(point, path[i - 1], path[i])
 		best = minf(best, point.distance_to(closest))
 	return best
+
+
+## Client 1 leaves; true once the host and the other client both hold its seat as a bot's.
+func _client_one_drops(slot: int) -> bool:
+	_rig.sessions[1].leave()
+	var carried: bool = await _rig.wait_for(func() -> bool:
+		return not _rig.participant(HOST, slot).is_human() and not _rig.participant(2, slot).is_human())
+	assert_true(carried, "the dropped client's seat is a bot's on the host and on the client left")
+	return carried
+
+
+func test_a_client_that_drops_while_dead_comes_back_as_a_bot_ghost() -> void:
+	if not await _start_round(2, 4):
+		return
+	var host: MatchController = _rig.controller(HOST)
+	TestFixtures.pin_the_field(host, _rig.participant(HOST, 1))
+	_shoot(1)
+	if not await _rig.wait_for(func() -> bool: return _rig.participant(2, 1).is_ghost):
+		fail("the death never reached the other client")
+		return
+	assert_true(host.is_awaiting_respawn(_rig.participant(HOST, 1)), "the client is still held where it died")
+	if not await _client_one_drops(1):
+		return
+	var ghost: MatchParticipant = _rig.participant(HOST, 1)
+	assert_true(host.is_awaiting_respawn(ghost), "the hold outlives the player")
+	assert_false(ghost.body.is_physics_processing(), "and the body stays held where it died, not simulated")
+	if not await _respawned(1):
+		return
+	assert_true(ghost.brain != null and ghost.brain.is_chasing(), "and it chases, as a bot's ghost does")
+	await step_ticks(_cross)
+	var seen: MatchParticipant = _rig.participant(2, 1)
+	assert_true(seen.is_ghost, "the client left holds it as a ghost")
+	assert_false(_rig.controller(2).is_awaiting_respawn(seen), "back in the world")
+	assert_false(_lies_dead(2, 1), "standing, not lying where the player left it")
+	assert_lt(_rig.controller(2).get_body_color(seen).a, 1.0, "in the ghost colour")
+
+
+func test_a_finisher_that_drops_is_carried_on_by_a_bot_that_hunts_the_guard() -> void:
+	if not await _start_round(2, 4):
+		return
+	var host: MatchController = _rig.controller(HOST)
+	var finisher: MatchParticipant = _rig.participant(HOST, 1)
+	TestFixtures.pin_the_field(host, finisher)
+	host.call(&"_arm_the_finisher", finisher)
+	if not await _rig.wait_for(func() -> bool: return _rig.participant(2, 1).is_finisher and finisher.body.is_physics_processing()):
+		fail("the finisher never reached the tower on every peer")
+		return
+	if not await _client_one_drops(1):
+		return
+	assert_true(finisher.is_finisher, "the bot is still the finisher")
+	assert_true(finisher.brain != null and finisher.brain.is_chasing(), "and it hunts")
+	assert_same(finisher.brain.get_chase_target(), _rig.body(HOST, 0), "the guard, not the field")
+	var round_before: int = host.get_round_number()
+	if not await _rig.wait_for(func() -> bool: return host.get_round_number() > round_before, 8000):
+		fail("the bot finisher never threw the guard out")
+		return
+	var mirror: MatchController = _rig.controller(2)
+	if not await _rig.wait_for(func() -> bool: return mirror.get_round_number() == host.get_round_number()):
+		fail("the client left never saw the next round")
+		return
+	assert_same(mirror.get_seat_participant(), _rig.participant(2, 1), "the client left sees the bot take the tower")

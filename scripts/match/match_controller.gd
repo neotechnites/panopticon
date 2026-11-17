@@ -1801,7 +1801,9 @@ func net_seat_to_bot(index: int) -> void:
 	participant.brain = _find_brain(participant.body)
 	if _mirror or participant.brain == null:
 		return
-	if participant.is_running:
+	if participant.is_finisher:
+		_hunt_the_guard(participant)
+	elif participant.is_running:
 		_start_running_in_place(participant, participant.tracker.get_travelled_arc(), null)
 	elif participant.is_ghost:
 		participant.brain.rules = get_rules()
