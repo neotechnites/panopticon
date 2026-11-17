@@ -127,6 +127,41 @@ func test_a_joiner_on_another_build_is_told_so() -> void:
 	assert_null(host.lobby.find_seat_by_peer(client.get_local_peer_id()), "it was never seated")
 
 
+func test_a_peer_that_connects_and_never_asks_is_dropped() -> void:
+	var host: NetSession = await _host()
+	if host == null:
+		return
+	var client: NetSession = _peer("Mute")
+	client.session_established.disconnect(client.lobby._on_session_established)
+	client.join("127.0.0.1", _port)
+	assert_true(await _until(func() -> bool: return host.get_peer_count() == 2), "the mute peer connects")
+	assert_eq_int(host.lobby.get_occupant_count(), 1, "and is given no seat")
+	assert_true(await _until(func() -> bool: return host.get_peer_count() == 1), "and is dropped when its grace is up")
+
+
+func test_opening_a_lobby_seats_only_peers_that_asked_and_were_not_refused() -> void:
+	var host: NetSession = _peer("Host")
+	_port = await NetFixtures.host_and_wait(self, host)
+	var good: NetSession = _peer("Good")
+	good.lobby.local_name = "Bo"
+	var other: NetSession = _peer("Other")
+	other.lobby.build_fingerprint += 1
+	var turned_away: Array[int] = []
+	host.lobby.join_refused.connect(func(peer_id: int, _why: String) -> void: turned_away.append(peer_id))
+	good.join("127.0.0.1", _port)
+	other.join("127.0.0.1", _port)
+	assert_true(
+		await _until(func() -> bool: return host.lobby.has_asked(good.get_local_peer_id()) and not turned_away.is_empty()),
+		"both have asked a lobby nobody has opened, and the other build was turned away",
+	)
+	host.lobby.open("Host")
+	assert_eq_int(host.lobby.get_occupant_count(), 2, "opening seats the host and the one whose build matched")
+	var seat: LobbySeat = host.lobby.find_seat_by_peer(good.get_local_peer_id())
+	assert_not_null(seat, "that one is seated")
+	if seat != null:
+		assert_eq_string(seat.display_name, "Bo", "under its name")
+
+
 ## A silent peer is one whose game has stopped while its socket still answers; ENet alone never drops it.
 func _silent_pair() -> Array[NetSession]:
 	var quick: NetSettings = NetFixtures.settings()
@@ -137,6 +172,12 @@ func _silent_pair() -> Array[NetSession]:
 	var client: NetSession = _peer("Client", quick.duplicate() as NetSettings)
 	if not await NetFixtures.join_and_wait(self, client, host, _port):
 		fail("the client never connected")
+		return []
+	# The host times a peer only once its scene stands; here the client says its hub does.
+	await _until(func() -> bool: return client.lobby.get_local_seat() != null)
+	client.lobby.acknowledge_scene(client.lobby.get_epoch())
+	if not await _until(func() -> bool: return host.lobby.is_scene_standing(client.get_local_peer_id())):
+		fail("the host never heard the client's scene stands")
 		return []
 	return [host, client]
 

@@ -156,6 +156,8 @@ var _last_winning_seat: int = -1
 
 ## Authority: the name each connected peer asked to join under. A peer absent here has not asked.
 var _asked: Dictionary[int, String] = {}
+## Authority: peers turned away and waiting to be dropped.
+var _refused: Dictionary[int, bool] = {}
 
 ## Each peer's lobby-request allowance, and when it was last topped up, from
 ## [method Time.get_ticks_msec]. Wall clock: a flood arrives over a socket and
@@ -170,6 +172,7 @@ func _ready() -> void:
 		push_error("NetLobby has no session; it cannot seat anyone.")
 		return
 	session.session_established.connect(_on_session_established)
+	session.peer_joined.connect(_on_peer_joined)
 	session.peer_left.connect(_on_peer_left)
 	session.session_ended.connect(_on_session_ended)
 
@@ -218,6 +221,13 @@ func get_seat(seat_index: int) -> LobbySeat:
 ## Authority: whether [param peer_id] has asked to join since it connected.
 func has_asked(peer_id: int) -> bool:
 	return _asked.has(peer_id)
+
+
+## Authority: whether [param peer_id]'s copy of the scene the lobby names stands: bound hub, launched match.
+func is_scene_standing(peer_id: int) -> bool:
+	if _phase == Phase.IDLE or find_seat_by_peer(peer_id) == null:
+		return false
+	return has_bound(peer_id, _epoch) if _phase == Phase.GATHERING else has_launched(peer_id)
 
 
 ## The seat a peer is sitting in, or null. Never matches on 0: a peer id of
@@ -313,8 +323,8 @@ func describe() -> String:
 ## [method NetSession.is_authority] answers true for so neither needs a special
 ## case here.
 ##
-## Any peers already connected are seated too: one that arrived before this
-## call has asked to join already, and is not asked again.
+## Peers that asked to join before this call are seated too; one that has not
+## asked yet is seated when it does.
 func open(local_display_name: String) -> bool:
 	if not _is_authority():
 		return false
@@ -332,10 +342,10 @@ func open(local_display_name: String) -> bool:
 	_local_seat_index = 0
 
 	for peer_id: int in session.get_peer_ids():
-		if peer_id != NetTransport.AUTHORITY_PEER_ID:
+		if peer_id != NetTransport.AUTHORITY_PEER_ID and _asked.has(peer_id) and not _refused.has(peer_id):
 			var seat: LobbySeat = _seat_peer(peer_id)
 			if seat != null:
-				seat.display_name = _clean(_asked.get(peer_id, ""))
+				seat.display_name = _clean(_asked[peer_id])
 
 	_set_phase(Phase.GATHERING)
 	_publish()
@@ -365,6 +375,7 @@ func set_rules(source: MatchRules) -> bool:
 func close() -> void:
 	if not session.is_established():
 		_asked.clear()
+		_refused.clear()
 	_reset_seats()
 	_local_seat_index = -1
 	_epoch = 0
@@ -652,6 +663,14 @@ func return_to_lobby() -> bool:
 
 # --- Session events -----------------------------------------------------------
 
+## Authority: a peer that connects and never asks to join holds a connection for nothing; it gets the same grace.
+func _on_peer_joined(peer_id: int) -> void:
+	if _is_authority() and peer_id != NetTransport.AUTHORITY_PEER_ID:
+		get_tree().create_timer(REFUSAL_GRACE_SECONDS, true, false, true).timeout.connect(
+			_drop_refused.bind(peer_id)
+		)
+
+
 ## A client says who it is the moment it is connected; the host seats nobody it has not heard from.
 func _on_session_established() -> void:
 	if not _is_authority():
@@ -711,6 +730,7 @@ func _admit(peer_id: int) -> void:
 
 ## Turn a peer away: it is told why, and dropped if it has not left by itself.
 func _refuse(peer_id: int, reason: Refusal) -> void:
+	_refused[peer_id] = true
 	join_refused.emit(peer_id, String(Refusal.keys()[reason]))
 	rpc_id(peer_id, &"_receive_refusal", int(reason))
 	get_tree().create_timer(REFUSAL_GRACE_SECONDS, true, false, true).timeout.connect(
@@ -718,8 +738,9 @@ func _refuse(peer_id: int, reason: Refusal) -> void:
 	)
 
 
+## Drop a peer that was refused, or that never asked, once its grace is up.
 func _drop_refused(peer_id: int) -> void:
-	if session.has_peer(peer_id) and find_seat_by_peer(peer_id) == null:
+	if session.has_peer(peer_id) and (_refused.has(peer_id) or not _asked.has(peer_id)):
 		session.kick_peer(peer_id)
 
 
@@ -734,6 +755,7 @@ func _receive_refusal(reason: int) -> void:
 
 func _on_peer_left(peer_id: int) -> void:
 	_asked.erase(peer_id)
+	_refused.erase(peer_id)
 	_request_tokens.erase(peer_id)
 	_request_filled_ms.erase(peer_id)
 	_launched.erase(peer_id)

@@ -214,8 +214,10 @@ func show_result() -> void:
 		result_shown.emit(controller.get_match_winner())
 	if _play_again_button.visible:
 		_play_again_button.grab_focus()
-	else:
+	elif _rematch_button.is_visible_in_tree():
 		_rematch_button.grab_focus()
+	else:
+		_main_menu_button.grab_focus()
 
 
 ## The host is gone, so the match is over here too; the only way out is the menu.

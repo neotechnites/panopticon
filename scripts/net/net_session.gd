@@ -139,6 +139,7 @@ func _process(_delta: float) -> void:
 ## to [constant NetTransport.MAX_PLAYERS].
 ## Keep-alives out, and anyone silent past [member NetSettings.peer_timeout_seconds] dropped: the
 ## host drops that client and tells it, a client gives the host up. ENet's own timer lands late.
+## A machine that froze reads the host's drop from its socket the moment it wakes.
 func _watch_peers() -> void:
 	var now: int = Time.get_ticks_msec()
 	var frame_gap: int = now - _frame_ms if _frame_ms > 0 else 0
@@ -147,10 +148,6 @@ func _watch_peers() -> void:
 		return
 	var limit: int = int(get_settings().peer_timeout_seconds * 1000.0)
 	var hosting: bool = is_authority()
-	if frame_gap >= limit and not hosting:
-		# This machine said nothing for longer than the host waits for anyone: it has been dropped.
-		transport.abort()
-		return
 	if now - _beat_sent_ms >= BEAT_MS:
 		_beat_sent_ms = now
 		if not hosting:
@@ -161,7 +158,9 @@ func _watch_peers() -> void:
 		var peer_id: int = _peers[index]
 		if peer_id == get_local_peer_id() or (not hosting and peer_id != NetTransport.AUTHORITY_PEER_ID):
 			continue
-		if frame_gap >= DEAF_FRAME_MS or not _heard_ms.has(peer_id):
+		# A peer still loading the scene the lobby names is waited for by the launch, not timed here.
+		var loading: bool = hosting and lobby != null and not lobby.is_scene_standing(peer_id)
+		if frame_gap >= DEAF_FRAME_MS or loading or not _heard_ms.has(peer_id):
 			_heard_ms[peer_id] = now
 		elif now - _heard_ms[peer_id] > limit:
 			if not hosting:

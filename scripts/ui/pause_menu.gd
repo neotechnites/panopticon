@@ -323,6 +323,8 @@ func _take_all_to_hub() -> void:
 ## play's wish, because a menu is not a match. [method close] is not reused for
 ## the same reason.
 func return_to_main_menu() -> void:
+	if not is_inside_tree():
+		return
 	if main_menu_scene_path.is_empty():
 		push_error("PauseMenu has no main_menu_scene_path; staying in the match.")
 		return

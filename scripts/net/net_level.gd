@@ -22,6 +22,10 @@ func _ready() -> void:
 
 func _on_roster_changed() -> void:
 	var lobby: NetLobby = session.lobby
+	if lobby.get_local_seat() == null:
+		# Not seated (refused, or the lobby closed): the host's scenes are not this machine's to follow.
+		_epoch = 0
+		return
 	if lobby.get_epoch() == _epoch:
 		return
 	_epoch = lobby.get_epoch()
