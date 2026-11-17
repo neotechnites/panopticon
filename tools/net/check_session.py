@@ -661,7 +661,9 @@ def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, 
                     off = next((l for l in powers if l.kv.get("seat") == seat and l.w > on.w), None)
                     held = (release.w - press.w) if release else 0.0
                     ran = (off.w - on.w) if off else host.last_w - on.w
-                    if held >= 1.0 and ran < min(held, 5.0) - 0.6:
+                    cut = any(on.w <= l.w <= on.w + ran + 0.1 for l in host.tagged("STATE"))
+                    # A round or phase change inside the hold ends the lock by rule.
+                    if held >= 1.0 and ran < min(held, 5.0) - 0.6 and not cut:
                         v.fail("press", peer.name, f"armor lock held {held:.1f} s ran only {ran:.1f} s on the host", host.ref(on))
             elif key in "bn":
                 what = "emote" + (" (alt)" if key == "n" else "")
@@ -784,7 +786,11 @@ def check_expect(host: Peer, peers: list[Peer], gone: set[int], scenario: dict, 
             if lost is None and in_match and expect.get("host_lost") == "in-match":
                 v.fail("expect", peer.name, "the host quit mid-match and NetMatch.host_lost never fired here",
                        peer.ref(ended) if ended else "")
-            shown = any(l.tag == "RESULT" and "showing=1" in l.rest and lost is not None and l.w >= lost.w - 0.1 for l in peer.lines)
+            results = [l for l in peer.lines if l.tag == "RESULT"]
+            before = [l for l in results if lost is not None and l.w < lost.w]
+            # Up already (the match was over), or raised by the loss.
+            shown = (bool(before) and "showing=1" in before[-1].rest) or any(
+                "showing=1" in l.rest and lost is not None and l.w >= lost.w - 0.1 for l in results)
             if lost is not None and in_match and not shown:
                 v.fail("expect", peer.name, "host lost and the result screen never came up to say so", peer.ref(lost))
     for seat in expect.get("seat_to_bot", []):

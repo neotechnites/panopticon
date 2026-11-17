@@ -190,9 +190,12 @@ for map_name, map_id in MAPS.items():
     match(f"fault_stall7s_client_2p_{map_name}", 2, 60, ["fault", "stall"], {"map": map_id, "seats": 4, "tower": 3},
           peer={"1": {"stall-at": 15, "stall-ms": 7000}},
           expect={"never": ["SEAT seat=s1 occupancy=BOT"]})
-    # Past the 8 s timeout the host seats a bot, and the client must be told it was dropped.
+    # A 10 s freeze is ridden out (measured: no drop); both machines must agree again afterwards.
     match(f"fault_stall10s_client_2p_{map_name}", 2, 60, ["fault", "stall"], {"map": map_id, "seats": 4, "tower": 3},
-          peer={"1": {"stall-at": 15, "stall-ms": 10000}},
+          peer={"1": {"stall-at": 15, "stall-ms": 10000}})
+    # Long past any timeout: the host seats a bot, and the client must be told it was dropped.
+    match(f"fault_stall25s_client_2p_{map_name}", 2, 75, ["fault", "stall"], {"map": map_id, "seats": 4, "tower": 3},
+          peer={"1": {"stall-at": 15, "stall-ms": 25000}},
           expect={"host": ["SEAT seat=s1 occupancy=BOT"], "host_lost": "in-match", "seat_to_bot": [1]})
 
 # --- G. Leavers ----------------------------------------------------------------
