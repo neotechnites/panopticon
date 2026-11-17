@@ -504,6 +504,8 @@ var debug_clock_paused: bool = false
 
 ## Physics frames left before the bodies placed by the last arming are woken.
 var _settle_frames: int = 0
+## The hub's lowest drawn point: a body under it has left the hub.
+var _hub_bottom: float = -INF
 
 var _phase: Phase = Phase.IDLE
 var _outcome: Outcome = Outcome.IN_PROGRESS
@@ -726,6 +728,7 @@ func _physics_process(delta: float) -> void:
 			# The server rules on a shove in a hub exactly as it does in a
 			# round: a client's press arrives as intent and is read here.
 			_tick_shoves(delta)
+			_catch_hub_fallers()
 		return
 	if _mirror:
 		# The settle runs on a mirror too, or every placed body keeps the
@@ -954,7 +957,34 @@ func start_hub() -> void:
 	var spawns: Array[Marker3D] = _hub_spawns()
 	for index: int in _participants.size():
 		_place_in_hub(_participants[index], index, spawns)
+	_hub_bottom = _lowest_geometry(arena)
 	match_started.emit(_participants.size())
+
+
+## Whoever has dropped under everything the hub is made of goes back on their spawn: a lobby has
+## no pit to die in, and past its edge there is nothing to land on.
+func _catch_hub_fallers() -> void:
+	var spawns: Array[Marker3D] = []
+	for index: int in _participants.size():
+		var body: PlayerController = _participants[index].body
+		if body == null or not body.is_physics_processing() or body.global_position.y >= _hub_bottom:
+			continue
+		if spawns.is_empty():
+			spawns = _hub_spawns()
+		if spawns.is_empty():
+			return
+		var marker: Marker3D = spawns[index % spawns.size()]
+		body.global_position = marker.global_position
+		body.velocity = Vector3.ZERO
+
+
+## The lowest point of anything drawn under [param root], in world space; -INF when it draws nothing.
+static func _lowest_geometry(root: Node) -> float:
+	var lowest: float = INF
+	for node: Node in root.find_children("*", "GeometryInstance3D", true, false):
+		var drawn: GeometryInstance3D = node as GeometryInstance3D
+		lowest = minf(lowest, (drawn.global_transform * drawn.get_aabb()).position.y)
+	return lowest if is_finite(lowest) else -INF
 
 
 ## Stand one player on their own hub spawn.

@@ -70,3 +70,19 @@ func test_only_the_host_is_offered_the_rules_panel() -> void:
 		lobby.set_overlay_open(true)
 		assert_true(lobby.setup_screen.visible == (machine == HOST), "machine %d: the rules are the host's to edit" % machine)
 		lobby.set_overlay_open(false)
+
+
+## Past the hub's edge there is nothing to land on: the host stands the faller back on a spawn,
+## and the faller's own machine follows.
+func test_a_body_that_falls_out_of_the_hub_is_stood_back_in_it() -> void:
+	if not await stand_up(0.0, 0, 2):
+		return
+	for seat: int in [HOST, A]:
+		var home: Vector3 = body(HOST, seat).global_position
+		for machine: int in ([HOST] if seat == HOST else [HOST, seat]):
+			body(machine, seat).global_position = home + Vector3(400.0, 0.0, 400.0)
+			body(machine, seat).velocity = Vector3.ZERO
+		var back: bool = await until(func() -> bool:
+			return (body(HOST, seat).is_on_floor() and flat_distance(body(HOST, seat).global_position, home) < 30.0
+				and body(seat, seat).global_position.distance_to(body(HOST, seat).global_position) < 1.0), 15000)
+		assert_true(back, "seat %d, walked off the edge, stands in the hub again on the host and on its own machine" % seat)
