@@ -15,6 +15,22 @@ func test_a_client_is_told_when_the_host_leaves_the_hub() -> void:
 	assert_eq_int(lost[0], 1, "once")
 
 
+## The host goes while a joiner's hub is still loading: the hub that then stands says so too.
+func test_a_hub_that_loads_after_the_host_was_lost_still_says_so() -> void:
+	if not await stand_up(0.0, 0, 2):
+		return
+	if not await connect_late(B):
+		return
+	sessions[HOST].leave()
+	var failed: bool = await until(
+		func() -> bool: return sessions[B].get_connection_state() == NetTransport.ConnectionState.FAILED
+	)
+	assert_true(failed, "the joiner's session fails while it has no hub yet")
+	_make_hub(B)
+	var lost: Array[int] = count(_lobby_of(B).session_lost)
+	assert_true(await until(func() -> bool: return lost[0] > 0), "its hub, once standing, hears the host is gone")
+
+
 func test_leaving_a_session_does_not_rebuild_the_hub_being_left() -> void:
 	if not await stand_up(0.0, 0, 2):
 		return

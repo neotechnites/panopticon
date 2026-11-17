@@ -169,6 +169,8 @@ func _ready() -> void:
 	_preload_launch_scenes.call_deferred()
 	if vote_label != null:
 		vote_label.visible = false
+	if net_match != null:
+		net_match.host_lost.connect(_on_host_lost)
 	if _session != null and _session.is_established():
 		_bind_lobby(_session.lobby)
 	if setup_screen != null:
@@ -194,8 +196,6 @@ func _bind_lobby(lobby: NetLobby) -> void:
 	_lobby.match_launching.connect(_on_launching)
 	_lobby.phase_changed.connect(func(_phase: NetLobby.Phase) -> void: _refresh())
 	if not _session.is_authority():
-		if net_match != null:
-			net_match.host_lost.connect(_on_host_lost)
 		return
 	match _lobby.get_phase():
 		NetLobby.Phase.IDLE:

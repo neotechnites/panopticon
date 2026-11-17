@@ -73,6 +73,11 @@ func _ready() -> void:
 	_session = get_tree().root.get_node_or_null(session_path) as NetSession
 	if _session == null or not _session.is_established() or controller == null:
 		set_physics_process(false)
+		if _session != null and _session.get_connection_state() == NetTransport.ConnectionState.FAILED:
+			# The host was lost while this scene loaded: say so once the scene stands.
+			if controller != null and not hub_mode:
+				controller.auto_start = false
+			host_lost.emit.call_deferred()
 		return
 	_lobby = _session.lobby
 	if _lobby == null or (not hub_mode and _lobby.get_phase() != NetLobby.Phase.LAUNCHING):
