@@ -1,0 +1,21 @@
+{
+ "name": "power_shove_3p_hell",
+ "runner": "match",
+ "peers": 3,
+ "limit": 105,
+ "tags": [
+  "powers"
+ ],
+ "common": {
+  "seconds": 60,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 3
+ },
+ "host": {
+  "keys": "f@5/2"
+ },
+ "client": {
+  "keys": "f@6/2"
+ }
+}

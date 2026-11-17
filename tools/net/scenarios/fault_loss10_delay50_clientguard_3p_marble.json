@@ -1,0 +1,23 @@
+{
+ "name": "fault_loss10_delay50_clientguard_3p_marble",
+ "runner": "match",
+ "peers": 3,
+ "limit": 120,
+ "tags": [
+  "fault",
+  "guard"
+ ],
+ "common": {
+  "seconds": 75,
+  "map": "marble",
+  "seats": 4,
+  "tower": 1,
+  "loss": 0.1,
+  "delay-ms": 50
+ },
+ "expect": {
+  "host": [
+   "RIFLE fired by=s1"
+  ]
+ }
+}

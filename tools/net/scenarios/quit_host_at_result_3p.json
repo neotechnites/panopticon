@@ -1,0 +1,30 @@
+{
+ "name": "quit_host_at_result_3p",
+ "runner": "hub",
+ "peers": 3,
+ "limit": 120,
+ "tags": [
+  "leave",
+  "host"
+ ],
+ "common": {
+  "maps": "marble",
+  "matches": 1,
+  "win": 12,
+  "back": 30,
+  "limit": 100
+ },
+ "host": {
+  "prisoners": 3
+ },
+ "expect": {
+  "host_lost": "in-match"
+ },
+ "kill": [
+  {
+   "peer": 0,
+   "when": "RESULT showing=1",
+   "after": 3
+  }
+ ]
+}

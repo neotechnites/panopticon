@@ -40,6 +40,8 @@ var keys_wait: bool = true
 ## Not the body's source: only presses keys (and walks) on the device, from its own physics tick.
 var device_only: bool = false
 var device_walk: bool = false
+## Fault for the checker's own test: report the press and never put the key down.
+var mute_keys: bool = false
 
 var match_controller: MatchController = null
 var body: PlayerController = null
@@ -59,6 +61,7 @@ var _rearm: bool = true
 var _aimed: MatchParticipant = null
 var _brawl_rest: float = 0.0
 var _walked: Dictionary[StringName, bool] = {}
+var _rest_ticks: int = 0
 
 
 func _ready() -> void:
@@ -182,10 +185,14 @@ func _press(entry: Dictionary, me: MatchParticipant, due: float) -> bool:
 	var key: String = String(entry.key)
 	if _down.has(key):
 		return false
+	if key == "b" or key == "n":
+		# An emote wants a body at rest on the floor: stop first, press once it has.
+		_still_until = maxf(_still_until, _elapsed + 0.5)
 	var note: String = _why_not(key, me)
 	if not note.is_empty() and keys_wait and _elapsed < due + KEY_PATIENCE_SECONDS:
 		return false
-	Input.action_press(KEY_ACTIONS[key])
+	if not mute_keys:
+		Input.action_press(KEY_ACTIONS[key])
 	# One tick at least, so the press edge is read before the release.
 	_down[key] = _elapsed + maxf(float(entry.hold), 0.0) + 0.02
 	_last_press = _elapsed
@@ -221,6 +228,13 @@ func _why_not(key: String, me: MatchParticipant) -> String:
 		"b", "n":
 			if not me.body.is_on_floor():
 				return "airborne"
+			if me.body.velocity.length() > 0.3:
+				_rest_ticks = 0
+				return "moving"
+			_rest_ticks += 1
+			if _rest_ticks < 20:
+				return "settling"
+			_rest_ticks = 0
 	return ""
 
 
@@ -239,11 +253,12 @@ func _walk(delta: float) -> void:
 ## Hub wandering on the device: forward and strafe in turns, jumps and mouse look.
 func _walk_device() -> void:
 	var phase: int = int(_elapsed / 1.5) % 4
-	_hold(&"move_forward", phase != 2)
-	_hold(&"move_left", phase == 1)
-	_hold(&"move_right", phase == 3)
-	_hold(&"move_back", phase == 2)
-	_hold(&"jump", fmod(_elapsed, 2.3) < 0.1)
+	var still: bool = _elapsed < _still_until
+	_hold(&"move_forward", phase != 2 and not still)
+	_hold(&"move_left", phase == 1 and not still)
+	_hold(&"move_right", phase == 3 and not still)
+	_hold(&"move_back", phase == 2 and not still)
+	_hold(&"jump", fmod(_elapsed, 2.3) < 0.1 and not still)
 	var motion: InputEventMouseMotion = InputEventMouseMotion.new()
 	motion.relative = Vector2(6.0, sin(_elapsed) * 3.0)
 	Input.parse_input_event(motion)

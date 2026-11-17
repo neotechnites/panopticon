@@ -1,0 +1,29 @@
+{
+ "name": "finale_host_finisher_clientguard_3p_hell",
+ "runner": "match",
+ "peers": 3,
+ "limit": 105,
+ "tags": [
+  "finale",
+  "guard"
+ ],
+ "common": {
+  "seconds": 60,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 1
+ },
+ "host": {
+  "arm-finisher": 10,
+  "arm-host": true
+ },
+ "expect": {
+  "host": [
+   "EV finisher seat=s0"
+  ],
+  "all": [
+   "EV kill_beat guard=s1",
+   "EV round_started round=2 guard=s0"
+  ]
+ }
+}

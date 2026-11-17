@@ -1,0 +1,22 @@
+{
+ "name": "rematch_3p_marble",
+ "runner": "hub",
+ "peers": 3,
+ "limit": 200,
+ "tags": [
+  "after"
+ ],
+ "common": {
+  "maps": "marble",
+  "matches": 1,
+  "win": 18,
+  "rematches": 2,
+  "limit": 180
+ },
+ "host": {
+  "prisoners": 3
+ },
+ "expect": {
+  "matches": 1
+ }
+}

@@ -1,0 +1,24 @@
+{
+ "name": "power_hub_2p",
+ "runner": "hub",
+ "peers": 2,
+ "limit": 150,
+ "tags": [
+  "powers",
+  "hub"
+ ],
+ "common": {
+  "maps": "bentham_ring",
+  "matches": 1,
+  "win": 8,
+  "hub-wait": 50,
+  "hub-keys": "1@4,2@10,3@16+2,4@21,5@27,e@>1,b@33+2,n@38+2,5@43,f@>1.2",
+  "limit": 130
+ },
+ "host": {
+  "prisoners": 3
+ },
+ "expect": {
+  "matches": 1
+ }
+}

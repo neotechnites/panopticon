@@ -1,0 +1,26 @@
+{
+ "runner": "match",
+ "peers": 2,
+ "limit": 100,
+ "common": {
+  "seconds": 30,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 0
+ },
+ "host": {
+  "aim": false,
+  "fire-every": 0,
+  "press-fire": 0,
+  "ghosts": "false"
+ },
+ "client": {
+  "keys": "1@6,4@14",
+  "bind-delay": 300.0
+ },
+ "name": "teeth_unbound_client",
+ "teeth": [
+  "bound",
+  "exit"
+ ]
+}

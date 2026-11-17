@@ -1,0 +1,22 @@
+{
+ "name": "power_q_ability4_3p_marble",
+ "runner": "match",
+ "peers": 3,
+ "limit": 90,
+ "tags": [
+  "powers"
+ ],
+ "common": {
+  "seconds": 45,
+  "map": "marble",
+  "seats": 4,
+  "tower": 3
+ },
+ "host": {
+  "keys": "q@6+1.5/9",
+  "ability": 4
+ },
+ "client": {
+  "keys": "q@8+1.5/9"
+ }
+}

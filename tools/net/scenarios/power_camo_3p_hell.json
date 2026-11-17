@@ -1,0 +1,21 @@
+{
+ "name": "power_camo_3p_hell",
+ "runner": "match",
+ "peers": 3,
+ "limit": 105,
+ "tags": [
+  "powers"
+ ],
+ "common": {
+  "seconds": 60,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 3
+ },
+ "host": {
+  "keys": "4@6/11"
+ },
+ "client": {
+  "keys": "4@9/11"
+ }
+}

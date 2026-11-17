@@ -1,0 +1,21 @@
+{
+ "name": "power_cat_throw_3p_hell",
+ "runner": "match",
+ "peers": 3,
+ "limit": 105,
+ "tags": [
+  "powers"
+ ],
+ "common": {
+  "seconds": 60,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 3
+ },
+ "host": {
+  "keys": "5@6,f@>1.2,5@>6,f@>1.2,5@>6,f@>1.2"
+ },
+ "client": {
+  "keys": "5@8,f@>1.2,5@>6,f@>1.2,5@>6,f@>1.2"
+ }
+}

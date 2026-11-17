@@ -1,0 +1,30 @@
+{
+ "name": "quit_client_launching_3p_hell",
+ "runner": "match",
+ "peers": 3,
+ "limit": 95,
+ "tags": [
+  "leave"
+ ],
+ "common": {
+  "seconds": 50,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 3
+ },
+ "expect": {
+  "host": [
+   "SEAT seat=s1 occupancy=BOT"
+  ],
+  "seat_to_bot": [
+   1
+  ]
+ },
+ "kill": [
+  {
+   "peer": 1,
+   "when": "LOBBY phase=LAUNCHING",
+   "after": 0
+  }
+ ]
+}

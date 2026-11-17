@@ -1,0 +1,32 @@
+{
+ "name": "flow_2p_hell_marble",
+ "runner": "hub",
+ "peers": 2,
+ "limit": 520,
+ "tags": [
+  "flow",
+  "smoke"
+ ],
+ "common": {
+  "maps": "bentham_ring,marble",
+  "matches": 2,
+  "ceiling": 200,
+  "hub_seconds": 6,
+  "limit": 500
+ },
+ "host": {
+  "prisoners": 3,
+  "rounds": 1
+ },
+ "expect": {
+  "matches": 2,
+  "natural_win": true,
+  "all": [
+   "SCENE kind=hub",
+   "EV match_won"
+  ],
+  "host": [
+   "EV round_started round=1"
+  ]
+ }
+}

@@ -1,0 +1,26 @@
+{
+ "name": "relaunch_seats_2p",
+ "runner": "hub",
+ "peers": 2,
+ "limit": 160,
+ "tags": [
+  "after",
+  "relaunch"
+ ],
+ "common": {
+  "maps": "marble",
+  "matches": 2,
+  "win": 12,
+  "back": 2,
+  "limit": 140
+ },
+ "host": {
+  "prisoners": 3,
+  "relaunch-bots": "2",
+  "relaunch-seats": "2,5",
+  "relaunch-tower": 1
+ },
+ "expect": {
+  "matches": 2
+ }
+}

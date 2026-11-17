@@ -1,0 +1,30 @@
+{
+ "name": "quit_client_in_hub_3p",
+ "runner": "hub",
+ "peers": 3,
+ "limit": 150,
+ "tags": [
+  "leave",
+  "hub"
+ ],
+ "common": {
+  "maps": "bentham_ring",
+  "matches": 1,
+  "win": 15,
+  "hub-wait": 12,
+  "limit": 130
+ },
+ "host": {
+  "prisoners": 3
+ },
+ "expect": {
+  "matches": 1
+ },
+ "kill": [
+  {
+   "peer": 2,
+   "when": "SCENE kind=hub",
+   "after": 6
+  }
+ ]
+}

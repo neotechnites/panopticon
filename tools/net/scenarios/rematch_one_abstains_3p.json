@@ -1,0 +1,31 @@
+{
+ "name": "rematch_one_abstains_3p",
+ "runner": "hub",
+ "peers": 3,
+ "limit": 130,
+ "tags": [
+  "after"
+ ],
+ "common": {
+  "maps": "bentham_ring",
+  "matches": 1,
+  "win": 15,
+  "rematches": 1,
+  "rematch-wait": 10,
+  "limit": 110
+ },
+ "host": {
+  "prisoners": 3
+ },
+ "peer": {
+  "2": {
+   "rematches": 0
+  }
+ },
+ "expect": {
+  "matches": 1,
+  "host": [
+   "REMATCH gave up"
+  ]
+ }
+}

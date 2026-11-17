@@ -32,6 +32,7 @@ var _won: bool = false
 var _result_ms: int = -1
 var _acted: bool = false
 var _rematches_left: int = 0
+var _rematch_ms: int = -1
 var _relaunched: int = 0
 var _next_shove: float = 0.0
 var _exit_code: int = -1
@@ -41,7 +42,7 @@ func _ready() -> void:
 	var defaults: Dictionary = SessionProbe.OPTIONS.duplicate()
 	defaults.merge({
 		"humans": 2, "wait": 3.0, "limit": 240.0, "maps": "", "map": "", "matches": 0,
-		"win": -1.0, "ceiling": 150.0, "back": 3.0, "after": "hub-all", "rematches": 0,
+		"win": -1.0, "ceiling": 150.0, "back": 3.0, "after": "hub-all", "rematches": 0, "rematch-wait": 12.0,
 		"hub-wait": 4.0, "hub_seconds": 6.0, "guard": -1, "press": true, "press_key": true,
 		"relaunch-bots": "", "relaunch-seats": "", "relaunch-tower": -1, "shove-at": -1.0,
 		"walk": true, "again": true, "rematch": false, "hub-all": true, "seconds": 20.0, "trace": 1.5,
@@ -83,6 +84,7 @@ func _boot() -> void:
 	_session = _screen.ensure_session()
 	_lobby = _session.lobby
 	_probe.attach(_session)
+	_probe.scene_changed.connect(_on_scene_changed)
 	_probe.match_started.connect(_on_match_started)
 	_probe.match_won.connect(func() -> void: _won = true)
 	_probe.host_lost.connect(func() -> void: _finish(0, "host-lost"))
@@ -111,7 +113,8 @@ func _process(_delta: float) -> void:
 	var now: int = Time.get_ticks_msec()
 	var elapsed: float = float(now - _t0) / 1000.0
 	var scene: Node = get_tree().current_scene
-	_track_scene(scene, now)
+	if scene == null:
+		return
 	if _probe.wants_quit():
 		if String(_o["quit-mode"]) == "drop":
 			OS.kill(OS.get_process_id())
@@ -125,16 +128,14 @@ func _process(_delta: float) -> void:
 		_finish(2, "timeout")
 
 
-func _track_scene(scene: Node, now: int) -> void:
-	var path: String = scene.scene_file_path if scene != null else ""
-	var kind: String = "hub" if path == SessionProbe.HUB_SCENE else ("match" if path == SessionProbe.MATCH_SCENE else "other")
-	if kind == _scene_kind:
+func _on_scene_changed(kind: String) -> void:
+	if kind == "none" or kind == _scene_kind:
 		return
 	if _scene_kind == "match":
 		_matches_done += 1
 		_probe.line("FLOW match_done n=%d of=%d" % [_matches_done, int(_o.matches)])
 	_scene_kind = kind
-	_scene_ms = now
+	_scene_ms = Time.get_ticks_msec()
 	if kind == "hub":
 		_hub_visits += 1
 		_started = _auto_relaunch
@@ -153,6 +154,7 @@ func _on_match_started() -> void:
 	_play_ms = Time.get_ticks_msec()
 	_won = false
 	_result_ms = -1
+	_rematch_ms = -1
 	_acted = false
 
 
@@ -241,11 +243,18 @@ func _in_match(scene: Node, now: int) -> void:
 		return
 	if _result_ms < 0:
 		_result_ms = now
+	if _acted and _rematch_ms >= 0 and _is_server() and float(now - _rematch_ms) / 1000.0 > float(_o["rematch-wait"]):
+		# Somebody never asked: the result is still up. Stop waiting and take the other way out.
+		_probe.line("REMATCH gave up after=%.0f" % float(_o["rematch-wait"]))
+		_rematch_ms = -1
+		_rematches_left = 0
+		_acted = false
 	if _acted or float(now - _result_ms) / 1000.0 < float(_o.back):
 		return
 	_acted = true
 	if _rematches_left > 0:
 		_rematches_left -= 1
+		_rematch_ms = now
 		_probe.line("REMATCH pressed left=%d" % _rematches_left)
 		screen.request_rematch()
 	elif String(_o.after) == "back":

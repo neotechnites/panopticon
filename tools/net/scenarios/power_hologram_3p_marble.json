@@ -1,0 +1,21 @@
+{
+ "name": "power_hologram_3p_marble",
+ "runner": "match",
+ "peers": 3,
+ "limit": 105,
+ "tags": [
+  "powers"
+ ],
+ "common": {
+  "seconds": 60,
+  "map": "marble",
+  "seats": 4,
+  "tower": 3
+ },
+ "host": {
+  "keys": "2@6/11"
+ },
+ "client": {
+  "keys": "2@9/11"
+ }
+}

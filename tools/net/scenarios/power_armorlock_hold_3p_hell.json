@@ -1,0 +1,21 @@
+{
+ "name": "power_armorlock_hold_3p_hell",
+ "runner": "match",
+ "peers": 3,
+ "limit": 105,
+ "tags": [
+  "powers"
+ ],
+ "common": {
+  "seconds": 60,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 3
+ },
+ "host": {
+  "keys": "3@6+2.5/9"
+ },
+ "client": {
+  "keys": "3@8+2.5/9"
+ }
+}

@@ -1,0 +1,28 @@
+{
+ "name": "quit_client_leave_round_3p_marble",
+ "runner": "match",
+ "peers": 3,
+ "limit": 105,
+ "tags": [
+  "leave"
+ ],
+ "common": {
+  "seconds": 60,
+  "map": "marble",
+  "seats": 4,
+  "tower": 3
+ },
+ "peer": {
+  "1": {
+   "quit-at": 15
+  }
+ },
+ "expect": {
+  "host": [
+   "SEAT seat=s1 occupancy=BOT"
+  ],
+  "seat_to_bot": [
+   1
+  ]
+ }
+}

@@ -1,0 +1,24 @@
+{
+ "name": "relaunch_bots_3p",
+ "runner": "hub",
+ "peers": 3,
+ "limit": 200,
+ "tags": [
+  "after",
+  "relaunch"
+ ],
+ "common": {
+  "maps": "bentham_ring",
+  "matches": 4,
+  "win": 12,
+  "back": 2,
+  "limit": 180
+ },
+ "host": {
+  "prisoners": 3,
+  "relaunch-bots": "3,1,0"
+ },
+ "expect": {
+  "matches": 4
+ }
+}

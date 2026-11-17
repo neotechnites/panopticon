@@ -1,0 +1,25 @@
+{
+ "runner": "match",
+ "peers": 2,
+ "limit": 80,
+ "common": {
+  "seconds": 30,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 0
+ },
+ "host": {
+  "aim": false,
+  "fire-every": 0,
+  "press-fire": 0,
+  "ghosts": "false"
+ },
+ "client": {
+  "keys": "1@6,4@14",
+  "break": "state"
+ },
+ "name": "teeth_state",
+ "teeth": [
+  "state"
+ ]
+}

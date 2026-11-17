@@ -1,0 +1,30 @@
+{
+ "name": "quit_client_killed_round_3p_marble",
+ "runner": "match",
+ "peers": 3,
+ "limit": 105,
+ "tags": [
+  "leave"
+ ],
+ "common": {
+  "seconds": 60,
+  "map": "marble",
+  "seats": 4,
+  "tower": 3
+ },
+ "expect": {
+  "host": [
+   "SEAT seat=s1 occupancy=BOT"
+  ],
+  "seat_to_bot": [
+   1
+  ]
+ },
+ "kill": [
+  {
+   "peer": 1,
+   "when": "EV round_started",
+   "after": 12
+  }
+ ]
+}

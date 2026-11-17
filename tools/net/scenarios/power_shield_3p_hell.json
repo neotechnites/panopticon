@@ -1,0 +1,21 @@
+{
+ "name": "power_shield_3p_hell",
+ "runner": "match",
+ "peers": 3,
+ "limit": 105,
+ "tags": [
+  "powers"
+ ],
+ "common": {
+  "seconds": 60,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 3
+ },
+ "host": {
+  "keys": "1@6/11"
+ },
+ "client": {
+  "keys": "1@9/11"
+ }
+}

@@ -1,0 +1,26 @@
+{
+ "name": "hub_shove_3p",
+ "runner": "hub",
+ "peers": 3,
+ "limit": 120,
+ "tags": [
+  "hub"
+ ],
+ "common": {
+  "maps": "bentham_ring",
+  "matches": 1,
+  "win": 8,
+  "hub-wait": 30,
+  "limit": 100
+ },
+ "host": {
+  "prisoners": 3,
+  "shove-at": 6
+ },
+ "expect": {
+  "matches": 1,
+  "host": [
+   "EV shoved shover=s0"
+  ]
+ }
+}

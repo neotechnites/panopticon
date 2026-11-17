@@ -1,0 +1,24 @@
+{
+ "name": "quit_host_leave_round_3p_marble",
+ "runner": "match",
+ "peers": 3,
+ "limit": 105,
+ "tags": [
+  "leave",
+  "host"
+ ],
+ "common": {
+  "seconds": 60,
+  "map": "marble",
+  "seats": 4,
+  "tower": 3
+ },
+ "peer": {
+  "0": {
+   "quit-at": 15
+  }
+ },
+ "expect": {
+  "host_lost": "in-match"
+ }
+}

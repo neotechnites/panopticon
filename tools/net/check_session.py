@@ -75,6 +75,7 @@ class Peer:
         self.warnings: list[tuple[int, str]] = []
         self.crashes: list[tuple[int, str]] = []
         self.raw_count = 0
+        self._session_end: float | None = None
         self.parse()
 
     def parse(self) -> None:
@@ -98,7 +99,18 @@ class Peer:
                     self.crashes.append((no, text.strip()))
 
     def tagged(self, tag: str) -> list[Line]:
+        """Lines of one kind, up to the moment this machine's session ended: after it, it mirrors nobody."""
+        return [line for line in self.lines if line.tag == tag and line.w <= self.session_end]
+
+    def tagged_all(self, tag: str) -> list[Line]:
         return [line for line in self.lines if line.tag == tag]
+
+    @property
+    def session_end(self) -> float:
+        if self._session_end is None:
+            ended = next((l.w for l in self.lines if l.tag == "SESSION"), None)
+            self._session_end = ended if ended is not None and self.index != 0 else float("inf")
+        return self._session_end
 
     def ref(self, line: Line | int, text: str = "") -> str:
         if isinstance(line, Line):
@@ -114,7 +126,7 @@ class Peer:
         return self.lines[-1].w if self.lines else 0.0
 
     def end_line(self) -> Line | None:
-        ends = self.tagged("END")
+        ends = self.tagged_all("END")
         return ends[-1] if ends else None
 
 
@@ -180,7 +192,7 @@ def intervals(peer: Peer, tag: str, value_of) -> dict[str, list[tuple[str, float
     out: dict[str, list] = defaultdict(list)
     open_: dict[str, tuple[str, float, Line]] = {}
     for line in peer.lines:
-        if line.tag in ("SCENE", "END"):
+        if line.tag in ("SCENE", "END", "SESSION"):
             for seat, (value, start, first) in open_.items():
                 out[seat].append((value, start, line.w, first))
             open_.clear()
@@ -265,6 +277,9 @@ def check_errors(peers: list[Peer], v: Verdict, strict: bool) -> None:
                 v.known.append(item)
                 if strict:
                     v.fail("known-error", peer.name, item["message"], ref)
+                elif len(numbers) > int(entry.get("max", 1000000)):
+                    v.fail("error-flood", peer.name, f"{message[:200]} x{len(numbers)} (known [{entry.get('id')}], "
+                           f"but past its ceiling of {entry['max']})", ref)
         for no, text in peer.crashes:
             v.fail("crash", peer.name, text[:240], peer.ref(no, text))
 
@@ -314,7 +329,7 @@ def events_of(peer: Peer) -> dict[str, list[tuple[tuple, Line]]]:
     by_epoch: dict[str, list] = defaultdict(list)
     for line in peer.tagged("EV"):
         kind = line.rest.split(" ", 1)[0]
-        if kind not in EVENT_KINDS:
+        if kind not in EVENT_KINDS or line.kv.get("kind", "match") != "match":
             continue
         key = (kind,) + tuple(line.kv.get(k, "?") for k in EVENT_KINDS[kind])
         by_epoch[line.kv.get("epoch", "?")].append((key, line))
@@ -405,6 +420,8 @@ def check_frozen(peers: list[Peer], v: Verdict) -> None:
         since: Line | None = None
         reported = False
         for line in peer.lines:
+            if line.w > peer.session_end:
+                break
             if line.tag == "POS":
                 state = state_of(line.kv)
                 paused = line.kv.get("paused") == "1"
@@ -537,7 +554,7 @@ def check_presentation(host: Peer, clients: list[Peer], v: Verdict, lag: float) 
                 return any(val == value and start <= hi and end >= lo for val, start, end, _ in side.get(seat, []))
 
             def present(start: float, end: float) -> bool:
-                return any(b < start for b in bound) and client.last_w > end + slack
+                return any(b < start for b in bound) and min(client.last_w, client.session_end) > end + slack
 
             for seat, spans in theirs.items():
                 for value, start, end, line in spans:
@@ -602,6 +619,21 @@ def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float) -> dict
             else:
                 v.fail("press", peer.name, f"pressed {key} ({what}) as {seat} and the host never ran it within {window:.1f} s", peer.ref(press))
     return {k: {"pressed": a, "ran": b} for k, (a, b) in stats.items()}
+
+
+def check_role_powers(host: Peer, v: Verdict) -> None:
+    """A runner power running on the guard or on a ghost: allowed by the code today, unruled (POWERS X4)."""
+    role: dict[str, str] = {}
+    seen: set[tuple] = set()
+    for line in host.lines:
+        if line.tag == "ROLE":
+            role[line.kv.get("seat", "?")] = line.kv.get("role", "?")
+        elif line.tag == "POWER" and line.kv.get("ability", "0") != "0":
+            seat = line.kv.get("seat", "?")
+            key = (seat, role.get(seat), line.kv.get("ability"))
+            if role.get(seat) in ("TOWER", "GHOST", "HUNTING") and key not in seen:
+                seen.add(key)
+                v.warn("role-power", "host", f"{seat} ran power {line.kv.get('ability')} while {role.get(seat)}", host.ref(line))
 
 
 def check_roster(host: Peer, v: Verdict) -> None:
@@ -677,12 +709,13 @@ def check_expect(host: Peer, peers: list[Peer], gone: set[int], scenario: dict, 
             ended = next((l for l in peer.lines if l.tag == "SESSION"), None)
             if ended is None:
                 v.fail("expect", peer.name, "the host quit and this client's session never ended")
-            in_match = any(l.tag == "SCENE" and "kind=match" in l.rest for l in peer.lines if ended is None or l.w < ended.w)
+            scenes = [l for l in peer.lines if l.tag == "SCENE" and "kind=none" not in l.rest and (ended is None or l.w < ended.w)]
+            in_match = bool(scenes) and "kind=match" in scenes[-1].rest
             if lost is None and in_match and expect.get("host_lost") == "in-match":
                 v.fail("expect", peer.name, "the host quit mid-match and NetMatch.host_lost never fired here",
                        peer.ref(ended) if ended else "")
             shown = any(l.tag == "RESULT" and "showing=1" in l.rest and lost is not None and l.w >= lost.w - 0.1 for l in peer.lines)
-            if lost is not None and not shown:
+            if lost is not None and in_match and not shown:
                 v.fail("expect", peer.name, "host lost and the result screen never came up to say so", peer.ref(lost))
     for seat in expect.get("seat_to_bot", []):
         if not any(re.search(rf"SEAT seat=s{seat} occupancy=BOT", t) for t in host_text):
@@ -700,14 +733,16 @@ def check_expect(host: Peer, peers: list[Peer], gone: set[int], scenario: dict, 
 def summarise(host: Peer, peers: list[Peer]) -> dict:
     events = [l.rest.split(" ", 1)[0] for l in host.tagged("EV")]
     won = [l for l in host.tagged("EV") if l.rest.startswith("match_won")]
+    forced_at = [l.w for l in host.lines if l.tag in ("WIN", "CEILING")]
+    natural = [l for l in won if not any(0.0 <= l.w - f <= 0.3 for f in forced_at)]
     roles_at_win = []
-    for line in won:
+    for line in natural:
         seat = line.kv.get("seat")
-        guard = next((l.kv.get("guard") for l in reversed(host.tagged("STATE")) if l.w <= line.w), None)
+        guard = next((l.kv.get("guard") for l in reversed(host.tagged("STATE")) if l.w < line.w), None)
         roles_at_win.append("guard" if seat == guard else "prisoner")
     bounds = sorted(bound_times(host).values())
     durations = []
-    for line in won:
+    for line in natural:
         start = max((b for b in bounds if b <= line.w), default=None)
         if start is not None:
             durations.append(round(line.w - start, 1))
@@ -717,7 +752,8 @@ def summarise(host: Peer, peers: list[Peer]) -> dict:
         "maps": [l.kv.get("map") for l in host.tagged("MATCH") if l.rest.startswith("rules kind=match")],
         "prisoners": int(rules.kv.get("prisoners", 0)) if rules else 0,
         "matches_won": len(won),
-        "forced_wins": len([l for l in host.lines if l.tag in ("WIN", "CEILING")]),
+        "forced_wins": len(forced_at),
+        "natural_wins": len(natural),
         "guard_wins": roles_at_win.count("guard"),
         "prisoner_wins": roles_at_win.count("prisoner"),
         "match_seconds": durations,
@@ -774,6 +810,7 @@ def main() -> int:
         check_presentation(host, clients, v, lag)
         stats["presses"] = check_presses(host, peers, v, lag)
         check_roster(host, v)
+        check_role_powers(host, v)
         stats["rifle"] = check_guard(host, v, scenario)
         check_expect(host, peers, gone, scenario, v)
         stats.update(summarise(host, peers))

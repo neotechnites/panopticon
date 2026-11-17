@@ -1,0 +1,25 @@
+{
+ "name": "open_brawl_3p_hell",
+ "runner": "match",
+ "peers": 3,
+ "limit": 135,
+ "tags": [
+  "opening",
+  "brawl"
+ ],
+ "common": {
+  "seconds": 90,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": -1
+ },
+ "host": {
+  "brawl": true
+ },
+ "expect": {
+  "all": [
+   "EV brawl_started",
+   "EV round_started round=1"
+  ]
+ }
+}

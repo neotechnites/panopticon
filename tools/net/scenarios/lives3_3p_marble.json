@@ -1,0 +1,19 @@
+{
+ "name": "lives3_3p_marble",
+ "runner": "match",
+ "peers": 3,
+ "limit": 125,
+ "tags": [
+  "ghosts"
+ ],
+ "common": {
+  "seconds": 80,
+  "map": "marble",
+  "seats": 4,
+  "tower": 1
+ },
+ "host": {
+  "lives": 3,
+  "ghosts": "true"
+ }
+}

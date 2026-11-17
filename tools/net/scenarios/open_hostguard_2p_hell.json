@@ -1,0 +1,27 @@
+{
+ "name": "open_hostguard_2p_hell",
+ "runner": "match",
+ "peers": 2,
+ "limit": 120,
+ "tags": [
+  "opening",
+  "guard"
+ ],
+ "common": {
+  "seconds": 75,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 0
+ },
+ "expect": {
+  "all": [
+   "EV round_started round=1 guard=s0"
+  ],
+  "host": [
+   "RIFLE fired by=s0"
+  ],
+  "never": [
+   "EV race_started"
+  ]
+ }
+}

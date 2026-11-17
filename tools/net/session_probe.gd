@@ -12,6 +12,7 @@ const OPTIONS: Dictionary = {
 	"quit-at": -1.0, "quit-match": 1, "quit-mode": "leave", "host-lost-exit": 4.0,
 	"mode": "play", "aim": true, "fire-every": 2.6, "press-fire": 3.0, "pitch-rate": 0.0,
 	"keys": "", "hub-keys": "", "keys-wait": true, "sample": 0.5,
+	"break": "", "break-at": 10.0,
 }
 
 const MATCH_SCENE: String = "res://match/match.tscn"
@@ -24,6 +25,8 @@ signal match_bound(authority: bool)
 signal match_started()
 signal match_won()
 signal host_lost()
+## This machine is in another scene: "hub", "match", "other" or "none".
+signal scene_changed(kind: String)
 
 var o: Dictionary = {}
 var session: NetSession = null
@@ -52,6 +55,7 @@ var _host_lost_ms: int = -1
 var _result_showing: bool = false
 var _quit_done: bool = false
 var _cats_seen: Dictionary[int, Array] = {}
+var _broke: bool = false
 
 
 func _init() -> void:
@@ -78,6 +82,10 @@ func configure(options: Dictionary) -> void:
 
 func is_server() -> bool:
 	return String(o.get("role", "server")) == "server"
+
+
+func get_scene_kind() -> String:
+	return _scene_kind
 
 
 func seconds() -> float:
@@ -124,12 +132,16 @@ func apply_settings() -> void:
 func attach(net_session: NetSession) -> void:
 	session = net_session
 	lobby = session.lobby
+	get_tree().node_added.connect(_on_node_added)
 	lobby.phase_changed.connect(func(phase: NetLobby.Phase) -> void:
 		line("LOBBY phase=%s epoch=%d" % [String(NetLobby.Phase.keys()[phase]), lobby.get_epoch()]))
 	lobby.roster_changed.connect(func() -> void: line("ROSTER " + lobby.describe().replace("\n", " | ")))
 	lobby.rules_changed.connect(func() -> void:
 		var rules: MatchRules = lobby.get_rules()
 		if rules != null:
+			if String(o["break"]) == "map" and not is_server():
+				rules.map_id = &"bentham_ring" if rules.map_id == &"marble" else &"marble"
+				line("BREAK map=%s" % String(rules.map_id))
 			line("RULES " + describe_rules(rules)))
 	lobby.join_refused.connect(func(peer: int, why: String) -> void: line("REFUSED peer=%d %s" % [peer, why]))
 	lobby.seat_occupancy_changed.connect(func(seat: int, occupancy: LobbySeat.Occupancy) -> void:
@@ -195,6 +207,7 @@ func _process(_delta: float) -> void:
 	_watch_bodies()
 	_watch_result()
 	_stall_once()
+	_break()
 	if now - _last_sample_ms >= int(float(o.sample) * 1000.0):
 		_last_sample_ms = now
 		_sample()
@@ -215,6 +228,17 @@ func wants_quit() -> bool:
 
 func _watch_scene() -> void:
 	var scene: Node = get_tree().current_scene
+	if scene == null or scene.get_instance_id() != _scene_id:
+		_adopt(scene)
+
+
+## A match or hub scene is hooked the moment its controller enters the tree, before it can emit.
+func _on_node_added(node: Node) -> void:
+	if node is MatchController and node.get_parent() != null and node.get_parent().get_node_or_null(^"NetMatch") is NetMatch:
+		_adopt(node.get_parent())
+
+
+func _adopt(scene: Node) -> void:
 	var id: int = scene.get_instance_id() if scene != null else 0
 	if id == _scene_id:
 		return
@@ -230,6 +254,7 @@ func _watch_scene() -> void:
 	_scene_kind = "none"
 	if scene == null:
 		line("SCENE kind=none")
+		scene_changed.emit(_scene_kind)
 		return
 	var found: NetMatch = scene.get_node_or_null(^"NetMatch") as NetMatch
 	var found_controller: MatchController = scene.get_node_or_null(^"MatchController") as MatchController
@@ -237,6 +262,7 @@ func _watch_scene() -> void:
 	if found != null and found_controller != null:
 		_scene_kind = "hub" if found.hub_mode else "match"
 	line("SCENE kind=%s path=%s epoch=%d" % [_scene_kind, scene.scene_file_path, lobby.get_epoch()])
+	scene_changed.emit(_scene_kind)
 	if _scene_kind == "other":
 		return
 	controller = found_controller
@@ -266,7 +292,8 @@ func _on_bound(authority: bool) -> void:
 func _hook_controller() -> void:
 	controller.match_started.connect(func(count: int) -> void:
 		_ev("match_started n=%d" % count)
-		match_started.emit())
+		if _scene_kind == "match":
+			match_started.emit())
 	controller.race_started.connect(func() -> void: _ev("race_started"))
 	controller.brawl_started.connect(func() -> void: _ev("brawl_started"))
 	controller.brawler_out.connect(func(p: MatchParticipant, _throw: Vector3) -> void: _ev("brawl_out seat=%s" % _seat_of(p)))
@@ -301,7 +328,7 @@ func _hook_controller() -> void:
 
 
 func _ev(text: String) -> void:
-	line("EV %s epoch=%d" % [text, lobby.get_epoch()])
+	line("EV %s kind=%s epoch=%d" % [text, _scene_kind, lobby.get_epoch()])
 
 
 ## The lobby seat a participant plays, "s<seat>", the one name every machine agrees on.
@@ -332,6 +359,7 @@ func _install_actor() -> void:
 	actor.fire_every = float(o["fire-every"])
 	actor.pitch_rate = float(o["pitch-rate"])
 	actor.keys_wait = bool(o["keys-wait"])
+	actor.mute_keys = String(o["break"]) == "mute-keys"
 	actor.set_keys(String(o["hub-keys"]) if hub else String(o.keys))
 	actor.key_pressed.connect(_on_key_pressed)
 	actor.key_released.connect(func(key: String) -> void: line("RELEASE key=%s" % key))
@@ -445,6 +473,34 @@ func _stall_once() -> void:
 	OS.delay_msec(int(o["stall-ms"]))
 	_last_frame_ms = Time.get_ticks_msec()
 	line("STALL over")
+
+
+## --break: deliberate faults on this one machine, to prove tools/net/check_session.py sees them.
+func _break() -> void:
+	var kind: String = String(o["break"])
+	if kind.is_empty() or _scene_kind != "match" or match_seconds() < float(o["break-at"]):
+		return
+	var mine: MatchParticipant = controller.get_human_participant()
+	match kind:
+		"freeze":
+			if mine != null and mine.body != null:
+				mine.body.set_physics_process(false)
+		"teleport":
+			for p: MatchParticipant in controller.get_participants_ref():
+				if p != mine and p.body != null:
+					p.body.global_position.y = 400.0
+					break
+		"error":
+			if not _broke:
+				push_error("SessionProbe: deliberate error (--break=error)")
+		"state":
+			if not _broke and not is_server():
+				controller.net_resolve(MatchController.Outcome.LOSS)
+		"die":
+			OS.kill(OS.get_process_id())
+	if not _broke:
+		_broke = true
+		line("BREAK kind=%s" % kind)
 
 
 func _tick() -> int:

@@ -1,0 +1,26 @@
+{
+ "name": "fault_binddelay_host_3p_hell",
+ "runner": "match",
+ "peers": 3,
+ "limit": 160,
+ "tags": [
+  "fault",
+  "bind"
+ ],
+ "common": {
+  "seconds": 110,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": -1
+ },
+ "peer": {
+  "0": {
+   "bind-delay": 2.0
+  }
+ },
+ "expect": {
+  "all": [
+   "EV round_started round=1"
+  ]
+ }
+}
