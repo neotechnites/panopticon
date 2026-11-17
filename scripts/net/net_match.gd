@@ -329,7 +329,9 @@ func _subscribe_server() -> void:
 	controller.round_started.connect(_on_round_started)
 	controller.participant_converted.connect(
 		func(participant: MatchParticipant) -> void:
-			_event(&"_ev_removed", [participant.index, int(participant.death_cause)])
+			# With no respawn delay the body is back up inside its own conversion, announced before it.
+			var held: bool = participant.respawn_hold_remaining > 0.0
+			_event(&"_ev_removed", [participant.index, int(participant.death_cause), held])
 	)
 	controller.ghost_fell.connect(
 		func(participant: MatchParticipant) -> void:
@@ -704,7 +706,7 @@ func _ev_gamestate(state: PackedInt32Array) -> void:
 	for i: int in participants.size():
 		var flags: int = state[NetCodec.GAMESTATE_HEADER + i * NetCodec.GAMESTATE_PARTICIPANT]
 		if flags & (NetCodec.GAMESTATE_RUNNING | NetCodec.GAMESTATE_SHOOTER) == 0 and participants[i].is_running:
-			_ev_removed(i, int(MatchParticipant.DeathCause.SHOT))
+			_ev_removed(i, int(MatchParticipant.DeathCause.SHOT), true)
 		if flags & NetCodec.GAMESTATE_GHOST != 0 and flags & NetCodec.GAMESTATE_HELD == 0:
 			# Its respawn landed before this machine was listening.
 			controller.net_ghost_respawn(i)
@@ -742,7 +744,7 @@ func _take_rounds_won(index: int, rounds_won: int) -> void:
 
 
 @rpc("authority", "reliable", "call_remote", 0)
-func _ev_removed(index: int, cause: int) -> void:
+func _ev_removed(index: int, cause: int, held: bool) -> void:
 	if not _replays():
 		return
 	match controller.get_phase():
@@ -753,6 +755,9 @@ func _ev_removed(index: int, cause: int) -> void:
 			controller.net_brawl_out(index, Vector3.ZERO)
 		_:
 			controller.net_convert(index, _cause_of(cause))
+			if not held:
+				# Its respawn has already landed on the server: a mirror must not wait for one.
+				controller.net_ghost_respawn(index)
 
 
 @rpc("authority", "reliable", "call_remote", 0)
