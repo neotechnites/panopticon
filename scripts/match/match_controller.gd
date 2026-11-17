@@ -771,7 +771,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	var key: InputEventKey = event as InputEventKey
 	if key == null or not key.pressed or key.echo:
 		return
-	if key.physical_keycode == RESTART_KEY and not _mirror and not hub_mode:
+	# Off a session only: a seated match restarts by its players' rematch, through the lobby.
+	if key.physical_keycode == RESTART_KEY and not is_networked() and not hub_mode:
 		start_match()
 		get_viewport().set_input_as_handled()
 

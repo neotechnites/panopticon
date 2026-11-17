@@ -181,3 +181,25 @@ func test_a_client_cannot_leave_for_the_hub_ahead_of_the_host() -> void:
 		changed.queue_free()
 	assert_true(_result(A).is_showing(), "the client's result stays up")
 	assert_true((_result(A).get_node("%RematchButton") as Button).is_visible_in_tree(), "with Rematch on it")
+
+
+## The restart key is an offline tool: a seated match restarts by its players' rematch.
+func test_the_restart_key_does_not_restart_a_seated_match() -> void:
+	if not await _play(1, 3):
+		return
+	var starts: Array[int] = [0]
+	var host: MatchController = _rig.controller(HOST)
+	host.match_started.connect(func(_count: int) -> void: starts[0] += 1)
+	var key: InputEventKey = InputEventKey.new()
+	key.physical_keycode = MatchController.RESTART_KEY
+	key.pressed = true
+	host._unhandled_input(key)
+	await step_ticks(5)
+	assert_eq_int(starts[0], 0, "R on the host mid-match restarts nothing")
+	if not await _win(0):
+		return
+	host._unhandled_input(key)
+	await step_ticks(5)
+	assert_eq_int(starts[0], 0, "nor on the result screen")
+	assert_eq_int(int(_rig.sessions[HOST].lobby.get_phase()), int(NetLobby.Phase.POST_MATCH), "the lobby still says the match is over")
+	assert_true(host.is_match_over(), "and so does the match")
