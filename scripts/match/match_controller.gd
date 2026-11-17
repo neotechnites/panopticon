@@ -3065,10 +3065,13 @@ func _body_mesh_of(body: PlayerController) -> MeshInstance3D:
 ## tower and [member MatchRules.prisoner_count] on the ring. The human, when
 ## there is one, takes the first slot; AI bodies fill the rest.
 func _build_participants() -> void:
-	# The hub fields whoever is seated and nobody else: bots belong to a match.
+	# A seated session's roster is the net layer's bodies, whatever count the rules carry;
+	# the hub fields whoever is seated and nobody else: bots belong to a match.
 	var wanted: int = get_rules().get_participant_count()
-	if hub_mode:
-		wanted = _net_bodies.size() if not _net_bodies.is_empty() else (1 if player != null else 0)
+	if not _net_bodies.is_empty():
+		wanted = _net_bodies.size()
+	elif hub_mode:
+		wanted = 1 if player != null else 0
 	if _participants.size() == wanted:
 		return
 
