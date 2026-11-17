@@ -249,6 +249,10 @@ func _on_peer_disconnected(peer_id: int) -> void:
 
 
 func _on_connection_state_changed(state: NetTransport.ConnectionState) -> void:
+	var relay: CatGrenadeRelay = CatGrenadeRelay.of(self)
+	if relay != null and state != NetTransport.ConnectionState.CONNECTING:
+		# Every other state is a session beginning or ending; cats are numbered per host.
+		relay.clear()
 	match state:
 		NetTransport.ConnectionState.HOSTING:
 			# The host is peer 1 and is in its own session from the first

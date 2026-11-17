@@ -148,6 +148,17 @@ func _gone(cat_id: int) -> void:
 	_shown.erase(cat_id)
 
 
+## A session began or ended: no cat drawn, held or remembered as gone in the last one stands.
+## Ids are not reused, so a cat still live on this machine keeps its own.
+func clear() -> void:
+	for mesh: MeshInstance3D in _shown.values():
+		if is_instance_valid(mesh):
+			mesh.queue_free()
+	_shown.clear()
+	_ended.clear()
+	_track_held(_held_id, 0, null)
+
+
 ## Pet the held cat: [method HubCat.pet], and the first pet makes it happy. The cook rides the intent.
 func _input(event: InputEvent) -> void:
 	if _held_id == 0 or not is_instance_valid(_held_mesh) or not event.is_action_pressed(&"interact"):
