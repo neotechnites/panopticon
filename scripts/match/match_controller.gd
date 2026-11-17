@@ -228,6 +228,9 @@ signal ghost_respawned(participant: MatchParticipant)
 ## prisoner who is now the ghost. The swap has already happened when it fires.
 signal ghost_caught(ghost: MatchParticipant, caught: MatchParticipant)
 
+## A ghost fell to a hazard and is held where it fell until its respawn. Before the hold is armed.
+signal ghost_fell(participant: MatchParticipant)
+
 ## Emitted on the tick one prisoner shoves another. [param victim] has already
 ## been launched when it fires.
 signal participant_shoved(shover: MatchParticipant, victim: MatchParticipant)
@@ -726,6 +729,8 @@ func _physics_process(delta: float) -> void:
 				_wake_bodies()
 		# A client decides no respawn -- the server says when it lands -- but the
 		# death view and its countdown are drawn off this clock.
+		# The server's respawn arms the same settle here; unticked, a client's own ghost never moves again.
+		_wake_settled_ghosts()
 		_tick_mirror_respawn_holds(delta)
 		return
 	if _settle_frames > 0:
@@ -1674,9 +1679,23 @@ func net_start_round(seat_index: int, round_number: int) -> void:
 	_applying = false
 
 
-func net_convert(index: int) -> void:
+func net_convert(index: int, cause: MatchParticipant.DeathCause = MatchParticipant.DeathCause.SHOT) -> void:
+	var participant: MatchParticipant = _participant_at(index)
+	if participant != null:
+		participant.death_cause = cause
 	_applying = true
-	convert_participant(_participant_at(index))
+	convert_participant(participant)
+	_applying = false
+
+
+## The server's ghost fell to a hazard: held here too, with the countdown, until its respawn arrives.
+func net_ghost_fall(index: int, cause: MatchParticipant.DeathCause) -> void:
+	var participant: MatchParticipant = _participant_at(index)
+	if participant == null or not participant.is_ghost:
+		return
+	participant.death_cause = cause
+	_applying = true
+	_place_ghost_at_start(participant)
 	_applying = false
 
 
@@ -1762,11 +1781,18 @@ func net_kill_beat(guard_index: int, throw: Vector3) -> void:
 	kill_beat_started.emit(guard, maxf(get_rules().kill_beat_seconds, 0.0), throw)
 
 
-## The server says a shove landed on somebody at [param at]. The cue and the drawn
+## The server says a shove landed on [param index], who stood at [param at]. The cue and the drawn
 ## flop only: the victim's launch rides the snapshot.
-func net_shove_landed(at: Vector3) -> void:
+func net_shove_landed(index: int, at: Vector3) -> void:
 	AudioDirector.post_event_at(AudioEvents.PLAYER_CATCH_MADE, at)
-	PrisonerAvatar.shove_landed(at)
+	_flop_shoved(_participant_at(index))
+
+
+## The drawn flop of a shoved body, on the body itself: a mirror's copy lags the server's position.
+func _flop_shoved(victim: MatchParticipant) -> void:
+	var avatar: PrisonerAvatar = PrisonerAvatar.of(victim.body) if victim != null else null
+	if avatar != null:
+		avatar.shove_hit()
 
 
 ## A human seat became a bot's mid-match: the body stays, the brain takes over.
@@ -1778,7 +1804,9 @@ func net_seat_to_bot(index: int) -> void:
 	participant.brain = _find_brain(participant.body)
 	if _mirror or participant.brain == null:
 		return
-	if participant.is_running:
+	if participant.is_finisher:
+		_hunt_the_guard(participant)
+	elif participant.is_running:
 		_start_running_in_place(participant, participant.tracker.get_travelled_arc(), null)
 	elif participant.is_ghost:
 		participant.brain.rules = get_rules()
@@ -1858,7 +1886,7 @@ func get_finisher() -> MatchParticipant:
 	return _finisher
 
 
-## True from the finale shove until the next round: the tower's collision is off.
+## True from a brawl's opening until the next round: the tower's collision is off.
 func is_tower_open() -> bool:
 	return not _opened_tower.is_empty()
 
@@ -2045,8 +2073,8 @@ func apply_hit(participant: MatchParticipant) -> bool:
 	return convert_participant(participant)
 
 
-## The finale shove along [param forward]: one kills the guard, his ragdoll is thrown out of the
-## open tower and the round resolves after the beat. His capsule is held, so no fall rules on him.
+## The finale shove along [param forward]: one kills the guard, his ragdoll is thrown against the
+## solid tower and the round resolves after the beat. His capsule is held, so no fall rules on him.
 func throw_guard(guard: MatchParticipant, forward: Vector3) -> bool:
 	if guard == null or is_resolved() or _phase != Phase.ROUND:
 		return false
@@ -2093,14 +2121,14 @@ func _in_kill_beat() -> bool:
 	return _kill_beat_remaining > 0.0
 
 
-## Hold both bodies, open the tower and throw the guard's ragdoll out of it while
+## Hold both bodies and throw the guard's ragdoll while
 ## every view follows. The authority owns this clock -- a mirror runs no beat.
 func _begin_kill_beat(guard: MatchParticipant, scorer: MatchParticipant, seconds: float, throw: Vector3) -> void:
 	_kill_beat_remaining = seconds
 	_kill_beat_scorer = scorer
 	_kill_beat_guard = guard
 	_freeze_for_kill_beat(guard)
-	# Held, collision and physics off, so the finisher cannot fall out of the open tower.
+	# Held, collision and physics off, so the finisher stays where he shoved from.
 	_freeze_for_kill_beat(scorer)
 	if shove_camera_kick != null and scorer == get_human_participant():
 		shove_camera_kick.strike(Vector3(throw.x, 0.0, throw.z).normalized(), SHOVE_KICK_SCALE)
@@ -2110,10 +2138,9 @@ func _begin_kill_beat(guard: MatchParticipant, scorer: MatchParticipant, seconds
 	kill_beat_started.emit(guard, seconds, throw)
 
 
-## Every machine's half of the finale: the tower's collision off, the guard dead
-## and limp, thrown at [param throw] (world m/s).
+## Every machine's half of the finale: the guard dead and limp, thrown at [param throw] (world m/s).
+## The tower stays solid, so the swept ragdoll meets its walls instead of passing through them.
 func _throw_guard_out(guard: MatchParticipant, throw: Vector3) -> void:
-	_open_tower()
 	if guard.body == null:
 		return
 	AudioDirector.post_event_at(AudioEvents.PLAYER_CATCH_MADE, guard.body.global_position)
@@ -2251,6 +2278,7 @@ func handle_fall(participant: MatchParticipant, from_pit: bool = false) -> bool:
 				_place_finisher_in_tower(participant)
 				return true
 			if participant.is_ghost:
+				ghost_fell.emit(participant)
 				_place_ghost_at_start(participant)
 				return true
 			return convert_participant(participant)
@@ -2421,7 +2449,7 @@ func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 		match_rules.shove_air_lock_seconds,
 	)
 	AudioDirector.post_event_at(AudioEvents.PLAYER_CATCH_MADE, victim.body.global_position)
-	PrisonerAvatar.shove_landed(victim.body.global_position)
+	_flop_shoved(victim)
 	participant_shoved.emit(shover, victim)
 	# THE CATCH. A ghost takes a spot by shoving the prisoner who holds it and by
 	# nothing else -- touching them does nothing -- so it is ruled on here, after
@@ -2768,6 +2796,7 @@ func _wake_ghost(participant: MatchParticipant) -> void:
 	body.collision_mask = participant.home_collision_mask
 	# A mirror simulates nothing -- except the one body it is predicting.
 	body.set_physics_process(not _mirror or body.net_predicted)
+	body.revived.emit()
 
 
 ## Take the ghost back off [param participant]: their colour, their pace, their
@@ -3523,6 +3552,7 @@ func _wake_body(participant: MatchParticipant) -> void:
 	body.collision_mask = participant.home_collision_mask
 	# A mirror simulates nothing -- except the one body it is predicting.
 	body.set_physics_process(not _mirror or body.net_predicted)
+	body.revived.emit()
 
 
 ## Snapshot where [param participant]'s body is standing and which way it is

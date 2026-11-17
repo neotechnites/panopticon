@@ -248,8 +248,10 @@ func _apply_throttle(peer_id: int) -> void:
 
 
 func _on_peer_connected(peer_id: int) -> void:
-	_apply_timeout(peer_id)
-	_apply_throttle(peer_id)
+	# A client's only ENet link is the host (set up on connecting); another client is a name relayed through it.
+	if is_authority():
+		_apply_timeout(peer_id)
+		_apply_throttle(peer_id)
 	peer_connected.emit(peer_id)
 
 

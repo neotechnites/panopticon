@@ -314,7 +314,12 @@ func _subscribe_server() -> void:
 	)
 	controller.round_started.connect(_on_round_started)
 	controller.participant_converted.connect(
-		func(participant: MatchParticipant) -> void: _event(&"_ev_removed", [participant.index])
+		func(participant: MatchParticipant) -> void:
+			_event(&"_ev_removed", [participant.index, int(participant.death_cause)])
+	)
+	controller.ghost_fell.connect(
+		func(participant: MatchParticipant) -> void:
+			_event(&"_ev_ghost_fell", [participant.index, int(participant.death_cause)])
 	)
 	controller.round_resolved.connect(
 		func(outcome: MatchController.Outcome) -> void: _event(&"_ev_round_resolved", [int(outcome)])
@@ -541,7 +546,7 @@ func _on_participant_shoved(shover: MatchParticipant, victim: MatchParticipant) 
 ## The victim's cue, to everyone: the launch rides the snapshot, the sound does not.
 func _on_shove_landed(victim: MatchParticipant) -> void:
 	if victim != null and victim.body != null:
-		_event(&"_ev_shove_landed", [victim.body.global_position])
+		_event(&"_ev_shove_landed", [_seat_index_of(victim.index), victim.body.global_position])
 
 
 func _on_seat_occupancy_changed(seat_index: int, occupancy: LobbySeat.Occupancy) -> void:
@@ -550,9 +555,12 @@ func _on_seat_occupancy_changed(seat_index: int, occupancy: LobbySeat.Occupancy)
 	var slot: int = _slot_of_seat[seat_index]
 	var link: PlayerNetLink = _link_for_seat(seat_index)
 	if link != null:
+		# The match may be holding this body (dead, a kill beat, a settle); the handover must not wake it.
+		var simulated: bool = link.controller.is_physics_processing()
 		link.owner_peer_id = 0
 		link.local_source = link.controller.get_node_or_null(^"BotInput") as IntentSource
 		link.refresh_role()
+		link.controller.set_physics_process(simulated)
 	controller.net_seat_to_bot(slot)
 	# Deferred: this runs inside the leaving peer's disconnect signal.
 	_event.call_deferred(&"_ev_seat_to_bot", [slot])
@@ -633,7 +641,10 @@ func _ev_gamestate(state: PackedInt32Array) -> void:
 	for i: int in participants.size():
 		var flags: int = state[NetCodec.GAMESTATE_HEADER + i * NetCodec.GAMESTATE_PARTICIPANT]
 		if flags & (NetCodec.GAMESTATE_RUNNING | NetCodec.GAMESTATE_SHOOTER) == 0 and participants[i].is_running:
-			_ev_removed(i)
+			_ev_removed(i, int(MatchParticipant.DeathCause.SHOT))
+		if flags & NetCodec.GAMESTATE_GHOST != 0 and flags & NetCodec.GAMESTATE_HELD == 0:
+			# Its respawn landed before this machine was listening.
+			controller.net_ghost_respawn(i)
 	for i: int in participants.size():
 		var at: int = NetCodec.GAMESTATE_HEADER + i * NetCodec.GAMESTATE_PARTICIPANT
 		participants[i].rounds_won = state[at + 1]
@@ -659,13 +670,27 @@ func _ev_round_started(seat_index: int, round_number: int) -> void:
 
 
 @rpc("authority", "reliable", "call_remote", 0)
-func _ev_removed(index: int) -> void:
+func _ev_removed(index: int, cause: int) -> void:
 	if not _replays():
 		return
 	if controller.get_phase() == MatchController.Phase.RACE:
 		controller.net_race_out(index)
 	else:
-		controller.net_convert(index)
+		controller.net_convert(index, _cause_of(cause))
+
+
+@rpc("authority", "reliable", "call_remote", 0)
+func _ev_ghost_fell(index: int, cause: int) -> void:
+	if not _replays():
+		return
+	controller.net_ghost_fall(index, _cause_of(cause))
+
+
+## A death cause off the wire, or SHOT for a number this build has no cause for.
+func _cause_of(cause: int) -> MatchParticipant.DeathCause:
+	if cause < 0 or cause >= MatchParticipant.DeathCause.size():
+		return MatchParticipant.DeathCause.SHOT
+	return cause as MatchParticipant.DeathCause
 
 
 @rpc("authority", "reliable", "call_remote", 0)
@@ -756,10 +781,10 @@ func _ev_brawl_out(index: int, throw: Vector3) -> void:
 
 
 @rpc("authority", "reliable", "call_remote", 0)
-func _ev_shove_landed(at: Vector3) -> void:
+func _ev_shove_landed(seat_index: int, at: Vector3) -> void:
 	if not _replays() or not at.is_finite():
 		return
-	controller.net_shove_landed(at)
+	controller.net_shove_landed(_slot_of_seat.get(seat_index, -1), at)
 
 
 ## Which gun an event names, or null for one this build has not got. Callers have

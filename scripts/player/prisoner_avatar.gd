@@ -142,10 +142,6 @@ const RAGDOLL_WAIT_MSEC: int = 400
 const REUSED_DISTANCE: float = 1.5
 ## After a death, the replicated run (snapshots still in flight) cannot revive the body.
 const DEATH_SETTLE_SECONDS: float = 0.6
-## A shove lands on the drawn body nearest its point, within this, metres.
-const SHOVE_CLAIM_METRES: float = 2.5
-## Metres above the feet the finale shove strikes a thrown body.
-const THROWN_STRIKE_HEIGHT: float = 1.5
 ## A shoved body flops once it is seen thrown (rising this fast, or jolted this much, m/s), or after the wait.
 const FLOP_RISE: float = 2.0
 const FLOP_JOLT: float = 5.0
@@ -603,20 +599,12 @@ func _enter_tree() -> void:
 		_drawn.append(self)
 
 
-## A shove landed at [param at]: the living runner drawn nearest it flops. Called on every machine from its own shove.
-static func shove_landed(at: Vector3) -> void:
-	var best: PrisonerAvatar = null
-	var best_distance: float = SHOVE_CLAIM_METRES * SHOVE_CLAIM_METRES
-	for avatar: PrisonerAvatar in _drawn:
-		if avatar.body == null or avatar._dead or avatar.body.is_guard or avatar._ragdoll == null:
-			continue
-		var distance: float = avatar.body.global_position.distance_squared_to(at)
-		if distance < best_distance:
-			best_distance = distance
-			best = avatar
-	if best != null and best._ragdoll.flop_enabled:
-		best._flop_wait = 0.0
-		best._flop_before = best.body.velocity
+## A shove landed on this body: it flops once it is seen thrown. Every machine calls it on the body the server named.
+func shove_hit() -> void:
+	if body == null or _dead or body.is_guard or _ragdoll == null or not _ragdoll.flop_enabled:
+		return
+	_flop_wait = 0.0
+	_flop_before = body.velocity
 
 
 ## The drawn avatar of [param of_body], or null.
@@ -635,8 +623,8 @@ func throw_out(throw: Vector3) -> void:
 	_death_position = body.global_position
 	animation.pause()
 	_restore_hidden_bones()
-	# Struck high along the throw, so he tumbles and flails rather than sailing out standing.
-	_ragdoll.start(throw, body.global_position + Vector3.UP * THROWN_STRIKE_HEIGHT, throw)
+	_pose_rifle(false)
+	_ragdoll.throw_out(throw)
 	_carry_rifle()
 
 
@@ -791,6 +779,9 @@ func _ready() -> void:
 	if body != null and not body.died.is_connected(_on_body_died):
 		body.died.connect(_on_body_died)
 
+	if body != null and not body.revived.is_connected(_on_body_revived):
+		body.revived.connect(_on_body_revived)
+
 	if body != null and not body.shoved.is_connected(_on_body_shoved):
 		body.shoved.connect(_on_body_shoved)
 
@@ -853,13 +844,7 @@ func _process(delta: float) -> void:
 			# A mirror's body still slides on to where the authority froze it: that is where it died.
 			_death_position = body.global_position
 		if settled and (body.get_horizontal_speed() >= run_resume_speed or _is_reused()):
-			_dead = false
-			_in_death = false
-			_ragdoll_pending = false
-			if _ragdoll != null and _ragdoll.is_active():
-				_ragdoll.stop()
-				_drop_carried_rifle()
-				_go_idle()
+			_stand_up()
 		else:
 			if _ragdoll_pending:
 				_try_ragdoll()
@@ -1093,6 +1078,26 @@ func _on_body_died() -> void:
 	_death_velocity = body.velocity if body.velocity.length() > _seen_velocity.length() else _seen_velocity
 
 
+## The match put the body back in the world: the death ends here, whether or not it has moved yet.
+func _on_body_revived() -> void:
+	if _dead:
+		_stand_up()
+
+
+## Out of the death pose or the corpse and back on the clips.
+func _stand_up() -> void:
+	var limp: bool = _ragdoll != null and _ragdoll.is_active()
+	_dead = false
+	_in_death = false
+	_ragdoll_pending = false
+	if limp:
+		_ragdoll.stop()
+		_pose_rifle(_held != null)
+		_drop_carried_rifle()
+	if limp or body.get_horizontal_speed() < run_resume_speed:
+		_go_idle()
+
+
 ## Go limp if a rifle hit on this body has come in; give up after the wait and keep the clip.
 func _try_ragdoll() -> void:
 	var slot: int = Rifle.recent_hit_on(body, _death_msec - RAGDOLL_WAIT_MSEC)
@@ -1100,6 +1105,7 @@ func _try_ragdoll() -> void:
 		_ragdoll_pending = false
 		animation.pause()
 		_restore_hidden_bones()
+		_pose_rifle(false)
 		_ragdoll.start(_death_velocity, Rifle.recent_hit_point(slot), Rifle.recent_hit_direction(slot))
 	elif Time.get_ticks_msec() - _death_msec > RAGDOLL_WAIT_MSEC:
 		_ragdoll_pending = false
@@ -1391,14 +1397,19 @@ func _hold(rifle: Rifle) -> void:
 	_hold_lean.anchors[1] = rifle.fore_hand if holding else null
 	_hold_lean.pitch_source = body.head
 	_hold_lean.rifle = rifle
-	for stage: SkeletonModifier3D in [_hold_lean, _hold_ik, _hold_hands]:
-		if stage != null:
-			stage.active = holding
+	_pose_rifle(holding)
 	if _fp_arms != null:
 		_fp_shoving = false
 		_put_fp_arms_on(false)
 		_fp_arms.active = false
 		_fp_arms_mesh.visible = false
+
+
+## The held rifle's pose stages on or off: a limp body is the ragdoll's alone, never posed onto a rifle in the tower.
+func _pose_rifle(on: bool) -> void:
+	for stage: SkeletonModifier3D in [_hold_lean, _hold_ik, _hold_hands]:
+		if stage != null:
+			stage.active = on
 
 
 ## Freeze the run cycle on its first frame. The fallback for a body with no

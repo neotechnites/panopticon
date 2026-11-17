@@ -53,6 +53,9 @@ signal landed(impact_speed: float)
 ## MatchController._make_ghost].
 signal died()
 
+## Emitted when [MatchController] puts this body back in the world: a round's placement, a ghost's respawn.
+signal revived()
+
 ## Emitted on the tick this body shoves somebody, by [method
 ## MatchController.apply_shove]. The costume's shove clip hangs off it.
 signal shoved()
