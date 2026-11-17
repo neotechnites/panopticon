@@ -2,6 +2,7 @@ extends TestCase
 ## The end of a networked match as each machine is told it: verdicts, restarts and the roster a restart keeps.
 
 const Rig: GDScript = preload("res://tests/support/net_match_rig.gd")
+const BLANK_SCENE_PATH: String = "res://tests/support/blank_scene.tscn"
 const HOST: int = 0
 const A: int = 1
 const B: int = 2
@@ -115,3 +116,45 @@ func test_a_rematch_keeps_the_seated_roster_after_a_setting_is_applied() -> void
 		return
 	await _win(0)
 	assert_true(_rig.controller(HOST).is_match_over(), "the rematch is won without the host falling over")
+
+
+## Stand a peer's pause menu on a blank scene instead of the real main menu, and take it down after.
+func _leave_by_menu(peer: int) -> void:
+	var menu: PauseMenu = _rig.matches[peer].get_node("PauseMenu") as PauseMenu
+	menu.main_menu_scene_path = BLANK_SCENE_PATH
+	menu.return_to_main_menu()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var blank: Node = get_tree().current_scene
+	if blank != null:
+		get_tree().current_scene = null
+		blank.queue_free()
+
+
+func test_a_client_leaving_by_the_menu_leaves_the_session() -> void:
+	if not await _play(2, 4):
+		return
+	var a_peer: int = _rig.sessions[A].get_local_peer_id()
+	await _leave_by_menu(A)
+	assert_eq_int(
+		int(_rig.sessions[A].get_connection_state()), int(NetTransport.ConnectionState.OFFLINE),
+		"Leave Match closes the client's session",
+	)
+	var host: NetSession = _rig.sessions[HOST]
+	assert_true(await _rig.wait_for(func() -> bool: return not host.has_peer(a_peer)), "the host is told at once")
+	assert_true(host.lobby.get_seat(A).is_bot(), "and a bot takes the leaver's seat for the rest of the match")
+	assert_true(_rig.sessions[B].is_established(), "the other client plays on")
+
+
+func test_the_host_leaving_by_the_menu_ends_the_session_for_everyone() -> void:
+	if not await _play(1, 3):
+		return
+	await _leave_by_menu(HOST)
+	assert_eq_int(
+		int(_rig.sessions[HOST].get_connection_state()), int(NetTransport.ConnectionState.OFFLINE),
+		"Leave Match closes the host's session",
+	)
+	var client: NetSession = _rig.sessions[A]
+	assert_true(await _rig.wait_for(func() -> bool: return not client.is_established()), "the client is told at once")
+	assert_true(_result(A).is_showing(), "and its screen says the host is gone")
+	assert_eq_string(_verdict(A), tr("RESULT_HOST_LOST"), "in those words")

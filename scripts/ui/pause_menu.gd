@@ -177,8 +177,15 @@ func close() -> void:
 ## Open the menu if it is closed, close it if it is open.
 ## True inside a networked match, where the world keeps running under the menu.
 func _is_networked() -> bool:
-	var session: NetSession = get_tree().root.get_node_or_null(^"NetSession") as NetSession
+	var session: NetSession = _session()
 	return session != null and session.is_established()
+
+
+## The session this scene plays in: the bound match's, else the one on the tree root.
+func _session() -> NetSession:
+	if net_match != null and net_match.get_session() != null:
+		return net_match.get_session()
+	return get_tree().root.get_node_or_null(NetMatch.SESSION_PATH) as NetSession
 
 
 func toggle() -> void:
@@ -309,7 +316,8 @@ func _take_all_to_hub() -> void:
 ##   1. write the settings file   -- the match is about to stop existing
 ##   2. unpause the tree          -- or the menu loads into a paused tree
 ##   3. release the mouse         -- or the menu loads with no cursor
-##   4. change scene              -- frees the match at the end of the frame
+##   4. leave the session         -- the others are told now; a host's leaving ends it
+##   5. change scene              -- frees the match at the end of the frame
 ## [/codeblock]
 ## The mouse is forced visible rather than restored to
 ## play's wish, because a menu is not a match. [method close] is not reused for
@@ -334,6 +342,9 @@ func return_to_main_menu() -> void:
 	MouseFocus.set_play_wants(false)
 	closed.emit()
 	main_menu_requested.emit()
+	var session: NetSession = _session()
+	if session != null and session.get_connection_state() != NetTransport.ConnectionState.OFFLINE:
+		session.leave()
 
 	var error: Error = tree.change_scene_to_file(main_menu_scene_path)
 	if error != OK:
