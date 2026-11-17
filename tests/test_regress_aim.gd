@@ -18,6 +18,11 @@ const VIEW_TOLERANCE: float = 0.0088
 const MIRROR_TOLERANCE: float = 0.02
 ## Shots a bot guard is watched for in one match; ten matches, five a map, make 500.
 const GUARD_SHOTS: int = 50
+## Bearings the guard is pushed out from the seat along, to meet the tower's walls, columns and rail.
+const WALL_BEARINGS: int = 16
+## Yaw steps the guard turns through where it meets the tower, and the pitches it looks at each.
+const WALL_YAWS: int = 24
+const WALL_PITCHES_DEGREES: Array[float] = [-35.0, 0.0, 20.0]
 
 var _rig: Rig = null
 var _cross: int = CROSS_TICKS
@@ -277,6 +282,104 @@ func _is_tower(node: Node) -> bool:
 	return node != null and String(node.get_path()).contains("/Tower/")
 
 
+## What the drawn gun's own mesh crosses with the ViewModel at [param pose]: every triangle edge of the model,
+## cast both ways (the maps' faces are one-sided). Not the bounds the clearance searches with. Empty when nothing.
+func _gun_meets(rifle: Rifle, holder: PlayerController, pose: Transform3D) -> Dictionary:
+	var view_model: Node3D = rifle.get_node(^"ViewModel") as Node3D
+	var space: PhysicsDirectSpaceState3D = holder.get_world_3d().direct_space_state
+	for node: Node in view_model.get_node(^"Model").find_children("*", "MeshInstance3D", true, false):
+		var mesh: MeshInstance3D = node as MeshInstance3D
+		var to_world: Transform3D = rifle.global_transform * pose * (view_model.global_transform.affine_inverse() * mesh.global_transform)
+		var faces: PackedVector3Array = mesh.mesh.get_faces()
+		for corner: int in faces.size():
+			var from: Vector3 = to_world * faces[corner]
+			var to: Vector3 = to_world * faces[corner - corner % 3 + (corner + 1) % 3]
+			for way: PackedVector3Array in [PackedVector3Array([from, to]), PackedVector3Array([to, from])]:
+				var edge: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(way[0], way[1], rifle.profile.hit_mask)
+				edge.exclude = [holder.get_rid()]
+				var hit: Dictionary = space.intersect_ray(edge)
+				if not hit.is_empty():
+					return hit
+	return {}
+
+
+## The guard pressed against the tower turns through every bearing; wherever sliding back can clear it, the gun
+## as drawn is clear of the world. The rifle is the same for a human and a bot.
+func _a_rifle_held_against_the_tower_stays_out_of_it(map: StringName, guard_slot: int) -> void:
+	if not await _start_round(map, 0, 2, guard_slot):
+		return
+	var rifle: Rifle = _rig.controller(HOST).rifle
+	var body: PlayerController = _rig.body(HOST, guard_slot)
+	# The runner is held on the start line so the round, and the tower, stay as they are.
+	_rig.body(HOST, 1 - guard_slot).movement_locked = true
+	# Posed by hand once the seat has settled: its own physics, or a bot's brain, would move it between poses.
+	await step_ticks(_cross)
+	body.set_physics_process(false)
+	for brain: Node in body.find_children("*", "TowerShooter", true, false):
+		brain.set_physics_process(false)
+	var ads: RifleAds = rifle.get_node(^"Ads") as RifleAds
+	var seat: Vector3 = body.global_position
+	var poses: int = 0
+	var reached: int = 0
+	var past_cap: int = 0
+	var clearance: RifleClearance = rifle.get_node_or_null(^"Clearance") as RifleClearance
+	var inside: PackedStringArray = PackedStringArray()
+	for bearing: int in WALL_BEARINGS:
+		var out: float = TAU * bearing / WALL_BEARINGS
+		body.global_position = seat
+		if body.move_and_collide(Vector3(cos(out), 0.0, sin(out)) * 15.0) == null:
+			continue
+		for yaw: int in WALL_YAWS:
+			for pitch: float in WALL_PITCHES_DEGREES:
+				body.rotation = Vector3(0.0, TAU * yaw / WALL_YAWS, 0.0)
+				body.head.rotation = Vector3(deg_to_rad(pitch), 0.0, 0.0)
+				# The first frame lands the pose, the next is drawn with it.
+				await get_tree().process_frame
+				await get_tree().process_frame
+				if rifle.shooter_body != body:
+					fail("the guard lost the rifle at bearing %d" % bearing)
+					return
+				poses += 1
+				var view_model: Node3D = rifle.get_node(^"ViewModel") as Node3D
+				var rest: Transform3D = ads.get_current_base_pose()
+				if _gun_meets(rifle, body, rest).is_empty():
+					continue
+				reached += 1
+				# Slid back as far as it may go: the stock at the shoulder.
+				var tip: Vector3 = rest * rifle.muzzle.transform.origin
+				var reach: float = (rifle.global_transform.basis * tip).length()
+				var capped: Transform3D = Transform3D(rest.basis, rest.origin - tip * (RifleClearance.MAX_SLIDE / reach))
+				if not _gun_meets(rifle, body, capped).is_empty():
+					past_cap += 1
+					if clearance != null:
+						assert_almost_eq(clearance.get_slide(), RifleClearance.MAX_SLIDE, 0.001, "a gun that cannot clear is held at the cap")
+					continue
+				var met: Dictionary = _gun_meets(rifle, body, view_model.transform)
+				if not met.is_empty():
+					inside.append("%s bearing %d yaw %d pitch %d: the drawn gun is in %s" % [
+						map, bearing, yaw, int(pitch), (met["collider"] as Node).name,
+					])
+	print("          RIFLE AT THE WALL %s: %d poses, %d with the held gun reaching into the world, %d past the slide's cap, %d drawn inside" % [
+		map, poses, reached, past_cap, inside.size(),
+	])
+	assert_gt(float(reached - past_cap), 0.0, "the guard was put where its rifle reaches into the tower and can clear it")
+	for line: String in inside.slice(0, 10):
+		fail(line)
+	assert_eq_int(inside.size(), 0, "of %d poses against the tower the gun could clear, the ones drawn inside it" % (reached - past_cap))
+
+
+func test_a_human_guards_rifle_held_against_the_tower_stays_out_of_it_hell() -> void:
+	await _a_rifle_held_against_the_tower_stays_out_of_it(HELL, HOST)
+
+
+func test_a_human_guards_rifle_held_against_the_tower_stays_out_of_it_marble() -> void:
+	await _a_rifle_held_against_the_tower_stays_out_of_it(MARBLE, HOST)
+
+
+func test_a_bot_guards_rifle_held_against_the_tower_stays_out_of_it_marble() -> void:
+	await _a_rifle_held_against_the_tower_stays_out_of_it(MARBLE, 1)
+
+
 ## A bot holds the tower against running bots; no shot it takes is aimed into the tower. The line it checks
 ## before it fires is the one the shot takes, so a led or erring aim across a column is held, not fired.
 func _a_bot_guard_aims_out_of_its_own_tower(map: StringName) -> void:
@@ -310,14 +413,6 @@ func _a_bot_guard_aims_out_of_its_own_tower(map: StringName) -> void:
 				into_tower.append("%s shot %d from %v aimed %v met %s after %.2f m" % [
 					map, shots[0], from, aim, (hit["collider"] as Node).name, from.distance_to(hit["position"] as Vector3),
 				])
-			var muzzle: Node3D = rifle.muzzle
-			if muzzle != null:
-				var barrel: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(from, muzzle.global_position, mask)
-				barrel.exclude = ray.exclude
-				barrel.hit_from_inside = true
-				var poke: Dictionary = space.intersect_ray(barrel)
-				if not poke.is_empty() and _is_tower(poke["collider"] as Node):
-					into_tower.append("%s shot %d: the barrel is through %s" % [map, shots[0], (poke["collider"] as Node).name])
 	)
 	var seconds: int = 0
 	while shots[0] < GUARD_SHOTS and seconds < 3600 and host.get_phase() != MatchController.Phase.MATCH_OVER:
@@ -369,3 +464,4 @@ func test_a_bot_guard_aims_out_of_its_own_tower_marble_fourth_match() -> void:
 
 func test_a_bot_guard_aims_out_of_its_own_tower_marble_fifth_match() -> void:
 	await _a_bot_guard_aims_out_of_its_own_tower(MARBLE)
+
