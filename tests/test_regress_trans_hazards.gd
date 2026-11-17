@@ -18,6 +18,10 @@ const SPAWN_FLOAT_METRES: float = 0.05
 ## The authored drop-in over the floor is 0.25 to 0.32 m on every map; the floating guard stood 0.6 m up.
 const SPAWN_DROP_METRES: float = 0.4
 const GUARD_SETTLE_TICKS: int = 45
+const STALL_SEED: int = 20260930
+const STALL_MATCH_TICKS: int = 5400
+const STALL_TICKS: int = 600
+const STALL_METRES: float = 0.5
 ## A ghost put back on the line is drawn this near the start marker, wherever on the line it stands.
 const START_REACH_METRES: float = 12.0
 
@@ -190,9 +194,20 @@ func _a_hopping_client_dies_on_the_lava(clients: int) -> void:
 	keys.command.move_direction = Vector2(0.0, 1.0)
 	keys.command.jump_held = true
 	keys.command.jump_pressed = true
-	victim.body.velocity = Vector3.ZERO
+	# The hop has to be the client's own, arrived over the wire, before the lava is under it.
+	if not await _rig.wait_for(func() -> bool: return victim.body.get_intent().jump_held and not victim.body.is_on_floor()):
+		fail("the client's held jump never reached the host")
+		return
 	victim.body.global_position = river.global_position + Vector3.UP * 0.3
-	if not await _every_machine_has_it_dead(slot, MatchParticipant.DeathCause.LAVA, "hopping on the river"):
+	var airborne: Array[int] = [0]
+	var count_air: Callable = func() -> void:
+		if victim.is_running and not victim.body.is_on_floor():
+			airborne[0] += 1
+	get_tree().physics_frame.connect(count_air)
+	var dead: bool = await _every_machine_has_it_dead(slot, MatchParticipant.DeathCause.LAVA, "hopping on the river")
+	get_tree().physics_frame.disconnect(count_air)
+	assert_gt(float(airborne[0]), 3.0, "the host's copy was hopping on the lava, not standing in it")
+	if not dead:
 		return
 	keys.command.clear()
 	if not await _back_as_a_ghost(slot):
@@ -295,3 +310,48 @@ func test_marble_two_machines_the_trapdoor_drops_a_client_and_its_ghost_survives
 
 func test_marble_four_machines_the_trapdoor_drops_a_client_and_its_ghost_survives_the_pit() -> void:
 	await _the_trapdoor_drops_a_client(3)
+
+
+## Bots play hell and marble: no living runner that is free to move stands on one spot for ten seconds.
+func test_no_living_bot_stands_frozen_for_ten_seconds_on_hell_or_marble() -> void:
+	for map: StringName in [HELL, MARBLE]:
+		var rules: MatchRules = (load(RULES_PATH) as MatchRules).duplicate() as MatchRules
+		rules.map_id = map
+		rules.prisoner_count = 3
+		rules.open_with_race = false
+		rules.open_with_tower_brawl = false
+		rules.rounds_to_win_match = 99
+		_world = BotMatchWorld.new()
+		add_child(_world)
+		_world.build(rules, STALL_SEED)
+		var controller: MatchController = _world.get_controller()
+		controller.start_match()
+		var anchors: Dictionary[int, Vector3] = {}
+		var held: Dictionary[int, int] = {}
+		var worst: int = 0
+		for _tick: int in STALL_MATCH_TICKS:
+			await step_ticks(1)
+			for participant: MatchParticipant in controller.get_participants():
+				var body: PlayerController = participant.body
+				var free: bool = (
+					participant.is_running and not participant.is_ghost and participant.brain != null
+					and body.is_physics_processing() and not body.movement_locked
+					and controller.get_phase() == MatchController.Phase.ROUND and not controller.is_resolved()
+				)
+				var anchor: Vector3 = anchors.get(participant.index, Vector3.INF)
+				if not free or not anchor.is_finite() or body.global_position.distance_to(anchor) > STALL_METRES:
+					anchors[participant.index] = body.global_position
+					held[participant.index] = 0
+					continue
+				held[participant.index] += 1
+				worst = maxi(worst, held[participant.index])
+				if held[participant.index] == STALL_TICKS:
+					fail("%s: %s stood within %.1f m of %s for ten seconds, alive and free to move" % [map, participant.display_name, STALL_METRES, anchor])
+		print("      %s: longest a free runner stood still was %.1f s" % [map, float(worst) / SIM_HZ])
+		assert_lt(float(worst) / SIM_HZ, float(STALL_TICKS) / SIM_HZ, "%s: the longest any free runner stood still, in seconds" % map)
+		assert_gt(float(worst), 0.0, "%s: runners were watched while free to move" % map)
+		assert_ge(float(controller.get_round_number()), 1.0, "%s: a round was played" % map)
+		remove_child(_world)
+		_world.free()
+		_world = null
+		await step_ticks(2)

@@ -110,7 +110,7 @@ func _assert_nobody_is_in_the_pit(why: String) -> void:
 ## The map stands, lit for itself, on every machine, and every machine draws the bodies where the host has them.
 func _assert_the_match_stands(map: StringName, why: String) -> void:
 	var wanted: String = MapCatalog.scene_path_for(map)
-	var fit: CharacterFit = load(CharacterLight.FITS[wanted]) as CharacterFit
+	var fit: CharacterFit = load("res://maps/%s/%s_character_fit.tres" % [map, map]) as CharacterFit
 	for peer: int in _rig.peer_count():
 		var controller: MatchController = _rig.controller(peer)
 		assert_eq_string(controller.arena.scene_file_path, wanted, "%s: peer %d stands on the chosen map" % [why, peer])
