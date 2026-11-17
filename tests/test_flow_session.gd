@@ -3,6 +3,7 @@ extends TestCase
 ## and how long a silent peer is waited for.
 
 const WAIT_MS: int = 3000
+const SILENCE_SECONDS: float = 0.6
 
 var _sessions: Array[NetSession] = []
 var _port: int = -1
@@ -108,3 +109,55 @@ func test_a_joiner_on_another_build_is_told_so() -> void:
 	if not told.is_empty():
 		assert_eq_int(told[0], int(NetLobby.Refusal.VERSION), "and is told the builds differ")
 	assert_null(host.lobby.find_seat_by_peer(client.get_local_peer_id()), "it was never seated")
+
+
+## A silent peer is one whose game has stopped while its socket still answers; ENet alone never drops it.
+func _silent_pair() -> Array[NetSession]:
+	var quick: NetSettings = NetFixtures.settings()
+	quick.peer_timeout_seconds = SILENCE_SECONDS
+	var host: NetSession = await _host(quick)
+	if host == null:
+		return []
+	var client: NetSession = _peer("Client", quick.duplicate() as NetSettings)
+	if not await NetFixtures.join_and_wait(self, client, host, _port):
+		fail("the client never connected")
+		return []
+	return [host, client]
+
+
+func test_a_client_gone_silent_is_dropped_at_the_timeout() -> void:
+	var pair: Array[NetSession] = await _silent_pair()
+	if pair.is_empty():
+		return
+	var host: NetSession = pair[0]
+	var client: NetSession = pair[1]
+	await step_seconds_real(SILENCE_SECONDS * 2.0)
+	assert_eq_int(host.get_peer_count(), 2, "a client that keeps talking is kept")
+	client.set_process(false)
+	var began: int = Time.get_ticks_msec()
+	assert_true(await _until(func() -> bool: return host.get_peer_count() == 1), "the host drops the silent client")
+	assert_lt(float(Time.get_ticks_msec() - began) / 1000.0, SILENCE_SECONDS + 0.5, "at the timeout, not long after")
+	assert_true(
+		await _until(func() -> bool: return not client.is_established()), "and the client is told at once"
+	)
+
+
+func test_a_host_gone_silent_is_given_up_at_the_timeout() -> void:
+	var pair: Array[NetSession] = await _silent_pair()
+	if pair.is_empty():
+		return
+	var host: NetSession = pair[0]
+	var client: NetSession = pair[1]
+	host.set_process(false)
+	var began: int = Time.get_ticks_msec()
+	assert_true(
+		await _until(func() -> bool: return client.get_connection_state() == NetTransport.ConnectionState.FAILED),
+		"the client gives the silent host up",
+	)
+	assert_lt(float(Time.get_ticks_msec() - began) / 1000.0, SILENCE_SECONDS + 0.5, "at the timeout, not long after")
+
+
+func step_seconds_real(seconds: float) -> void:
+	var until: int = Time.get_ticks_msec() + int(seconds * 1000.0)
+	while Time.get_ticks_msec() < until:
+		await get_tree().process_frame

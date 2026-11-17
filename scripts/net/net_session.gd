@@ -89,6 +89,16 @@ var _peers: PackedInt32Array = PackedInt32Array()
 ## compresses simulated time fiftyfold and a socket has not heard about it.
 var _connect_started_ms: int = -1
 
+## Real milliseconds between the keep-alives each end sends the other.
+const BEAT_MS: int = 500
+## A frame this long was this machine not listening; silence across it proves nothing about a peer.
+const DEAF_FRAME_MS: int = 1000
+
+## When each peer this machine talks to was last heard from, in real milliseconds.
+var _heard_ms: Dictionary[int, int] = {}
+var _beat_sent_ms: int = 0
+var _frame_ms: int = 0
+
 
 func _ready() -> void:
 	if settings == null:
@@ -108,6 +118,7 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	_watch_peers()
 	if _connect_started_ms < 0:
 		return
 	if get_connection_state() != NetTransport.ConnectionState.CONNECTING:
@@ -126,6 +137,47 @@ func _process(_delta: float) -> void:
 ## Become the listen server. [param port] and [param max_players] default to
 ## [member settings]; [param max_players] counts this machine, so matches run 2
 ## to [constant NetTransport.MAX_PLAYERS].
+## Keep-alives out, and anyone silent past [member NetSettings.peer_timeout_seconds] dropped: the
+## host drops that client and tells it, a client gives the host up. ENet's own timer lands late.
+func _watch_peers() -> void:
+	var now: int = Time.get_ticks_msec()
+	var frame_gap: int = now - _frame_ms if _frame_ms > 0 else 0
+	_frame_ms = now
+	if not is_established():
+		return
+	var limit: int = int(get_settings().peer_timeout_seconds * 1000.0)
+	var hosting: bool = is_authority()
+	if frame_gap >= limit and not hosting:
+		# This machine said nothing for longer than the host waits for anyone: it has been dropped.
+		transport.abort()
+		return
+	if now - _beat_sent_ms >= BEAT_MS:
+		_beat_sent_ms = now
+		if not hosting:
+			rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_beat")
+		elif _peers.size() > 1:
+			rpc(&"_beat")
+	for index: int in range(_peers.size() - 1, -1, -1):
+		var peer_id: int = _peers[index]
+		if peer_id == get_local_peer_id() or (not hosting and peer_id != NetTransport.AUTHORITY_PEER_ID):
+			continue
+		if frame_gap >= DEAF_FRAME_MS or not _heard_ms.has(peer_id):
+			_heard_ms[peer_id] = now
+		elif now - _heard_ms[peer_id] > limit:
+			if not hosting:
+				transport.abort()
+				return
+			kick_peer(peer_id, true)
+
+
+## The keep-alive. Unreliable: one lost is the next one's problem.
+@rpc("any_peer", "unreliable", "call_remote", 0)
+func _beat() -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if is_authority() or sender == NetTransport.AUTHORITY_PEER_ID:
+		_heard_ms[sender] = Time.get_ticks_msec()
+
+
 func host(port: int = -1, max_players: int = -1) -> Error:
 	if transport == null:
 		return ERR_UNCONFIGURED
@@ -245,10 +297,12 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	if index == -1:
 		return
 	_peers.remove_at(index)
+	_heard_ms.erase(peer_id)
 	peer_left.emit(peer_id)
 
 
 func _on_connection_state_changed(state: NetTransport.ConnectionState) -> void:
+	_heard_ms.clear()
 	match state:
 		NetTransport.ConnectionState.HOSTING:
 			# The host is peer 1 and is in its own session from the first
