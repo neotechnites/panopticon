@@ -42,6 +42,9 @@ signal vote_changed()
 ## The vote ended with a winner. [param tied] when the seed had to break it.
 signal vote_closed(winner: MapWedge, rng_seed: int, tied: bool)
 
+## Client: the host is gone, so this hub is over; the main menu says why.
+signal session_lost()
+
 const RULES_PATH: String = "res://match/rules/default_match_rules.tres"
 
 ## Physical key that toggles the rules panel. A scancode rather than an action
@@ -69,6 +72,9 @@ static var relaunch_bot_seats: Variant = null
 ## The hub's seat-to-body bridge, in [member NetMatch.hub_mode]. Null in a scene
 ## with no networking at all.
 @export var net_match: NetMatch
+
+## The hub's pause menu: its way out to the main menu is the one teardown, used when the host is lost.
+@export var pause_menu: PauseMenu
 
 ## The local player's body, for the trigger test.
 @export var player: PlayerController
@@ -188,6 +194,8 @@ func _bind_lobby(lobby: NetLobby) -> void:
 	_lobby.match_launching.connect(_on_launching)
 	_lobby.phase_changed.connect(func(_phase: NetLobby.Phase) -> void: _refresh())
 	if not _session.is_authority():
+		if net_match != null:
+			net_match.host_lost.connect(_on_host_lost)
 		return
 	match _lobby.get_phase():
 		NetLobby.Phase.IDLE:
@@ -628,6 +636,17 @@ func _change_scene() -> void:
 	var error: Error = get_tree().change_scene_to_file(match_scene_path)
 	if error != OK:
 		push_error("HubLobby could not load %s: %s" % [match_scene_path, error_string(error)])
+
+
+## The host quit, crashed or timed out: there is no hub without it. Out to the join screen, told why.
+func _on_host_lost() -> void:
+	session_lost.emit()
+	if not changes_scene:
+		return
+	MultiplayerScreen.arrival_notice = &"RESULT_HOST_LOST_DETAIL"
+	if pause_menu != null:
+		# Deferred: this runs inside the session's own ending.
+		pause_menu.return_to_main_menu.call_deferred()
 
 
 func _on_launching() -> void:

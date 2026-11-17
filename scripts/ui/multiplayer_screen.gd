@@ -23,6 +23,9 @@ const CUSTOM_ID: int = -1
 ## drives this screen's own panel rather than a world.
 @export var enters_hub: bool = true
 
+## A line the next main menu shows on this screen, as a translation key: why a session ended.
+static var arrival_notice: StringName = &""
+
 @onready var _name_edit: LineEdit = %NameEdit
 @onready var _status: Label = %Status
 @onready var _connect_panels: Control = %ConnectPanels
@@ -103,6 +106,15 @@ func focus_start() -> void:
 
 func get_session() -> NetSession:
 	return _session
+
+
+## Show why the last session ended, when the scene that ended it left word.
+func show_arrival_notice() -> bool:
+	if arrival_notice.is_empty():
+		return false
+	_status.text = tr(arrival_notice)
+	arrival_notice = &""
+	return true
 
 
 func get_lobby() -> NetLobby:
