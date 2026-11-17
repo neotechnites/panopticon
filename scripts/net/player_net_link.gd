@@ -132,6 +132,9 @@ const _SMOOTHING_CONSTANTS: float = 3.0
 ## Below this, in metres, a view offset is finished rather than chased.
 const _SMOOTHING_EPSILON: float = 0.001
 
+## How far a predicted boost timer may sit from the authority's before it is replaced: the wire's tenth.
+const _BOOST_TOLERANCE_SECONDS: float = 0.11
+
 
 ## One unacknowledged tick: the intent that was sent, and the body it produced.
 class PredictedTick extends RefCounted:
@@ -141,6 +144,8 @@ class PredictedTick extends RefCounted:
 	var velocity: Vector3 = Vector3.ZERO
 	var yaw: float = 0.0
 	var motion: PackedFloat32Array = PackedFloat32Array()
+	## Whether the body ended this tick held by its armor lock.
+	var locked: bool = false
 
 
 ## Reused per packet so the per-tick path does not allocate.
@@ -226,6 +231,34 @@ var _was_sliding: bool = false
 ## [member PlayerState.jump_counter].
 var _seen_jumps: int = 0
 
+## Shove swings this body has made; sampled into the snapshot as the jump counter is.
+var _shove_counter: int = 0
+var _seen_shoves: int = 0
+## A predicting client's own swings the authority has not confirmed yet, and the tick of the newest.
+var _swings_ahead: int = 0
+var _swing_tick: int = -1
+var _shove_cooldown: float = 0.0
+var _shove_was_pressed: bool = false
+## True while a swing the authority reported is being drawn, so it is not counted as a prediction.
+var _presenting_swing: bool = false
+## Ticks an unconfirmed swing is remembered for: past a second the authority refused it.
+const _SWING_MEMORY_TICKS: int = 90
+
+## This machine's running press counts for the intent it sends; see [member MoveIntent.press_counts].
+var _press_counts: int = 0
+var _press_slot: int = 0
+
+## Links by the instance id of the body they carry: a link sits under [NetMatch], not its body.
+static var _by_body: Dictionary[int, PlayerNetLink] = {}
+
+
+## The link carrying [param body], or null when nothing replicates it.
+static func of(body: Node) -> PlayerNetLink:
+	if body == null:
+		return null
+	var link: PlayerNetLink = _by_body.get(body.get_instance_id(), null)
+	return link if is_instance_valid(link) and link.controller == body else null
+
 ## Downward speed off the last airborne snapshot, for the landing cue.
 var _fall_speed: float = 0.0
 
@@ -240,8 +273,14 @@ func _ready() -> void:
 	process_physics_priority = 50
 	if replicator != null:
 		replicator.register(self)
+		if not session.is_authority() and _owns_locally():
+			_tick = replicator.intent_tick
+			_press_counts = replicator.intent_presses
+			_press_slot = replicator.intent_press_slot
 	session.connection_state_changed.connect(_on_connection_state_changed)
 	controller.jumped.connect(func() -> void: _jump_counter += 1)
+	controller.shoved.connect(_on_body_shoved)
+	_by_body[controller.get_instance_id()] = self
 	refresh_role()
 
 
@@ -249,6 +288,8 @@ func _exit_tree() -> void:
 	# A scene change leaves this link detached but alive, and the engine still routes RPCs to it;
 	# out of the tree it has no multiplayer to answer them with, so it simulates nothing.
 	_is_authority = false
+	if controller != null and _by_body.get(controller.get_instance_id(), null) == self:
+		_by_body.erase(controller.get_instance_id())
 	if replicator != null:
 		replicator.unregister(self)
 
@@ -326,6 +367,7 @@ func _physics_process(delta: float) -> void:
 	# arrived since and put the body right.
 	_record_tick()
 	_note_predicted_power()
+	_predict_swing(delta)
 	_send_intent()
 	if _has_pending_state:
 		_has_pending_state = false
@@ -407,6 +449,9 @@ func sample_state(out: PlayerState) -> void:
 	out.emoting = controller.is_emoting()
 	out.emote_alt = controller.is_emote_alt()
 	out.jump_counter = _jump_counter
+	out.shove_counter = _shove_counter
+	out.boost_remaining = controller.get_speed_boost_remaining()
+	out.boost_multiplier = controller.get_speed_boost_multiplier()
 	# What the owner of this seat may rewind to: the last intent of theirs this
 	# body has actually simulated, not merely received. Nothing to say for a
 	# bot's seat or the host's own, and nobody to say it to.
@@ -441,6 +486,7 @@ func apply_state(state: PlayerState) -> void:
 	controller.net_slide = 1 if state.sliding else 0
 	controller.net_crouch = 1 if state.crouching else 0
 	controller.net_emote = (2 if state.emote_alt else 1) if state.emoting else 0
+	controller.set_speed_boost(state.boost_multiplier, state.boost_remaining)
 	if controller.head != null:
 		controller.head.rotation.x = state.pitch
 	_present_events(state)
@@ -488,6 +534,7 @@ func _present_events(state: PlayerState) -> void:
 		_was_on_floor = state.on_floor
 		_was_sliding = state.sliding
 		_seen_jumps = state.jump_counter
+		_seen_shoves = state.shove_counter
 		return
 	# Once per jump the counter has advanced by, not once per snapshot that
 	# mentions one: a dropped snapshot is a jump this body still made.
@@ -495,6 +542,7 @@ func _present_events(state: PlayerState) -> void:
 	_seen_jumps = state.jump_counter
 	for _i: int in jumps:
 		controller.jumped.emit()
+	_present_swings(state.shove_counter)
 	if state.on_floor and not _was_on_floor:
 		controller.landed.emit(_fall_speed)
 	elif not state.on_floor:
@@ -508,6 +556,42 @@ func _present_events(state: PlayerState) -> void:
 
 
 ## This body's participant, or null before the match has built them.
+## Draw the swings the authority's counter has advanced by, less the ones this machine
+## already drew for its own body when the key went down.
+func _present_swings(counter: int) -> void:
+	var swings: int = posmod(counter - _seen_shoves, NetCodec.SHOVE_COUNTER_MODULUS)
+	_seen_shoves = counter
+	var confirmed: int = mini(swings, _swings_ahead)
+	_swings_ahead -= confirmed
+	_presenting_swing = true
+	for _i: int in swings - confirmed:
+		controller.shoved.emit()
+	_presenting_swing = false
+
+
+func _on_body_shoved() -> void:
+	_shove_counter += 1
+	if _predicting and not _presenting_swing:
+		_swings_ahead += 1
+		_swing_tick = _tick
+
+
+## A client's own swing, drawn on the tick the key goes down: the arms punch whether or not
+## the authority finds anybody in reach, and its counter confirms the swing later.
+func _predict_swing(delta: float) -> void:
+	_shove_cooldown = maxf(_shove_cooldown - delta, 0.0)
+	if _swings_ahead > 0 and _tick - _swing_tick > _SWING_MEMORY_TICKS:
+		_swings_ahead = 0
+	var pressed: bool = controller.get_intent().shove_pressed
+	var tapped: bool = pressed and not _shove_was_pressed
+	_shove_was_pressed = pressed
+	if not tapped or controller.is_armed or _shove_cooldown > 0.0:
+		return
+	if match_controller != null:
+		_shove_cooldown = maxf(match_controller.get_rules().shove_cooldown_seconds, 0.0)
+	controller.shoved.emit()
+
+
 func _participant() -> MatchParticipant:
 	if match_controller == null or controller == null:
 		return null
@@ -535,11 +619,16 @@ func _send_intent() -> void:
 	_scratch_intent.view_tick = replicator.get_view_tick() if replicator != null else -1
 	_scratch_intent.look_delta = Vector2.ZERO
 	_scratch_intent.normalise()
+	_count_presses(_scratch_intent)
 	var redundancy: int = clampi(
 		session.get_settings().intent_redundancy, 1, NetCodec.MAX_INTENT_REDUNDANCY
 	)
 	_remember_intent(_scratch_intent, redundancy)
 	_last_packet = NetCodec.pack_intents(_tick, _recent_intents, _recent_count, _epoch())
+	if replicator != null:
+		replicator.intent_tick = _tick
+		replicator.intent_presses = _press_counts
+		replicator.intent_press_slot = _press_slot
 	rpc_id(session.get_authority_peer_id(), &"_receive_intent", _last_packet)
 
 
@@ -548,6 +637,18 @@ func _send_intent() -> void:
 ## The seam a test harness needs to put a real packet through a wire it has
 ## made lossy: loopback drops nothing, so the only way to measure what loss
 ## costs is to carry the real bytes by hand. Nothing in the game reads it.
+## Stamp [param intent] with this machine's running press counts, advanced by its edges.
+func _count_presses(intent: MoveIntent) -> void:
+	for key: int in MoveIntent.PRESS_KEYS:
+		if not intent.presses(key):
+			continue
+		_press_counts = MoveIntent.press_added(_press_counts, key)
+		if key == MoveIntent.Press.POWER:
+			_press_slot = intent.ability_slot
+	intent.press_counts = _press_counts
+	intent.press_slot = _press_slot
+
+
 func get_last_intent_packet() -> PackedByteArray:
 	return _last_packet
 
@@ -682,6 +783,7 @@ func _write_result(entry: PredictedTick) -> void:
 	entry.velocity = controller.velocity
 	entry.yaw = controller.rotation.y
 	controller.capture_motion_state(entry.motion)
+	entry.locked = controller.movement_locked
 
 
 ## Rewind to the authority's state, replay what it has not seen, and hand the
@@ -691,6 +793,7 @@ func _write_result(entry: PredictedTick) -> void:
 ## the view it sends, turned by whatever facing the match has set since.
 func _reconcile(delta: float) -> void:
 	_apply_presentation(_pending_state, true)
+	_present_swings(_pending_state.shove_counter)
 	var rebase: float = angle_difference(_view_base, _pending_state.view_base)
 	_view_base = _pending_state.view_base
 	controller.rotation.y = wrapf(controller.rotation.y + rebase, -PI, PI)
@@ -727,6 +830,18 @@ func _reconcile(delta: float) -> void:
 	controller.velocity = _pending_state.velocity
 	controller.rotation.y = wrapf(predicted.yaw + rebase, -PI, PI)
 	controller.restore_motion_state(predicted.motion)
+	# What no input of this machine's decides is the authority's as of that tick: whether the
+	# emote is up and the boost it handed out. The replay below carries both forward.
+	controller.set_emote_state(_pending_state.emoting, _pending_state.emote_alt)
+	controller.set_speed_boost(
+		_pending_state.boost_multiplier, _pending_state.boost_remaining, _BOOST_TOLERANCE_SECONDS
+	)
+	# An armor lock that began or ended inside the window is replayed tick by tick as it was
+	# predicted; one the authority has answered for holds, or not, across the whole window.
+	var locked_now: bool = controller.movement_locked
+	var replay_lock: bool = _power_unacknowledged(acked)
+	if replay_lock:
+		controller.movement_locked = predicted.locked
 	# The replayed ticks are this body's own past. Their signals were heard when
 	# they happened; heard again they would fire the last hundred milliseconds
 	# of footsteps, jumps and landings a second time.
@@ -734,7 +849,12 @@ func _reconcile(delta: float) -> void:
 	for i: int in range(index + 1, _predicted_count):
 		var entry: PredictedTick = _slot(i)
 		controller.simulate_tick(entry.intent, delta)
+		if replay_lock:
+			if entry.locked and not controller.movement_locked:
+				controller.velocity = Vector3.ZERO
+			controller.movement_locked = entry.locked
 		_write_result(entry)
+	controller.movement_locked = locked_now
 	controller.set_block_signals(false)
 
 	_drop_through(index)

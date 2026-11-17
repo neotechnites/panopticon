@@ -185,9 +185,10 @@ static func make_pet_prompt() -> CanvasLayer:
 func _announce_held(held: bool) -> void:
 	var peer: int = 1
 	if held and is_instance_valid(_carrier):
-		for child: Node in _carrier.get_children():
-			if child is PlayerNetLink:
-				peer = (child as PlayerNetLink).owner_peer_id
+		# The carrier's link sits under NetMatch; with none there is no session and peer 1 is this machine.
+		var link: PlayerNetLink = PlayerNetLink.of(_carrier)
+		if link != null:
+			peer = link.owner_peer_id
 	if _networked():
 		rpc(&"_held_by", peer if held else 0)
 	_held_by(peer if held else 0)
@@ -215,7 +216,7 @@ static func claim_shove(body: PlayerController, forward: Vector3, reach: float) 
 			return true
 	var here: Vector3 = body.global_position
 	for cat: HubCat in _all:
-		if cat._state == State.HELD or cat._gone:
+		if cat._state == State.HELD or cat._gone or cat.multiplayer != body.multiplayer:
 			continue
 		var offset: Vector3 = cat.global_position - here
 		if absf(offset.y) > REACH_HEIGHT:
@@ -272,9 +273,52 @@ func _throw() -> void:
 func _explode(fuse: int) -> void:
 	if fuse != _fuse or _gone or not is_inside_tree():
 		return
+	var at: Vector3 = global_position + Vector3.UP * 0.3
+	_state = State.REST
+	freeze = true
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	if _networked():
+		rpc(&"_exploded", at)
+	_exploded(at)
+	get_tree().create_timer(RESPAWN_SECONDS).timeout.connect(_respawn)
+
+
+func _respawn() -> void:
+	if _networked():
+		rpc(&"_returned")
+	_returned()
+
+
+## Authority to everyone: the cat went off at [param at], and is hidden at home until it returns.
+@rpc("authority", "reliable", "call_remote", 0)
+func _exploded(at: Vector3) -> void:
+	if not at.is_finite():
+		return
 	_gone = true
 	_become_neutral()
+	_set_local_held(false)
+	_show_blast(at)
+	visible = false
+	collision_layer = 0
+	collision_mask = 0
+	global_transform = _home
+
+
+## Authority to everyone: the cat is back on its spot.
+@rpc("authority", "reliable", "call_remote", 0)
+func _returned() -> void:
+	_gone = false
+	visible = true
+	collision_layer = CAT_LAYER
+	collision_mask = 1
+	global_transform = _home
+
+
+func _show_blast(at: Vector3) -> void:
 	var scene: Node = get_tree().current_scene
+	if scene == null:
+		scene = get_parent()
 	var blast: AnimatedSprite3D = AnimatedSprite3D.new()
 	var frames: SpriteFrames = SpriteFrames.new()
 	frames.add_animation(&"boom")
@@ -293,31 +337,15 @@ func _explode(fuse: int) -> void:
 	blast.shaded = false
 	blast.no_depth_test = true
 	scene.add_child(blast)
-	blast.global_position = global_position + Vector3.UP * 0.3
+	blast.global_position = at
 	blast.animation_finished.connect(blast.queue_free)
 	blast.play(&"boom")
 	var sound: AudioStreamPlayer3D = AudioStreamPlayer3D.new()
 	sound.stream = EXPLOSION_SOUND
 	scene.add_child(sound)
-	sound.global_position = blast.global_position
+	sound.global_position = at
 	sound.finished.connect(sound.queue_free)
 	sound.play()
-	visible = false
-	_state = State.REST
-	freeze = true
-	collision_layer = 0
-	collision_mask = 0
-	linear_velocity = Vector3.ZERO
-	angular_velocity = Vector3.ZERO
-	global_transform = _home
-	get_tree().create_timer(RESPAWN_SECONDS).timeout.connect(_respawn)
-
-
-func _respawn() -> void:
-	_gone = false
-	visible = true
-	collision_layer = CAT_LAYER
-	collision_mask = 1
 
 
 func _carry_basis() -> Basis:
@@ -381,7 +409,7 @@ func _networked() -> bool:
 ## Authority to everyone, every tick the cat is carried or flying.
 @rpc("authority", "unreliable_ordered", "call_remote", 3)
 func _pose(at: Vector3, yaw: float) -> void:
-	if multiplayer.is_server() or not at.is_finite() or not is_finite(yaw):
+	if multiplayer.is_server() or _gone or not at.is_finite() or not is_finite(yaw):
 		return
 	global_transform = Transform3D(Basis(Vector3.UP, yaw), at)
 

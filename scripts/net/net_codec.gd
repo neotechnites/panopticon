@@ -59,8 +59,9 @@ extends RefCounted
 const INTENT_HEADER_SIZE: int = 7
 
 ## Bytes per intent: 2 floats of move, 2 of absolute view (yaw, pitch), u32 view tick,
-## a flag byte, the ability slot and a second flag byte.
-const INTENT_BODY_SIZE: int = 23
+## a flag byte, the ability slot (this tick's low, the newest press's high), a second flag
+## byte and u16 press counts.
+const INTENT_BODY_SIZE: int = 25
 
 ## Bytes in a packet carrying one intent.
 const INTENT_SIZE: int = INTENT_HEADER_SIZE + INTENT_BODY_SIZE
@@ -80,7 +81,9 @@ const SNAPSHOT_HEADER_SIZE: int = 9
 ## The size IS the version: [method unpack_snapshot] refuses any payload that is
 ## not a header plus a whole number of bodies this wide, so a build that grew a
 ## field cannot half-read one that did not.
-const SNAPSHOT_BODY_SIZE: int = 29
+##
+## Then u8 tenths of speed boost left and u8 tenths of its multiplier.
+const SNAPSHOT_BODY_SIZE: int = 31
 
 ## Centimetres to the metre: the unit position and velocity are sent in.
 ##
@@ -140,6 +143,11 @@ const _FLAG_CROUCHING: int = 1 << 5
 ## Second snapshot flag byte; the first is full.
 const _FLAG2_EMOTING: int = 1 << 0
 const _FLAG2_EMOTE_ALT: int = 1 << 1
+## Bits 2-3 of the second flag byte: the shove swing counter, a counter for the jump's reason.
+const SHOVE_COUNTER_MODULUS: int = 4
+const _FLAG2_SHOVE_SHIFT: int = 2
+const _PRESS_SLOT_SHIFT: int = 4
+const _BOOST_TENTHS_MAX: int = 255
 
 ## Where the jump counter sits in the flag byte: bits 3, 6 and 7.
 ##
@@ -225,7 +233,10 @@ static func _put_intent(buffer: StreamPeerBuffer, intent: MoveIntent) -> void:
 	if intent.ability_held:
 		flags |= _FLAG_ABILITY_HELD
 	buffer.put_u8(flags)
-	buffer.put_u8(clampi(intent.ability_slot, 0, _MAX_ABILITY))
+	buffer.put_u8(
+		clampi(intent.ability_slot, 0, _MAX_ABILITY)
+		| (clampi(intent.press_slot, 0, _MAX_ABILITY) << _PRESS_SLOT_SHIFT)
+	)
 	buffer.put_u8(
 		(_FLAG2_SHOVE_PRESSED if intent.shove_pressed else 0)
 		| (_FLAG2_AIM_HELD if intent.aim_held else 0)
@@ -233,6 +244,7 @@ static func _put_intent(buffer: StreamPeerBuffer, intent: MoveIntent) -> void:
 		| (_FLAG2_EMOTE_PRESSED if intent.emote_pressed else 0)
 		| (_FLAG2_EMOTE_ALT_PRESSED if intent.emote_alt_pressed else 0)
 	)
+	buffer.put_u16(intent.press_counts & MoveIntent.PRESS_COUNTS_MASK)
 
 
 ## Decode into [param out]. Returns the tick, or -1 if [param payload] is not a
@@ -281,6 +293,7 @@ static func unpack_intent_at(payload: PackedByteArray, index: int, out: MoveInte
 	var flags: int = buffer.get_u8()
 	var slot: int = buffer.get_u8()
 	var flags2: int = buffer.get_u8()
+	var press_counts: int = buffer.get_u16()
 	# NaN and infinity survive a float round-trip and poison a physics body on
 	# contact, so they are rejected here rather than clamped: there is no
 	# sensible value to substitute, and a peer sending them is not playing.
@@ -299,7 +312,9 @@ static func unpack_intent_at(payload: PackedByteArray, index: int, out: MoveInte
 	out.fire_held = (flags & _FLAG_FIRE_HELD) != 0
 	out.ability_pressed = (flags & _FLAG_ABILITY_PRESSED) != 0
 	out.ability_held = (flags & _FLAG_ABILITY_HELD) != 0
-	out.ability_slot = clampi(slot, 0, _MAX_ABILITY)
+	out.ability_slot = mini(slot & ((1 << _PRESS_SLOT_SHIFT) - 1), _MAX_ABILITY)
+	out.press_slot = mini(slot >> _PRESS_SLOT_SHIFT, _MAX_ABILITY)
+	out.press_counts = press_counts & MoveIntent.PRESS_COUNTS_MASK
 	out.shove_pressed = (flags2 & _FLAG2_SHOVE_PRESSED) != 0
 	out.aim_held = (flags2 & _FLAG2_AIM_HELD) != 0
 	out.cook_pressed = (flags2 & _FLAG2_COOK_PRESSED) != 0
@@ -342,7 +357,11 @@ static func pack_snapshot(snapshot: WorldSnapshot) -> PackedByteArray:
 		if state.crouching:
 			flags |= _FLAG_CROUCHING
 		buffer.put_u8(flags)
-		buffer.put_u8((_FLAG2_EMOTING if state.emoting else 0) | (_FLAG2_EMOTE_ALT if state.emote_alt else 0))
+		buffer.put_u8(
+			(_FLAG2_EMOTING if state.emoting else 0)
+			| (_FLAG2_EMOTE_ALT if state.emote_alt else 0)
+			| (posmod(state.shove_counter, SHOVE_COUNTER_MODULUS) << _FLAG2_SHOVE_SHIFT)
+		)
 		buffer.put_u8(clampi(state.ability, 0, _MAX_ABILITY))
 		buffer.put_u8(clampi(
 			int(state.ability_remaining * 10.0), 0, _ABILITY_TENTHS_MAX
@@ -351,6 +370,8 @@ static func pack_snapshot(snapshot: WorldSnapshot) -> PackedByteArray:
 			int(state.cooldown_remaining * 10.0), 0, _ABILITY_TENTHS_MAX
 		))
 		buffer.put_u8(clampi(state.health, 0, _HEALTH_MAX))
+		buffer.put_u8(clampi(int(ceilf(state.boost_remaining * 10.0)), 0, _BOOST_TENTHS_MAX))
+		buffer.put_u8(clampi(roundi(state.boost_multiplier * 10.0), 0, _BOOST_TENTHS_MAX))
 		buffer.put_u32(
 			NO_INTENT_ACK if state.last_intent_tick < 0
 			else state.last_intent_tick % TICK_MODULUS
@@ -396,6 +417,8 @@ static func unpack_snapshot(payload: PackedByteArray, out: WorldSnapshot) -> boo
 		var ability_tenths: int = buffer.get_u8()
 		var cooldown_tenths: int = buffer.get_u8()
 		var health: int = buffer.get_u8()
+		var boost_tenths: int = buffer.get_u8()
+		var boost_scale_tenths: int = buffer.get_u8()
 		var acked: int = buffer.get_u32()
 		state.seat_index = seat_index
 		state.tick = tick
@@ -417,6 +440,9 @@ static func unpack_snapshot(payload: PackedByteArray, out: WorldSnapshot) -> boo
 		state.crouching = (flags & _FLAG_CROUCHING) != 0
 		state.emoting = (flags2 & _FLAG2_EMOTING) != 0
 		state.emote_alt = (flags2 & _FLAG2_EMOTE_ALT) != 0
+		state.shove_counter = (flags2 >> _FLAG2_SHOVE_SHIFT) & (SHOVE_COUNTER_MODULUS - 1)
+		state.boost_remaining = float(boost_tenths) * 0.1
+		state.boost_multiplier = float(boost_scale_tenths) * 0.1 if boost_tenths > 0 else 1.0
 		out.commit()
 	return true
 

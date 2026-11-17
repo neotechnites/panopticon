@@ -1720,14 +1720,11 @@ func net_ghost_caught(ghost_index: int, caught_index: int) -> void:
 	_applying = false
 
 
-## The server says this machine's player shoved somebody: the kick and the clip,
-## with no decision attached. [param forward] is the direction they pushed.
+## The server says this machine's player's shove landed: the camera kick. The swing itself
+## rides the snapshot's shove counter. [param forward] is the direction they pushed.
 func net_shove_felt(forward: Vector3) -> void:
 	if shove_camera_kick != null:
 		shove_camera_kick.strike(forward, SHOVE_KICK_SCALE)
-	var human: MatchParticipant = get_human_participant()
-	if human != null and human.body != null:
-		human.body.shoved.emit()
 
 
 ## The server put [param index] in the tower as the finisher. Their body rides

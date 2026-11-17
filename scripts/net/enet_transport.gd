@@ -94,6 +94,9 @@ func host(port: int, max_players: int = MAX_PLAYERS) -> Error:
 	_bind()
 	_peer = peer
 	_apply_compression(peer)
+	# Declared, not defaulted: left undeclared, ENet's bandwidth pass cut each client's unreliable
+	# sends to 1/32 for a second, a second after it joined (59 of 60 intents lost, measured).
+	peer.host.bandwidth_limit(0, 0)
 	multiplayer.multiplayer_peer = peer
 	_set_state(ConnectionState.HOSTING)
 	return OK
@@ -248,8 +251,10 @@ func _apply_throttle(peer_id: int) -> void:
 
 
 func _on_peer_connected(peer_id: int) -> void:
-	_apply_timeout(peer_id)
-	_apply_throttle(peer_id)
+	# A client's only ENet connection is the host's; another client is a name the host relays.
+	if _peer != null and (_peer.get_unique_id() == AUTHORITY_PEER_ID or peer_id == AUTHORITY_PEER_ID):
+		_apply_timeout(peer_id)
+		_apply_throttle(peer_id)
 	peer_connected.emit(peer_id)
 
 
