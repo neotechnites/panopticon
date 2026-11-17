@@ -597,7 +597,7 @@ func test_a_client_that_leaves_mid_lock_leaves_no_lock_on_the_machines_that_stay
 	assert_false(_rig.body(HOST, slot).movement_locked, "and the bot that takes the seat can move")
 
 
-# --- Known gaps: the cooldown, a hologram met by a late machine, a rule flipped mid-match ---
+# --- The cooldown, a hologram met by a late machine, a rule flipped mid-match ---
 
 ## A cooldown on the host's rules: the next press is refused everywhere, the owner is shown the wait, then it runs.
 func _cooldown(peers: int, map: StringName) -> void:
@@ -645,7 +645,7 @@ func test_four_machines_marble_a_cooldown_refuses_the_next_press_and_is_shown_to
 	await _cooldown(4, MARBLE)
 
 
-func test_a_machine_that_binds_while_a_hologram_runs_ends_with_none() -> void:
+func test_a_machine_that_binds_while_a_hologram_runs_draws_it_and_ends_with_none() -> void:
 	if not await _start_round(3, HELL, HOST, [2]):
 		return
 	for other: MatchParticipant in _rig.controller(HOST).get_participants():
@@ -667,8 +667,7 @@ func test_a_machine_that_binds_while_a_hologram_runs_ends_with_none() -> void:
 	for peer: int in _rig.peer_count():
 		assert_null(_power(peer).get_decoy(), "peer %d: no hologram is left when its time is up" % peer)
 		assert_eq_int(int(_power(peer).get_shown()), NONE, "peer %d draws no power" % peer)
-	if not sees_it:
-		skip("KNOWN GAP: a machine that binds while a hologram runs never draws that hologram (the spawn is one reliable message, not in the snapshot)")
+	assert_true(sees_it, "the machine that bound while it ran drew it")
 
 
 ## Flip the host's Crouch and Slide in its debug menu, as a hand on the two checkboxes does.
