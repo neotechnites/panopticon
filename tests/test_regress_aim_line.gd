@@ -288,7 +288,7 @@ func test_a_client_cannot_drive_another_clients_body() -> void:
 	var on_host: PlayerController = _rig.body(HOST, victim_slot)
 	var from: Vector3 = on_host.global_position
 	var facing: float = on_host.rotation.y
-	# Client 2 holds a copy of client 1's link; it sends the host a run and a turn in client 1's name.
+	# The host is handed a run and a turn for client 1's body, sent by client 2.
 	var forged_link: PlayerNetLink = _rig.net_match(2).call(&"_link_of_slot", victim_slot)
 	var real_link: PlayerNetLink = _rig.net_match(1).call(&"_link_of_slot", victim_slot)
 	var forged: MoveIntent = MoveIntent.new()
@@ -298,8 +298,10 @@ func test_a_client_cannot_drive_another_clients_body() -> void:
 	var intents: Array[MoveIntent] = [forged]
 	var epoch: int = forged_link.call(&"_epoch")
 	var tick: int = int(real_link.get(&"_tick")) + 600
+	var host_link: PlayerNetLink = _rig.net_match(HOST).call(&"_link_of_slot", victim_slot)
+	var intruder: int = (_rig.sessions[2] as NetSession).multiplayer.get_unique_id()
 	for step: int in 60:
-		(_rig.sessions[2] as NetSession).replicator.send_intent(NetCodec.pack_intents(tick + step, intents, 1, epoch))
+		host_link.accept_intent_payload(intruder, NetCodec.pack_intents(tick + step, intents, 1, epoch))
 		await step_ticks(1)
 	await step_ticks(CROSS_TICKS)
 	assert_lt(on_host.global_position.distance_to(from), 0.1, "the host did not move client 1's body for client 2")
