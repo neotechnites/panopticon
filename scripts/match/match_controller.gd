@@ -873,6 +873,8 @@ func start_match() -> void:
 	_ghost_profile = null
 	_catch_count = 0
 	_disarm_finisher()
+	# A beat belongs to the match that started it: left running, it would score into this one.
+	_clear_kill_beat()
 	# Before the roster is rebuilt, while the old participants are still here to
 	# be read. See the method: difficulty is drawn when a brain is BUILT.
 	_release_tower_brains()
