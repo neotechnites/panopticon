@@ -105,16 +105,6 @@ func clear() -> void:
 	godmode = false
 
 
-## Drop every one-tick key: what a body out of the world sends, so no press waits for its return.
-func clear_presses() -> void:
-	ability_pressed = false
-	ability_slot = 0
-	cook_pressed = false
-	shove_pressed = false
-	emote_pressed = false
-	emote_alt_pressed = false
-
-
 ## Clamp [member move_direction] to the unit disc.
 func normalise() -> void:
 	if move_direction.length_squared() > 1.0:

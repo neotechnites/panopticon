@@ -214,17 +214,24 @@ func is_fire_held() -> bool:
 	return command.fire_held and not _stale
 
 
-## Forget everything received. For a peer leaving, or a round restarting.
-func reset() -> void:
+## The body is not being run: let go of everything sent for it, so nothing waits for its return.
+## The tick order stands, so a repeat of a dropped command is still refused.
+func rest() -> void:
 	command.clear()
-	_fire_latched = false
-	last_tick = -1
-	applied_tick = -1
 	_buffer_start = 0
 	_buffer_count = 0
+	_fire_latched = false
+	fire_view_tick = -1
+	forget_presses()
+
+
+## Forget everything received. For a peer leaving, or a round restarting.
+func reset() -> void:
+	rest()
+	last_tick = -1
+	applied_tick = -1
 	_ticks_since_packet = 0
 	_stale = false
-	forget_presses()
 
 
 ## A fresh start: the next command's counts are a new baseline.

@@ -344,9 +344,7 @@ func _physics_process(delta: float) -> void:
 	_tick += 1
 	if _is_authority:
 		_packets_this_tick = 0
-		if remote_source != null and controller != null and not controller.is_physics_processing():
-			# A parked body runs no command: presses made meanwhile are not owed to it on its return.
-			remote_source.forget_presses()
+		_rest_held_source()
 		return
 	if session == null or controller == null:
 		return
@@ -429,7 +427,15 @@ func reset_prediction() -> void:
 ## The network-fed source for this body. Present whether or not it is in use;
 ## [method PlayerController.intent_source] is what says which source is live.
 func get_remote_source() -> RemoteIntentSource:
+	_rest_held_source()
 	return remote_source
+
+
+## A body the match holds polls nothing, so its source holds nothing: no key, press or
+## trigger pull sent for it meanwhile stands, or waits, for its return.
+func _rest_held_source() -> void:
+	if remote_source != null and controller != null and not controller.is_physics_processing():
+		remote_source.rest()
 
 
 ## Read this body's current state into [param out]. Called by [NetReplicator]
@@ -610,7 +616,11 @@ func _send_intent() -> void:
 	# controller. Polling it again here would eat the edges twice and send an
 	# input the body never acted on.
 	if _predicting:
-		_scratch_intent.copy_from(controller.get_intent())
+		if controller.is_physics_processing():
+			_scratch_intent.copy_from(controller.get_intent())
+		else:
+			# Held by the match: nothing polled the source, so its last intent is no longer being made.
+			_scratch_intent.clear()
 		var view: Vector2 = controller.get_view_angles()
 		_scratch_intent.view_angles = Vector2(wrapf(view.x - _view_base, -PI, PI), view.y)
 	else:
@@ -622,9 +632,6 @@ func _send_intent() -> void:
 	_scratch_intent.view_tick = replicator.get_view_tick() if replicator != null else -1
 	_scratch_intent.look_delta = Vector2.ZERO
 	_scratch_intent.normalise()
-	if not controller.is_physics_processing():
-		# Parked: its last intent stands unpolled, and a key pressed now is pressed at nothing.
-		_scratch_intent.clear_presses()
 	_count_presses(_scratch_intent)
 	var redundancy: int = clampi(
 		session.get_settings().intent_redundancy, 1, NetCodec.MAX_INTENT_REDUNDANCY
