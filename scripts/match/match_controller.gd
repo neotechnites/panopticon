@@ -1090,11 +1090,7 @@ func _place_in_brawl(participant: MatchParticipant, index: int, count: int) -> v
 	if ability != null:
 		# Only the shove: no rules, no power.
 		ability.arm(null, self)
-	_silence_tower_brain(participant)
-	_silence_brain(participant)
-	if participant.brain != null and participant.brain.input != null:
-		# This fight's bots shove when lined up, not on the lap's reflex.
-		participant.brain.input.shove_enabled = false
+	_quiet_for_brawl(participant)
 	participant.tracker.stop()
 	var angle: float = TAU * float(index) / float(maxi(count, 1))
 	# A body and a half apart round the ring, kept a body clear of the edge.
@@ -1105,6 +1101,15 @@ func _place_in_brawl(participant: MatchParticipant, index: int, count: int) -> v
 	# Facing out, so nobody starts with a shove lined up.
 	body.rotation = Vector3(0.0, _heading_of(offset), 0.0)
 	body.add_to_group(RUNNER_GROUP)
+
+
+## How a fighter's own brains stand in the tower fight: down. [method _drive_brawl_bot] moves a
+## bot here, and it shoves when lined up, not on the lap's reflex.
+func _quiet_for_brawl(participant: MatchParticipant) -> void:
+	_silence_tower_brain(participant)
+	_silence_brain(participant)
+	if participant.brain != null and participant.brain.input != null:
+		participant.brain.input.shove_enabled = false
 
 
 ## The host's tower fight, each tick: falls, the bots' shoving, and the end.
@@ -1814,7 +1819,9 @@ func net_seat_to_bot(index: int) -> void:
 	participant.brain = _find_brain(participant.body)
 	if _mirror or participant.brain == null:
 		return
-	if participant.is_finisher:
+	if _phase == Phase.BRAWL:
+		_quiet_for_brawl(participant)
+	elif participant.is_finisher:
 		_hunt_the_guard(participant)
 	elif participant.is_running:
 		_start_running_in_place(participant, participant.tracker.get_travelled_arc(), null)
