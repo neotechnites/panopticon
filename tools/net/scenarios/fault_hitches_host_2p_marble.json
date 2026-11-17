@@ -1,0 +1,26 @@
+{
+ "name": "fault_hitches_host_2p_marble",
+ "runner": "match",
+ "peers": 2,
+ "limit": 105,
+ "tags": [
+  "fault",
+  "stall"
+ ],
+ "common": {
+  "seconds": 60,
+  "map": "marble",
+  "seats": 4,
+  "tower": 3
+ },
+ "peer": {
+  "0": {
+   "freeze": "match@10+300,match@18+300,match@26+600,match@34+1000"
+  }
+ },
+ "expect": {
+  "never": [
+   "SEAT seat=s1 occupancy=BOT"
+  ]
+ }
+}

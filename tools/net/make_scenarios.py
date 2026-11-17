@@ -5,7 +5,8 @@
 
 Axes: peers 2/3/4 x hell/marble x opening (race, named guard on the host, on a client, on a bot,
 tower fight) x each power key x ghosts on/off x rematch / hub return / relaunch, the wire faults
-(loss, delay, stall, bind delay) and the two leavers (a client, the host).
+(loss, delay, jitter, reordering, duplication, burst loss, stalls and hitches, bind delay) and the two
+leavers (a client, the host).
 """
 
 from __future__ import annotations
@@ -203,6 +204,39 @@ for map_name, map_id in MAPS.items():
           peer={"1": {"stall-at": 15, "stall-ms": 12000}},
           expect={"host": ["SEAT seat=s1 occupancy=BOT", "TIMEOUT peer=[0-9]+ state=STANDING"], "host_lost": "in-match",
                   "seat_to_bot": [1], "never": ["TIMEOUT peer=1 state"]})
+
+# --- F2. The conditions the netcode design claims to survive (DESIGN.md Phase T) -----
+# Each mode alone, then the design's own line: 80 ms one way, 20 ms of jitter, 2% held back. Jitter here
+# remembers itself for 200 ms (a queue filling and draining), except "jitteriid": fresh per packet, in order.
+# Below ENet (tools/net/wire_relay.gd), as on a real line, except the "_peer" pair: the same reordering and
+# duplication above the transport, which is what a transport without sequencing (Steam) hands the game.
+SOCKET = {"wire-layer": "socket"}
+WIRE_MODES = {
+    "jitter20u": dict(SOCKET, **{"delay-ms": 40, "jitter-ms": 20, "jitter-tau-ms": 200}),
+    "jitter20n": dict(SOCKET, **{"delay-ms": 40, "jitter-ms": 20, "jitter-dist": "normal", "jitter-tau-ms": 200}),
+    "jitteriid": dict(SOCKET, **{"delay-ms": 40, "jitter-ms": 15}),
+    "reorder5": dict(SOCKET, **{"delay-ms": 30, "reorder": 0.05, "reorder-ms": 100}),
+    "dup10": dict(SOCKET, **{"delay-ms": 20, "dup": 0.1}),
+    "burst5": dict(SOCKET, **{"burst-ms": 150, "burst-gap-ms": 2850}),
+    "wan80": dict(SOCKET, **{"delay-ms": 80, "jitter-ms": 20, "jitter-tau-ms": 200, "reorder": 0.02, "reorder-ms": 60}),
+    "reorder5_peer": {"delay-ms": 30, "reorder": 0.05, "reorder-ms": 100},
+    "dup10_peer": {"delay-ms": 20, "dup": 0.1},
+}
+for map_name, map_id in MAPS.items():
+    for mode, flags in WIRE_MODES.items():
+        common = {"map": map_id, "seats": 4, "tower": 3}
+        common.update(flags)
+        match(f"fault_{mode}_3p_{map_name}", 3, 70, ["fault", "wire"], common,
+              host={"keys": ALL_KEYS, "ability": 2}, client={"keys": ALL_KEYS_LATE})
+    # A machine that hitches the way a first-time shader compile or a debugger break does.
+    for who, index in (("client", "1"), ("host", "0")):
+        match(f"fault_hitches_{who}_2p_{map_name}", 2, 60, ["fault", "stall"], {"map": map_id, "seats": 4, "tower": 3},
+              peer={index: {"freeze": "match@10+300,match@18+300,match@26+600,match@34+1000"}},
+              expect={"never": ["SEAT seat=s1 occupancy=BOT"]})
+for who, index in (("client", "1"), ("host", "0")):
+    hub(f"fault_freeze3s_hub_{who}_3p", 3, 150, ["fault", "stall", "hub"],
+        {"maps": "bentham_ring", "matches": 1, "win": 15, "hub-wait": 14},
+        host={"prisoners": 3}, peer={index: {"freeze": "hub@5+3000"}}, expect={"matches": 1})
 
 # --- G. Leavers ----------------------------------------------------------------
 for map_name, map_id in MAPS.items():

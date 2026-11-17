@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/weapon/rifle.gd" id="1_rifle"]
 [ext_resource type="Script" path="res://scripts/weapon/weapon_input.gd" id="2_weapon_input"]
@@ -8,6 +8,7 @@
 [ext_resource type="Script" path="res://scripts/weapon/rifle_ads.gd" id="6_rifle_ads"]
 [ext_resource type="PackedScene" path="res://weapons/scope_vignette.tscn" id="7_scope_vignette"]
 [ext_resource type="Script" path="res://scripts/weapon/rifle_sway.gd" id="8_rifle_sway"]
+[ext_resource type="Script" path="res://scripts/weapon/rifle_clearance.gd" id="9_rifle_clearance"]
 
 [node name="Rifle" type="Node3D" node_paths=PackedStringArray("muzzle", "grip_hand", "fore_hand")]
 script = ExtResource("1_rifle")
@@ -77,12 +78,13 @@ transform = Transform3D(0.93714607, 0.34893736, 0, 0, 0, 1, 0.34893736, -0.93714
 script = ExtResource("2_weapon_input")
 weapon = NodePath("..")
 
-[node name="Recoil" type="Node" parent="." node_paths=PackedStringArray("rifle", "view_model", "pose_source")]
+[node name="Recoil" type="Node" parent="." node_paths=PackedStringArray("rifle", "view_model", "pose_source", "clearance")]
 editor_description = "Kicks ViewModel on Rifle.fired and settles it back onto wherever Ads currently has it -- hip, aimed, or mid-transition, via pose_source. Listens to the signal, never Input, so a bot-driven guard's shot kicks the model exactly as a human's does. Every number is on WeaponProfile's Recoil group (Rifle.profile), not here -- see scripts/weapon/rifle_recoil.gd."
 script = ExtResource("5_rifle_recoil")
 rifle = NodePath("..")
 view_model = NodePath("../ViewModel")
 pose_source = NodePath("../Ads")
+clearance = NodePath("../Clearance")
 
 [node name="Ads" type="Node" parent="." node_paths=PackedStringArray("view_model")]
 editor_description = "Blends ViewModel between its authored hip pose above and its own aimed pose as WeaponOptic zooms in and out -- the same progress value the FOV change itself uses, read off optic rather than clocked separately, so the raise and the zoom arrive together. optic is wired at runtime by MatchController._attach_rifle, the same way aim_source is, because the optic lives on the holder's Head and this scene is reparented onto whichever head holds the tower. Does not write ViewModel itself -- Recoil above is the sole writer, via pose_source -- so a shot fired while aimed recoils from the aimed pose and the two never fight over the node on the same frame. The aimed pose is exported on this node's own Aimed Pose group, not authored here as a transform, so it can be nudged in the inspector the same way the hip pose is nudged above. Appended LAST: characters/bots/tower_shooter.tscn addresses this scene's children by ordinal index and inserting a node ahead of this one would silently re-point HumanTrigger's override."
@@ -98,3 +100,9 @@ trigger = NodePath("../HumanTrigger")
 editor_description = "Drifts the aim in a slow figure eight while the scope is up, by MatchRules.scope_sway_degrees. It writes the holder's Camera -- the node Rifle._resolve_shot casts from -- so the drift is in the shot the authority resolves, not only in the picture; optic and the aim node are wired at runtime by MatchController._attach_rifle, like Ads.optic. Appended LAST, after ScopeVignette, for the reason Ads records: characters/bots/tower_shooter.tscn addresses this scene's children by ordinal index."
 script = ExtResource("8_rifle_sway")
 rifle = NodePath("..")
+
+[node name="Clearance" type="Node" parent="." node_paths=PackedStringArray("rifle", "model")]
+editor_description = "Keeps the drawn rifle out of the world for whoever holds it: Recoil passes every pose it writes through here. When the gun's bounds would reach into a wall, a column or a body it slides back toward the eye at once, by at most MAX_SLIDE (stock at the shoulder), and eases back out once clear. The shot is untouched (it is the eye's). Appended LAST for the reason Ads records."
+script = ExtResource("9_rifle_clearance")
+rifle = NodePath("..")
+model = NodePath("../ViewModel/Model")

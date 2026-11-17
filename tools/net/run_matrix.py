@@ -3,14 +3,18 @@
 
     python3 tools/net/run_matrix.py --out <dir> [--filter REGEX] [--tag TAG] [--jobs N] [--repeat N] [--strict] [--recheck]
 
-Writes <dir>/<scenario>[.rN]/ (logs, verdict.json), <dir>/matrix.json and <dir>/matrix.md.
-Exit 0 every scenario PASS, 1 any FAIL, 2 nothing ran.
+Writes <dir>/<scenario>[.rN]/ (logs, verdict.json), <dir>/matrix.json and <dir>/matrix.md. With --repeat N
+every scenario is classed over its N runs: PASS (N/N), FLAKY (some) or FAIL (none); the phase gate is
+--repeat 3 on the base and on the branch, compared by tools/net/matrix_gate.py.
+Exit 0 every scenario PASS, 1 any FAIL or FLAKY, 2 nothing ran.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -19,6 +23,52 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent.parent
+
+
+def provenance() -> dict:
+    """Which code ran: the commit, whether the tree had changes, and how loaded the machine was."""
+    def git(*args: str) -> str:
+        done = subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True, text=True)
+        return done.stdout.strip() if done.returncode == 0 else ""
+    return {"commit": git("rev-parse", "HEAD"), "tree": git("rev-parse", "HEAD^{tree}"), "dirty": len([l for l in git("status", "--porcelain").splitlines() if l]),
+            "load": list(os.getloadavg()), "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
+
+
+def checker_hash() -> str:
+    """Which verdict code judged the logs: a recheck under another checker is not the same result."""
+    digest = hashlib.sha256()
+    for name in ("check_session.py", "wire_stats.py", "scenario_args.py", "error_allowlist.json"):
+        digest.update((HERE / name).read_bytes())
+    return digest.hexdigest()[:16]
+
+
+def ledger_path() -> Path | None:
+    """One append-only file per clone, outside every worktree: each matrix attempt is written there."""
+    done = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--git-common-dir"], capture_output=True, text=True)
+    if done.returncode != 0:
+        return None
+    common = Path(done.stdout.strip())
+    return (common if common.is_absolute() else ROOT / common) / "panopticon-matrix-ledger.jsonl"
+
+
+def _ledger(entry: dict) -> None:
+    ledger = ledger_path()
+    if ledger is not None:
+        with ledger.open("a") as handle:
+            handle.write(json.dumps(entry) + "\n")
+
+
+def classify(reports: list[dict]) -> dict:
+    """One scenario over its runs: PASS only when every run passed, FLAKY when some did, FAIL when none."""
+    passes = sum(1 for r in reports if r["verdict"] == "PASS")
+    checks: dict[str, int] = {}
+    for report in reports:
+        for check in {f["check"] for f in report["failures"]}:
+            checks[check] = checks.get(check, 0) + 1
+    verdict = "PASS" if passes == len(reports) else ("FAIL" if passes == 0 else "FLAKY")
+    return {"class": verdict, "passes": passes, "runs": len(reports), "checks": checks,
+            "broken": sum(1 for r in reports if r["verdict"] == "BROKEN")}
 
 
 def run_one(path: Path, out: Path, strict: bool, recheck: bool = False) -> dict:
@@ -58,6 +108,10 @@ def main() -> int:
     parser.add_argument("--scenarios", default=str(HERE / "scenarios"))
     args = parser.parse_args()
     out = Path(args.out)
+    if (out / "matrix.json").exists() and not args.recheck:
+        # Runs are never overwritten: a second attempt goes to a new directory and into the ledger.
+        print(f"run_matrix: {out} already holds a matrix; use a new --out (or --recheck)", file=sys.stderr)
+        return 2
     out.mkdir(parents=True, exist_ok=True)
     chosen = []
     for path in sorted(Path(args.scenarios).glob("*.json")):
@@ -77,11 +131,36 @@ def main() -> int:
             if not args.recheck or (target / "scenario.json").exists():
                 work.append((path, target))
     print(f"run_matrix: {len(work)} run(s) of {len(chosen)} scenario(s), {args.jobs} at a time -> {out}", flush=True)
+    started = provenance()
+    started["checker"] = checker_hash()
+    # The attempt is in the ledger before anything runs: one abandoned half way still counts.
+    _ledger({"event": "started", "out": str(out.resolve()), "commit": started["commit"], "tree": started["tree"],
+             "dirty": started["dirty"], "checker": started["checker"], "recheck": args.recheck, "repeat": args.repeat,
+             "filter": args.filter, "tag": args.tag, "scenarios": args.scenarios, "at": started["at"]})
+    if args.recheck and (out / "matrix.json").exists():
+        ran = json.loads((out / "matrix.json").read_text()).get("provenance", started)
+        ran["rechecked"] = {"at": started["at"], "checker": started["checker"]}
+        started = dict(ran, checker=started["checker"])
     with ThreadPoolExecutor(max_workers=max(args.jobs, 1)) as pool:
         reports = list(pool.map(lambda item: run_one(item[0], item[1], args.strict, args.recheck), work))
     counts = {v: sum(1 for r in reports if r["verdict"] == v) for v in ("PASS", "FAIL", "BROKEN")}
-    (out / "matrix.json").write_text(json.dumps({"counts": counts, "reports": reports}, indent=1))
+    by_name: dict[str, list[dict]] = {}
+    for report in reports:
+        by_name.setdefault(report["name"], []).append(report)
+    classes = {name: classify(runs) for name, runs in sorted(by_name.items())}
+    tally = {c: sum(1 for v in classes.values() if v["class"] == c) for c in ("PASS", "FLAKY", "FAIL")}
+    (out / "matrix.json").write_text(json.dumps({
+        "counts": counts, "classes": tally, "repeat": args.repeat, "jobs": args.jobs, "strict": args.strict,
+        "provenance": started, "finished": provenance(), "scenarios": classes, "reports": reports}, indent=1))
     lines = [f"# Net matrix: {counts['PASS']} PASS, {counts['FAIL']} FAIL, {counts['BROKEN']} BROKEN of {len(reports)}", ""]
+    if args.repeat > 1:
+        lines += [f"Over {args.repeat} runs each: {tally['PASS']} PASS, {tally['FLAKY']} FLAKY, {tally['FAIL']} FAIL "
+                  f"of {len(classes)} scenarios (commit {started['commit'][:10]}, dirty {started['dirty']}).", "",
+                  "| scenario | class | passes | failing checks (runs) |", "|---|---|---|---|"]
+        for name, c in sorted(classes.items(), key=lambda kv: (kv[1]["class"] == "PASS", kv[0])):
+            failing = ", ".join(f"{k} {v}" for k, v in sorted(c["checks"].items()))
+            lines.append(f"| {name} | {c['class']} | {c['passes']}/{c['runs']} | {failing} |")
+        lines.append("")
     by_check: dict[str, int] = {}
     for report in reports:
         for check in {f["check"] for f in report["failures"]}:
@@ -98,8 +177,11 @@ def main() -> int:
             lines.append(f"- WARN [{warning['check']}] {warning['peer']}: {warning['message']}")
         lines.append("")
     (out / "matrix.md").write_text("\n".join(lines))
-    print(f"MATRIX pass={counts['PASS']} fail={counts['FAIL']} broken={counts['BROKEN']} total={len(reports)} report={out / 'matrix.md'}")
-    return 0 if counts["FAIL"] == 0 and counts["BROKEN"] == 0 else 1
+    _ledger({"event": "finished", "out": str(out.resolve()), "tree": started["tree"], "recheck": args.recheck,
+             "classes": tally, "at": provenance()["at"]})
+    print(f"MATRIX pass={counts['PASS']} fail={counts['FAIL']} broken={counts['BROKEN']} total={len(reports)} "
+          f"scenarios pass={tally['PASS']} flaky={tally['FLAKY']} fail={tally['FAIL']} report={out / 'matrix.md'}")
+    return 0 if tally["FLAKY"] == 0 and tally["FAIL"] == 0 else 1
 
 
 if __name__ == "__main__":

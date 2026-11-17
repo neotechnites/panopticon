@@ -63,7 +63,7 @@ func test_twelve_shield_presses_under_random_loss_all_run() -> void:
 	if not await stand_up(0.3, 0):
 		return
 	await step_ticks(1)
-	(a_wire.get("_rng") as RandomNumberGenerator).seed = LOSS_SEED
+	a_wire.conditions.reseed(LOSS_SEED)
 	var host_power: RunnerPower = power_of(host_links, A_SEAT)
 	var a_power: RunnerPower = power_of(a_links, A_SEAT)
 	var starts: int = 0

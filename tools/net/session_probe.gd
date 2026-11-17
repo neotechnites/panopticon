@@ -8,7 +8,9 @@ extends Node
 const OPTIONS: Dictionary = {
 	"role": "server", "address": "127.0.0.1", "port": 27960, "name": "", "log": "",
 	"prisoners": -1, "ability": -1, "rounds": -1, "lives": -1, "ghosts": "", "brawl": false,
-	"loss": 0.0, "delay-ms": 0, "stall-at": 0.0, "stall-ms": 0, "stall-match": 1,
+	"loss": 0.0, "delay-ms": 0, "jitter-ms": 0.0, "jitter-dist": "uniform", "jitter-tau-ms": 0.0, "jitter-reorders": false,
+	"burst-ms": 0.0, "burst-gap-ms": 0.0, "burst-loss": 1.0, "dup": 0.0, "reorder": 0.0, "reorder-ms": 0.0,
+	"wire-layer": "peer", "wire-probe-hz": 20.0, "wire-log": "", "freeze": "", "stall-at": 0.0, "stall-ms": 0, "stall-match": 1,
 	"quit-at": -1.0, "quit-match": 1, "quit-mode": "leave", "host-lost-exit": 4.0,
 	"mode": "play", "aim": true, "marksman": false, "fire-every": 2.6, "press-fire": 3.0, "pitch-rate": 0.0,
 	"keys": "", "hub-keys": "", "keys-wait": true, "sample": 0.5,
@@ -19,6 +21,10 @@ const MATCH_SCENE: String = "res://match/match.tscn"
 const HUB_SCENE: String = "res://hub/hub.tscn"
 const HITCH_MS: int = 100
 const ISOLATION_ENV: String = "PANOPTICON_NET_ISOLATED"
+## The wire probe's packets: magic, u32 destination peer id, u32 sequence per destination, f64 send time (unix ms).
+const PROBE_MAGIC: int = 0x5750
+const PROBE_SIZE: int = 18
+const WIRE_FLUSH_MS: int = 1000
 
 signal match_bound(authority: bool)
 ## A match, or a rematch of it, began on this machine.
@@ -57,6 +63,15 @@ var _quit_done: bool = false
 var _cats_seen: Dictionary[int, Array] = {}
 var _broke: bool = false
 var _trigger_due: bool = false
+var _hubs_bound: int = 0
+## Freezes still to come: [scene kind ("match", "hub" or "any"), nth bind, seconds, ms].
+var _freezes: Array[Array] = []
+var _probe_seq: Dictionary[int, int] = {}
+var _probe_last_ms: int = 0
+var _wire_log: FileAccess = null
+var _wire_flushed_ms: int = 0
+var _wire_me: int = 0
+
 
 
 func _init() -> void:
@@ -77,8 +92,31 @@ func configure(options: Dictionary) -> void:
 		# Never against the player's own user://: the launcher gives each peer a HOME and says so.
 		push_error("SessionProbe: run through tools/net/run_session.sh (HOME is not isolated).")
 		o["_error"] = true
+	_parse_freezes()
+	var wire_path: String = String(o.get("wire-log", ""))
+	if not wire_path.is_empty():
+		_wire_log = FileAccess.open(wire_path, FileAccess.WRITE)
 	if o.has("_error"):
 		line("END fail reason=bad-arguments")
+
+
+## --freeze=<kind>[N]@<seconds>+<ms>[,...]: stop this whole process <ms> long, <seconds> after its N-th
+## bound scene of that kind (match or hub; N defaults to 1), or after boot (any). --stall-* is one of these.
+func _parse_freezes() -> void:
+	var specs: PackedStringArray = String(o.get("freeze", "")).split(",", false)
+	if float(o.get("stall-at", 0.0)) > 0.0:
+		specs.append("match%d@%s+%d" % [int(o["stall-match"]), str(o["stall-at"]), int(o["stall-ms"])])
+	if String(o["break"]) == "freeze-off":
+		return
+	var form: RegEx = RegEx.create_from_string("^(match|hub|any)(\\d*)@([\\d.]+)\\+(\\d+)$")
+	for spec: String in specs:
+		var m: RegExMatch = form.search(spec.strip_edges())
+		if m == null:
+			push_error("SessionProbe: bad --freeze item %s; expected kind[N]@seconds+ms" % spec)
+			o["_error"] = true
+			continue
+		_freezes.append([m.get_string(1), int(m.get_string(2)) if not m.get_string(2).is_empty() else 1,
+			float(m.get_string(3)), int(m.get_string(4))])
 
 
 func is_server() -> bool:
@@ -133,6 +171,7 @@ func apply_settings() -> void:
 func attach(net_session: NetSession) -> void:
 	session = net_session
 	lobby = session.lobby
+	(session.multiplayer as SceneMultiplayer).peer_packet.connect(_on_probe_packet)
 	get_tree().node_added.connect(_on_node_added)
 	lobby.phase_changed.connect(func(phase: NetLobby.Phase) -> void:
 		line("LOBBY phase=%s epoch=%d" % [String(NetLobby.Phase.keys()[phase]), lobby.get_epoch()]))
@@ -156,16 +195,28 @@ func attach(net_session: NetSession) -> void:
 			_host_lost_ms = Time.get_ticks_msec())
 
 
-## Wrap the live peer in [LossyPeer] when --loss or --delay-ms ask for it. Call after host/join.
+## Put this machine's sends through [LossyPeer] when a wire option asks for it. Call after host/join.
+## With --wire-layer=socket the launcher's relay conditions the datagrams below ENet instead.
 func condition_wire() -> void:
 	var enet: ENetMultiplayerPeer = session.multiplayer.multiplayer_peer as ENetMultiplayerPeer
-	var loss: float = float(o.loss)
-	var delay_ms: int = int(o["delay-ms"])
-	if enet == null or (loss <= 0.0 and delay_ms <= 0):
+	if enet == null:
 		return
-	_lossy = LossyPeer.new(enet, loss, 7 if is_server() else 11 + OS.get_process_id() % 97, delay_ms)
+	if String(o["wire-layer"]) == "socket":
+		line("WIRE layer=socket (tools/net/wire_relay.gd)")
+		return
+	var conditions: NetConditions = NetConditions.from_options(o, 7 if is_server() else 11 + OS.get_process_id() % 97)
+	match String(o["break"]):
+		"wire-off":
+			conditions = NetConditions.new()
+		"wire-weak":
+			for knob: String in ["loss", "jitter_ms", "duplicate", "reorder", "burst_ms"]:
+				conditions.set(knob, float(conditions.get(knob)) / 3.0)
+	line("WIRE conditions %s" % conditions.describe())
+	if not conditions.is_conditioned():
+		return
+	_lossy = LossyPeer.new(enet)
+	_lossy.conditions = conditions
 	session.multiplayer.multiplayer_peer = _lossy
-	line("WIRE loss=%.2f delay_ms=%d" % [loss, delay_ms])
 
 
 static func describe_rules(rules: MatchRules) -> String:
@@ -183,6 +234,9 @@ func finish(ok: bool, reason: String) -> void:
 		return
 	finished = true
 	_sample()
+	if _wire_log != null:
+		_wire_log.close()
+		_wire_log = null
 	var where: String = "phase=%s round=%d guard=%s outcome=%s" % [
 		controller.get_phase_name(), controller.get_round_number(), _seat_of(controller.get_seat_participant()),
 		controller.get_outcome_name()] if is_instance_valid(controller) else "phase=none"
@@ -201,6 +255,8 @@ func _process(_delta: float) -> void:
 		line("HITCH ms=%d scene=%s" % [now - _last_frame_ms, _scene_kind])
 	_last_frame_ms = now
 	_watch_scene()
+	_send_probes(now)
+	_freeze_when_due()
 	if _host_lost_ms >= 0 and now - _host_lost_ms > int(float(o["host-lost-exit"]) * 1000.0):
 		_host_lost_ms = -1
 		host_lost.emit()
@@ -212,7 +268,6 @@ func _process(_delta: float) -> void:
 	_watch_state()
 	_watch_bodies()
 	_watch_result()
-	_stall_once()
 	if now - _last_sample_ms >= int(float(o.sample) * 1000.0):
 		_last_sample_ms = now
 		_sample()
@@ -287,6 +342,8 @@ func _on_bound(authority: bool) -> void:
 	_bound_ms = Time.get_ticks_msec()
 	if _scene_kind == "match":
 		matches_bound += 1
+	else:
+		_hubs_bound += 1
 	line("MATCH bound kind=%s epoch=%d authority=%s local_seat=s%d n=%d" % [_scene_kind, lobby.get_epoch(),
 		str(authority), lobby.get_local_seat_index(), controller.get_participants_ref().size()])
 	line("MATCH rules kind=%s epoch=%d %s" % [_scene_kind, lobby.get_epoch(), describe_rules(controller.get_rules())])
@@ -477,16 +534,61 @@ func _watch_result() -> void:
 		votes.text.replace(" ", "_") if votes != null and votes.visible else "-"])
 
 
-## Freeze this whole process once, the way a hitching machine does.
-func _stall_once() -> void:
-	var at: float = float(o["stall-at"])
-	if _stalled or at <= 0.0 or matches_bound != int(o["stall-match"]) or _scene_kind != "match" or match_seconds() < at:
+## Freeze this whole process when a --freeze item comes due, the way a hitching machine does.
+func _freeze_when_due() -> void:
+	for i: int in _freezes.size():
+		var item: Array = _freezes[i]
+		var kind: String = item[0]
+		var since: float = seconds() if kind == "any" else match_seconds()
+		if kind != "any" and (_scene_kind != kind or (matches_bound if kind == "match" else _hubs_bound) != int(item[1])):
+			continue
+		if since < float(item[2]):
+			continue
+		_freezes.remove_at(i)
+		line("STALL ms=%d scene=%s" % [int(item[3]), _scene_kind])
+		OS.delay_msec(int(item[3]))
+		_last_frame_ms = Time.get_ticks_msec()
+		line("STALL over")
 		return
-	_stalled = true
-	line("STALL ms=%d" % int(o["stall-ms"]))
-	OS.delay_msec(int(o["stall-ms"]))
-	_last_frame_ms = Time.get_ticks_msec()
-	line("STALL over")
+
+
+# --- The wire probe ----------------------------------------------------------------
+
+## A small unreliable stream to every peer this machine talks to, through the same conditioned wire as
+## the game's packets. Both ends write --wire-log ("me id", "s to seq sent_ms", "r from to seq sent_ms recv_ms"),
+## and tools/net/check_session.py measures what the wire really did from the two.
+func _send_probes(now: int) -> void:
+	var hz: float = float(o["wire-probe-hz"])
+	if _wire_log == null or hz <= 0.0 or now - _probe_last_ms < int(1000.0 / hz) or not session.is_established():
+		return
+	_probe_last_ms = now
+	if _wire_me != session.get_local_peer_id():
+		_wire_me = session.get_local_peer_id()
+		_wire_log.store_line("me %d" % _wire_me)
+	var api: SceneMultiplayer = session.multiplayer as SceneMultiplayer
+	var targets: PackedInt32Array = api.get_peers() if is_server() else PackedInt32Array([NetTransport.AUTHORITY_PEER_ID])
+	var sent_ms: float = Time.get_unix_time_from_system() * 1000.0
+	for peer: int in targets:
+		var seq: int = _probe_seq.get(peer, 0)
+		_probe_seq[peer] = seq + 1
+		var bytes: PackedByteArray = PackedByteArray()
+		bytes.resize(PROBE_SIZE)
+		bytes.encode_u16(0, PROBE_MAGIC)
+		bytes.encode_u32(2, peer)
+		bytes.encode_u32(6, seq)
+		bytes.encode_double(10, sent_ms)
+		api.send_bytes(bytes, peer, MultiplayerPeer.TRANSFER_MODE_UNRELIABLE, 0)
+		_wire_log.store_line("s %d %d %.3f" % [peer, seq, sent_ms])
+	if now - _wire_flushed_ms >= WIRE_FLUSH_MS:
+		_wire_flushed_ms = now
+		_wire_log.flush()
+
+
+func _on_probe_packet(from: int, bytes: PackedByteArray) -> void:
+	if _wire_log == null or bytes.size() != PROBE_SIZE or bytes.decode_u16(0) != PROBE_MAGIC:
+		return
+	_wire_log.store_line("r %d %d %d %.3f %.3f" % [from, bytes.decode_u32(2), bytes.decode_u32(6),
+		bytes.decode_double(10), Time.get_unix_time_from_system() * 1000.0])
 
 
 ## --break: deliberate faults on this one machine, to prove tools/net/check_session.py sees them.
@@ -573,6 +675,11 @@ func _sample() -> void:
 				link.intent_received.connect(_on_intent_in)
 	line("WIRE sent=%d dropped=%d intents_in=%d snap_tick=%d" % [_lossy.sent if _lossy != null else -1,
 		_lossy.dropped if _lossy != null else -1, _intents_in, session.replicator.get_latest_tick()])
+	if _lossy != null:
+		var stats: Dictionary = _lossy.conditions.stats()
+		line("WIRE link offered=%d lost=%d duplicated=%d held=%d spells=%d spell_ms=%.0f" % [int(stats.get("offered", 0)),
+			int(stats.get("lost", 0)), int(stats.get("duplicated", 0)), int(stats.get("held", 0)),
+			int(stats.get("spells", 0)), float(stats.get("spell_ms", 0.0))])
 
 
 func _on_intent_in(_peer: int, _tick_number: int) -> void:

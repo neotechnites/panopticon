@@ -55,6 +55,8 @@ extends Node
 ## Left null, behaviour is exactly what it always was: the base is the fixed
 ## transform captured at [method _ready].
 @export var pose_source: RifleAds
+## Optional. The last step of every pose written: the kicked pose slid back clear of the world.
+@export var clearance: RifleClearance
 
 ## The view model's authored local transform, captured once at [method _ready].
 ## The base this recovers to when [member pose_source] is null, and always the
@@ -114,7 +116,7 @@ func tick(delta: float) -> void:
 		return
 	if _t >= 0.0:
 		_t = _advance(_t, delta, _kick_profile.get_recoil_duration())
-	_apply()
+	_apply(delta)
 
 
 # --- Public API -----------------------------------------------------------------
@@ -141,7 +143,14 @@ func is_at_rest() -> bool:
 		return false
 	if view_model == null:
 		return true
-	return view_model.transform.is_equal_approx(_current_base())
+	return view_model.transform.is_equal_approx(clearance.slid(_current_base()) if clearance != null else _current_base())
+
+
+## Write the pose again now, for a holder that has just moved the rifle: it is kept clear from where it is drawn.
+## No time passes, so the gun can only slide further back here, never ease out.
+func repose() -> void:
+	if _has_rest and view_model != null:
+		_apply(0.0)
 
 
 ## The view model's authored rest transform, for tests.
@@ -158,7 +167,7 @@ func _on_fired(_origin: Vector3, _end_point: Vector3) -> void:
 
 # --- Internals ------------------------------------------------------------------
 
-func _apply() -> void:
+func _apply(delta: float) -> void:
 	var weight: float = 0.0
 	if _t >= 0.0:
 		weight = _envelope(
@@ -188,10 +197,15 @@ func _apply() -> void:
 	# some fraction of it the current scale happens to imply.
 	var base: Transform3D = _current_base()
 	var base_rotation: Basis = base.basis.orthonormalized()
-	view_model.transform = Transform3D(
+	view_model.transform = _placed(Transform3D(
 		base.basis * Basis.from_euler(euler),
 		base.origin + base_rotation * offset,
-	)
+	), delta)
+
+
+## [param pose] as it is drawn: kept out of the world by [member clearance], over [param delta], when one is set.
+func _placed(pose: Transform3D, delta: float) -> Transform3D:
+	return clearance.place(pose, delta) if clearance != null else pose
 
 
 ## The base this node kicks away from and recovers to right now: the live

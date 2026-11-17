@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Prove the verdict checker fails what it claims to: one clean control, then one deliberate break each.
 
-    python3 tools/net/run_teeth.py --out <dir> [--jobs N]
+    python3 tools/net/run_teeth.py --out <dir> [--jobs N] [--filter REGEX]
 
 Every scenario in tools/net/teeth/ names the checks that must fail ("teeth") or must not ("clean").
 Exit 0 when the control is clean and every break was caught by its own check, 1 otherwise.
@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -42,10 +43,11 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", required=True)
     parser.add_argument("--jobs", type=int, default=3)
+    parser.add_argument("--filter", default="", help="only the teeth whose file name matches")
     args = parser.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    paths = sorted((HERE / "teeth").glob("*.json"))
+    paths = [p for p in sorted((HERE / "teeth").glob("*.json")) if re.search(args.filter, p.stem)]
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
         results = list(pool.map(lambda p: run(p, out / p.stem), paths))
     bad = 0

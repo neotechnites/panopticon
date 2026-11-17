@@ -1,42 +1,100 @@
 class_name LossyPeer
 extends MultiplayerPeerExtension
 
-## Harness-only network conditioner (Source's net_fakeloss / net_fakelag): wraps a real peer,
-## drops a fraction of outgoing unreliable packets and holds every outgoing packet delay_ms.
+## Harness-only network conditioner above the transport: wraps a real peer and puts this machine's sends
+## through [member conditions], one path per remote peer, released on the first poll at or after their
+## due time. It models a transport without sequencing (what reaches the game is what the wire did);
+## tools/net/wire_relay.gd models the datagrams below ENet. [method freeze] stops it servicing.
+
+## What this machine's sends go through. Settable live; [method NetConditions.reseed] restarts it.
+var conditions: NetConditions = null
+## Unreliable packet copies this machine offered the wire, and how many the wire lost.
+var sent: int:
+	get:
+		return int(conditions.stats().get("offered", 0.0))
+var dropped: int:
+	get:
+		return int(conditions.stats().get("lost", 0.0))
 
 var _real: MultiplayerPeer = null
-var _loss: float = 0.0
 var _target: int = 0
 var _channel: int = 0
 var _mode: TransferMode = TRANSFER_MODE_RELIABLE
-var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
-var _delay_ms: int = 0
-## Held packets, in send order: [due_ms, target, channel, mode, bytes].
-var _held: Array[Array] = []
-## Unreliable packets this machine tried to send, and how many of them it dropped.
-var sent: int = 0
-var dropped: int = 0
+## Remote peers this machine can reach, so a broadcast becomes one independent send per path. Learnt
+## from the engine's connect and disconnect only: a rig wraps the socket before it has a peer.
+var _peers: Dictionary[int, bool] = {}
+var _thaw_ms: float = -1.0
 
 
-func _init(real: MultiplayerPeer, loss: float, rng_seed: int = 1, delay_ms: int = 0) -> void:
+func _init(real: MultiplayerPeer, loss: float = 0.0, rng_seed: int = 1, delay_ms: int = 0) -> void:
 	_real = real
-	_loss = loss
-	_delay_ms = delay_ms
-	_rng.seed = rng_seed
-	_real.peer_connected.connect(func(id: int) -> void: peer_connected.emit(id))
-	_real.peer_disconnected.connect(func(id: int) -> void: peer_disconnected.emit(id))
+	conditions = NetConditions.new(rng_seed)
+	conditions.loss = loss
+	conditions.delay_ms = delay_ms
+	# Bound methods, not lambdas: a lambda would hold this wrapper alive from its own real peer.
+	_real.peer_connected.connect(_on_peer_connected)
+	_real.peer_disconnected.connect(_on_peer_disconnected)
+
+
+## Stop servicing the socket for [param ms]: nothing is read, sent or acknowledged, as in a machine
+## stopped by a shader compile or a debugger. Sends made meanwhile leave when it thaws.
+func freeze(ms: float) -> void:
+	_thaw_ms = maxf(_thaw_ms, _now() + ms)
+
+
+func is_frozen() -> bool:
+	return _now() < _thaw_ms
+
+
+## The peers this machine's sends can reach, ascending: one conditioned path each.
+func reachable_peers() -> Array[int]:
+	var ids: Array[int] = []
+	ids.assign(_peers.keys())
+	ids.sort()
+	return ids
+
+
+func _on_peer_connected(id: int) -> void:
+	_peers[id] = true
+	peer_connected.emit(id)
+
+
+func _on_peer_disconnected(id: int) -> void:
+	_peers.erase(id)
+	# What was still in flight to a peer that is gone goes nowhere, as on a real wire.
+	conditions.forget(id)
+	peer_disconnected.emit(id)
 
 
 func _put_packet_script(buffer: PackedByteArray) -> Error:
-	if _mode != TRANSFER_MODE_RELIABLE:
-		sent += 1
-		if _rng.randf() < _loss:
-			dropped += 1
-			return OK
-	if _delay_ms > 0:
-		_held.append([Time.get_ticks_msec() + _delay_ms, _target, _channel, _mode, buffer])
-		return OK
-	return _send(_target, _channel, _mode, buffer)
+	var reliable: bool = _mode == TRANSFER_MODE_RELIABLE
+	var now: float = _now()
+	var paths: Array[int] = _paths_for(_target)
+	if paths.is_empty():
+		# Nobody known to reach yet: the engine's own answer (usually nothing to send to).
+		return _send(_target, _channel, _mode, buffer)
+	for path: int in paths:
+		conditions.push(path, reliable, [path, _channel, _mode, buffer], now)
+	if not is_frozen():
+		_release(now)
+	return OK
+
+
+## One path per peer a send reaches: the engine's broadcast (0) and exclusion (-id) fanned out.
+func _paths_for(target: int) -> Array[int]:
+	var paths: Array[int] = []
+	if target > 0:
+		paths.append(target)
+		return paths
+	for peer: int in _peers:
+		if peer != -target:
+			paths.append(peer)
+	return paths
+
+
+func _release(now: float) -> void:
+	for packet: Array in conditions.pop_due(now):
+		_send(int(packet[0]), int(packet[1]), packet[2] as TransferMode, packet[3] as PackedByteArray)
 
 
 func _send(target: int, channel: int, mode: TransferMode, buffer: PackedByteArray) -> Error:
@@ -46,12 +104,16 @@ func _send(target: int, channel: int, mode: TransferMode, buffer: PackedByteArra
 	return _real.put_packet(buffer)
 
 
+func _now() -> float:
+	return float(Time.get_ticks_usec()) / 1000.0
+
+
 func _get_packet_script() -> PackedByteArray:
 	return _real.get_packet()
 
 
 func _get_available_packet_count() -> int:
-	return _real.get_available_packet_count()
+	return 0 if is_frozen() else _real.get_available_packet_count()
 
 
 func _get_max_packet_size() -> int:
@@ -95,10 +157,9 @@ func _is_server() -> bool:
 
 
 func _poll() -> void:
-	var now: int = Time.get_ticks_msec()
-	while not _held.is_empty() and int(_held[0][0]) <= now:
-		var packet: Array = _held.pop_front()
-		_send(int(packet[1]), int(packet[2]), packet[3] as TransferMode, packet[4] as PackedByteArray)
+	if is_frozen():
+		return
+	_release(_now())
 	_real.poll()
 
 
