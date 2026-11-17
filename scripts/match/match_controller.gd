@@ -421,6 +421,9 @@ const BRAWL_BOT_COMMIT_SECONDS: float = 2.0
 ## Share of full run speed a brawling bot moves at: a walk in a small room, not a sprint.
 const BRAWL_BOT_SLOWEST: float = 0.2
 const BRAWL_BOT_FASTEST: float = 0.5
+## A lined-up bot waits up to this long before it shoves, drawn each time, so two bots
+## never trade shoves on the same tick for ever.
+const BRAWL_BOT_HESITATION_SECONDS: float = 0.25
 
 ## Where the finale parks the tower's colliders: a layer no mask in the game
 ## reaches, so nothing collides with it, while the tracking shot can still see it.
@@ -598,6 +601,7 @@ var _brawl_winner: MatchParticipant = null
 var _brawl_elapsed: float = 0.0
 ## Per bot in the tower fight: its target, how long it keeps it, and last tick's shove key.
 var _brawl_bots: Dictionary = {}
+var _brawl_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 ## The open tower's stand-in floor for the fight, and its top.
 var _brawl_floor: StaticBody3D = null
 var _brawl_floor_y: float = 0.0
@@ -1054,6 +1058,7 @@ func start_brawl() -> void:
 	_brawl_winner = null
 	_brawl_elapsed = 0.0
 	_brawl_bots.clear()
+	_brawl_rng.seed = get_rules().ai_shooter_aim_seed
 	_open_for_brawl()
 	_settle_frames = SETTLE_PHYSICS_FRAMES
 	for index: int in _participants.size():
@@ -1197,8 +1202,12 @@ func _drive_brawl_bot(participant: MatchParticipant, standing: Array[MatchPartic
 		and forward.dot(outward) > 0.3 and participant.shove_cooldown_remaining <= 0.0
 		and not near_edge
 	)
+	if not lined_up:
+		state["shove_at"] = -1.0
+	elif float(state.get("shove_at", -1.0)) < 0.0:
+		state["shove_at"] = _brawl_elapsed + _brawl_rng.randf() * BRAWL_BOT_HESITATION_SECONDS
 	var pressed_last: bool = bool(state.get("pressed", false))
-	command.shove_pressed = lined_up and not pressed_last
+	command.shove_pressed = lined_up and _brawl_elapsed >= float(state["shove_at"]) and not pressed_last
 	state["pressed"] = command.shove_pressed
 
 
