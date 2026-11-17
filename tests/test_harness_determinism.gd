@@ -51,7 +51,7 @@ func test_same_seed_replays_the_same_matches() -> void:
 
 	for index: int in MATCHES:
 		var first: Dictionary = runs[0][index]
-		assert_true(int(first.get("duration", {}).get("physics_ticks", 0)) > 0, "match %d ran" % index)
+		assert_true(int((first.get("duration", {}) as Dictionary).get("physics_ticks", 0)) > 0, "match %d ran" % index)
 		for run: int in range(1, RUNS):
 			var other: Dictionary = runs[run][index]
 			assert_true(

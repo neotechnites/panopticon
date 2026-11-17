@@ -126,6 +126,15 @@ const FORGIVEN_ERROR_SOURCES: Array[String] = [
 	"servers/rendering/dummy/",
 ]
 
+## Environment variables a platform derives [code]user://[/code] from. The supervisor points every
+## one at a fresh empty directory, so the suite never reads or writes the player's own settings.
+const USER_DIR_VARIABLES: Array[String] = [
+	"HOME", "XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "APPDATA", "LOCALAPPDATA",
+]
+
+## Set by the supervisor to the directory it isolated the child into; a test reads it back.
+const ISOLATED_HOME_VARIABLE: String = "PANOPTICON_TEST_HOME"
+
 ## True in the child process, which is the one that actually runs tests.
 var _is_child: bool = false
 
@@ -204,10 +213,19 @@ func _supervise() -> void:
 	if not _only.is_empty():
 		arguments.append(ONLY_FLAG + _only)
 
+	var isolated_home: String = _isolate_user_dir()
+	if isolated_home.is_empty():
+		printerr("Could not make an isolated user directory; refusing to run on the real one.")
+		_exit_code = EXIT_BROKEN
+		_finished = true
+		return
+
 	var captured: Array = []
 	# read_stderr, so a runtime error lands in the same stream as the report it
 	# belongs next to and the ordering in the log is the ordering it happened in.
 	var code: int = OS.execute(OS.get_executable_path(), arguments, captured, true, false)
+
+	_remove_tree(isolated_home)
 
 	var transcript: String = ""
 	for chunk: Variant in captured:
@@ -245,6 +263,37 @@ func _supervise() -> void:
 
 	_exit_code = code
 	_finished = true
+
+
+## Point every variable [code]user://[/code] is derived from at a new empty directory and return it.
+## The child inherits the environment, so its settings file starts absent on every machine.
+func _isolate_user_dir() -> String:
+	var home: String = OS.get_temp_dir().path_join(
+		"panopticon-tests-%d-%d" % [OS.get_process_id(), Time.get_ticks_usec()]
+	)
+	if DirAccess.make_dir_recursive_absolute(home) != OK:
+		return ""
+	for variable: String in USER_DIR_VARIABLES:
+		OS.set_environment(variable, home)
+	OS.set_environment(ISOLATED_HOME_VARIABLE, home)
+	return home
+
+
+## Delete [param path] and everything under it. Only ever handed the directory made above.
+func _remove_tree(path: String) -> void:
+	var dir: DirAccess = DirAccess.open(path)
+	if dir == null:
+		return
+	dir.include_hidden = true
+	for entry: String in dir.get_directories():
+		# A link is unlinked, never followed: nothing outside the directory is ever touched.
+		if dir.is_link(entry):
+			dir.remove(entry)
+		else:
+			_remove_tree(path.path_join(entry))
+	for entry: String in dir.get_files():
+		dir.remove(entry)
+	DirAccess.remove_absolute(path)
 
 
 ## [param transcript] up to and including the suite's own summary line.
@@ -372,6 +421,9 @@ func _run_test(script: GDScript, path: String, method_name: String) -> void:
 		return
 
 	case.name = "%s_%s" % [path.get_file().get_basename(), method_name]
+	# Every test starts from the state a fresh process holds, and is held to leaving it that way.
+	SharedState.restore()
+	var inherited: Dictionary[String, String] = SharedState.fingerprint(self)
 	root.add_child(case)
 
 	# before_each and after_each may await, and both are called through the same
@@ -382,32 +434,40 @@ func _run_test(script: GDScript, path: String, method_name: String) -> void:
 	await case.call("after_each")
 
 	var elapsed_ms: int = Time.get_ticks_msec() - _current_started_ms
-	_checks += case.assertions
-
-	if case.is_skipped():
-		# Neither a pass nor a failure, and printed every run so it cannot be
-		# forgotten: see TestCase.skip.
-		_tests_skipped += 1
-		print("  SKIP  %s  -- %s" % [method_name, case.skipped])
-	elif case.is_failed():
-		_tests_failed += 1
-		print("  FAIL  %s  (%d checks, %d ms)" % [method_name, case.assertions, elapsed_ms])
-		for failure: String in case.failures:
-			print("          %s" % failure)
-	elif case.assertions == 0:
-		# A test that asserts nothing is not a passing test, it is an empty one,
-		# and an empty test is the exact shape a deleted assertion leaves behind.
-		_tests_failed += 1
-		print("  FAIL  %s  (no checks made -- a test that asserts nothing proves nothing)" % method_name)
-	else:
-		_tests_passed += 1
-		print("  pass  %s  (%d checks, %d ms)" % [method_name, case.assertions, elapsed_ms])
+	var assertions: int = case.assertions
+	var failures: PackedStringArray = case.failures.duplicate()
+	var skipped: String = case.skipped
 
 	# Free the case and everything a test parented to it, then let the tree
 	# actually process the deletions before the next test builds its fixtures.
 	root.remove_child(case)
 	case.free()
 	await physics_frame
+
+	# What the next test would inherit and did not ask for. The test that left it fails for it,
+	# so no test can pass or fail by where it sits in the run.
+	for leak: String in SharedState.changed(inherited, SharedState.fingerprint(self)):
+		failures.append("left shared state changed for the next test -- %s" % leak)
+
+	_checks += assertions
+	if not skipped.is_empty() and failures.is_empty():
+		# Neither a pass nor a failure, and printed every run so it cannot be
+		# forgotten: see TestCase.skip.
+		_tests_skipped += 1
+		print("  SKIP  %s  -- %s" % [method_name, skipped])
+	elif not failures.is_empty():
+		_tests_failed += 1
+		print("  FAIL  %s  (%d checks, %d ms)" % [method_name, assertions, elapsed_ms])
+		for failure: String in failures:
+			print("          %s" % failure)
+	elif assertions == 0:
+		# A test that asserts nothing is not a passing test, it is an empty one,
+		# and an empty test is the exact shape a deleted assertion leaves behind.
+		_tests_failed += 1
+		print("  FAIL  %s  (no checks made -- a test that asserts nothing proves nothing)" % method_name)
+	else:
+		_tests_passed += 1
+		print("  pass  %s  (%d checks, %d ms)" % [method_name, assertions, elapsed_ms])
 
 
 # --- Discovery ----------------------------------------------------------------

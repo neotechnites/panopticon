@@ -85,7 +85,7 @@ func _ready() -> void:
 	_rest = view_model.transform
 	_has_rest = true
 	rifle.fired.connect(_on_fired)
-	_check_recovery_fits()
+	rifle.reload_duration_changed.connect(_check_recovery_fits)
 
 
 ## Render-tick driven, like [FxCameraKick]: a purely visual animation stepped
@@ -232,24 +232,24 @@ func _envelope(elapsed: float, attack: float, recover: float, exponent: float) -
 	return pow(1.0 - fallen, exponent)
 
 
-## Warn if the kick can still be running when the weapon comes off reload.
-##
-## Not a correctness problem -- the shot line is never touched, so a kick in
-## flight cannot displace a shot -- but a rifle visibly still settling from the
-## last shot the instant it is ready to fire again reads as broken. Checked
-## against the weapon's floor reload, the shortest the reload can ever become,
-## exactly as [method FxWeaponFeel._check_recovery_fits] checks its own kick.
-func _check_recovery_fits() -> void:
-	if rifle.profile == null or not rifle.profile.has_recoil():
+## True when the kick would still be running as a reload of [param reload_seconds] comes off.
+## Never a correctness problem (the shot line is not the model's); it only reads as unsettled.
+func outlasts_reload(reload_seconds: float) -> bool:
+	if rifle == null or rifle.profile == null or not rifle.profile.has_recoil():
+		return false
+	return rifle.profile.get_recoil_duration() > rifle.profile.get_cycle_seconds(reload_seconds)
+
+
+## Warn when the reload now in force is shorter than the kick. The weapon's floor is only the
+## reload slider's minimum, so it is the reload a match actually sets that is checked.
+func _check_recovery_fits(reload_seconds: float) -> void:
+	if not outlasts_reload(reload_seconds):
 		return
-	var kick_duration: float = rifle.profile.get_recoil_duration()
-	var soonest_shot: float = rifle.profile.get_cycle_seconds(rifle.get_reload_floor_seconds())
-	if kick_duration > soonest_shot:
-		push_warning(
-			(
-				"RifleRecoil: the view-model kick lasts %.3fs but the rifle can fire again "
-				+ "after %.3fs. Lower recoil_kick_seconds/recoil_recover_seconds or the model "
-				+ "will still be settling when the next shot is taken."
-			)
-			% [kick_duration, soonest_shot]
+	push_warning(
+		(
+			"RifleRecoil: the view-model kick lasts %.3fs but the rifle can fire again "
+			+ "after %.3fs. Lower recoil_kick_seconds/recoil_recover_seconds or the model "
+			+ "will still be settling when the next shot is taken."
 		)
+		% [rifle.profile.get_recoil_duration(), rifle.profile.get_cycle_seconds(reload_seconds)]
+	)

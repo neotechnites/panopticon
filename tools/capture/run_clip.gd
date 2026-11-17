@@ -166,9 +166,9 @@ var _stuck_for: float = 0.0
 var _seat: BotTowerSeat = null
 var _fill: OmniLight3D = null
 var _eye: Node3D = null
-var _chain: Node = null
-var _driver: Node = null
-var _victim_driver: Node = null
+var _chain: CHAIN_STAGE = null
+var _driver: STAGE_DRIVER = null
+var _victim_driver: STAGE_DRIVER = null
 var _victim_body: PlayerController = null
 var _track: String = ""
 var _tracked_look: Vector3 = Vector3.ZERO
@@ -233,8 +233,8 @@ func _process(delta: float) -> bool:
 		_stage_chainrun()
 	if _plugin != null:
 		if not _plugin_cast and _elapsed > 0.6:
-			_plugin_cast = _plugin.cast(_controller.get_live_runners())
-		_plugin.tick(delta)
+			_plugin_cast = _plugin.call(&"cast", _controller.get_live_runners())
+		_plugin.call(&"tick", delta)
 	elif STAGE_DRIVER.is_stage(_stage) and _driver == null and _elapsed > 0.6:
 		_stage_driven()
 	if _stage == "ghostpack" and _ghost_body == null and _elapsed > PACK_GHOST_SECONDS:
@@ -246,7 +246,7 @@ func _process(delta: float) -> bool:
 	if _pov != "":
 		_ride_a_body()
 	else:
-		if _plugin == null or not _plugin.lens(delta):
+		if _plugin == null or not _plugin.call(&"lens", delta):
 			var progress: float = clampf((_elapsed - _delay) / _seconds, 0.0, 1.0)
 			_aim_camera(_key_start + progress * _key_span)
 		_turn_the_eye(delta)
@@ -304,9 +304,9 @@ func _build() -> void:
 		return
 	var bots: int = int(_options.get("bots", 7))
 	if _plugin != null:
-		bots = maxi(bots, _plugin.bots())
-		if _plugin.needs_pov() != "" and _pov != _plugin.needs_pov():
-			_fail("--stage=%s is filmed with --pov=%s." % [_stage, _plugin.needs_pov()])
+		bots = maxi(bots, _plugin.call(&"bots"))
+		if _plugin.call(&"needs_pov") != "" and _pov != _plugin.call(&"needs_pov"):
+			_fail("--stage=%s is filmed with --pov=%s." % [_stage, _plugin.call(&"needs_pov")])
 			match_root.free()
 			return
 	_make_it_bots_only(match_root, bots)
@@ -324,7 +324,7 @@ func _build() -> void:
 
 	if String(_options.get("shimmer", "1")) == "0":
 		for node: Node in match_root.find_children("*", "", true, false):
-			if node.get_script() != null and node.get_script().resource_path.ends_with("heat_shimmer.gd"):
+			if node.get_script() != null and (node.get_script() as Script).resource_path.ends_with("heat_shimmer.gd"):
 				node.set(&"strength", 0.0)
 				(node as Node3D).visible = false
 				print("[rs] heat shimmer off: %s" % node.name)
@@ -361,7 +361,7 @@ func _build() -> void:
 	)
 	_log_events()
 	if _plugin != null:
-		_plugin.before_start()
+		_plugin.call(&"before_start")
 	_controller.start_match()
 	# A guard only exists in a round: the race has nobody in the tower, so a
 	# POV clip that waits for one films an empty chamber for a minute, and a
@@ -396,7 +396,7 @@ func _make_it_bots_only(match_root: Node, bots: int) -> void:
 	if not map_id.is_empty():
 		rules.map_id = StringName(map_id)
 	if _plugin != null:
-		_plugin.tune_rules(rules)
+		_plugin.call(&"tune_rules", rules)
 	elif _stage == "missstreak":
 		# Fifteen misses fit in a clip only if the rifle comes back fast.
 		rules.base_reload_seconds = 0.7
@@ -485,7 +485,7 @@ func _shooter_profile() -> ShooterProfile:
 	var profile: ShooterProfile = load(BotMatchRunner.SHOOTER_PROFILE_PATH) as ShooterProfile
 	var copy: ShooterProfile = profile.duplicate() as ShooterProfile
 	if _plugin != null:
-		_plugin.tune_shooter(copy)
+		_plugin.call(&"tune_shooter", copy)
 	elif _stage == "firefight" or _stage == "decoy":
 		_make_it_quick(copy)
 	elif _stage == "missstreak":
@@ -845,7 +845,7 @@ func _log_the_rifle() -> void:
 		func(confidence: float) -> void:
 			print("[event] %6.2f  shot  confidence %.2f" % [_elapsed, confidence])
 			if _plugin != null:
-				_plugin.on_shot(confidence)
+				_plugin.call(&"on_shot", confidence)
 			_flag_the_drivers("shot")
 	)
 
@@ -862,7 +862,7 @@ func _log_events() -> void:
 			if _pov != "" and victim.body == _pov_body:
 				_kick_the_ridden_camera(-shover.body.global_transform.basis.z)
 			if _plugin != null:
-				_plugin.on_shove(shover, victim)
+				_plugin.call(&"on_shove", shover, victim)
 			_flag_the_drivers("shove")
 	)
 	if _controller.rifle != null:
@@ -870,7 +870,7 @@ func _log_events() -> void:
 			func(collider: Node3D, _at: Vector3, _n: Vector3) -> void:
 				print("[event] %6.2f  hit  %s" % [_elapsed, collider.name if collider != null else "?"])
 				if _plugin != null:
-					_plugin.on_hit(collider)
+					_plugin.call(&"on_hit", collider)
 				_flag_the_drivers("hit")
 		)
 		_controller.rifle.missed.connect(
@@ -886,7 +886,7 @@ func _log_events() -> void:
 				fposmod(rad_to_deg(atan2(at.z, at.x)), 360.0), Vector2(at.x, at.z).length(),
 			])
 			if _plugin != null:
-				_plugin.on_out(participant)
+				_plugin.call(&"on_out", participant)
 	)
 	_controller.ghost_caught.connect(
 		func(ghost: MatchParticipant, caught: MatchParticipant) -> void:
@@ -908,7 +908,7 @@ func _log_events() -> void:
 func _flag_the_drivers(flag_name: String) -> void:
 	for node: Node in root.get_children():
 		if node.has_method("flag") and node.has_method("is_done"):
-			node.flag(flag_name)
+			node.call(&"flag", flag_name)
 
 
 ## Stop every voice before the engine tears the tree down: a stream still
@@ -1127,7 +1127,7 @@ func _find_kind(from: Node, wanted: String) -> Node:
 		var node: Node = pending.pop_back()
 		if node.is_class(wanted) or node.get_script() != null and node.get_class() == wanted:
 			return node
-		if node.get_script() != null and String(node.get_script().get_global_name()) == wanted:
+		if node.get_script() != null and String((node.get_script() as Script).get_global_name()) == wanted:
 			return node
 		for child: Node in node.get_children():
 			pending.append(child)

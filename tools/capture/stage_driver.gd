@@ -449,10 +449,12 @@ func _run_gazing(step: Dictionary, delta: float, direction: Vector3) -> bool:
 		]
 		_gaze_step_index = 0
 	while _gaze_index < _gaze_schedule.size() and float(_gaze_schedule[_gaze_index]["t"]) <= _clock:
-		_gaze_target = Vector2(deg_to_rad(-float(_gaze_schedule[_gaze_index].get("right", 0.0))), deg_to_rad(float(_gaze_schedule[_gaze_index].get("pitch", 0.0))))
+		var glance: Dictionary = _gaze_schedule[_gaze_index]
+		_gaze_target = Vector2(deg_to_rad(-float(glance.get("right", 0.0))), deg_to_rad(float(glance.get("pitch", 0.0))))
 		_gaze_index += 1
 	while _gaze_step_index < _gaze_strafes.size() and float(_gaze_strafes[_gaze_step_index]["t"]) <= _clock:
-		_gaze_strafe_target = float(_gaze_strafes[_gaze_step_index].get("strafe", 0.0))
+		var strafe: Dictionary = _gaze_strafes[_gaze_step_index]
+		_gaze_strafe_target = float(strafe.get("strafe", 0.0))
 		_gaze_step_index += 1
 	var accel: Vector2 = (_gaze_target - _gaze) * GAZE_OMEGA * GAZE_OMEGA - _gaze_rate * 2.0 * GAZE_ZETA * GAZE_OMEGA
 	_gaze_rate += accel * delta

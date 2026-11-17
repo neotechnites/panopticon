@@ -6,7 +6,7 @@ extends "res://tools/capture/stages/stage.gd"
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
 var _body: PlayerController = null
-var _hand: Node = null
+var _hand: GUARD_HAND = null
 var _spot: Vector3 = Vector3.ZERO
 var _tower: Vector3 = Vector3.ZERO
 

@@ -98,6 +98,8 @@ func before_each() -> void:
 	# Bullet drop is its own setting (d303cc3); these rigs measure a straight line.
 	_profile.projectile_gravity = 0.0
 	_rules = TestFixtures.match_rules()
+	# The hip-fire cone is its own setting (34353f48); these rigs measure the aim line.
+	_rules.guard_hip_spread_degrees = 0.0
 
 	_rifle = (load(TestFixtures.RIFLE_SCENE_PATH) as PackedScene).instantiate() as Rifle
 	TestFixtures.silence_human_input(_rifle)

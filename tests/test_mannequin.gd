@@ -116,7 +116,7 @@ func test_tuning_sliders_change_the_layer_and_reset_restores_it() -> void:
 	assert_almost_eq(float(spring.get(&"spring_hertz")), span.y, 0.001, "the slider sets the export")
 	assert_true(_stage.tuning_text().contains("BodySpring.spring_hertz = %s" % String.num(span.y, 3)), "and the copy shows it")
 	_stage.reset_tuning()
-	assert_almost_eq(float(spring.get(&"spring_hertz")), float(spring.get_script().get_property_default_value(&"spring_hertz")), 0.001, "reset restores the default")
+	assert_almost_eq(float(spring.get(&"spring_hertz")), float((spring.get_script() as Script).get_property_default_value(&"spring_hertz")), 0.001, "reset restores the default")
 
 
 func test_switches_change_the_layers() -> void:

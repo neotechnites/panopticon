@@ -444,9 +444,9 @@ func _bars_shapes() -> Array[CollisionShape3D]:
 func _box_corners(box: BoxShape3D) -> Array[Vector3]:
 	var half: Vector3 = box.size * 0.5
 	var out: Array[Vector3] = []
-	for sx in [-1.0, 1.0]:
-		for sy in [-1.0, 1.0]:
-			for sz in [-1.0, 1.0]:
+	for sx: float in [-1.0, 1.0]:
+		for sy: float in [-1.0, 1.0]:
+			for sz: float in [-1.0, 1.0]:
 				out.append(Vector3(sx * half.x, sy * half.y, sz * half.z))
 	return out
 

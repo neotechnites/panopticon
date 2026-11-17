@@ -17,7 +17,7 @@ text = "KEYBIND_INTRO"
 custom_minimum_size = Vector2(0, 506)
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
-editor_description = "Horizontal scrolling is off because the table is built to fit the panel width; only a long list needs to scroll, and only downwards. The minimum height is what asks the dialog for enough room to show all thirteen rows at the shipped theme, so the list does not arrive already scrolled by one row. Nothing lines up because of this number -- the grid owns the columns -- so a larger font simply scrolls instead of breaking the table."
+editor_description = "Horizontal scrolling is off because the table is built to fit the panel width; only a long list needs to scroll, and only downwards. The minimum height is what asks the dialog for enough room to show thirteen rows at the shipped theme; the list is longer than that and the rest scroll. Nothing lines up because of this number -- the grid owns the columns -- so a larger font simply scrolls instead of breaking the table."
 
 [node name="Table" type="GridContainer" parent="Layout/Scroll"]
 size_flags_horizontal = 3
@@ -233,6 +233,25 @@ size_flags_horizontal = 3
 text = "KEYBIND_UNBOUND"
 
 [node name="Ability4Reset" type="Button" parent="Layout/Scroll/Table"]
+text = "KEYBIND_RESET"
+
+[node name="Ability5Name" type="Label" parent="Layout/Scroll/Table"]
+size_flags_horizontal = 3
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "KEYBIND_ACTION_ABILITY_5"
+
+[node name="Ability5Slot1" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+text = "KEYBIND_UNBOUND"
+
+[node name="Ability5Slot2" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+text = "KEYBIND_UNBOUND"
+
+[node name="Ability5Reset" type="Button" parent="Layout/Scroll/Table"]
 text = "KEYBIND_RESET"
 
 [node name="EmoteName" type="Label" parent="Layout/Scroll/Table"]

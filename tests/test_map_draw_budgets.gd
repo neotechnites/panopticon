@@ -153,9 +153,13 @@ const DRAW_BUDGETS: Dictionary = {
 	# tile (d569188) makes surfaces and materials 38. Ceilings measured + 20 %.
 	# 2026-10-20: lighting rebuilt from scratch (oculus spot, two spill omnis, all shadowed; the portal glow): lights 4,
 	# shadow_casters 3; the 48-tri additive beam. Ceilings set from the scene's counts, not re-measured here.
+	# 2026-11-17: re-measured on main as it stands after the 2026-10-24..26 passes (the cone skylight
+	# 768905fa, the reflector lamps and fills 26c3f03b, TowerKey c511f693, the built walls and section B
+	# ecbadc13/d0266c86): tris 85456, surfaces 264, materials 75, transparent_tris 130, lights 19,
+	# shadow_casters 2. Measured + 20 %; tris keeps its tighter ceiling; casters exact.
 	"marble": {
-		"tris": 92500, "surfaces": 46, "materials": 46,
-		"transparent_tris": 58, "lights": 5, "shadow_casters": 3,
+		"tris": 92500, "surfaces": 317, "materials": 90,
+		"transparent_tris": 156, "lights": 23, "shadow_casters": 2,
 	},
 	# The expensive one: 2.5x the Ring, plus 2196 transparent triangles, plus a
 	# shadow caster. Re-measured after the obstacle course came off the lane
@@ -217,9 +221,17 @@ const DRAW_BUDGETS: Dictionary = {
 	},
 	# Map 4, the ice cavern (2026-10-03): counted off the built glbs and the scene (63004 tris, 37 surfaces,
 	# 29 materials, 5863 transparent: roof, swirl, shafts) + 20 %, not yet measured on this suite.
+	# 2026-11-17: first measurement on this suite, of passes 4-5 (e48204d5, ef4e487b): tris 106536, + 20 %.
+	# Surfaces 35, materials 27, transparent_tris 2868, lights 4 all fit the ceilings above, which stay.
 	"ice": {
-		"tris": 75605, "surfaces": 45, "materials": 35,
+		"tris": 127844, "surfaces": 45, "materials": 35,
 		"transparent_tris": 7036, "lights": 4, "shadow_casters": 1,
+	},
+	# Map 5, the beach (2026-11-17, first row): measured tris 143628, surfaces 45, materials 42,
+	# transparent_tris 27315 (the water), lights 1, shadow_casters 1. Measured + 20 %; casters exact.
+	"beach": {
+		"tris": 172354, "surfaces": 54, "materials": 51,
+		"transparent_tris": 32778, "lights": 2, "shadow_casters": 1,
 	},
 }
 

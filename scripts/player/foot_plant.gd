@@ -97,17 +97,17 @@ func _bound(skeleton: Skeleton3D) -> void:
 		_rays[i] = ray
 	var sampler: SkeletonModifier3D = (get_script() as GDScript).new()
 	sampler.name = "FootSample"
-	sampler.stage = Stage.SAMPLE
-	sampler.lead = self
+	sampler.set(&"stage", Stage.SAMPLE)
+	sampler.set(&"lead", self)
 	skeleton.add_child(sampler)
 	skeleton.move_child(sampler, 0)
-	sampler.body = body
-	sampler.motion = motion
+	sampler.set(&"body", body)
+	sampler.set(&"motion", motion)
 
 
 func _layer(skeleton: Skeleton3D, delta: float) -> void:
 	if stage == Stage.SAMPLE:
-		lead._sample(skeleton)
+		lead.call(&"_sample", skeleton)
 	elif _hips >= 0 and _sampled:
 		_solve(skeleton, delta)
 

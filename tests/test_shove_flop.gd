@@ -48,12 +48,12 @@ func test_a_shove_flops_the_body_pinned_to_its_capsule_and_it_gets_up() -> void:
 	var limbs: float = 0.0
 	for _i: int in 240:
 		await step_ticks(1)
-		if not _ragdoll.is_flopping():
+		if not _ragdoll.call(&"is_flopping"):
 			if seen:
 				break
 			continue
 		seen = true
-		var parts: PackedVector3Array = _ragdoll.part_positions()
+		var parts: PackedVector3Array = _ragdoll.call(&"part_positions")
 		worst = maxf(worst, maxf(_off_capsule(parts[0]), _off_capsule(parts[1])))
 		for point: Vector3 in parts:
 			limbs = maxf(limbs, _off_capsule(point))
@@ -61,22 +61,22 @@ func test_a_shove_flops_the_body_pinned_to_its_capsule_and_it_gets_up() -> void:
 	assert_true(seen, "the shoved body went limp")
 	assert_lt(worst, PINNED_METRES, "the drawn torso stays with the capsule")
 	assert_lt(limbs, 1.5, "and no limb flies off it")
-	assert_false(_ragdoll.is_flopping(), "and he is back on the clip within four seconds")
-	assert_false(_ragdoll.is_active(), "with no corpse left behind")
+	assert_false(_ragdoll.call(&"is_flopping"), "and he is back on the clip within four seconds")
+	assert_false(_ragdoll.call(&"is_active"), "with no corpse left behind")
 
 
 func test_a_kill_mid_flop_hands_over_to_the_corpse() -> void:
 	_shove()
 	await step_ticks(20)
-	assert_true(_ragdoll.is_flopping(), "limp in the air")
-	_ragdoll.start(_body.velocity, Vector3.ZERO, Vector3.ZERO)
-	assert_true(_ragdoll.is_active(), "the corpse takes the limp body")
-	assert_false(_ragdoll.is_flopping(), "and the flop is over without getting up")
-	_ragdoll.stop()
+	assert_true(_ragdoll.call(&"is_flopping"), "limp in the air")
+	_ragdoll.call(&"start", _body.velocity, Vector3.ZERO, Vector3.ZERO)
+	assert_true(_ragdoll.call(&"is_active"), "the corpse takes the limp body")
+	assert_false(_ragdoll.call(&"is_flopping"), "and the flop is over without getting up")
+	_ragdoll.call(&"stop")
 
 
 func test_off_leaves_the_reel() -> void:
-	_ragdoll.flop_enabled = false
+	_ragdoll.set(&"flop_enabled", false)
 	_shove()
 	await step_ticks(20)
 	assert_false(_avatar.is_flopping(), "a flop that is off never starts")

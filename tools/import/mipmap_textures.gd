@@ -87,7 +87,7 @@ func _fix_material(material: Material) -> void:
 		return
 	_seen_materials[material_id] = true
 
-	for property in TEXTURE_PROPERTIES:
+	for property: StringName in TEXTURE_PROPERTIES:
 		var texture: Texture2D = base.get(property)
 		var replacement := _mipped_texture(texture)
 		if replacement != null:

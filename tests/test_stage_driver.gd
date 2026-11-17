@@ -27,7 +27,7 @@ func _body(at: Vector3) -> PlayerController:
 func _drive(body: PlayerController, steps: Array) -> Node:
 	var driver: Node = DRIVER.new()
 	add_child(driver)
-	driver.install(body, null, steps)
+	driver.call(&"install", body, null, steps)
 	return driver
 
 
@@ -39,17 +39,17 @@ func test_place_puts_the_body_on_the_ring_polar_point() -> void:
 	assert_almost_eq(LIB.bearing_of(body.global_position), 195.0, 0.2, "the body stands at the bearing asked for")
 	assert_almost_eq(LIB.radius_of(body.global_position), 52.0, 0.1, "at the radius asked for")
 	assert_lt(absf(body.global_position.x - want.x), 0.1, "x from the ring's own convention (x = cos * r)")
-	assert_false(driver.is_done(), "and the hold is still running")
+	assert_false(driver.call(&"is_done"), "and the hold is still running")
 
 
 func test_until_is_a_timed_beat_on_the_driver_clock() -> void:
 	var body: PlayerController = _body(LIB.ring_point(20.0, 52.0, 0.1))
 	var driver: Node = _drive(body, [{"do": "until", "t": 0.5}])
 	await step_ticks(int(0.5 * SIM_HZ) - 3)
-	assert_false(driver.is_done(), "half a second in, the beat has not fired")
+	assert_false(driver.call(&"is_done"), "half a second in, the beat has not fired")
 	await step_ticks(6)
-	assert_true(driver.is_done(), "the beat fires when the clock reads t")
-	assert_almost_eq(driver.clock(), 0.55, 0.05, "the clock counts seconds since install")
+	assert_true(driver.call(&"is_done"), "the beat fires when the clock reads t")
+	assert_almost_eq(driver.call(&"clock"), 0.55, 0.05, "the clock counts seconds since install")
 
 
 func test_a_leap_lands_where_it_was_aimed() -> void:
@@ -63,7 +63,7 @@ func test_a_leap_lands_where_it_was_aimed() -> void:
 		{"do": "hold", "seconds": 5.0},
 	])
 	await step_seconds(2.0)
-	assert_false(driver.is_done(), "it is holding after the landing")
+	assert_false(driver.call(&"is_done"), "it is holding after the landing")
 	var flat: float = Vector2(body.global_position.x - to.x, body.global_position.z - to.z).length()
 	assert_lt(flat, 0.8, "the body came down within a step of the target (%.2f m off)" % flat)
 	assert_true(body.is_on_floor(), "and is on the floor")
@@ -102,8 +102,8 @@ func test_two_bodies_seeded_apart_do_not_fidget_in_lockstep() -> void:
 	var b: PlayerController = _body(LIB.ring_point(60.0, 52.0, 0.1))
 	var da: Node = _drive(a, [{"do": "human", "on": true}, {"do": "hold", "seconds": 6.0, "fidget": true}])
 	var db: Node = _drive(b, [{"do": "human", "on": true}, {"do": "hold", "seconds": 6.0, "fidget": true}])
-	da.seed_with(20260930, 0)
-	db.seed_with(20260930, 1)
+	da.call(&"seed_with", 20260930, 0)
+	db.call(&"seed_with", 20260930, 1)
 	var same: int = 0
 	var samples: int = 0
 	for _i: int in 40:

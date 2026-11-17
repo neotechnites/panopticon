@@ -86,7 +86,7 @@ const CAPTURE_SPEED: float = 100.0
 
 var _runners: Array = []
 var _brains: Array = []
-var _hand: Node = null
+var _hand: GUARD_HAND = null
 var _guard: PlayerController = null
 var _kills: int = 0
 
@@ -150,7 +150,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			0.1
 		))
 	# Each man gets his own way of playing, then is armed again on it.
-	CAST.vary(brains, int(clip._options.get("seed", 0)))
+	CAST.vary(brains, int((clip.get(&"_options") as Dictionary).get("seed", 0)))
 	var placed: int = CAST.restart(brains, points)
 	_runners = bodies
 	_brains = brains

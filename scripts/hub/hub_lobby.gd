@@ -144,6 +144,9 @@ var _vote_winner: MapWedge = null
 var _vote_tied: bool = false
 ## The maps a launch from this hub can go to, loaded in the background while it stands.
 static var _warm: Dictionary[String, Resource] = {}
+## Map scenes still to warm, and the one loading now (empty when idle).
+var _preload_paths: PackedStringArray = PackedStringArray()
+var _preload_path: String = ""
 
 
 func _ready() -> void:
@@ -201,24 +204,37 @@ func _bind_lobby(lobby: NetLobby) -> void:
 		_relaunch.call_deferred()
 
 
-## Loads every decided wedge's map off the main thread, so a launch instantiates it from the cache.
-## Maps only: the match scene's own resources are mutated in play and must load fresh.
+## Queues every decided wedge's map to load off the main thread, so a launch instantiates it from
+## the cache. Maps only: the match scene's own resources are mutated in play and must load fresh.
 func _preload_launch_scenes() -> void:
 	_warm.clear()
-	var paths: PackedStringArray = PackedStringArray()
+	_preload_paths.clear()
 	for wedge: MapWedge in _wedges:
 		if wedge.is_decided():
-			paths.append(MapCatalog.scene_path_for(wedge.map_id))
-	for path: String in paths:
-		if path.is_empty() or _warm.has(path) or ResourceLoader.has_cached(path):
-			continue
-		if ResourceLoader.load_threaded_request(path) != OK:
-			continue
-		while ResourceLoader.load_threaded_get_status(path) == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
-			await get_tree().process_frame
-			if not is_inside_tree():
-				return
-		_warm[path] = ResourceLoader.load_threaded_get(path)
+			_preload_paths.append(MapCatalog.scene_path_for(wedge.map_id))
+
+
+## One step of the background load, polled from [method _process]: a coroutine awaiting a frame
+## here would be resumed after a launch had already freed the hub.
+func _poll_preload() -> void:
+	if _preload_path.is_empty():
+		while _preload_path.is_empty() and not _preload_paths.is_empty():
+			var path: String = _preload_paths[0]
+			_preload_paths.remove_at(0)
+			if path.is_empty() or _warm.has(path) or ResourceLoader.has_cached(path):
+				continue
+			if ResourceLoader.load_threaded_request(path) == OK:
+				_preload_path = path
+		return
+	if ResourceLoader.load_threaded_get_status(_preload_path) == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+		return
+	_warm[_preload_path] = ResourceLoader.load_threaded_get(_preload_path)
+	_preload_path = ""
+
+
+## True while a map is still queued or loading in the background.
+func is_preloading() -> bool:
+	return not (_preload_path.is_empty() and _preload_paths.is_empty())
 
 
 func _relaunch() -> void:
@@ -237,6 +253,8 @@ func _relaunch() -> void:
 
 
 func _process(_delta: float) -> void:
+	if is_preloading():
+		_poll_preload()
 	var here: MapWedge = _wedge_under(_local_body())
 	if here != _wedge_here:
 		_wedge_here = here

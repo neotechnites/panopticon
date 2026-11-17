@@ -14,7 +14,7 @@ var _locale_before: String = ""
 
 
 func before_each() -> void:
-	_report = Audit.scan()
+	_report = Audit.call(&"scan")
 	_locale_before = TranslationServer.get_locale()
 
 
@@ -24,7 +24,7 @@ func after_each() -> void:
 
 func test_the_table_reads() -> void:
 	assert_false(bool(_report["broken"]), "strings.csv is readable and has an en column")
-	assert_gt(float(_report["table"].size()), 100.0, "and holds the game's words, not a stub")
+	assert_gt(float((_report["table"] as Dictionary).size()), 100.0, "and holds the game's words, not a stub")
 
 
 func test_every_referenced_key_is_in_the_table() -> void:

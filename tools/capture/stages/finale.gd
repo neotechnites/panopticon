@@ -15,9 +15,9 @@ const WINDOW_STEP: float = 45.0
 
 var _runner: RunnerBrain = null
 var _mark: RunnerBrain = null
-var _driver: Node = null
+var _driver: DRIVER = null
 var _arrived: bool = false
-var _hand: Node = null
+var _hand: GUARD_HAND = null
 var _window_deg: float = 0.0
 
 

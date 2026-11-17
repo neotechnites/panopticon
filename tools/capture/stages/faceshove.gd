@@ -92,7 +92,7 @@ func lens(delta: float) -> bool:
 	var mid: Vector3 = (_first.global_position + _second.global_position) * 0.5 + Vector3.UP * 1.0
 	if not _lens_set:
 		_lens_set = true
-		var pose: Dictionary = clip.SHOTS.sample(clip._keys, clip._key_start)
+		var pose: Dictionary = (clip.get(&"SHOTS") as GDScript).call(&"sample", clip.get(&"_keys"), clip.get(&"_key_start"))
 		_offset = (pose["pos"] as Vector3) - mid
 		_mid = mid
 	_mid = _mid.lerp(mid, 1.0 - exp(-delta / LENS_EASE))

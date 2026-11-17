@@ -321,6 +321,10 @@ func _surfaces_have_materials(arena: Node, map_id: StringName) -> bool:
 		var mesh: MeshInstance3D = node as MeshInstance3D
 		if mesh.mesh == null:
 			continue
+		# A shadows-only mesh never draws a colour, so it has no material to miss: marble's
+		# DomeShade disc (768905fa) is one.
+		if mesh.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY:
+			continue
 		for surface: int in mesh.mesh.get_surface_count():
 			if mesh.get_active_material(surface) == null:
 				sound = false

@@ -598,6 +598,8 @@ var _brawl_winner: MatchParticipant = null
 var _brawl_elapsed: float = 0.0
 ## Per bot in the tower fight: its target, how long it keeps it, and last tick's shove key.
 var _brawl_bots: Dictionary = {}
+## Who is still up in the tower fight this tick; refilled every tick, never rebuilt.
+var _brawl_standing: Array[MatchParticipant] = []
 ## The open tower's stand-in floor for the fight, and its top.
 var _brawl_floor: StaticBody3D = null
 var _brawl_floor_y: float = 0.0
@@ -1105,7 +1107,8 @@ func _tick_brawl(delta: float) -> void:
 		if _brawl_end_remaining < 0.0:
 			_end_brawl()
 		return
-	var standing: Array[MatchParticipant] = []
+	var standing: Array[MatchParticipant] = _brawl_standing
+	standing.clear()
 	for participant: MatchParticipant in _participants:
 		if not participant.is_running or participant.body == null:
 			continue
@@ -1217,7 +1220,7 @@ func _brawl_target(participant: MatchParticipant, standing: Array[MatchParticipa
 			continue
 		var crowd: int = 0
 		for index: int in _brawl_bots:
-			if index != participant.index and int(_brawl_bots[index].get("target", -1)) == other.index:
+			if index != participant.index and int((_brawl_bots[index] as Dictionary).get("target", -1)) == other.index:
 				crowd += 1
 		var score: float = participant.body.global_position.distance_to(other.body.global_position) + 2.0 * float(crowd)
 		if score < best_score:
