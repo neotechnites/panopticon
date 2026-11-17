@@ -1397,6 +1397,7 @@ func _hold(rifle: Rifle) -> void:
 	_hold_lean.anchors[1] = rifle.fore_hand if holding else null
 	_hold_lean.pitch_source = body.head
 	_hold_lean.rifle = rifle
+	_hold_lean.rifle_pose = rifle.get_node_or_null(^"Recoil") as RifleRecoil if holding else null
 	_pose_rifle(holding)
 	if _fp_arms != null:
 		_fp_shoving = false

@@ -38,6 +38,8 @@ var pitch_source: Node3D = null
 ## The held rifle, moved to the drawn eye while [member follow_eye] is set.
 var rifle: Node3D = null
 var follow_eye: bool = false
+## The held rifle's pose writer, asked to pose it again once this stage has moved it.
+var rifle_pose: RifleRecoil = null
 var _head_forward: Vector3 = Vector3.BACK
 var _eye_local: Vector3 = Vector3.ZERO
 var _reach: PackedFloat32Array = PackedFloat32Array([0.0, 0.0])
@@ -106,13 +108,21 @@ func _lean(skeleton: Skeleton3D) -> void:
 	if rifle != null and follow_eye and back[2] >= 0:
 		rifle.global_position = skeleton.global_transform * (skeleton.get_bone_global_pose(back[2]) * _eye_local)
 		_draw_in(skeleton)
-	elif rifle != null:
+		_repose()
+	elif rifle != null and not rifle.position.is_zero_approx():
 		rifle.position = Vector3.ZERO
+		_repose()
 	var pitch: float = pitch_source.rotation.x if pitch_source != null else 0.0
 	var elbow_turn: Basis = skeleton.global_transform.basis * Basis(PITCH_AXIS, pitch * ELBOW_PITCH_SHARE)
 	for i in 2:
 		targets[i].global_position = _wrist(i)
 		poles[i].global_position = anchors[i].global_position + elbow_turn * ELBOW_OFFSETS[i]
+
+
+## The rifle was moved after its pose was written this frame; the pose (kept clear of the world) is redone from here.
+func _repose() -> void:
+	if rifle_pose != null:
+		rifle_pose.repose()
 
 
 func _wrist(i: int) -> Vector3:

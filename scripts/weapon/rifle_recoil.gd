@@ -55,6 +55,8 @@ extends Node
 ## Left null, behaviour is exactly what it always was: the base is the fixed
 ## transform captured at [method _ready].
 @export var pose_source: RifleAds
+## Optional. The last step of every pose written: the kicked pose slid back clear of the world.
+@export var clearance: RifleClearance
 
 ## The view model's authored local transform, captured once at [method _ready].
 ## The base this recovers to when [member pose_source] is null, and always the
@@ -141,7 +143,13 @@ func is_at_rest() -> bool:
 		return false
 	if view_model == null:
 		return true
-	return view_model.transform.is_equal_approx(_current_base())
+	return view_model.transform.is_equal_approx(_placed(_current_base()))
+
+
+## Write the pose again now, for a holder that has just moved the rifle: it is kept clear from where it is drawn.
+func repose() -> void:
+	if _has_rest and view_model != null:
+		_apply()
 
 
 ## The view model's authored rest transform, for tests.
@@ -188,10 +196,15 @@ func _apply() -> void:
 	# some fraction of it the current scale happens to imply.
 	var base: Transform3D = _current_base()
 	var base_rotation: Basis = base.basis.orthonormalized()
-	view_model.transform = Transform3D(
+	view_model.transform = _placed(Transform3D(
 		base.basis * Basis.from_euler(euler),
 		base.origin + base_rotation * offset,
-	)
+	))
+
+
+## [param pose] as it is drawn: kept out of the world by [member clearance] when one is set.
+func _placed(pose: Transform3D) -> Transform3D:
+	return clearance.clear(pose) if clearance != null else pose
 
 
 ## The base this node kicks away from and recovers to right now: the live
