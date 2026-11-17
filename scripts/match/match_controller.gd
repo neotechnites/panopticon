@@ -3471,6 +3471,11 @@ func _respawn_at_start(participant: MatchParticipant) -> void:
 	body.global_position = place
 	body.rotation = Vector3(0.0, _heading_of(_track_tangent(_angle_of(place))), 0.0)
 	participant.ghost_settle_frames = SETTLE_PHYSICS_FRAMES
+	# The lap starts again with the body: left counting, the tracker books the move as arc
+	# and the brain steers for whatever it was doing on the far side of the ring.
+	participant.tracker.begin(body, _centre, _route, get_rules().lap_arrival_tolerance)
+	if participant.brain != null:
+		participant.brain.resume(_centre, _start_point, _end_point, 0.0, _route, 0)
 
 
 ## Write the prisoner pace and jump levers onto [param body], or take them off
