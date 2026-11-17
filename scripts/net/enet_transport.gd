@@ -186,8 +186,9 @@ func _teardown() -> void:
 	if _peer != null:
 		_peer.close()
 		_peer = null
-	if multiplayer != null and multiplayer.multiplayer_peer != null:
-		multiplayer.multiplayer_peer = null
+	# Back to the engine's own offline peer, never none: offline play still asks who the server is.
+	if multiplayer != null and not multiplayer.multiplayer_peer is OfflineMultiplayerPeer:
+		multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 
 
 func _bind() -> void:
