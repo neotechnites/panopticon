@@ -2767,6 +2767,7 @@ func _wake_ghost(participant: MatchParticipant) -> void:
 	body.collision_mask = participant.home_collision_mask
 	# A mirror simulates nothing -- except the one body it is predicting.
 	body.set_physics_process(not _mirror or body.net_predicted)
+	body.revived.emit()
 
 
 ## Take the ghost back off [param participant]: their colour, their pace, their
@@ -3522,6 +3523,7 @@ func _wake_body(participant: MatchParticipant) -> void:
 	body.collision_mask = participant.home_collision_mask
 	# A mirror simulates nothing -- except the one body it is predicting.
 	body.set_physics_process(not _mirror or body.net_predicted)
+	body.revived.emit()
 
 
 ## Snapshot where [param participant]'s body is standing and which way it is

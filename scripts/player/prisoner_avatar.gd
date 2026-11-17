@@ -791,6 +791,9 @@ func _ready() -> void:
 	if body != null and not body.died.is_connected(_on_body_died):
 		body.died.connect(_on_body_died)
 
+	if body != null and not body.revived.is_connected(_on_body_revived):
+		body.revived.connect(_on_body_revived)
+
 	if body != null and not body.shoved.is_connected(_on_body_shoved):
 		body.shoved.connect(_on_body_shoved)
 
@@ -853,13 +856,7 @@ func _process(delta: float) -> void:
 			# A mirror's body still slides on to where the authority froze it: that is where it died.
 			_death_position = body.global_position
 		if settled and (body.get_horizontal_speed() >= run_resume_speed or _is_reused()):
-			_dead = false
-			_in_death = false
-			_ragdoll_pending = false
-			if _ragdoll != null and _ragdoll.is_active():
-				_ragdoll.stop()
-				_drop_carried_rifle()
-				_go_idle()
+			_stand_up()
 		else:
 			if _ragdoll_pending:
 				_try_ragdoll()
@@ -1091,6 +1088,25 @@ func _on_body_died() -> void:
 	_death_position = body.global_position
 	# The host still has the run's velocity on this tick; a mirror has what was seen.
 	_death_velocity = body.velocity if body.velocity.length() > _seen_velocity.length() else _seen_velocity
+
+
+## The match put the body back in the world: the death ends here, whether or not it has moved yet.
+func _on_body_revived() -> void:
+	if _dead:
+		_stand_up()
+
+
+## Out of the death pose or the corpse and back on the clips.
+func _stand_up() -> void:
+	var limp: bool = _ragdoll != null and _ragdoll.is_active()
+	_dead = false
+	_in_death = false
+	_ragdoll_pending = false
+	if limp:
+		_ragdoll.stop()
+		_drop_carried_rifle()
+	if limp or body.get_horizontal_speed() < run_resume_speed:
+		_go_idle()
 
 
 ## Go limp if a rifle hit on this body has come in; give up after the wait and keep the clip.

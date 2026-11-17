@@ -100,6 +100,9 @@ func _bind(session: NetSession) -> Node3D:
 	input.shove_enabled = false
 	body.add_child(input)
 	body.intent_source = input
+	# The death views switch themselves off headless; these tests read them.
+	(scene.get_node("DeathScreen") as MatchDeathScreen).headless_inert = false
+	(scene.get_node("SpectatorView") as FxSpectatorView).headless_inert = false
 	var audio: Node = scene.get_node_or_null("GameAudio")
 	if audio != null:
 		audio.free()
@@ -130,6 +133,15 @@ func body(peer: int, slot: int) -> PlayerController:
 
 func avatar(peer: int, slot: int) -> PrisonerAvatar:
 	return PrisonerAvatar.of(body(peer, slot))
+
+
+## The limp-body node of [param peer]'s copy of [param slot].
+func ragdoll(peer: int, slot: int) -> Node:
+	return avatar(peer, slot).get_node("Ragdoll")
+
+
+func peer_count() -> int:
+	return sessions.size()
 
 
 ## The slot [param peer]'s own player holds.
