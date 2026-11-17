@@ -38,6 +38,9 @@ func _ready() -> void:
 	for sample: Node3D in _samples:
 		stand.add_child(sample)
 		_fit(sample)
+		# A particle system that is not emitting draws nothing and compiles nothing; it emits once in the tree.
+		if sample is GPUParticles3D or sample is CPUParticles3D:
+			sample.set(&"emitting", true)
 	_samples.clear()
 
 
@@ -89,9 +92,6 @@ func _sample_of(node: Node) -> Node3D:
 			duplicate.remove_child(child)
 			child.free()
 		duplicate.visible = true
-		# A particle system that is not emitting draws nothing, and compiles nothing.
-		if duplicate is GPUParticles3D or duplicate is CPUParticles3D:
-			duplicate.set(&"emitting", true)
 		return duplicate
 	return null
 
