@@ -56,11 +56,11 @@ func _on_settings_applied() -> void:
 		store.settings.apply_to_match_rules(match_rules)
 
 
-## The host's rules when this machine is a client in a networked lobby, else null.
+## The lobby's published rules on every machine in a session, the host's own included; else null.
 func _host_rules() -> MatchRules:
 	if match_rules == null or not is_inside_tree():
 		return null
 	var session: NetSession = get_tree().root.get_node_or_null(^"NetSession") as NetSession
-	if session == null or not session.is_established() or session.is_authority() or session.lobby == null:
+	if session == null or not session.is_established() or session.lobby == null:
 		return null
 	return session.lobby.get_rules()
