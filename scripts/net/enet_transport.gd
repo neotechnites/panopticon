@@ -94,8 +94,8 @@ func host(port: int, max_players: int = MAX_PLAYERS) -> Error:
 	_bind()
 	_peer = peer
 	_apply_compression(peer)
-	# Declared, not defaulted: left undeclared, ENet's bandwidth pass cut each client's unreliable
-	# sends to 1/32 for a second, a second after it joined (59 of 60 intents lost, measured).
+	# Godot 4.7's create_server hands ENet the channel count as its incoming bandwidth (8 B/s), and a
+	# client told that throttles its unreliable sends to 1/32. Zeroed before any client can connect.
 	peer.host.bandwidth_limit(0, 0)
 	multiplayer.multiplayer_peer = peer
 	_set_state(ConnectionState.HOSTING)
