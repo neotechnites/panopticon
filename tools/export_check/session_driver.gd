@@ -279,6 +279,10 @@ func _drive_match(scene_node: Node) -> void:
 		_line("RESULT showing")
 	if _result_ms > 0 and Time.get_ticks_msec() - _result_ms > 4000:
 		_result_ms = -2
+		if not screen.has_method(&"_on_hub_all_pressed"):
+			# A build from before the host could take everyone to the hub: the session ends at the result.
+			_end("ok", 0)
+			return
 		_line("BACK hub-all")
 		screen.call(&"_on_hub_all_pressed")
 

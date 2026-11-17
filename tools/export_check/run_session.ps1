@@ -55,8 +55,10 @@ foreach ($e in $procs) {
     $end = (Select-String -LiteralPath $log -Pattern '^DRV .* END ' -ErrorAction SilentlyContinue | Select-Object -Last 1).Line
     $lines += ('{0} pid={1} exit={2} hung={3} end=[{4}]' -f $e.Name, $e.Proc.Id, $e.Proc.ExitCode, $hung, $end)
 }
-$events = Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = $started } -MaxEvents 200 -ErrorAction SilentlyContinue |
-    Where-Object { $_.Message -match 'panopticon\.exe' }
+# Application Error (1000) names the faulting process id; only this session's own processes count.
+$mine = $procs | ForEach-Object { '0x{0:x}' -f $_.Proc.Id }
+$events = Get-WinEvent -FilterHashtable @{ LogName = 'Application'; ProviderName = 'Application Error'; StartTime = $started } -MaxEvents 200 -ErrorAction SilentlyContinue |
+    Where-Object { $m = $_.Message; ($mine | Where-Object { $m -match ('Faulting process id: ' + $_ + '\b') }) }
 foreach ($ev in $events) { $lines += ('EVENT {0} id={1} {2}' -f $ev.TimeCreated.ToString('s'), $ev.Id, (($ev.Message -split "`r?`n" | Select-Object -First 8) -join ' | ')) }
 $lines | Set-Content -LiteralPath (Join-Path $out 'result.txt')
 '1' | Set-Content -LiteralPath (Join-Path $out 'done')
