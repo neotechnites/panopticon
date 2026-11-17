@@ -136,6 +136,8 @@ func _exit_tree() -> void:
 	_lobby.scene_bound.disconnect(_on_scene_bound)
 	if _lobby.rules_changed.is_connected(_on_rules_changed):
 		_lobby.rules_changed.disconnect(_on_rules_changed)
+	if _lobby.rematch_requested.is_connected(_vote_rematch):
+		_lobby.rematch_requested.disconnect(_vote_rematch)
 	_session.replicator.bind_scene(0)
 	_show_world(true)
 
@@ -387,6 +389,7 @@ func _subscribe_server() -> void:
 			_event(&"_ev_ghost_caught", [ghost.index, caught.index, _is_held(caught)])
 	)
 	_lobby.seat_occupancy_changed.connect(_on_seat_occupancy_changed)
+	_lobby.rematch_requested.connect(_vote_rematch)
 	controller.rules_edited.connect(_publish_rules)
 	_watch_rifle(controller.rifle, TOWER_RIFLE)
 
@@ -525,7 +528,7 @@ func request_rematch() -> void:
 	if is_authority():
 		_vote_rematch(NetTransport.AUTHORITY_PEER_ID)
 	else:
-		rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_rq_rematch")
+		_lobby.request_rematch()
 
 
 ## Host only: every peer back to the hub together, still connected.
@@ -535,12 +538,6 @@ func return_all_to_hub() -> void:
 	if _lobby.get_phase() != NetLobby.Phase.POST_MATCH:
 		_lobby.conclude_match(-1)
 	_lobby.return_to_lobby()
-
-
-@rpc("any_peer", "reliable", "call_remote", 0)
-func _rq_rematch() -> void:
-	if is_authority():
-		_vote_rematch(multiplayer.get_remote_sender_id())
 
 
 func _vote_rematch(peer: int) -> void:
