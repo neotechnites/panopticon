@@ -124,6 +124,9 @@ signal main_menu_requested()
 ## [MatchAnnouncementProfile] itself.
 @export var announcements: MatchAnnouncementProfile
 
+## Headless, the screen leaves the cursor alone; a test that reads the cursor switches this off.
+@export var headless_inert: bool = true
+
 @onready var _root: Control = %Root
 @onready var _verdict_label: Label = %Verdict
 @onready var _headline_label: Label = %Headline
@@ -606,14 +609,14 @@ func _on_match_started(_participant_count: int) -> void:
 ## headless, there is no mouse there to release, and a suite that left
 ## [member Input.mouse_mode] written leaks that state into every test after it.
 func _release_mouse() -> void:
-	if GameSettings.is_headless():
+	if headless_inert and GameSettings.is_headless():
 		return
 	MouseFocus.hold(self)
 
 
 ## Let the mouse go back to whatever the open menus and play decide.
 func _restore_mouse() -> void:
-	if GameSettings.is_headless():
+	if headless_inert and GameSettings.is_headless():
 		return
 	MouseFocus.release(self)
 

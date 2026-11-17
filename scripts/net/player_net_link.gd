@@ -327,6 +327,8 @@ func refresh_role() -> void:
 		# This machine's own body on a client. It runs the real physics off the
 		# real input, so it reads its own footing rather than the snapshot's.
 		reset_prediction()
+		# The view sent carries on unbroken: a facing this machine gave the body is the base's, not the player's.
+		_view_base = wrapf(controller.rotation.y - _view.x, -PI, PI)
 		_take_own_footing()
 
 	# Whether the body runs is the match's word: a role taken over while it is held leaves it held.
@@ -624,6 +626,9 @@ func _participant() -> MatchParticipant:
 func _send_intent() -> void:
 	if local_source == null or not session.is_established():
 		return
+	if replicator != null and replicator.get_scene() == 0:
+		# This scene is not the session's (the host is still in another): it has no body there to drive.
+		return
 	# A predicting body has already polled the source on this tick, through the
 	# controller. Polling it again here would eat the edges twice and send an
 	# input the body never acted on.
@@ -634,7 +639,8 @@ func _send_intent() -> void:
 			# Held by the match: nothing polled the source, so its last intent is no longer being made.
 			_scratch_intent.clear()
 		var view: Vector2 = controller.get_view_angles()
-		_scratch_intent.view_angles = Vector2(wrapf(view.x - _view_base, -PI, PI), view.y)
+		_view = Vector2(wrapf(view.x - _view_base, -PI, PI), view.y)
+		_scratch_intent.view_angles = _view
 	else:
 		_scratch_intent.copy_from(local_source.poll(get_physics_process_delta_time()))
 		_view = controller.turned_view(_view, _scratch_intent.look_delta)
@@ -655,7 +661,7 @@ func _send_intent() -> void:
 		replicator.intent_presses = _press_counts
 		replicator.intent_press_slot = _press_slot
 		replicator.intent_press_slot_prior = _press_slot_prior
-	rpc_id(session.get_authority_peer_id(), &"_receive_intent", _last_packet)
+		replicator.send_intent(_last_packet)
 
 
 ## The intent packet this body last sent, or an empty array before the first.
@@ -707,30 +713,8 @@ func _remember_intent(intent: MoveIntent, redundancy: int) -> void:
 
 # --- Receiving ----------------------------------------------------------------
 
-## Client to authority, every tick.
-##
-## Every tick, and not at the snapshot rate: an input that is not sent is an
-## input the player made and the game ignored, which is a different and much
-## worse thing than a position drawn 33 ms late. Unreliable and ordered,
-## because a late input is worth less than the next one and retransmitting it
-## would add delay to buy back a tick nobody wants any more.
-@rpc("any_peer", "unreliable_ordered", "call_remote", 1)
-func _receive_intent(payload: PackedByteArray) -> void:
-	if not _is_authority:
-		# Only the authority consumes intent. Reaching here on a client means
-		# a peer is impersonating the server, and the right response is to
-		# ignore it rather than to move a body.
-		return
-	if owner_peer_id == 0:
-		# Nothing remote drives this seat. A bot's body and the host's own can
-		# never be moved by a packet, however well formed.
-		return
-	accept_intent_payload(multiplayer.get_remote_sender_id(), payload)
-
-
-## Take one intent packet from [param sender_id]. Authority-side, and it repeats
-## every guard [method _receive_intent] makes, so it is safe to call from a test
-## harness carrying real bytes over a wire of its own.
+## Take one intent packet from [param sender_id]. Authority-side, and it makes
+## every check itself: [NetReplicator] hands it whatever a peer sent.
 func accept_intent_payload(sender_id: int, payload: PackedByteArray) -> void:
 	if not _is_authority or owner_peer_id == 0 or sender_id != owner_peer_id:
 		# The one check that stops a peer driving somebody else's body.
@@ -824,8 +808,13 @@ func _reconcile(delta: float) -> void:
 	_present_swings(_pending_state.shove_counter)
 	_pass_own_events(_pending_state)
 	var rebase: float = angle_difference(_view_base, _pending_state.view_base)
-	_view_base = _pending_state.view_base
-	controller.rotation.y = wrapf(controller.rotation.y + rebase, -PI, PI)
+	if rebase != 0.0:
+		_view_base = _pending_state.view_base
+		controller.rotation.y = wrapf(controller.rotation.y + rebase, -PI, PI)
+		# Every yaw held was turned in the old base; one acknowledged later must not undo the turn.
+		for i: int in _predicted_count:
+			var held: PredictedTick = _slot(i)
+			held.yaw = wrapf(held.yaw + rebase, -PI, PI)
 	var acked: int = _pending_state.last_intent_tick
 	if acked < 0:
 		# The authority has run none of this client's input yet. There is
@@ -857,7 +846,7 @@ func _reconcile(delta: float) -> void:
 	var before: Vector3 = controller.global_position
 	controller.global_position = _pending_state.position
 	controller.velocity = _pending_state.velocity
-	controller.rotation.y = wrapf(predicted.yaw + rebase, -PI, PI)
+	controller.rotation.y = predicted.yaw
 	controller.restore_motion_state(predicted.motion)
 	# What no input of this machine's decides is the authority's as of that tick: whether the
 	# emote is up and the boost it handed out. The replay below carries both forward.

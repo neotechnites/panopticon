@@ -257,6 +257,23 @@ func get_link_count() -> int:
 	return _links.size()
 
 
+## Client to authority, every tick, unreliable and ordered: this machine's input for its own body.
+func send_intent(payload: PackedByteArray) -> void:
+	rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_receive_intent", payload)
+
+
+## Taken here, not on the body's link: this node outlives every scene, and a scene that has gone has no link.
+@rpc("any_peer", "unreliable_ordered", "call_remote", 1)
+func _receive_intent(payload: PackedByteArray) -> void:
+	if not _is_authority:
+		return
+	var sender: int = multiplayer.get_remote_sender_id()
+	for link: PlayerNetLink in _links:
+		if link.owner_peer_id == sender:
+			link.accept_intent_payload(sender, payload)
+			return
+
+
 ## The bound scene epoch, or 0 when none is.
 func get_scene() -> int:
 	return _scene
