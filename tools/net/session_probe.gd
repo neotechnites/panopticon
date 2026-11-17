@@ -441,7 +441,7 @@ func _watch_bodies() -> void:
 				var last: Array = _cats_seen.get(p.index, [false, 0.0])
 				_note("cat" + seat, "gone", "CATHOST seat=%s held=0 was_cooking=%d fuse_was=%.2f" % [seat, int(last[0]), float(last[1])])
 	if not session.is_authority():
-		var relay: CatGrenadeRelay = CatGrenadeRelay.get_relay()
+		var relay: CatGrenadeRelay = CatGrenadeRelay.of(session)
 		cats = relay._shown.size() if relay != null else 0
 	_note("cats", str(cats), "CATS drawn=%d" % cats)
 
