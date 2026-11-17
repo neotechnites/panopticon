@@ -399,8 +399,7 @@ func _watch_rifle(weapon: Rifle, which: int) -> void:
 	if weapon == null or _watched_rifles.has(weapon.get_instance_id()):
 		return
 	_watched_rifles[weapon.get_instance_id()] = true
-	weapon.rewind_world = _session.replicator.rewind
-	weapon.restore_world = _session.replicator.restore
+	weapon.lag_trace = _session.replicator.trace
 	weapon.fired.connect(_on_rifle_fired.bind(weapon, which))
 	weapon.target_hit.connect(_on_rifle_hit.bind(which))
 	weapon.missed.connect(func(end_point: Vector3) -> void: _event(&"_ev_rifle_missed", [which, end_point]))

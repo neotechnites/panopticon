@@ -57,8 +57,8 @@ extends Node
 ## that freezes and teleports reads as a broken game.
 ##
 ## [b]Lag compensation[/b] (Source's): the authority keeps every body's position for
-## [constant HISTORY_TICKS] ticks; a client's shot is traced with the others moved back to the
-## tick its intent says it was drawing ([method rewind], [method restore]).
+## [constant HISTORY_TICKS] ticks; a client's shot is traced against the others where they stood on
+## the tick its intent says it was drawing ([method trace]).
 ##
 ## What is still missing:
 ##
@@ -145,8 +145,10 @@ const HISTORY_TICKS: int = 64
 ## Position of seat s at the tick in slot i is _history[s * HISTORY_TICKS + i].
 var _history: PackedVector3Array = PackedVector3Array()
 var _history_ticks: PackedInt32Array = PackedInt32Array()
-## Where each rewound body really is, keyed by seat, while a shot is being traced.
-var _rewound: Dictionary[int, Vector3] = {}
+## The body's collision layer on that tick, in the same slot; 0 for a seat with no body in play.
+var _history_layers: PackedInt32Array = PackedInt32Array()
+## Where the bodies stood, for the ray of a shot traced in the past. Made by the first such shot.
+var _rewind_space: RewindSpace = null
 
 ## Weight the jitter estimate gives a new sample.
 const _JITTER_ALPHA: float = 0.1
@@ -377,11 +379,16 @@ func _record_history() -> void:
 		_history.resize(NetTransport.MAX_PLAYERS * HISTORY_TICKS)
 		_history_ticks.resize(HISTORY_TICKS)
 		_history_ticks.fill(-1)
+		_history_layers.resize(_history.size())
 	var slot: int = _tick % HISTORY_TICKS
 	_history_ticks[slot] = _tick
+	for seat: int in NetTransport.MAX_PLAYERS:
+		_history_layers[seat * HISTORY_TICKS + slot] = 0
 	for link: PlayerNetLink in _links:
 		if link.is_replicable() and link.seat_index < NetTransport.MAX_PLAYERS:
-			_history[link.seat_index * HISTORY_TICKS + slot] = link.controller.global_position
+			var at: int = link.seat_index * HISTORY_TICKS + slot
+			_history[at] = link.controller.global_position
+			_history_layers[at] = link.controller.collision_layer
 
 
 ## The authority tick a client is drawing remote bodies at, for its intent; -1 on the authority
@@ -399,33 +406,39 @@ func get_lag_ticks(view_tick: int) -> int:
 	return clampi(NetCodec.tick_delta(view_tick, _tick), 0, HISTORY_TICKS - 1)
 
 
-## Move every body but [param shooter] back to where it stood [param back] ticks ago, clamped to
-## the history kept. Undo with [method restore] before the next physics step.
-func rewind(back: int, shooter: Node) -> void:
-	restore()
-	if not _is_authority or back <= 0 or _history.is_empty():
-		return
-	back = mini(back, HISTORY_TICKS - 1)
-	var slot: int = (_tick - back) % HISTORY_TICKS
-	if _history_ticks[slot] != _tick - back:
-		return
+## [param query]'s ray in [param space], with every body it does not exclude standing where it
+## stood [param back] ticks ago; the live ray when that tick is not in the history kept.
+func trace(space: PhysicsDirectSpaceState3D, query: PhysicsRayQueryParameters3D, back: int) -> Dictionary:
+	var then: int = _tick - back
+	var slot: int = posmod(then, HISTORY_TICKS)
+	if not _is_authority or back <= 0 or back >= HISTORY_TICKS or _history.is_empty() or _history_ticks[slot] != then:
+		return space.intersect_ray(query)
+	var live_exclude: Array[RID] = query.exclude
+	var exclude: Array[RID] = live_exclude.duplicate()
+	if _rewind_space == null:
+		_rewind_space = RewindSpace.new()
+	_rewind_space.clear()
 	for link: PlayerNetLink in _links:
-		var body: PlayerController = link.controller
-		if not link.is_replicable() or body == shooter or link.seat_index >= NetTransport.MAX_PLAYERS:
+		if not link.is_replicable() or link.seat_index >= NetTransport.MAX_PLAYERS:
 			continue
-		_rewound[link.seat_index] = body.global_position
-		body.global_position = _history[link.seat_index * HISTORY_TICKS + slot]
-		body.force_update_transform()
-
-
-## Put every body [method rewind] moved back where it really is.
-func restore() -> void:
-	for seat: int in _rewound:
-		var link: PlayerNetLink = find_link(seat)
-		if link != null and link.is_replicable():
-			link.controller.global_position = _rewound[seat]
-			link.controller.force_update_transform()
-	_rewound.clear()
+		var body: PlayerController = link.controller
+		if live_exclude.has(body.get_rid()):
+			continue
+		exclude.append(body.get_rid())
+		var at: int = link.seat_index * HISTORY_TICKS + slot
+		# A body that could not be hit on that tick was not there for the shooter to aim at.
+		if (_history_layers[at] & query.collision_mask) != 0:
+			_rewind_space.place(link.seat_index, body, _history[at])
+	var hit: Dictionary = _rewind_space.intersect_ray(query)
+	query.exclude = exclude
+	var world_hit: Dictionary = space.intersect_ray(query)
+	query.exclude = live_exclude
+	if hit.is_empty():
+		return world_hit
+	if world_hit.is_empty():
+		return hit
+	var near: float = query.from.distance_squared_to(hit["position"])
+	return hit if near <= query.from.distance_squared_to(world_hit["position"]) else world_hit
 
 
 # --- Holograms ----------------------------------------------------------------

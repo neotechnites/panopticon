@@ -52,10 +52,11 @@ var muzzle_origin: Vector3 = Vector3.ZERO:
 		muzzle_origin = value
 		_muzzle_offset = value - _origin
 
-## Metres per second, direction included. Gravity bends it in flight.
-## Ticks the world is rewound by while this round flies; see [member Rifle.lag_ticks].
+## Ticks behind the authority this round's rays are cast, and what casts them; see [member Rifle.lag_ticks].
 var lag_ticks: int = 0
+var lag_trace: Callable
 
+## Metres per second, direction included. Gravity bends it in flight.
 var _velocity: Vector3 = Vector3.ZERO
 
 ## Downward acceleration, m/s^2. 0.0 is a perfectly flat shot.
@@ -318,7 +319,11 @@ func _sweep(from: Vector3, to: Vector3) -> void:
 	query.collide_with_areas = _hit_areas
 	query.collide_with_bodies = true
 	query.exclude = _exclude
-	var result: Dictionary = space.intersect_ray(query)
+	var result: Dictionary
+	if lag_ticks > 0 and lag_trace.is_valid():
+		result = lag_trace.call(space, query, lag_ticks)
+	else:
+		result = space.intersect_ray(query)
 	if result.is_empty():
 		return
 	_resolve(result.get("position", to) as Vector3, result)

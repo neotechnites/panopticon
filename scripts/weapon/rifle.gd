@@ -285,11 +285,10 @@ var _charging: bool = false
 var _projectiles: Array[WeaponProjectile] = []
 
 ## Server-side lag compensation (Source's): ticks behind the authority the shooter saw the
-## world, set by the net layer for a remote shooter's shot; its traces run with
-## [member rewind_world] (ticks back, shooter) and [member restore_world] around them.
+## world, set by the net layer for a remote shooter's shot; its rays are then cast by
+## [member lag_trace] (space, ray query, ticks back) against the bodies as they stood then.
 var lag_ticks: int = 0
-var rewind_world: Callable
-var restore_world: Callable
+var lag_trace: Callable
 
 ## Rounds a client is flying purely to be seen, one per replayed remote shot.
 ##
@@ -817,9 +816,7 @@ func _resolve_shot(charge: float) -> void:
 		fired.emit(origin, far_point)
 		return
 
-	_rewind(lag_ticks)
 	var hit: Dictionary = _cast(origin, far_point)
-	_restore()
 	var end_point: Vector3 = far_point
 	var collider: Node3D = null
 	var normal: Vector3 = -direction
@@ -948,16 +945,6 @@ func _land_visual(at: Vector3) -> void:
 		return
 
 
-func _rewind(ticks: int) -> void:
-	if ticks > 0 and rewind_world.is_valid():
-		rewind_world.call(ticks, shooter_body)
-
-
-func _restore() -> void:
-	if restore_world.is_valid():
-		restore_world.call()
-
-
 func _cast(from: Vector3, to: Vector3) -> Dictionary:
 	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
 	if space == null:
@@ -968,6 +955,8 @@ func _cast(from: Vector3, to: Vector3) -> Dictionary:
 	query.collide_with_bodies = true
 	if shooter_body != null:
 		query.exclude = [shooter_body.get_rid()]
+	if lag_ticks > 0 and lag_trace.is_valid():
+		return lag_trace.call(space, query, lag_ticks)
 	return space.intersect_ray(query)
 
 
@@ -1090,9 +1079,7 @@ func _step_projectiles(delta: float) -> void:
 			_projectiles.remove_at(index)
 			index -= 1
 			continue
-		_rewind(round_shot.lag_ticks)
 		var landed: bool = round_shot.advance(delta)
-		_restore()
 		if landed:
 			_projectiles.remove_at(index)
 			_report(round_shot)
@@ -1165,6 +1152,7 @@ func _launch(
 	)
 	round_shot.muzzle_origin = muzzle_position
 	round_shot.lag_ticks = lag_ticks
+	round_shot.lag_trace = lag_trace
 	_last_launch_speed = speed
 	_projectiles.append(round_shot)
 	projectile_launched.emit(origin, direction, speed)
