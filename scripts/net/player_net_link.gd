@@ -564,7 +564,15 @@ func _present_events(state: PlayerState) -> void:
 	_was_sliding = state.sliding
 
 
-## This body's participant, or null before the match has built them.
+## A predicting body heard its own jumps, landings and slides as it made them: the mirror's
+## memory moves past them, so none is replayed when the match holds the body.
+func _pass_own_events(state: PlayerState) -> void:
+	_event_tick = state.tick
+	_was_on_floor = state.on_floor
+	_was_sliding = state.sliding
+	_seen_jumps = state.jump_counter
+
+
 ## Draw the swings the authority's counter has advanced by, less the ones this machine
 ## already drew for its own body when the key went down.
 func _present_swings(counter: int) -> void:
@@ -601,6 +609,7 @@ func _predict_swing(delta: float) -> void:
 	controller.shoved.emit()
 
 
+## This body's participant, or null before the match has built them.
 func _participant() -> MatchParticipant:
 	if match_controller == null or controller == null:
 		return null
@@ -807,6 +816,7 @@ func _write_result(entry: PredictedTick) -> void:
 func _reconcile(delta: float) -> void:
 	_apply_presentation(_pending_state, true)
 	_present_swings(_pending_state.shove_counter)
+	_pass_own_events(_pending_state)
 	var rebase: float = angle_difference(_view_base, _pending_state.view_base)
 	_view_base = _pending_state.view_base
 	controller.rotation.y = wrapf(controller.rotation.y + rebase, -PI, PI)
