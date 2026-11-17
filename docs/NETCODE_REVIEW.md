@@ -174,7 +174,7 @@ which removes the entire class of authority-migration hijack.
 
 | message | channel | what the host validates |
 |---|---|---|
-| `PlayerNetLink._receive_intent` | 1, unreliable ordered | authority; seat is remotely drivable at all; **sender owns this seat**; fixed-length frame; NaN and infinity refused; move direction clamped to the unit disc; look delta clamped to `max_look_delta_radians`; replay and reorder refused by tick; **dev keys zeroed**; **rate capped** |
+| `NetReplicator._receive_intent` -> `PlayerNetLink.accept_intent_payload` | 1, unreliable ordered | authority; seat is remotely drivable at all; **sender owns this seat**; fixed-length frame; NaN and infinity refused; move direction clamped to the unit disc; look delta clamped to `max_look_delta_radians`; replay and reorder refused by tick; **dev keys zeroed**; **rate capped** |
 | `NetLobby._request_ready` | 0, reliable | authority; **seat derived from the sender**; phase must be GATHERING; **rate capped** |
 | `NetLobby._request_name` | 0, reliable | authority; seat derived from the sender; **phase must be GATHERING**; **raw length capped before it is walked**; control characters stripped, truncated to 24 bytes of UTF-8; **rate capped** |
 | `NetLobby._request_launched` | 0, reliable | authority; **seat derived from the sender** and must match the one named; phase must be LAUNCHING; idempotent; **rate capped** |
