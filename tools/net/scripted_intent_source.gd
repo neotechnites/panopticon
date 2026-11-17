@@ -101,7 +101,7 @@ func bind(controller: MatchController, local_body: PlayerController) -> void:
 		var zoom: ZoomInput = body.get_node_or_null(^"ZoomInput") as ZoomInput
 		if zoom != null:
 			zoom.set_active(false)
-	_posts = GuardPosts.new(GuardPosts.read(RingBake.level_root_of(controller)))
+	_posts = _make_posts(controller)
 	for sig: Signal in [controller.race_started, controller.round_started, controller.brawl_started]:
 		sig.connect(func() -> void: _rearm = true)
 	controller.ghost_respawned.connect(func(_p: MatchParticipant) -> void: _rearm = true)
@@ -419,14 +419,25 @@ func _walk_to_post(me: MatchParticipant) -> Vector2:
 			if p != me and p.body != null and p.is_running and here.distance_to(p.body.global_position) < least:
 				least = here.distance_to(p.body.global_position)
 				gaze = p.body.global_position
-	var camera: Node3D = me.body.get_node_or_null(^"Head/Camera") as Node3D
-	if gaze.is_finite() and camera != null:
-		var rifle: Rifle = match_controller.rifle
-		var mask: int = rifle.profile.hit_mask if rifle != null and rifle.profile != null else 0xFFFFF
-		var eye_height: float = camera.global_position.y - here.y
-		var half_view: float = deg_to_rad((camera as Camera3D).fov) * 0.5 if camera is Camera3D else PI / 4.0
-		_posts.choose(me.body, eye_height, half_view, gaze + Vector3.UP * AIM_CHEST_METRES, mask, get_physics_process_delta_time())
+	if gaze.is_finite():
+		_posts.choose(me.body, PackedVector3Array([gaze + Vector3.UP * AIM_CHEST_METRES]), get_physics_process_delta_time())
 	return _posts.steer(me.body)
+
+
+## The map's posts, judged from this body's eye with the match rifle, as the tower bot judges them.
+func _make_posts(controller: MatchController) -> GuardPosts:
+	var level: Node = RingBake.level_root_of(controller)
+	var posts: GuardPosts = GuardPosts.new(GuardPosts.read(level))
+	if posts.is_empty() or body == null:
+		return posts
+	var camera: Node3D = body.get_node_or_null(^"Head/Camera") as Node3D
+	var rifle: Rifle = controller.rifle
+	posts.bake = RingBake.ensure(level, body.profile)
+	posts.eye_height = camera.global_position.y - body.global_position.y if camera != null else posts.eye_height
+	posts.aim_height = AIM_CHEST_METRES
+	posts.mask = rifle.profile.hit_mask if rifle != null and rifle.profile != null else posts.mask
+	posts.reach_metres = (body.profile.ground_speed if body.profile != null else 0.0) * TowerShooter.POST_REACH_SECONDS
+	return posts
 
 
 ## The view that puts this body's camera on the chest of the nearest running body it can see.

@@ -73,18 +73,14 @@ func test_a_guard_at_a_blind_post_walks_to_one_with_a_line_and_holds_fire_on_the
 	await step_seconds(3.0)
 	var blind: int = guard.get_post()
 	assert_lt(_flat_distance(guard.controller.global_position, _at_bearing(45.0, POST_RADIUS)), 0.3, "it first stands at the post facing the runner")
-	var fired_moving: Array[int] = [0]
-	guard.shot_taken.connect(func(_c: float) -> void:
-		if not guard.is_posted():
-			fired_moving[0] += 1)
-	var attempts: int = guard.get_fire_attempts()
+	var speeds: PackedFloat32Array = _record_shot_speeds(guard)
 	_make_wall(_at_bearing(45.0, POST_RADIUS + 1.0), 45.0)
 	await step_seconds(8.0)
 	assert_true(guard.get_post() != blind, "it leaves the blind post")
-	assert_true(guard.is_posted(), "and stands at the one it chose")
+	assert_lt(_flat_distance(guard.controller.global_position, _post_at(guard)), 0.3, "and stands at the one it chose")
 	assert_same(guard.get_target(), runner, "from where it has the runner in sight")
-	assert_gt(float(guard.get_fire_attempts() - attempts), 0.0, "and shoots from there")
-	assert_eq_int(fired_moving[0], 0, "but never from the walk")
+	assert_gt(float(speeds.size()), 0.0, "and shoots from there")
+	_assert_still_at_every_shot(speeds)
 
 
 ## A sniper does not fire on the move: in sight of its target for a whole 12 m walk, it shoots
@@ -95,13 +91,27 @@ func test_a_guard_holds_fire_while_it_walks_to_its_post() -> void:
 	var guard: TowerShooter = _make_guard(Vector3.ZERO)
 	var runner: PlayerController = _make_body(_at_bearing(45.0, 40.0))
 	runner.set_physics_process(false)
-	var shots: Array[int] = [0, 0]
-	guard.shot_taken.connect(func(_c: float) -> void:
-		shots[0 if guard.is_posted() else 1] += 1)
+	var speeds: PackedFloat32Array = _record_shot_speeds(guard)
 	await step_seconds(6.0)
 	assert_lt(_flat_distance(guard.controller.global_position, _at_bearing(45.0, 12.0)), 0.3, "it walks to the post on the runner's side")
-	assert_eq_int(shots[1], 0, "takes no shot on the way")
-	assert_gt(float(shots[0]), 0.0, "and shoots once it is there")
+	assert_gt(float(speeds.size()), 0.0, "shoots once it is there")
+	_assert_still_at_every_shot(speeds)
+
+
+## Shoved while it has a runner in its sights, it shoots again only once its body has stopped.
+func test_a_shoved_guard_does_not_fire_until_its_body_is_still() -> void:
+	_make_posts()
+	var guard: TowerShooter = _make_guard(Vector3.ZERO)
+	var runner: PlayerController = _make_body(_at_bearing(45.0, 30.0))
+	runner.set_physics_process(false)
+	await step_seconds(3.0)
+	var speeds: PackedFloat32Array = _record_shot_speeds(guard)
+	for shove: int in 6:
+		var along: Vector3 = Vector3(-cos(deg_to_rad(45.0)), 0.0, -sin(deg_to_rad(45.0))) * (1.0 if shove % 2 == 0 else -1.0)
+		guard.controller.velocity = along * 6.0
+		await step_seconds(1.0)
+	assert_gt(float(speeds.size()), 0.0, "it keeps shooting between shoves")
+	_assert_still_at_every_shot(speeds)
 
 
 ## A guard that takes over a body standing anywhere in the room (a seat handed to a bot
@@ -224,6 +234,26 @@ func _make_post(at: Vector3) -> void:
 	post.add_to_group(GuardPosts.GROUP)
 	_world.add_child(post)
 	post.global_position = at
+
+
+## The guard's body speed over the ground at each shot it takes.
+func _record_shot_speeds(guard: TowerShooter) -> PackedFloat32Array:
+	var speeds: PackedFloat32Array = PackedFloat32Array()
+	guard.shot_taken.connect(func(_c: float) -> void:
+		speeds.append(Vector2(guard.controller.velocity.x, guard.controller.velocity.z).length()))
+	return speeds
+
+
+func _assert_still_at_every_shot(speeds: PackedFloat32Array) -> void:
+	var fastest: float = 0.0
+	for speed: float in speeds:
+		fastest = maxf(fastest, speed)
+	assert_lt(fastest, TowerShooter.STILL_SPEED_METRES + 0.001, "no shot is taken while the body moves")
+
+
+func _post_at(guard: TowerShooter) -> Vector3:
+	var posts: PackedVector3Array = GuardPosts.read(_world)
+	return posts[guard.get_post()] if guard.get_post() >= 0 else Vector3.INF
 
 
 ## A wall 3 m wide and 4 m tall at [param at], its face turned to [param bearing].

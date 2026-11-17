@@ -43,6 +43,10 @@ const SCAN_REACHED: float = 0.09
 const SCAN_TIMEOUT_SECONDS: float = 4.0
 ## How far a remembered runner is projected along its last velocity, seconds.
 const MEMORY_PROJECTION_SECONDS: float = 1.5
+## Faster than this across the ground the guard does not fire: the CS bot's still speed (10 u/s).
+const STILL_SPEED_METRES: float = 0.25
+## A post is judged on where a target near the gaze can be this long after: a reaction and an aim.
+const POST_REACH_SECONDS: float = 0.5
 
 @export var controller: PlayerController
 @export var input: BotIntentSource
@@ -98,6 +102,7 @@ var _scan_swept: float = 0.0
 
 # The stand: the map's guard posts, empty on a map that keeps its guard on the seat.
 var _posts: GuardPosts = GuardPosts.new()
+var _known_points: PackedVector3Array = PackedVector3Array()
 
 
 static func _make_ray() -> PhysicsRayQueryParameters3D:
@@ -151,7 +156,7 @@ func configure(spawn_point: Vector3, initial_yaw: float = 0.0) -> void:
 	_resample_aim_error()
 	_resample_lead_bias()
 	_read_watch_points()
-	_posts = GuardPosts.new(GuardPosts.read(RingBake.level_root_of(controller)))
+	_posts = _make_posts()
 	if optic != null:
 		optic.reset_zoom()
 	set_physics_process(true)
@@ -209,9 +214,9 @@ func get_post() -> int:
 	return _posts.held
 
 
-## False while it walks between posts, when it holds fire.
-func is_posted() -> bool:
-	return _posts.is_posted()
+## True while its body is still enough to shoot from: a sniper does not fire on the move.
+func is_still() -> bool:
+	return Vector2(controller.velocity.x, controller.velocity.z).length() <= STILL_SPEED_METRES
 
 
 func get_skill() -> float:
@@ -251,7 +256,7 @@ func _physics_process(delta: float) -> void:
 	if target == null:
 		_forget_target()
 		_scan(delta)
-		_keep_post(_scan_point if _scan_has_point else _sweep_point(), delta)
+		_keep_post(_scan_point if _scan_has_point else _sweep_point(), delta, true)
 		_drive_optic(0.0, Vector2.ZERO)
 		_set_state(State.RECOVERING if not rifle.can_fire() else State.SCANNING)
 		return
@@ -269,7 +274,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		_occluded_seconds += delta
 		_believed_point += _believed_velocity * delta
-	_keep_post(_believed_point, delta)
+	_keep_post(_believed_point, delta, false)
 	var aim_error: Vector2 = _track(delta)
 	var distance: float = _eye_position().distance_to(_believed_point)
 	_drive_optic(distance, aim_error)
@@ -281,7 +286,7 @@ func _physics_process(delta: float) -> void:
 		return
 	_set_state(State.ENGAGING)
 	_confidence = _compute_confidence(target, aim_error, distance)
-	if not _posts.is_posted():
+	if not is_still():
 		return
 	if _confidence < profile.shot_confidence_threshold:
 		shot_declined.emit(_confidence)
@@ -519,7 +524,7 @@ func _scan(delta: float) -> void:
 	if _scan_has_point:
 		_scan_elapsed += delta
 		var error: Vector2 = _angles_to(_scan_point)
-		if absf(error.x) <= SCAN_REACHED and _posts.is_posted():
+		if absf(error.x) <= SCAN_REACHED and is_still():
 			_scan_dwell -= delta
 		if _scan_dwell <= 0.0 or _scan_elapsed >= SCAN_TIMEOUT_SECONDS:
 			_scan_has_point = false
@@ -557,6 +562,19 @@ func _begin_scan_point() -> bool:
 	return true
 
 
+## Where every runner still remembered is now, projected along its last velocity.
+func _append_remembered(into: PackedVector3Array) -> void:
+	for id: Variant in _memory_seen:
+		var seen: float = float(_memory_seen[id])
+		if _clock - seen > profile.memory_seconds:
+			continue
+		var body: PlayerController = instance_from_id(int(id)) as PlayerController
+		if body == null or not _still_a_target(body):
+			continue
+		var age: float = minf(_clock - seen, MEMORY_PROJECTION_SECONDS)
+		into.append((_memory_point[id] as Vector3) + (_memory_velocity[id] as Vector3) * age)
+
+
 func _recall_freshest() -> bool:
 	var freshest: float = -INF
 	var found: bool = false
@@ -574,13 +592,30 @@ func _recall_freshest() -> bool:
 	return found
 
 
-## Stand where there is a line of fire to [param gaze], walking there if need be.
-func _keep_post(gaze: Vector3, delta: float) -> void:
+## Stand where there are lines of fire to [param gaze] and, while [param searching], to every runner
+## it remembers, walking there if need be.
+func _keep_post(gaze: Vector3, delta: float, searching: bool) -> void:
 	if _posts.is_empty():
 		return
-	var eye_height: float = _eye_position().y - controller.global_position.y
-	_posts.choose(controller, eye_height, _view_half_angles().x, gaze, _hit_mask(), delta)
+	_known_points.clear()
+	_known_points.append(gaze)
+	if searching:
+		_append_remembered(_known_points)
+	_posts.choose(controller, _known_points, delta)
 	input.command.move_direction = _posts.steer(controller)
+
+
+func _make_posts() -> GuardPosts:
+	var level: Node = RingBake.level_root_of(controller)
+	var posts: GuardPosts = GuardPosts.new(GuardPosts.read(level))
+	if posts.is_empty():
+		return posts
+	posts.bake = RingBake.ensure(level, controller.profile)
+	posts.eye_height = _eye_position().y - controller.global_position.y
+	posts.aim_height = profile.target_aim_height
+	posts.mask = _hit_mask()
+	posts.reach_metres = (controller.profile.ground_speed if controller.profile != null else 0.0) * POST_REACH_SECONDS
+	return posts
 
 
 ## What a bare sweep looks at: engagement range out along the facing, level with the eye.

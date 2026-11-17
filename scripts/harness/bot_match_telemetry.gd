@@ -321,13 +321,45 @@ var _guard_blind_clear_ticks: int = 0
 
 const BLIND_ARC_RADIANS: float = 1.05
 
+## Round ticks a running body was in a line from some guard post but not from where the guard
+## stood: the wrong-post share (bots.md). Posts are read once, from the first guard seen.
+var _guard_wrong_post_ticks: int = 0
+var _post_eyes: PackedVector3Array = PackedVector3Array()
+var _posts_read: bool = false
+
 
 ## True when a ray from the guard's head reaches [param target]'s chest.
 func _eye_reaches(guard: PlayerController, target: PlayerController) -> bool:
+	return _reaches_from(guard, guard.head.global_position if guard.head != null else guard.global_position, target)
+
+
+## A running body is in a line from some post, and from nowhere the guard stands.
+func _sample_wrong_post(guard: PlayerController) -> void:
+	if not _posts_read:
+		_posts_read = true
+		var lift: Vector3 = Vector3.UP * ((guard.head.global_position.y - guard.global_position.y) if guard.head != null else 1.6)
+		for post: Vector3 in GuardPosts.read(RingBake.level_root_of(guard)):
+			_post_eyes.append(post + lift)
+	if _post_eyes.is_empty():
+		return
+	var from_post: bool = false
+	for participant: MatchParticipant in _controller.get_participants_ref():
+		if not participant.is_running or participant.body == null or participant.body == guard:
+			continue
+		if _eye_reaches(guard, participant.body):
+			return
+		for eye: Vector3 in _post_eyes:
+			if _reaches_from(guard, eye, participant.body):
+				from_post = true
+				break
+	if from_post:
+		_guard_wrong_post_ticks += 1
+
+
+func _reaches_from(guard: PlayerController, from: Vector3, target: PlayerController) -> bool:
 	var space: PhysicsDirectSpaceState3D = guard.get_world_3d().direct_space_state
 	if space == null:
 		return false
-	var from: Vector3 = guard.head.global_position if guard.head != null else guard.global_position
 	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
 		from, target.global_position + Vector3.UP * 0.9
 	)
@@ -385,6 +417,7 @@ func _sample_round_wait() -> void:
 			_sample_blind(seat)
 		if guard.get_state() == TowerShooter.State.RECOVERING:
 			_guard_reload_ticks += 1
+		_sample_wrong_post(seat.body)
 	if _controller.get_finisher() != null:
 		if _finisher_ticks == 0:
 			_finisher_armed_count += 1
@@ -1090,6 +1123,7 @@ func _stall_dictionary(sim_hz: int) -> Dictionary:
 		"guard_blind_fraction": float(_guard_blind_ticks) / round_ticks,
 		"guard_blind_in_arc_fraction": float(_guard_blind_in_arc_ticks) / round_ticks,
 		"guard_blind_clear_fraction": float(_guard_blind_clear_ticks) / round_ticks,
+		"guard_wrong_post_fraction": float(_guard_wrong_post_ticks) / round_ticks,
 	}
 	if _controller != null:
 		out["final"] = _round_state()
