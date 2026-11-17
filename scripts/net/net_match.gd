@@ -75,7 +75,7 @@ func _ready() -> void:
 		set_physics_process(false)
 		return
 	_lobby = _session.lobby
-	if _lobby == null or (not hub_mode and _lobby.get_phase() != NetLobby.Phase.LAUNCHING):
+	if _lobby == null or (not hub_mode and not _lobby.names_match_scene()):
 		set_physics_process(false)
 		return
 	_session.session_ended.connect(_on_session_ended)
