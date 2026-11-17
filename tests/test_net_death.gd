@@ -17,6 +17,8 @@ var _cross: int = CROSS_TICKS
 var _bad_line: bool = false
 ## The guard's round speed for the match, m/s; 0 leaves the shipped shot.
 var _shot_speed: float = 0.0
+## The map the match is played on; empty leaves the shipped default (hell).
+var _map: StringName = &""
 
 
 func before_each() -> void:
@@ -24,6 +26,7 @@ func before_each() -> void:
 	_cross = CROSS_TICKS
 	_bad_line = false
 	_shot_speed = 0.0
+	_map = &""
 
 
 func after_each() -> void:
@@ -43,6 +46,8 @@ func _start_round(clients: int = 1, seats: int = 3, guard_seat: int = 0, late: A
 		return false
 	# A finale kill must turn the round over, not end the match.
 	_rig.settings().rounds_to_win_match = 3
+	if _map != &"":
+		_rig.settings().map_id = _map
 	if _shot_speed > 0.0:
 		_rig.settings().guard_projectile_speed = _shot_speed
 	if not await _rig.launch(seats, guard_seat, late):
@@ -747,3 +752,51 @@ func test_a_racer_who_falls_is_out_on_every_peer_and_runs_the_first_round() -> v
 		_assert_runs(slot, "in the first round")
 		for peer: int in _rig.peer_count():
 			assert_true(_rig.body(peer, slot).visible, "peer %d: slot %d is drawn" % [peer, slot])
+
+
+# --- The same deaths on marble -------------------------------------------------
+
+func _on_marble() -> bool:
+	_map = &"marble"
+	if not await _start_round(2, 4):
+		return false
+	return assert_eq_string(String(_rig.controller(CLIENT).get_rules().map_id), "marble", "the clients stand on marble")
+
+
+func test_marble_a_shot_client_goes_limp_on_every_peer_and_stands_again() -> void:
+	if not await _on_marble():
+		return
+	var slot: int = _rig.local_slot(CLIENT)
+	TestFixtures.pin_the_field(_rig.controller(HOST), _rig.participant(HOST, slot))
+	await _watch_a_rifle_kill(slot)
+
+
+func test_marble_a_fallen_client_is_held_shown_its_death_and_runs_again() -> void:
+	if not await _on_marble():
+		return
+	var host: MatchController = _rig.controller(HOST)
+	var slot: int = _rig.local_slot(CLIENT)
+	TestFixtures.pin_the_field(host, null)
+	assert_true(host.handle_fall(_rig.participant(HOST, slot), true), "the host rules the fall")
+	var mine: MatchParticipant = _rig.participant(CLIENT, slot)
+	if not await _rig.wait_for(func() -> bool: return _rig.controller(CLIENT).is_awaiting_respawn(mine)):
+		fail("the client never learned it fell")
+		return
+	assert_eq_int(int(mine.death_cause), int(MatchParticipant.DeathCause.FELL), "the client knows it fell")
+	if not await _respawned(slot):
+		return
+	for peer: int in _rig.peer_count():
+		assert_false(_lies_dead(peer, slot), "peer %d: the ghost stands at the start line" % peer)
+	assert_true(mine.body.is_physics_processing(), "and the client drives it")
+	var from: Vector3 = _rig.body(HOST, slot).global_position
+	_rig.participant(HOST, slot).body.movement_locked = false
+	_rig.drive(CLIENT, Vector2(0.0, 1.0))
+	await step_ticks(90)
+	assert_gt(_rig.body(HOST, slot).global_position.distance_to(from), 1.0, "the ghost the client drives moves on the host")
+
+
+func test_marble_a_client_guard_thrown_by_the_host_stays_down_for_the_beat() -> void:
+	_map = &"marble"
+	if not await _start_round(2, 4, 1):
+		return
+	await _watch_a_finale(1, 0)
