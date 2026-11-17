@@ -78,6 +78,22 @@ func test_a_joiner_during_a_match_is_told_why_and_let_go() -> void:
 	assert_eq_int(host.lobby.get_occupant_count(), 2, "the match's seats are untouched")
 
 
+func test_a_person_takes_a_bots_seat_when_the_gathering_lobby_is_full() -> void:
+	var host: NetSession = await _host()
+	if host == null:
+		return
+	host.lobby.fill_with_bots(NetTransport.MAX_PLAYERS)
+	assert_eq_int(host.lobby.get_occupant_count(), NetTransport.MAX_PLAYERS, "bots hold every other seat")
+	var client: NetSession = _peer("Client")
+	client.join("127.0.0.1", _port)
+	assert_true(await _until(func() -> bool: return client.lobby.get_local_seat() != null), "the joiner is seated")
+	assert_eq_int(host.lobby.get_occupant_count(), NetTransport.MAX_PLAYERS, "in a bot's place, not beside it")
+	var humans: int = 0
+	for seat: LobbySeat in host.lobby.get_occupied_seats():
+		humans += 1 if seat.is_human() else 0
+	assert_eq_int(humans, 2, "two people are seated")
+
+
 func test_a_joiner_to_a_lobby_full_of_people_is_told_it_is_full() -> void:
 	var small: NetSettings = NetFixtures.settings()
 	small.max_players = 2

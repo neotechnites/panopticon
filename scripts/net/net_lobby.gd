@@ -958,17 +958,31 @@ func _first_empty_seat() -> LobbySeat:
 	return null
 
 
+## While gathering, a bot's seat is a person's for the asking: the launch fills the table again.
+func _last_bot_seat() -> LobbySeat:
+	if _phase != Phase.GATHERING:
+		return null
+	for i: int in range(mini(_settings().get_effective_max_players(), seats.size()) - 1, -1, -1):
+		if seats[i].is_bot():
+			return seats[i]
+	return null
+
+
 ## Seat a connected peer, or null when there is nowhere to put them.
 func _seat_peer(peer_id: int) -> LobbySeat:
 	if find_seat_by_peer(peer_id) != null:
 		return find_seat_by_peer(peer_id)
 	var seat: LobbySeat = _first_empty_seat()
 	if seat == null:
-		return null
+		seat = _last_bot_seat()
+		if seat == null:
+			return null
+		var freed: int = seat.index
+		seat.clear()
+		seat.index = freed
 	seat.occupancy = LobbySeat.Occupancy.HUMAN
 	seat.peer_id = peer_id
-	# Left blank until the peer says what to call it. A host that invented a
-	# name here would have to un-invent it a frame later.
+	# The caller writes the name the peer asked for.
 	seat.display_name = ""
 	seat.is_ready = false
 	seat_occupancy_changed.emit(seat.index, seat.occupancy)
