@@ -6,11 +6,12 @@ extends SceneTree
 ##
 ##   godot --headless --script res://tools/net/wire_relay.gd -- --config=<wire.json> --log=<relay.log>
 ##
-## wire.json: {"host_port": H, "limit": seconds, "links": [{"port": P, "up": {options}, "down": {options},
-## "up_seed": n, "down_seed": n}]}; options as [method NetConditions.from_options] reads them.
+## wire.json: {"host_port": H, "limit": seconds, "stop": path, "links": [{"up": {options}, "down": {options},
+## "up_seed": n, "down_seed": n}]}; options as [method NetConditions.from_options] reads them. Each link
+## listens on a port the OS picks, named on the "RELAY ready ports=" line; it stops when the stop file exists.
 
 const LOOP_USEC: int = 250
-const REPORT_MS: int = 5000
+const REPORT_MS: int = 1000
 
 
 class Link extends RefCounted:
@@ -26,6 +27,8 @@ var _links: Array[Link] = []
 var _log: FileAccess = null
 var _deadline_ms: int = 0
 var _report_ms: int = 0
+var _stop_path: String = ""
+var _failed: bool = false
 
 
 func _initialize() -> void:
@@ -40,29 +43,39 @@ func _initialize() -> void:
 		_log = FileAccess.open(log_path, FileAccess.WRITE)
 	var config: Variant = JSON.parse_string(FileAccess.get_file_as_string(config_path))
 	if not config is Dictionary:
-		_line("RELAY fail reason=bad-config path=%s" % config_path)
-		quit(2)
+		_fail("bad-config path=%s" % config_path)
 		return
 	var host_port: int = int(config["host_port"])
 	_deadline_ms = Time.get_ticks_msec() + int(float(config.get("limit", 300)) * 1000.0)
+	_stop_path = String(config.get("stop", ""))
+	var ports: PackedStringArray = PackedStringArray()
 	for spec: Dictionary in config["links"]:
 		var link: Link = Link.new()
-		if link.listen.bind(int(spec["port"]), "127.0.0.1") != OK:
-			_line("RELAY fail reason=bind port=%d" % int(spec["port"]))
-			quit(2)
+		# Port 0: the OS hands out a free one, so no other session can be given it in between.
+		if link.listen.bind(0, "127.0.0.1") != OK or link.upstream.bind(0, "127.0.0.1") != OK:
+			_fail("bind")
 			return
-		link.upstream.bind(0, "127.0.0.1")
+		ports.append(str(link.listen.get_local_port()))
 		link.upstream.set_dest_address("127.0.0.1", host_port)
 		link.up = NetConditions.from_options(spec["up"], int(spec.get("up_seed", 11)))
 		link.down = NetConditions.from_options(spec["down"], int(spec.get("down_seed", 7)))
-		_line("RELAY link=%d port=%d up %s | down %s" % [_links.size() + 1, int(spec["port"]), link.up.describe(),
+		_line("RELAY link=%d port=%s up %s | down %s" % [_links.size() + 1, ports[-1], link.up.describe(),
 			link.down.describe()])
 		_links.append(link)
-	_line("RELAY ready links=%d host_port=%d" % [_links.size(), host_port])
+	_line("RELAY ready ports=%s host_port=%d" % [",".join(ports), host_port])
+
+
+func _fail(reason: String) -> void:
+	_failed = true
+	_line("RELAY fail reason=%s" % reason)
+	quit(2)
 
 
 ## One pass every quarter millisecond: the relay's own clock, not a frame's, decides when a datagram leaves.
 func _process(_delta: float) -> bool:
+	if _failed:
+		return true
+	var reason: String = "limit"
 	while Time.get_ticks_msec() < _deadline_ms:
 		var now: float = float(Time.get_ticks_usec()) / 1000.0
 		for link: Link in _links:
@@ -70,9 +83,13 @@ func _process(_delta: float) -> bool:
 		if Time.get_ticks_msec() - _report_ms >= REPORT_MS:
 			_report_ms = Time.get_ticks_msec()
 			_report()
+			if not _stop_path.is_empty() and FileAccess.file_exists(_stop_path):
+				reason = "stopped"
+				break
 		OS.delay_usec(LOOP_USEC)
 	_report()
-	_line("RELAY end reason=limit")
+	_line("RELAY end reason=%s" % reason)
+	quit(0)
 	return true
 
 

@@ -31,7 +31,7 @@ def provenance() -> dict:
     def git(*args: str) -> str:
         done = subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True, text=True)
         return done.stdout.strip() if done.returncode == 0 else ""
-    return {"commit": git("rev-parse", "HEAD"), "dirty": len([l for l in git("status", "--porcelain").splitlines() if l]),
+    return {"commit": git("rev-parse", "HEAD"), "tree": git("rev-parse", "HEAD^{tree}"), "dirty": len([l for l in git("status", "--porcelain").splitlines() if l]),
             "load": list(os.getloadavg()), "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
 
 
@@ -50,6 +50,13 @@ def ledger_path() -> Path | None:
         return None
     common = Path(done.stdout.strip())
     return (common if common.is_absolute() else ROOT / common) / "panopticon-matrix-ledger.jsonl"
+
+
+def _ledger(entry: dict) -> None:
+    ledger = ledger_path()
+    if ledger is not None:
+        with ledger.open("a") as handle:
+            handle.write(json.dumps(entry) + "\n")
 
 
 def classify(reports: list[dict]) -> dict:
@@ -126,6 +133,10 @@ def main() -> int:
     print(f"run_matrix: {len(work)} run(s) of {len(chosen)} scenario(s), {args.jobs} at a time -> {out}", flush=True)
     started = provenance()
     started["checker"] = checker_hash()
+    # The attempt is in the ledger before anything runs: one abandoned half way still counts.
+    _ledger({"event": "started", "out": str(out.resolve()), "commit": started["commit"], "tree": started["tree"],
+             "dirty": started["dirty"], "checker": started["checker"], "recheck": args.recheck, "repeat": args.repeat,
+             "filter": args.filter, "tag": args.tag, "scenarios": args.scenarios, "at": started["at"]})
     if args.recheck and (out / "matrix.json").exists():
         ran = json.loads((out / "matrix.json").read_text()).get("provenance", started)
         ran["rechecked"] = {"at": started["at"], "checker": started["checker"]}
@@ -166,13 +177,8 @@ def main() -> int:
             lines.append(f"- WARN [{warning['check']}] {warning['peer']}: {warning['message']}")
         lines.append("")
     (out / "matrix.md").write_text("\n".join(lines))
-    ledger = ledger_path()
-    if ledger is not None:
-        with ledger.open("a") as handle:
-            handle.write(json.dumps({"out": str(out.resolve()), "commit": started["commit"], "dirty": started["dirty"],
-                                     "checker": started["checker"], "recheck": args.recheck, "repeat": args.repeat,
-                                     "filter": args.filter, "tag": args.tag, "at": started["at"],
-                                     "classes": tally}) + "\n")
+    _ledger({"event": "finished", "out": str(out.resolve()), "tree": started["tree"], "recheck": args.recheck,
+             "classes": tally, "at": provenance()["at"]})
     print(f"MATRIX pass={counts['PASS']} fail={counts['FAIL']} broken={counts['BROKEN']} total={len(reports)} "
           f"scenarios pass={tally['PASS']} flaky={tally['FLAKY']} fail={tally['FAIL']} report={out / 'matrix.md'}")
     return 0 if tally["FLAKY"] == 0 and tally["FAIL"] == 0 else 1

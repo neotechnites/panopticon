@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The phase gate over two matrix runs: the phase's base and the branch, each run_matrix.py --repeat 3.
 
-    python3 tools/net/matrix_gate.py --base <dir> --branch <dir> [--base-commit SHA] [--branch-commit SHA]
+    python3 tools/net/matrix_gate.py --base <dir> --branch <dir> --base-commit SHA --branch-commit SHA
         [--expect-fixed NAME,...] [--known-fail NAME,...] [--out FILE]
 
 A scenario is PASS only at 3/3. The gate holds when:
@@ -9,8 +9,8 @@ A scenario is PASS only at 3/3. The gate holds when:
 - every scenario the base ran, the branch ran;
 - every --expect-fixed scenario is PASS on the branch;
 - every scenario only the branch has is PASS, or named in --known-fail (a baseline failure, stated);
-- both runs come from clean trees, at the commits given, and each is the first complete attempt at its
-  commit in the clone's matrix ledger (an attempt can be rechecked, never rerun to green).
+- both runs come from clean trees, at the commits given, and each is the first full attempt at its source
+  tree in the clone's matrix ledger, abandoned attempts included (rechecked, never rerun to green).
 Scenarios FLAKY on the base are listed and not gated: each needs its own cause found.
 Exit 0 when the gate holds, 1 when it does not, 2 when the inputs cannot be judged.
 """
@@ -43,22 +43,27 @@ def load(directory: str) -> dict:
 
 
 def provenance_problems(label: str, directory: str, matrix: dict, commit: str) -> list[str]:
-    """What makes this run not the honest first attempt at the code it claims to be."""
+    """What makes this run not the honest first attempt at the code it claims to be. Attempts are keyed
+    by source tree, not commit, so an amended or empty commit is not a fresh first try."""
     problems = []
     ran = matrix.get("provenance", {})
     if int(ran.get("dirty", 1)) != 0:
         problems.append(f"{label} ran on a tree with {ran.get('dirty')} uncommitted change(s)")
-    if commit and not str(ran.get("commit", "")).startswith(commit):
+    if not str(ran.get("commit", "")).startswith(commit):
         problems.append(f"{label} ran at {str(ran.get('commit', '?'))[:10]}, not {commit[:10]}")
     ledger = ledger_path()
     if ledger is None or not ledger.exists():
         return problems + [f"no matrix ledger to show {label} is the first attempt"]
-    attempts = [json.loads(line) for line in ledger.read_text().splitlines() if line.strip()]
-    complete = [a for a in attempts if a["commit"] == ran.get("commit") and not a["recheck"]
-                and int(a["repeat"]) >= REPEAT and not a["filter"] and not a["tag"] and int(a["dirty"]) == 0]
-    if complete and complete[0]["out"] != str(Path(directory).resolve()):
-        problems.append(f"{label} is not the first full attempt at {str(ran.get('commit'))[:10]}: "
-                        f"that was {complete[0]['out']} ({complete[0]['classes']})")
+    entries = [json.loads(line) for line in ledger.read_text().splitlines() if line.strip()]
+    here = str(Path(directory).resolve())
+    full = [e for e in entries if e.get("event") == "started" and e.get("tree") == ran.get("tree")
+            and not e["recheck"] and int(e["repeat"]) >= REPEAT and not e["filter"] and not e["tag"]
+            and Path(e.get("scenarios", "")).name == "scenarios" and int(e["dirty"]) == 0]
+    mine = [e for e in full if e["out"] == here]
+    if not mine:
+        problems.append(f"{label} ({here}) is not a full --repeat {REPEAT} attempt in the ledger")
+    elif full[0]["out"] != here:
+        problems.append(f"{label} is not the first full attempt at this source tree: that was {full[0]['out']}")
     return problems
 
 
@@ -66,8 +71,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--base", required=True)
     parser.add_argument("--branch", required=True)
-    parser.add_argument("--base-commit", default="")
-    parser.add_argument("--branch-commit", default="")
+    parser.add_argument("--base-commit", required=True)
+    parser.add_argument("--branch-commit", required=True)
     parser.add_argument("--expect-fixed", default="")
     parser.add_argument("--known-fail", default="")
     parser.add_argument("--out", default="")

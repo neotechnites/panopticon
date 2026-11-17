@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import shlex
-import socket
 import sys
 from pathlib import Path
 
@@ -66,7 +65,7 @@ def peer_options(scenario: dict, index: int) -> dict:
     return merged
 
 
-def peer_args(scenario: dict, index: int, port: int) -> list[str]:
+def peer_args(scenario: dict, index: int, port: int | str) -> list[str]:
     merged = peer_options(scenario, index)
     # The probe only where the wire is the subject: everywhere else it would be traffic the scenario never had.
     merged.setdefault("wire-probe-hz", 20 if watched(scenario) else 0)
@@ -76,14 +75,6 @@ def peer_args(scenario: dict, index: int, port: int) -> list[str]:
     if index == 0:
         merged.setdefault("humans", int(scenario["peers"]))
     return [flag(k, v) for k, v in merged.items()]
-
-
-def free_port() -> int:
-    probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    probe.bind(("127.0.0.1", 0))
-    port = probe.getsockname()[1]
-    probe.close()
-    return port
 
 
 def load(path: Path) -> dict:
@@ -104,7 +95,7 @@ def main() -> int:
         return 2
     scenario = load(Path(sys.argv[1]))
     port = int(sys.argv[2])
-    relay_ports = [free_port() for _ in range(int(scenario["peers"]) - 1)] if socket_layer(scenario) else []
+    relayed = socket_layer(scenario)
     out = [
         f"RUNNER={shlex.quote(scenario['runner'])}",
         f"LIMIT={int(scenario['limit'])}",
@@ -112,16 +103,16 @@ def main() -> int:
         f"NAME={shlex.quote(scenario['name'])}",
     ]
     for index in range(int(scenario["peers"])):
-        target = relay_ports[index - 1] if relay_ports and index > 0 else port
+        # A relayed client's port is the relay's, known once it is up: run_session.sh fills RELAY_PORT_<i> in.
+        target = f"@RELAY_PORT_{index}@" if relayed and index > 0 else port
         quoted = " ".join(shlex.quote(a) for a in peer_args(scenario, index, target))
         out.append(f"PEER_ARGS_{index}=({quoted})")
     relay = ""
-    if relay_ports:
+    if relayed:
         host = peer_options(scenario, 0)
         relay = json.dumps({"host_port": port, "limit": int(scenario["limit"]) + 30, "links": [
-            {"port": p, "up": applied(peer_options(scenario, i + 1)), "down": applied(host),
-             "up_seed": 11 + 4 * i, "down_seed": 7 + 4 * i}
-            for i, p in enumerate(relay_ports)]})
+            {"up": applied(peer_options(scenario, i + 1)), "down": applied(host), "up_seed": 11 + 4 * i,
+             "down_seed": 7 + 4 * i} for i in range(int(scenario["peers"]) - 1)]})
     out.append(f"RELAY_JSON={shlex.quote(relay)}")
     kills = []
     for kill in scenario.get("kill", []):

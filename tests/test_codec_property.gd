@@ -33,6 +33,7 @@ var _intent_fields: PackedStringArray = PackedStringArray()
 
 func before_each() -> void:
 	_rng.seed = SEED
+	_defects.clear()
 	_state_fields = _script_fields(PlayerState.new())
 	_intent_fields = _script_fields(MoveIntent.new())
 
@@ -67,7 +68,7 @@ func test_every_accepted_snapshot_is_the_host_world_of_its_tick() -> void:
 
 func test_the_codec_breaks_only_the_properties_already_known() -> void:
 	_snapshots(false, 0.0)
-	test_every_intent_the_host_reads_is_the_one_the_client_sent_for_that_tick()
+	_intents()
 	var unknown: PackedStringArray = PackedStringArray()
 	for defect: String in _defects:
 		if not KNOWN_DEFECTS.has(defect):
@@ -173,6 +174,19 @@ func _snapshots(take_stale: bool, corrupt: float) -> Dictionary[String, int]:
 
 
 func test_every_intent_the_host_reads_is_the_one_the_client_sent_for_that_tick() -> void:
+	var counts: Dictionary[String, int] = _intents()
+	assert_eq_int(counts["malformed"], 0, "every packet the client built decodes")
+	assert_eq_int(counts["unfaithful"], 0, "every intent field arrives as the client set it")
+	assert_eq_int(counts["mismatch"], 0, "every intent the host reads is bit for bit the one sent for its tick")
+	assert_eq_int(counts["epoch_mixed"], 0, "and no intent of one epoch is read in another")
+	assert_eq_int(counts["oversize"], 0, "no intent packet reaches %d bytes" % MTU_BUDGET)
+	assert_gt(float(counts["old_epoch"]), 0.0, "packets from the client's old epoch arrived and were refused")
+	assert_gt(float(counts["heard"]) / TICKS, 0.8, "the redundancy carried most ticks through the loss")
+
+
+## The client's input over [constant TICKS] through the wire to a host that reads every intent it carries.
+func _intents() -> Dictionary[String, int]:
+	_rng.seed = SEED
 	var wire: NetConditions = _wire(2)
 	var recorded: Dictionary[int, PackedByteArray] = {}
 	var epoch_of_tick: Dictionary[int, int] = {}
@@ -226,15 +240,10 @@ func test_every_intent_the_host_reads_is_the_one_the_client_sent_for_that_tick()
 				if _object_bytes(decoded, _intent_fields) != recorded.get(at, PackedByteArray()):
 					counts["mismatch"] += 1
 				counts["epoch_mixed"] += int(epoch_of_tick.get(at, -1) != host_epoch)
+	counts["heard"] = heard.size()
 	print("          INTENTS over %d ticks: %s; %.4f of ticks reached the host at least once" % [
 		TICKS, str(counts), float(heard.size()) / TICKS])
-	assert_eq_int(counts["malformed"], 0, "every packet the client built decodes")
-	assert_eq_int(counts["unfaithful"], 0, "every intent field arrives as the client set it")
-	assert_eq_int(counts["mismatch"], 0, "every intent the host reads is bit for bit the one sent for its tick")
-	assert_eq_int(counts["epoch_mixed"], 0, "and no intent of one epoch is read in another")
-	assert_eq_int(counts["oversize"], 0, "no intent packet reaches %d bytes" % MTU_BUDGET)
-	assert_gt(float(counts["old_epoch"]), 0.0, "packets from the client's old epoch arrived and were refused")
-	assert_gt(float(heard.size()) / TICKS, 0.8, "the redundancy carried most ticks through the loss")
+	return counts
 
 
 # --- Random state -------------------------------------------------------------

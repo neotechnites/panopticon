@@ -174,6 +174,13 @@ def expected_loss(opts: dict) -> float:
     return bad_share * _num(opts, "burst-loss", 1.0) + (1.0 - bad_share) * good
 
 
+def full_loss_chain(opts: dict, spacing: float) -> tuple[float, float]:
+    """The same chain as if the bad spell lost everything and the good one nothing: for a mixed link
+    its correlation bounds the real one's, so its variance inflation is a safe upper bound."""
+    plain = {k: v for k, v in opts.items() if k not in ("loss", "burst-loss")}
+    return loss_chain(plain, spacing) or (expected_loss(opts), 0.0)
+
+
 def loss_chain(opts: dict, spacing: float) -> tuple[float, float] | None:
     """For probes [spacing] ms apart, the chance a loss follows a loss and the lag-one correlation of the
     loss sequence, when that sequence is a Markov chain: Bernoulli, or a Gilbert link that loses all of a
@@ -238,15 +245,9 @@ def check_path(opts: dict, m: dict) -> list[str]:
         return [f"only {n} probes crossed it, too few to measure the wire"]
     loss = unique_loss(opts)
     chain = loss_chain(opts, m["spacing"])
-    bursty = _num(opts, "burst-ms") > 0.0 and _num(opts, "burst-gap-ms") > 0.0
-    if chain is not None or not bursty:
-        # A correlated loss sequence carries fewer independent samples: (1 + rho) / (1 - rho) fewer.
-        rho = chain[1] if chain is not None else 0.0
-        inflation = (1.0 + rho) / max(1.0 - rho, 1e-6)
-        sigma = math.sqrt(max(loss * (1.0 - loss), 1e-9) * inflation / n)
-        allowed = max(RATE_BAND * loss, 3.0 * sigma, 0.01)
-        if abs(m["loss"] - loss) > allowed:
-            bad.append(f"lost {m['loss']:.3f} of probes, asked {loss:.3f} (+-{allowed:.3f})")
+    allowed = _rate_allowance(loss, n, full_loss_chain(opts, m["spacing"])[1])
+    if abs(m["loss"] - loss) > allowed:
+        bad.append(f"lost {m['loss']:.3f} of probes, asked {loss:.3f} (+-{allowed:.3f})")
     if chain is not None and chain[0] > 0.0 and m["runs"] >= 10 and _num(opts, "dup") == 0.0:
         stay = chain[0]
         run = 1.0 / max(1.0 - stay, 1e-6)
@@ -289,6 +290,50 @@ def check_path(opts: dict, m: dict) -> list[str]:
     return bad
 
 
+def _rate_allowance(rate: float, n: float, rho: float = 0.0) -> float:
+    """How far a measured rate may sit from [rate] over [n] samples whose lag-one correlation is [rho]:
+    a correlated sequence carries (1 + rho) / (1 - rho) fewer independent samples."""
+    inflation = (1.0 + rho) / max(1.0 - rho, 1e-6)
+    return max(RATE_BAND * rate, 3.0 * math.sqrt(max(rate * (1.0 - rate), 1e-9) * inflation / max(n, 1.0)), 0.01)
+
+
+RELAY_LINE = re.compile(r"RELAY link=(\d+) dir=(up|down) offered=(\d+) lost=(\d+) duplicated=(\d+) held=(\d+)")
+
+
+def check_relay(session: Path, scenario: dict) -> list[tuple[str, str]]:
+    """Below ENet the game cannot see a duplicate, so the relay's own last counters are held to the
+    conditions too: every datagram each way, per client link."""
+    path = session / "relay.log"
+    if not path.exists():
+        return [("session", "a socket-layer scenario ran without its relay log")]
+    last: dict[tuple[int, str], tuple[int, ...]] = {}
+    for line in path.read_text(errors="replace").splitlines():
+        m = RELAY_LINE.search(line)
+        if m:
+            last[(int(m.group(1)), m.group(2))] = tuple(int(g) for g in m.groups()[2:])
+    bad = []
+    for link in range(1, int(scenario["peers"])):
+        for direction in ("up", "down"):
+            opts = peer_options(scenario, link if direction == "up" else 0)
+            who = f"relay {_label(link)} {direction}"
+            if (link, direction) not in last:
+                bad.append((who, "no counters reported"))
+                continue
+            offered, lost, duplicated, held = last[(link, direction)]
+            if offered < MIN_SAMPLES:
+                continue
+            copies = offered + duplicated
+            loss, dup, reorder = expected_loss(opts), _num(opts, "dup"), _num(opts, "reorder")
+            rho = full_loss_chain(opts, 10.0)[1]
+            for name, got, want, n, r in (("lost", lost / copies, loss, copies, rho),
+                                          ("duplicated", duplicated / offered, dup, offered, 0.0),
+                                          ("held back", held / max(copies - lost, 1), reorder, copies - lost, 0.0)):
+                allowed = _rate_allowance(want, n, r)
+                if abs(got - want) > allowed:
+                    bad.append((who, f"{name} {got:.3f} of {n} datagrams, asked {want:.3f} (+-{allowed:.3f})"))
+    return bad
+
+
 def check(session: Path, scenario: dict, logs: dict[int, list]) -> tuple[list[tuple[str, str]], dict]:
     """(peer label, message) for every way the wire did not do what the scenario asked, and the figures."""
     peers = int(scenario.get("peers", 0))
@@ -296,6 +341,8 @@ def check(session: Path, scenario: dict, logs: dict[int, list]) -> tuple[list[tu
         return [], {}
     measured = paths(session, logs)
     failures = []
+    if any(peer_options(scenario, i).get("wire-layer", "peer") == "socket" for i in range(peers)):
+        failures += check_relay(session, scenario)
     for (sender, receiver), m in sorted(measured.items()):
         opts = peer_options(scenario, sender)
         if conditioned(opts):

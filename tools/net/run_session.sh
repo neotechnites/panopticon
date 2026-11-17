@@ -56,7 +56,9 @@ if [ "$RUNNER" = match ]; then ENTRY=(--script res://tools/net/run_net_match.gd)
 
 # A socket-layer scenario puts a datagram relay between every client and the host (tools/net/wire_relay.gd).
 if [ -n "$RELAY_JSON" ]; then
-  printf '%s\n' "$RELAY_JSON" > "$OUT/wire.json"
+  rm -f "$OUT/relay.stop" "$OUT/relay.log"
+  python3 -c 'import json,sys; c=json.loads(sys.argv[1]); c["stop"]=sys.argv[2]; print(json.dumps(c))' \
+    "$RELAY_JSON" "$OUT/relay.stop" > "$OUT/wire.json"
   mkdir -p "$OUT/relay/home"
   HOME="$OUT/relay/home" "$GODOT" --headless --path "$ROOT" --script res://tools/net/wire_relay.gd -- \
     --config="$OUT/wire.json" --log="$OUT/relay.log" > "$OUT/relay.out" 2>&1 &
@@ -67,6 +69,11 @@ if [ -n "$RELAY_JSON" ]; then
     sleep 0.25
   done
   grep -q "RELAY ready" "$OUT/relay.log" 2>/dev/null || { echo "run_session: the wire relay did not start" >&2; kill -KILL "$RELAY_PID" 2>/dev/null; exit 2; }
+  # Each relayed client joins the port its link listens on.
+  IFS=, read -r -a RELAY_PORTS <<< "$(sed -n 's/.*RELAY ready ports=\([0-9,]*\).*/\1/p' "$OUT/relay.log" | head -1)"
+  for ((i = 1; i < NPEERS; i++)); do
+    eval "PEER_ARGS_$i=(\"\${PEER_ARGS_$i[@]//@RELAY_PORT_$i@/${RELAY_PORTS[$((i - 1))]}}\")"
+  done
 fi
 
 PIDS=()
@@ -138,6 +145,11 @@ for p in "${PIDS[@]}"; do
   wait "$p"; echo "peer$i exit=$?" >> "$OUT/exit.txt"
   i=$((i + 1))
 done
+if [ -n "$RELAY_PID" ]; then
+  # Ask the relay to stop so its last counters reach relay.log, then make sure it is gone.
+  : > "$OUT/relay.stop"
+  for _ in $(seq 1 20); do kill -0 "$RELAY_PID" 2>/dev/null || break; sleep 0.25; done
+fi
 kill "$WATCHDOG" ${ARMS[@]+"${ARMS[@]}"} $RELAY_PID 2>/dev/null; wait "$WATCHDOG" ${ARMS[@]+"${ARMS[@]}"} $RELAY_PID 2>/dev/null
 echo "out=$OUT"
 [ "$CHECK" = 1 ] || exit 0
