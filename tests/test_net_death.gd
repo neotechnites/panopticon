@@ -478,6 +478,9 @@ func test_a_body_shoved_in_the_hub_flops_on_every_peer() -> void:
 
 ## Metres a client's replayed round may stray from the path the host's round flew.
 const ARC_TOLERANCE_METRES: float = 0.3
+## Shots the arc test may take to get one clear of the tower, and the ticks of flight that counts as clear.
+const SHOT_ATTEMPTS: int = 8
+const LONG_FLIGHT_TICKS: int = 30
 
 
 func test_a_dropped_shot_lands_on_a_client_where_the_host_landed_it() -> void:
@@ -490,43 +493,48 @@ func test_a_dropped_shot_lands_on_a_client_where_the_host_landed_it() -> void:
 	var rifle: Rifle = host.rifle
 	if not assert_true(rifle.is_travelling_shot(), "the guard's shot travels, so it has an arc to replay"):
 		return
-	# Out over the ring and a little up, so the round drops for most of a second before it lands.
-	var guard: PlayerController = _rig.body(HOST, 0)
-	guard.head.rotation.x = deg_to_rad(4.0)
+	_rig.body(HOST, 0).head.rotation.x = 0.0
 	await step_ticks(_cross)
 	var host_end: Array[Vector3] = []
 	var client_ends: Dictionary = {}
-	var landed: Callable = func(end_point: Vector3) -> void: host_end.append(end_point)
-	rifle.missed.connect(landed)
+	rifle.missed.connect(func(end_point: Vector3) -> void: host_end.append(end_point))
 	rifle.target_hit.connect(func(_c: Node3D, at: Vector3, _n: Vector3) -> void: host_end.append(at))
 	for peer: int in range(1, _rig.peer_count()):
 		var mirror_rifle: Rifle = _rig.controller(peer).rifle
 		client_ends[peer] = []
 		mirror_rifle.missed.connect(func(end_point: Vector3) -> void: client_ends[peer].append(end_point))
 		mirror_rifle.target_hit.connect(func(_c: Node3D, at: Vector3, _n: Vector3) -> void: client_ends[peer].append(at))
-	if not await _rig.wait_for(func() -> bool: return rifle.can_fire()):
-		fail("the host's rifle never came ready")
-		return
-	assert_true(rifle.try_fire(), "the host fires")
+	# The scope wanders, and some shots meet the window frame: fire until one flies long enough to drop.
 	var host_path: PackedVector3Array = PackedVector3Array()
 	var client_paths: Dictionary = {}
-	for peer: int in range(1, _rig.peer_count()):
-		client_paths[peer] = PackedVector3Array()
-	var ticks: int = 0
-	while ticks < 600 and (host_end.is_empty() or client_ends[1].is_empty() or client_ends[2].is_empty()):
-		var flying: Array = rifle.get(&"_projectiles")
-		if not flying.is_empty() and is_instance_valid(flying[0]):
-			host_path.append((flying[0] as Node3D).global_position)
+	for _attempt: int in SHOT_ATTEMPTS:
+		host_end.clear()
+		host_path.clear()
 		for peer: int in range(1, _rig.peer_count()):
-			var shown: Array = _rig.controller(peer).rifle.get(&"_visual_rounds")
-			# Only while the host's round is in the air: past its landing a replay flies on until it is told.
-			if host_end.is_empty() and not shown.is_empty() and is_instance_valid(shown[0]):
-				client_paths[peer].append((shown[0] as Node3D).global_position)
-		await step_ticks(1)
-		ticks += 1
+			client_ends[peer].clear()
+			client_paths[peer] = PackedVector3Array()
+		if not await _rig.wait_for(func() -> bool: return rifle.can_fire()):
+			fail("the host's rifle never came ready")
+			return
+		assert_true(rifle.try_fire(), "the host fires")
+		var ticks: int = 0
+		while ticks < 600 and (host_end.is_empty() or client_ends[1].is_empty() or client_ends[2].is_empty()):
+			var flying: Array = rifle.get(&"_projectiles")
+			if not flying.is_empty() and is_instance_valid(flying[0]):
+				host_path.append((flying[0] as Node3D).global_position)
+			for peer: int in range(1, _rig.peer_count()):
+				var shown: Array = _rig.controller(peer).rifle.get(&"_visual_rounds")
+				# Only while the host's round is in the air: past its landing a replay flies on until it is told.
+				if host_end.is_empty() and not shown.is_empty() and is_instance_valid(shown[0]):
+					client_paths[peer].append((shown[0] as Node3D).global_position)
+			await step_ticks(1)
+			ticks += 1
+		if host_path.size() >= LONG_FLIGHT_TICKS:
+			break
 	if not assert_false(host_end.is_empty(), "the host's round landed"):
 		return
-	assert_gt(float(host_path.size()), 10.0, "the host's round was in the air long enough to drop")
+	if not assert_ge(float(host_path.size()), float(LONG_FLIGHT_TICKS), "a round was in the air long enough to drop"):
+		return
 	host_path.append(host_end[0])
 	var straight: Vector3 = host_path[0].lerp(host_end[0], 0.5)
 	assert_gt(_distance_to_path(straight, host_path), 1.0, "and its flight is an arc, not the straight line to where it landed")
