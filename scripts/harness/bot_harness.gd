@@ -94,6 +94,19 @@ static func apply_time_compression(compression: int) -> void:
 	Engine.max_physics_steps_per_frame = maxi(factor, 8)
 
 
+## True under [code]godot --fixed-fps 60[/code], where an idle frame is a full frame; on the wall clock it is microseconds,
+## and the pose a death ragdoll starts from differs per run. A coroutine: eight frames, which also settles the frame timer.
+static func has_fixed_frames(tree: SceneTree) -> bool:
+	var shortest: float = INF
+	for _frame: int in 8:
+		await tree.process_frame
+		shortest = minf(shortest, tree.root.get_process_delta_time())
+	if shortest > 0.5 * Engine.time_scale / float(SIM_HZ):
+		return true
+	push_error("Harness: start Godot with --fixed-fps %d; frames are following the wall clock" % SIM_HZ)
+	return false
+
+
 # --- Command line -------------------------------------------------------------
 
 ## Parse [code]--key=value[/code] user arguments over [param defaults].
@@ -223,6 +236,8 @@ static func stream_seed(match_seed: int, stream: Stream, index: int = 0) -> int:
 func run_match(
 	variant: BotVariant, match_index: int, seed_value: int, max_ticks: int
 ) -> Dictionary:
+	# From a frame boundary, so the frames a match sees do not depend on where the one before it stopped.
+	await get_tree().process_frame
 	var runner: BotMatchRunner = BotMatchRunner.new()
 	runner.name = "Match_%s_%d" % [variant.name, match_index]
 	runner.configure(variant.rules, variant.name, match_index, seed_value, max_ticks)

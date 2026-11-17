@@ -4,7 +4,7 @@ extends SceneTree
 ## aggregated into one file that answers "which of these is better".
 ##
 ## [codeblock]
-## godot --headless --path . --script res://tools/harness/run_sweep.gd -- \
+## godot --headless --fixed-fps 60 --path . --script res://tools/harness/run_sweep.gd -- \
 ##     --spec=res://tools/harness/sweeps/reload_floor.json --matches=5
 ## [/codeblock]
 ##
@@ -59,7 +59,7 @@ func _process(_delta: float) -> bool:
 
 
 func _run() -> void:
-	if bool(_options.get("_error", false)):
+	if bool(_options.get("_error", false)) or not await BotHarness.has_fixed_frames(self):
 		printerr("Bad command line; nothing was run.")
 		_exit_code = EXIT_BROKEN
 		_finished = true

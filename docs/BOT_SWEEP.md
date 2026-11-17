@@ -6,7 +6,7 @@ shipped guard on each map, then 10 each at blind / 0.2 / 0.8. Reproduce any arm
 with
 
 ```
-godot --headless --path . --script res://tools/harness/run_sweep.gd -- \
+godot --headless --fixed-fps 60 --path . --script res://tools/harness/run_sweep.gd -- \
     --spec=res://tools/harness/sweeps/balance_<map>[_spread].json \
     --matches=<20|10> --seed=20260930
 python3 tools/harness/summarise_balance.py tools/harness/runs/<run id>
