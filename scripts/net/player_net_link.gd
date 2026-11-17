@@ -325,6 +325,8 @@ func refresh_role() -> void:
 		# This machine's own body on a client. It runs the real physics off the
 		# real input, so it reads its own footing rather than the snapshot's.
 		reset_prediction()
+		# The view sent carries on unbroken: a facing this machine gave the body is the base's, not the player's.
+		_view_base = wrapf(controller.rotation.y - _view.x, -PI, PI)
 		_take_own_footing()
 
 	controller.set_physics_process(true)
@@ -615,7 +617,8 @@ func _send_intent() -> void:
 	if _predicting:
 		_scratch_intent.copy_from(controller.get_intent())
 		var view: Vector2 = controller.get_view_angles()
-		_scratch_intent.view_angles = Vector2(wrapf(view.x - _view_base, -PI, PI), view.y)
+		_view = Vector2(wrapf(view.x - _view_base, -PI, PI), view.y)
+		_scratch_intent.view_angles = _view
 	else:
 		_scratch_intent.copy_from(local_source.poll(get_physics_process_delta_time()))
 		_view = controller.turned_view(_view, _scratch_intent.look_delta)
@@ -782,8 +785,13 @@ func _reconcile(delta: float) -> void:
 	_apply_presentation(_pending_state, true)
 	_present_swings(_pending_state.shove_counter)
 	var rebase: float = angle_difference(_view_base, _pending_state.view_base)
-	_view_base = _pending_state.view_base
-	controller.rotation.y = wrapf(controller.rotation.y + rebase, -PI, PI)
+	if rebase != 0.0:
+		_view_base = _pending_state.view_base
+		controller.rotation.y = wrapf(controller.rotation.y + rebase, -PI, PI)
+		# Every yaw held was turned in the old base; one acknowledged later must not undo the turn.
+		for i: int in _predicted_count:
+			var held: PredictedTick = _slot(i)
+			held.yaw = wrapf(held.yaw + rebase, -PI, PI)
 	var acked: int = _pending_state.last_intent_tick
 	if acked < 0:
 		# The authority has run none of this client's input yet. There is
@@ -815,7 +823,7 @@ func _reconcile(delta: float) -> void:
 	var before: Vector3 = controller.global_position
 	controller.global_position = _pending_state.position
 	controller.velocity = _pending_state.velocity
-	controller.rotation.y = wrapf(predicted.yaw + rebase, -PI, PI)
+	controller.rotation.y = predicted.yaw
 	controller.restore_motion_state(predicted.motion)
 	# What no input of this machine's decides is the authority's as of that tick: whether the
 	# emote is up and the boost it handed out. The replay below carries both forward.
