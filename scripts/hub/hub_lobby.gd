@@ -671,7 +671,9 @@ func _wedge_for_map(map_id: StringName) -> MapWedge:
 ## A peer joined or left. The hub's bodies are built per seat, so the set is
 ## rebuilt rather than patched; see [method NetMatch.rebuild_hub].
 func _on_roster_changed() -> void:
-	if net_match != null and not _launched and not _starting:
+	# Only a gathering lobby has a roster to stand bodies for; a closed one is a session ending.
+	var gathering: bool = _lobby.get_phase() == NetLobby.Phase.GATHERING
+	if net_match != null and gathering and not _launched and not _starting:
 		net_match.rebuild_hub()
 	if _vote_open and is_host():
 		# A joiner missed the opening; the bodies were just rebuilt anyway.
