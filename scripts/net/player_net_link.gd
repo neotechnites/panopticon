@@ -248,6 +248,8 @@ const _SWING_MEMORY_TICKS: int = 90
 var _press_counts: int = 0
 var _press_slot: int = 0
 var _press_slot_prior: int = 0
+## What an unpredicted body's last emote tap asked for; see [method _emote_after].
+var _emote_asked: int = 0
 
 ## Links by the instance id of the body they carry: a link sits under [NetMatch], not its body.
 static var _by_body: Dictionary[int, PlayerNetLink] = {}
@@ -635,8 +637,7 @@ func _send_intent() -> void:
 	if _predicting:
 		if controller.is_physics_processing():
 			_scratch_intent.copy_from(controller.get_intent())
-			# The emote is a toggle this body has already run: the host is told where it stands.
-			_scratch_intent.emote_state = controller.get_emote_state()
+			_scratch_intent.emote_state = _emote_after(_scratch_intent)
 		else:
 			# Held by the match: nothing polled the source, so its last intent is no longer being made.
 			_scratch_intent.clear()
@@ -645,6 +646,7 @@ func _send_intent() -> void:
 		_scratch_intent.view_angles = _view
 	else:
 		_scratch_intent.copy_from(local_source.poll(get_physics_process_delta_time()))
+		_scratch_intent.emote_state = _emote_after(_scratch_intent)
 		_view = controller.turned_view(_view, _scratch_intent.look_delta)
 		_scratch_intent.view_angles = _view
 	# The view goes as absolute angles, Quake's usercmd: a lost packet costs no aim.
@@ -664,6 +666,17 @@ func _send_intent() -> void:
 		replicator.intent_press_slot = _press_slot
 		replicator.intent_press_slot_prior = _press_slot_prior
 		replicator.send_intent(_last_packet)
+
+
+## What this body's emote comes to once [param intent]'s taps are run: its own answer when it
+## predicts, else the tap applied to what is drawn. The host is told this per press, not a toggle.
+func _emote_after(intent: MoveIntent) -> int:
+	if _predicting:
+		return controller.get_emote_state()
+	if intent.emote_pressed or intent.emote_alt_pressed:
+		var asked: int = 2 if intent.emote_alt_pressed else 1
+		_emote_asked = 0 if controller.get_emote_state() == asked else asked
+	return _emote_asked
 
 
 ## The intent packet this body last sent, or an empty array before the first.

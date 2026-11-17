@@ -86,8 +86,6 @@ var _stale: bool = false
 
 ## The sender's press counts as of the last command run, or -1 before one: see [member MoveIntent.press_counts].
 var _seen_presses: int = -1
-## The sender's [member MoveIntent.emote_state] as of the last command run, or -1 before one.
-var _seen_emote: int = -1
 ## Presses counted and not yet handed to the body, per [enum MoveIntent.Press]; one is spent a tick.
 var _owed: PackedByteArray = PackedByteArray()
 ## The slot each owed power press was made with, oldest first: as many as [member _owed] has of POWER.
@@ -136,14 +134,12 @@ func is_stale() -> bool:
 
 func poll(_delta: float) -> MoveIntent:
 	_ticks_since_packet += 1
-	var emote: int = -1
 	if _buffer_count > 0:
 		command.copy_from(_buffer[_buffer_start])
 		applied_tick = _buffer_ticks[_buffer_start]
 		_buffer_start = (_buffer_start + 1) % BUFFER_SIZE
 		_buffer_count -= 1
 		_count_presses(command)
-		emote = _emote_change(command)
 		if command.fire_pressed:
 			# Latched as the command runs, so the shot goes with that command's aim and view tick.
 			_fire_latched = true
@@ -154,11 +150,6 @@ func poll(_delta: float) -> MoveIntent:
 
 	command.normalise()
 	_intent.copy_from(command)
-	_intent.emote_state = emote
-	if command.emote_state >= 0:
-		# A sender that says where its emote stands has run the toggle itself; it is not also tapping.
-		_intent.emote_pressed = false
-		_intent.emote_alt_pressed = false
 	_spend_presses()
 	# Consume the edges. Everything else stands until the next packet.
 	command.jump_pressed = false
@@ -199,16 +190,6 @@ func _count_presses(from: MoveIntent) -> void:
 	_seen_presses = from.press_counts
 
 
-## Where [param from]'s sender says its emote stands, when that is news; -1 when it is not, or is
-## the first word since a fresh start. A level, so what a lost command said costs nothing.
-func _emote_change(from: MoveIntent) -> int:
-	if from.emote_state < 0:
-		return -1
-	var changed: bool = _seen_emote >= 0 and from.emote_state != _seen_emote
-	_seen_emote = from.emote_state
-	return from.emote_state if changed else -1
-
-
 ## Hand the body one owed press of each key, as the edge it was made as.
 func _spend_presses() -> void:
 	if _owed.is_empty():
@@ -223,6 +204,12 @@ func _spend_presses() -> void:
 	_intent.ability_pressed = power and slot == 0
 	_intent.cook_pressed = _spend(MoveIntent.Press.COOK)
 	_intent.shove_pressed = _spend(MoveIntent.Press.SHOVE)
+	# An emote press says what it came to, and a later one supersedes: however many are owed,
+	# the body is told the newest once, not walked through a toggle per press.
+	_intent.emote_pressed = false
+	_intent.emote_alt_pressed = false
+	_intent.emote_state = command.emote_state if _owed[MoveIntent.Press.EMOTE] > 0 else -1
+	_owed[MoveIntent.Press.EMOTE] = 0
 
 
 func _spend(key: int) -> bool:
@@ -263,8 +250,7 @@ func reset() -> void:
 	_stale = false
 
 
-## A fresh start: the next command's counts and emote state are a new baseline.
+## A fresh start: the next command's counts are a new baseline.
 func forget_presses() -> void:
 	_seen_presses = -1
-	_seen_emote = -1
 	_owed.fill(0)

@@ -31,8 +31,8 @@ func test_two_power_keys_inside_one_blackout_run_as_the_keys_they_were() -> void
 	assert_eq_int(drawn(A_SEAT)[1], SHIELD, "which A still draws")
 
 
-## The emote toggled on then off inside one burst of loss: the wire says where A's toggle stands, so
-## the host, which heard neither tap, never has it up, and A's own body is never put back up.
+## The emote toggled on then off inside one burst of loss: each press says what it came to, so the
+## host is told the newest (down) once, never has it up, and A's own body is never put back up.
 func test_an_emote_put_up_and_down_inside_a_blackout_ends_down_everywhere() -> void:
 	if not await stand_up(0.0, 1):
 		return
@@ -61,6 +61,45 @@ func test_an_emote_put_up_and_down_inside_a_blackout_ends_down_everywhere() -> v
 	assert_eq_int(came_back, 0, "and A's own body is never put back up")
 	assert_false(mine.is_emoting(), "and it ends down on A's machine")
 	assert_false(copy.is_emoting(), "and on the host")
+
+
+## Jump, land, mash the emote key, again and again, at a real delay: once the keys stop the emote
+## stands still on every machine. Nothing but a press may move the host's copy.
+func _mashing_settles(delay_ms: int, rounds: int, gap: int) -> void:
+	if not await stand_up(0.0, delay_ms):
+		return
+	await step_ticks(30)
+	for round: int in rounds:
+		a_keys.tap(&"jump_pressed")
+		await step_ticks(34 + round)
+		for i: int in 6:
+			a_keys.tap(&"emote_pressed")
+			await step_ticks(gap + (i % 3))
+	await step_ticks(180)
+	var bodies: Array[PlayerController] = [body_of(a_links, A_SEAT), body_of(host_links, A_SEAT), body_of(b_links, A_SEAT)]
+	var flips: int = 0
+	var was: Array[bool] = [bodies[0].is_emoting(), bodies[1].is_emoting(), bodies[2].is_emoting()]
+	for _tick: int in 300:
+		await step_ticks(1)
+		for k: int in 3:
+			if bodies[k].is_emoting() != was[k]:
+				flips += 1
+				was[k] = bodies[k].is_emoting()
+	print("PROOF emote-echo %d ms: three seconds after the last key the emote flipped %d times in the next 300 ticks; A/host/B emoting %s" % [delay_ms, flips, str(was)])
+	assert_eq_int(flips, 0, "the emote stands still once the keys stop")
+	assert_true(was[0] == was[1] and was[1] == was[2], "and every machine agrees whether it is up: %s" % str(was))
+
+
+func test_an_emote_mashed_through_jumps_settles_at_40_ms() -> void:
+	await _mashing_settles(40, 6, 2)
+
+
+func test_an_emote_mashed_through_jumps_settles_at_60_ms() -> void:
+	await _mashing_settles(60, 6, 2)
+
+
+func test_an_emote_mashed_through_jumps_settles_at_100_ms() -> void:
+	await _mashing_settles(100, 4, 4)
 
 
 ## One emote tap inside a burst of loss: once up on A's machine it stays up while the host catches up.

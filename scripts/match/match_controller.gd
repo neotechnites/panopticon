@@ -4621,9 +4621,8 @@ func debug_refresh_pace() -> void:
 ## calls it when the host's rules change.
 func refresh_rules() -> void:
 	debug_refresh_movement()
-	if not hub_mode:
-		debug_refresh_pace()
-		refresh_sniper_profiles()
+	debug_refresh_pace()
+	refresh_sniper_profiles()
 
 
 ## Write the crouch and slide rules onto every body, bots and humans alike.

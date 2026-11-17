@@ -8,6 +8,8 @@ const KEYS: PackedStringArray = ["POWER", "COOK", "SHOVE"]
 const POWER: int = 0
 const COOK: int = 1
 const SHOVE: int = 2
+## Counted too, and handed on as what the press came to rather than as an edge: see the emote tests.
+const EMOTE: int = 3
 ## The intent flag each counted key is pressed with.
 const FLAG: PackedStringArray = ["ability_pressed", "cook_pressed", "shove_pressed"]
 
@@ -286,10 +288,8 @@ func test_every_one_tick_key_is_an_edge_when_no_command_follows_it() -> void:
 	source.accept(2, pressed)
 	var first: MoveIntent = source.poll(SIM_DELTA)
 	assert_eq_int(first.ability_slot, 2, "the power key is run on its tick")
-	assert_true(
-		first.cook_pressed and first.shove_pressed and first.emote_pressed and first.emote_alt_pressed,
-		"and cook, shove and both emote keys with it",
-	)
+	assert_true(first.cook_pressed and first.shove_pressed, "and cook and shove with it")
+	assert_false(first.emote_pressed or first.emote_alt_pressed, "an emote press is not handed on as a tap")
 	# The ticks after it, with no new command: what the body is handed again.
 	var again: PackedStringArray = PackedStringArray()
 	for _i: int in 3:
@@ -304,71 +304,72 @@ func test_every_one_tick_key_is_an_edge_when_no_command_follows_it() -> void:
 	assert_eq_string(", ".join(again), "", "one-tick keys handed to the body again on a tick with no new command")
 
 
-# --- The sender's emote, as a state ---------------------------------------------
+# --- An emote press, and what it came to ---------------------------------------
 
-## A command that says where its sender's emote stands.
-func _emote_command(state: int) -> MoveIntent:
-	var command: MoveIntent = _command(0)
+## A command whose sender has pressed an emote key [param presses] times so far and stands in [param state].
+func _emote_command(presses: int, state: int) -> MoveIntent:
+	var command: MoveIntent = _command(_counts_of({EMOTE: presses}))
 	command.emote_state = state
 	return command
 
 
-func test_an_emote_state_is_handed_to_the_body_on_the_tick_it_changes() -> void:
+func test_an_emote_press_hands_the_body_what_it_came_to_once() -> void:
 	var source: RemoteIntentSource = _source()
+	var presses: Array[int] = [0, 0, 1, 1, 2, 3]
+	var states: Array[int] = [0, 0, 1, 1, 2, 0]
 	var handed: Array[int] = []
 	for tick: int in 6:
-		source.accept(tick + 1, _emote_command([0, 0, 1, 1, 2, 0][tick]))
-		handed.append(source.poll(SIM_DELTA).emote_state)
-	assert_eq_string(str(handed), str([-1, -1, 1, -1, 2, 0]), "the first word is a baseline; each change after is handed on once")
-
-
-func test_an_emote_put_up_and_down_on_lost_commands_is_handed_to_nobody() -> void:
-	var source: RemoteIntentSource = _source()
-	source.accept(1, _emote_command(0))
-	source.poll(SIM_DELTA)
-	# Ticks 2 to 8 said it was up and never arrived; by tick 9 it was down again.
-	source.accept(9, _emote_command(0))
-	var handed: Array[int] = []
-	for _i: int in 4:
+		source.accept(tick + 1, _emote_command(presses[tick], states[tick]))
 		var got: MoveIntent = source.poll(SIM_DELTA)
 		handed.append(got.emote_state)
-		assert_false(got.emote_pressed or got.emote_alt_pressed, "and no tap is made of it")
-	assert_eq_string(str(handed), str([-1, -1, -1, -1]), "the host's body is told nothing")
+		assert_false(got.emote_pressed or got.emote_alt_pressed, "and never a tap to toggle by")
+	assert_eq_string(str(handed), str([-1, -1, 1, -1, 2, 0]), "each press is handed on once, as the state it came to")
+
+
+func test_an_emote_put_up_and_down_on_lost_commands_is_one_word_that_it_is_down() -> void:
+	var source: RemoteIntentSource = _source()
+	source.accept(1, _emote_command(0, 0))
+	source.poll(SIM_DELTA)
+	# Ticks 2 to 8 carried the two presses and never arrived; by tick 9 it was down again.
+	source.accept(9, _emote_command(2, 0))
+	var handed: Array[int] = []
+	for _i: int in 4:
+		handed.append(source.poll(SIM_DELTA).emote_state)
+	assert_eq_string(str(handed), str([0, -1, -1, -1]), "two owed presses are the newest's word, once: never up")
 
 
 func test_an_emote_put_up_on_a_lost_command_is_handed_on_when_the_next_arrives() -> void:
 	var source: RemoteIntentSource = _source()
-	source.accept(1, _emote_command(0))
+	source.accept(1, _emote_command(0, 0))
 	source.poll(SIM_DELTA)
-	source.accept(9, _emote_command(2))
-	assert_eq_int(source.poll(SIM_DELTA).emote_state, 2, "the state the sender stands in is taken")
+	source.accept(9, _emote_command(1, 2))
+	assert_eq_int(source.poll(SIM_DELTA).emote_state, 2, "what the lost press came to is taken")
 	assert_eq_int(source.poll(SIM_DELTA).emote_state, -1, "once")
 
 
-func test_the_first_emote_state_after_a_rest_is_a_baseline() -> void:
+func test_a_state_that_changes_with_no_press_is_handed_to_nobody() -> void:
 	var source: RemoteIntentSource = _source()
-	source.accept(1, _emote_command(0))
+	source.accept(1, _emote_command(1, 1))
+	source.poll(SIM_DELTA)
+	var handed: Array[int] = []
+	# The sender's own body was put right and says otherwise: nobody pressed anything.
+	for tick: int in 4:
+		source.accept(2 + tick, _emote_command(1, [0, 1, 0, 2][tick]))
+		handed.append(source.poll(SIM_DELTA).emote_state)
+	assert_eq_string(str(handed), str([-1, -1, -1, -1]), "only a press moves the host's copy")
+
+
+func test_an_emote_pressed_at_a_resting_source_is_not_handed_on_when_it_is_let_go() -> void:
+	var source: RemoteIntentSource = _source()
+	source.accept(1, _emote_command(0, 0))
 	source.poll(SIM_DELTA)
 	source.rest()
-	source.accept(2, _emote_command(1))
-	assert_eq_int(source.poll(SIM_DELTA).emote_state, -1, "what was put up at a held body is not put up when it is let go")
-	source.accept(3, _emote_command(0))
-	assert_eq_int(source.poll(SIM_DELTA).emote_state, 0, "and the next change is")
-
-
-func test_a_sender_that_says_its_emote_state_is_not_also_tapping() -> void:
-	var source: RemoteIntentSource = _source()
-	var said: MoveIntent = _emote_command(0)
-	said.emote_pressed = true
-	said.emote_alt_pressed = true
-	source.accept(1, said)
-	var got: MoveIntent = source.poll(SIM_DELTA)
-	assert_false(got.emote_pressed or got.emote_alt_pressed, "its taps are its own to run")
-	var tapped: MoveIntent = _command(0)
-	tapped.emote_pressed = true
-	source.accept(2, tapped)
-	assert_true(source.poll(SIM_DELTA).emote_pressed, "a sender that only taps is taken at its tap")
-	assert_false(source.poll(SIM_DELTA).emote_pressed, "once")
+	source.accept(2, _emote_command(1, 1))
+	source.rest()
+	source.accept(3, _emote_command(1, 1))
+	assert_eq_int(source.poll(SIM_DELTA).emote_state, -1, "what was pressed at a held body is pressed at nothing")
+	source.accept(4, _emote_command(2, 0))
+	assert_eq_int(source.poll(SIM_DELTA).emote_state, 0, "and the next press is taken")
 
 
 # --- Transport ----------------------------------------------------------------

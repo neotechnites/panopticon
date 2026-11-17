@@ -745,6 +745,9 @@ func test_a_machine_that_binds_after_the_hosts_flip_runs_by_it() -> void:
 		fail("the late machine never bound")
 		return
 	await step_ticks(CROSS_TICKS)
+	# The late machine's own word of the rules: its lobby's copy, which its scene read as it stood up.
+	var told: MatchRules = _rig.sessions[2].lobby.get_rules()
+	assert_true(told.slide_enabled == want and told.crouch_enabled == want, "the late machine's lobby holds the host's rules as edited")
 	_movement_is(want, "on a machine that bound after the flip")
 
 

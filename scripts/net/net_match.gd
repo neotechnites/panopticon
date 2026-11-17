@@ -65,6 +65,8 @@ var _epoch: int = 0
 var _rematch_peers: Dictionary[int, bool] = {}
 ## Reused by [method get_scene_peers], which a carried cat asks every tick.
 var _scene_peers: PackedInt32Array = PackedInt32Array()
+## Authority: the rules last published from this scene, so a widget that edited none sends none.
+var _rules_said: PackedByteArray = PackedByteArray()
 ## Client, hub: the authority has been told this scene stands.
 var _acknowledged: bool = false
 
@@ -118,7 +120,6 @@ func _ready() -> void:
 func _bind_match() -> void:
 	_build_bodies()
 	_apply_opening()
-	_lobby.rules_changed.connect(_on_rules_changed)
 	if _session.is_authority():
 		_subscribe_server()
 		_lobby.peer_launched.connect(_on_peer_launched)
@@ -126,6 +127,7 @@ func _bind_match() -> void:
 		if _lobby.get_unlaunched_peers().is_empty():
 			_start_now()
 	else:
+		_lobby.rules_changed.connect(_on_rules_changed)
 		_lobby.acknowledge_launch()
 
 
@@ -397,13 +399,14 @@ func _subscribe_server() -> void:
 ## The rules are replicated state: the host's edit goes out on the lobby's line, where a peer
 ## still loading finds it too.
 func _publish_rules() -> void:
-	_lobby.set_rules(controller.get_rules())
+	var packed: PackedByteArray = NetCodec.pack_rules(controller.get_rules())
+	if packed != _rules_said:
+		_rules_said = packed
+		_lobby.set_rules(controller.get_rules())
 
 
 ## A mirror runs by the host's rules as they stand now, not as they stood at the launch.
 func _on_rules_changed() -> void:
-	if is_authority() or _lobby.get_rules() == null:
-		return
 	NetCodec.copy_rules(_lobby.get_rules(), controller.get_rules())
 	controller.refresh_rules()
 
