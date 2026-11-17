@@ -206,7 +206,7 @@ func _tail() -> void:
 	var r: float = 0.02
 	var frames: Array = []
 	for i: int in path.size():
-		var t: Vector3 = (path[mini(i + 1, path.size() - 1)] - path[maxi(i - 1, 0)]).normalized()
+		var t: Vector3 = ((path[mini(i + 1, path.size() - 1)] as Vector3) - (path[maxi(i - 1, 0)] as Vector3)).normalized()
 		var side: Vector3 = t.cross(Vector3.RIGHT).normalized()
 		var up: Vector3 = side.cross(t).normalized()
 		var ring: Array = []

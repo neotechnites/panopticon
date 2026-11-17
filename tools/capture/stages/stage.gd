@@ -89,36 +89,37 @@ func on_out(_participant: MatchParticipant) -> void:
 # --- Helpers every stage reaches for ------------------------------------------
 
 ## A driver on [param runner], seeded per index so a group never syncs.
-func drive(runner: RunnerBrain, steps: Array, index: int = 0, driver_name: String = "") -> Node:
-	var driver: Node = DRIVER.new()
+func drive(runner: RunnerBrain, steps: Array, index: int = 0, driver_name: String = "") -> DRIVER:
+	var driver: DRIVER = DRIVER.new()
 	driver.name = driver_name if driver_name != "" else "ClipStageDriver%d" % drivers.size()
 	clip.root.add_child(driver)
 	driver.install(runner.controller, runner, steps, controller())
-	driver.seed_with(int(clip._options.get("seed", 0)), index)
+	driver.seed_with(int((clip.get(&"_options") as Dictionary).get("seed", 0)), index)
 	drivers.append(driver)
 	return driver
 
 
 func controller() -> MatchController:
-	return clip._controller
+	return clip.get(&"_controller")
 
 
 func seat() -> BotTowerSeat:
-	return clip._seat
+	return clip.get(&"_seat")
 
 
 func camera() -> Camera3D:
-	return clip._camera
+	return clip.get(&"_camera")
 
 
 func elapsed() -> float:
-	return clip._elapsed
+	return clip.get(&"_elapsed")
 
 
 ## A dial from --set=key=value;..., or the clip's own option of that name.
 func option(key: String, fallback: Variant) -> Variant:
-	if clip._dials.has(key):
-		var raw: String = String(clip._dials[key])
+	var dials: Dictionary = clip.get(&"_dials")
+	if dials.has(key):
+		var raw: String = String(dials[key])
 		match typeof(fallback):
 			TYPE_INT:
 				return int(raw)
@@ -128,25 +129,25 @@ func option(key: String, fallback: Variant) -> Variant:
 				return raw == "true" or raw == "1" or raw == "yes"
 			_:
 				return raw
-	var value: Variant = clip._options.get(key, fallback)
+	var value: Variant = (clip.get(&"_options") as Dictionary).get(key, fallback)
 	return fallback if value == null or str(value) == "" else value
 
 
 ## The body --pov=runner rides and --track=victim follows.
 func stage_body(body: PlayerController) -> void:
-	clip._staged = body
+	clip.set(&"_staged", body)
 
 
 func victim_body(body: PlayerController) -> void:
-	clip._victim_body = body
+	clip.set(&"_victim_body", body)
 
 
 ## Raise a flag on every driver: a "wait_flag" step on it finishes.
 func flag_all(flag_name: String) -> void:
 	for driver: Node in drivers:
 		if is_instance_valid(driver):
-			driver.flag(flag_name)
+			driver.call(&"flag", flag_name)
 
 
 func say(message: String) -> void:
-	print("[stage] %6.2f  %s" % [clip._elapsed, message])
+	print("[stage] %6.2f  %s" % [clip.get(&"_elapsed"), message])

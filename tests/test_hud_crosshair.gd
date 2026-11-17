@@ -57,6 +57,6 @@ func test_a_runner_carries_no_rifle_so_sees_no_cross() -> void:
 
 func test_the_capture_crosshair_option_keeps_only_the_cross() -> void:
 	await _arm(true)
-	assert_true(STAGE_LIB.show_only_the_crosshair(_match), "the capture HUD option finds the HUD")
+	assert_true(STAGE_LIB.call(&"show_only_the_crosshair", _match), "the capture HUD option finds the HUD")
 	assert_true(_hud.crosshair.is_visible_in_tree(), "the cross is on")
 	assert_false(_hud.status_panel.visible, "and the rest of the HUD is off")

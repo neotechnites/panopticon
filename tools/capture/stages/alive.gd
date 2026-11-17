@@ -35,7 +35,7 @@ var _out: Vector3 = Vector3.ZERO
 var _focus: Vector3 = Vector3.ZERO
 var _lens_set: bool = false
 var _guard: PlayerController = null
-var _hand: Node = null
+var _hand: GUARD_HAND = null
 var _shots_fired: int = 0
 ## --set=layers=off films the clip alone, for a before and after.
 var _layers_on: bool = true
@@ -194,20 +194,20 @@ func _watch_flop(delta: float) -> void:
 	var ragdoll: Node = _body.get_node_or_null(^"Avatar/Ragdoll")
 	if ragdoll == null:
 		return
-	var limp: bool = ragdoll.is_flopping() or (_killed and ragdoll.is_active())
+	var limp: bool = ragdoll.call(&"is_flopping") or (_killed and ragdoll.call(&"is_active"))
 	if not limp:
 		if _flop_seconds > 0.0 and not _killed:
 			_flop_reported = true
 			say("flop: %.2f s limp, pelvis/chest at most %.3f m off the capsule line" % [_flop_seconds, _flop_worst])
 		return
 	_flop_seconds += delta
-	if not ragdoll.is_flopping():
+	if not ragdoll.call(&"is_flopping"):
 		if _flop_seconds > 2.5:
 			_flop_reported = true
 			say("flop: killed, pelvis/chest at most %.3f m off the capsule line while it flopped" % _flop_worst)
 		return
 	var feet: Vector3 = _body.global_position
-	var parts: PackedVector3Array = ragdoll.part_positions()
+	var parts: PackedVector3Array = ragdoll.call(&"part_positions")
 	for i: int in mini(parts.size(), 2):
 		var on_line: Vector3 = Geometry3D.get_closest_point_to_segment(parts[i], feet + Vector3.UP * 0.4, feet + Vector3.UP * 1.4)
 		_flop_worst = maxf(_flop_worst, parts[i].distance_to(on_line))

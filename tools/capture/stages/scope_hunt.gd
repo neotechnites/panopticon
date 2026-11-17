@@ -121,7 +121,7 @@ const SCAN_DEGREES: float = 7.0
 const SCAN_RADIUS: float = 48.5
 
 var _runners: Array[RunnerBrain] = []
-var _hand: Node = null
+var _hand: GUARD_HAND = null
 var _guard: PlayerController = null
 var _kills: int = 0
 var _beat_now: int = -1

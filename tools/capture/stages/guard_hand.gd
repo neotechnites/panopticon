@@ -116,8 +116,8 @@ func _physics_process(delta: float) -> void:
 	# Which beat, and how far into it.
 	var k: int = 0
 	var into: float = t
-	while k < beats.size() - 1 and into >= float(beats[k].get("seconds", 1.7)):
-		into -= float(beats[k].get("seconds", 1.7))
+	while k < beats.size() - 1 and into >= float((beats[k] as Dictionary).get("seconds", 1.7)):
+		into -= float((beats[k] as Dictionary).get("seconds", 1.7))
 		k += 1
 	var beat: Dictionary = beats[k]
 	var fire_at: float = float(beat.get("fire_at", -1.0))

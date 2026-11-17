@@ -1129,7 +1129,7 @@ func _bind_layers() -> void:
 		return
 	for child: Node in (found[1] as Skeleton3D).get_children():
 		if child.has_method(&"bind_body"):
-			child.bind_body(body, _motion)
+			child.call(&"bind_body", body, _motion)
 
 
 ## One read of the body a frame, for every layer; dead fades them, the ragdoll stops them.

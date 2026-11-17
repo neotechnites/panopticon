@@ -416,9 +416,24 @@ func _make_rifle() -> Rifle:
 	var trigger: Node = rifle.get_node_or_null(^"HumanTrigger")
 	if trigger != null:
 		trigger.process_mode = Node.PROCESS_MODE_DISABLED
-	if controller != null:
-		rifle.rules = controller.get_rules()
+	rifle.rules = _aimed_rules()
 	return rifle
+
+
+## The match's rules with the hip-fire cone off: a staged round lands where it is aimed.
+func _aimed_rules() -> MatchRules:
+	var live: MatchRules = controller.get_rules() if controller != null else null
+	if live == null:
+		return null
+	var rules: MatchRules = live.duplicate() as MatchRules
+	rules.sniper_visit = live.sniper_visit
+	rules.guard_hip_spread_degrees = 0.0
+	var by_visit: PackedFloat32Array = rules.sniper_by_visit.duplicate()
+	if by_visit.size() == SniperKnobs.VISITS * SniperKnobs.COUNT:
+		for visit: int in SniperKnobs.VISITS:
+			by_visit[SniperKnobs.index(visit, SniperKnobs.Knob.HIP_SPREAD)] = 0.0
+		rules.sniper_by_visit = by_visit
+	return rules
 
 
 ## Fire one real round at [param body] from a clear side: into the chest, or past it on the side away from the player.

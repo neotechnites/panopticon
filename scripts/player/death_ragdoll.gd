@@ -135,7 +135,7 @@ func build(skeleton: Skeleton3D) -> bool:
 	skeleton.reset_bone_poses()
 	for bone: PhysicalBone3D in _bones:
 		bone.global_transform = skeleton.global_transform \
-			* skeleton.get_bone_global_pose(skeleton.find_bone(bone.bone_name)) * bone.body_offset
+			* skeleton.get_bone_global_pose(skeleton.find_bone(String(bone.get(&"bone_name")))) * bone.body_offset
 	for i: int in _bones.size():
 		_set_joint(_bones[i], PARTS[i][4])
 	for i: int in skeleton.get_bone_count():
@@ -398,7 +398,7 @@ func _make_part(part: Array, share: float) -> PhysicalBone3D:
 
 	var body: PhysicalBone3D = PhysicalBone3D.new()
 	body.name = String(part[0])
-	body.bone_name = String(part[0])
+	body.set(&"bone_name", String(part[0]))
 	body.body_offset = head.affine_inverse() * frame
 	body.joint_offset = Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, length * 0.5))
 	body.mass = maxf(body_mass * share, 0.1)

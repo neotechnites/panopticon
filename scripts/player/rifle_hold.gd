@@ -83,7 +83,7 @@ func _process_modification() -> void:
 
 func _modify() -> void:
 	var skeleton: Skeleton3D = get_skeleton()
-	if skeleton == null or lead == null or lead.anchors[0] == null:
+	if skeleton == null or lead == null or (lead.get(&"anchors") as Array)[0] == null:
 		return
 	match stage:
 		Stage.LEAN:
@@ -137,10 +137,12 @@ func _draw_in(skeleton: Skeleton3D) -> void:
 ## Turn each hand onto its anchor.
 func _lay_hands(skeleton: Skeleton3D) -> void:
 	var to_skeleton: Basis = skeleton.global_transform.basis.orthonormalized().inverse()
-	for i in 2:
-		var hand: int = lead.hands[i]
+	var lead_hands: PackedInt32Array = lead.get(&"hands")
+	var lead_anchors: Array = lead.get(&"anchors")
+	for i: int in 2:
+		var hand: int = lead_hands[i]
 		if hand < 0:
 			continue
 		var pose: Transform3D = skeleton.get_bone_global_pose(hand)
-		pose.basis = (to_skeleton * lead.anchors[i].global_transform.basis).orthonormalized()
+		pose.basis = (to_skeleton * (lead_anchors[i] as Node3D).global_transform.basis).orthonormalized()
 		skeleton.set_bone_global_pose(hand, pose)

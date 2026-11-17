@@ -89,8 +89,8 @@ func _audit_multiplayer(screen: MultiplayerScreen, root: Control, size: Vector2i
 	await _settle()
 	_audit("multiplayer (connect)", size, root)
 
-	screen.get_node("%ConnectPanels").visible = false
-	screen.get_node("%LobbyPanel").visible = true
+	(screen.get_node("%ConnectPanels") as Control).visible = false
+	(screen.get_node("%LobbyPanel") as Control).visible = true
 	(screen.get_node("%LobbyTitle") as Label).text = tr("MP_LOBBY_JOINED").format({"address": "192.168.100.200:27960"})
 	var rows: VBoxContainer = screen.get_node("%PlayerList")
 	for seat: int in 8:
@@ -167,8 +167,8 @@ func test_match_overlays() -> void:
 		_fill_result(result)
 		await _settle()
 		_audit("result", size, result.get_node("%Root") as Control)
-		result.get_node("%Root").visible = false
-		result.get_node("%Beat").visible = true
+		(result.get_node("%Root") as Control).visible = false
+		(result.get_node("%Beat") as Control).visible = true
 		await _settle()
 		_audit("result beat", size, result.get_node("%Beat") as Control)
 
@@ -270,8 +270,8 @@ func _fill_result(result: MatchResultScreen) -> void:
 	(result.get_node("%BeatVerdict") as Label).text = tr("RESULT_MATCH_OVER")
 	(result.get_node("%BeatHeadline") as Label).text = headline
 	(result.get_node("%BeatHint") as Label).visible = true
-	result.get_node("%Beat").visible = false
-	result.get_node("%Root").visible = true
+	(result.get_node("%Beat") as Control).visible = false
+	(result.get_node("%Root") as Control).visible = true
 
 
 func _arm_round_card(card: RoundTransitionScreen) -> Control:

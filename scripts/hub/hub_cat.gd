@@ -335,7 +335,7 @@ func _carry_transform() -> Transform3D:
 
 
 func _physics_process(_delta: float) -> void:
-	if not multiplayer.is_server() or _state == State.REST:
+	if _state == State.REST or not _is_authority():
 		return
 	if _state == State.HELD:
 		if not is_instance_valid(_carrier) or not _carrier.is_inside_tree():
@@ -371,6 +371,12 @@ func _settle(where: Transform3D) -> void:
 	global_transform = where
 	if _networked():
 		rpc(&"_rest", where.origin, where.basis.get_euler().y)
+
+
+## True on the machine that moves the cat: the host, or a game with no session. A session that
+## has just closed leaves no peer at all, and nobody moves the cat for it.
+func _is_authority() -> bool:
+	return multiplayer.multiplayer_peer != null and multiplayer.is_server()
 
 
 func _networked() -> bool:

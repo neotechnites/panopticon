@@ -52,6 +52,12 @@ func before_each() -> void:
 	# An AI takes the tower through the scoring seam; the human runs the round.
 	participants[1].tracker.lap_finished.emit(30.0, 240.0)
 	await step_ticks(SETTLE_TICKS)
+	# The bot guard's trigger is stopped: it puts two rounds at the standing body inside one test,
+	# and a hit ends the body the power is being measured on.
+	if participants[1].tower_brain != null:
+		participants[1].tower_brain.set_physics_process(false)
+		if participants[1].tower_brain.input != null:
+			participants[1].tower_brain.input.command.clear()
 	assert_true(_human.is_running, "the human runs the round")
 	assert_not_null(_ability, "the body carries an ability node")
 

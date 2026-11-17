@@ -33,7 +33,7 @@ const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const SPARE_DEG: float = 58.0
 
 var _bodies: Array = []
-var _hand: Node = null
+var _hand: GUARD_HAND = null
 ## Where the first runner is placed, for the scope's rest: the bodies are still
 ## on their spawn the tick the hand is made (a driver places on its first
 ## physics tick), so the park comes from the dials, never from a body.

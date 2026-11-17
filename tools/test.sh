@@ -22,6 +22,16 @@ if [ -z "$GODOT" ] || [ ! -x "$GODOT" ]; then
   exit 2
 fi
 
+# Everything below runs with its own HOME, so user:// is a fresh empty directory and the
+# gate neither reads nor writes the settings of whoever runs it. Removed on exit.
+TEST_HOME="$(mktemp -d -t panopticon-home)"
+if [ -z "$TEST_HOME" ] || [ ! -d "$TEST_HOME" ]; then
+  echo "test.sh: could not make an isolated HOME" >&2
+  exit 2
+fi
+export HOME="$TEST_HOME" XDG_DATA_HOME="$TEST_HOME" XDG_CONFIG_HOME="$TEST_HOME" XDG_CACHE_HOME="$TEST_HOME"
+export APPDATA="$TEST_HOME" LOCALAPPDATA="$TEST_HOME"
+
 # Global class names (class_name) live in .godot/, which is gitignored, so a
 # branch that adds one arrives with a cache that does not know it and every
 # script referencing the new type fails to parse. One headless editor pass
@@ -31,7 +41,7 @@ fi
 LOG="$(mktemp -t panopticon-tests)"
 AUDIT_LOG="$(mktemp -t panopticon-hotpaths)"
 I18N_LOG="$(mktemp -t panopticon-i18n)"
-trap 'rm -f "$LOG" "$AUDIT_LOG" "$I18N_LOG"' EXIT
+trap 'rm -f "$LOG" "$AUDIT_LOG" "$I18N_LOG"; rm -rf "$TEST_HOME"' EXIT
 
 if [ $# -gt 0 ]; then
   "$GODOT" --headless --path . --script res://tools/run_tests.gd -- "--only=$1" >"$LOG" 2>&1

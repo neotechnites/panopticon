@@ -48,14 +48,15 @@ const EXPECTED_ACTIONS: Array[StringName] = [
 	&"ability_2",
 	&"ability_3",
 	&"ability_4",
+	&"ability_5",
+	&"emote",
 	&"fire",
 	&"zoom",
 ]
 
-## Index of the Controls tab in the authored [TabContainer]. Fourth of five:
-## Match, Game, Audio, Video, Controls, in the order they are authored in
-## ui/settings_screen.tscn.
-const CONTROLS_TAB: int = 4
+## Name of the Controls tab's node in ui/settings_screen.tscn. Found by name, not by index:
+## 34353f48 put a Sniper tab ahead of it and a counted index opened the wrong tab.
+const CONTROLS_TAB_NAME: String = "Controls"
 
 ## Frames to let a container settle. Godot sorts containers on a deferred call,
 ## and a tab that has just been revealed has not been laid out yet -- reading
@@ -67,6 +68,9 @@ var _viewport: SubViewport = null
 var _screen: SettingsScreen = null
 var _tabs: TabContainer = null
 var _panel: KeybindPanel = null
+
+## Index of the Controls tab in the authored [TabContainer], read off the scene on open.
+var _controls_tab: int = -1
 
 
 ## Where the shared store is pointed while this file runs. A rebind saves to
@@ -188,11 +192,20 @@ func test_the_columns_line_up_across_every_row() -> void:
 ## and was free to crush it -- which it did, slicing the last row in half under
 ## the footer.
 func test_the_table_stays_inside_its_panel_when_the_window_resizes() -> void:
+	var scroll: ScrollContainer = _panel.find_child("Scroll", true, false) as ScrollContainer
 	for size: Vector2i in [SMALLEST_SUPPORTED, REPORTED_ON, Vector2i(1600, 900)]:
 		await _resize(size)
 		var bounds: Rect2 = _visible_rect(_panel)
+		assert_true(
+			_visible_rect(_screen).grow(1.0).encloses(bounds),
+			"at %s, the keybind panel at %s is inside the screen" % [size, bounds],
+		)
 		for i: int in EXPECTED_ACTIONS.size():
 			var cell: Control = _cell(EXPECTED_ACTIONS[i], 0)
+			# The list is longer than the panel since 825e0ebf's emote row, so the last rows are
+			# reached by scrolling; a row is judged where the scroll puts it when asked to show it.
+			scroll.ensure_control_visible(cell)
+			await step_ticks(1)
 			var rect: Rect2 = _visible_rect(cell)
 			assert_true(
 				bounds.grow(1.0).encloses(rect),
@@ -212,7 +225,7 @@ func test_the_keybind_panel_asks_for_the_room_it_needs() -> void:
 	assert_gt(minimum.x, 0.0, "the keybind panel declares a minimum width")
 	assert_gt(minimum.y, 0.0, "the keybind panel declares a minimum height")
 
-	var tab: Control = _tabs.get_tab_control(CONTROLS_TAB)
+	var tab: Control = _tabs.get_tab_control(_controls_tab)
 	assert_ge(
 		tab.get_combined_minimum_size().x, minimum.x,
 		"the Controls tab reserves at least the width the table needs",
@@ -483,7 +496,8 @@ func _open_settings_at(size: Vector2i) -> void:
 	await step_ticks(1)
 
 	_tabs = _find_tab_container(_screen)
-	_tabs.current_tab = CONTROLS_TAB
+	_controls_tab = _tabs.get_tab_idx_from_control(_tabs.get_node(CONTROLS_TAB_NAME) as Control)
+	_tabs.current_tab = _controls_tab
 	_panel = _screen.find_child("KeybindPanel", true, false) as KeybindPanel
 	await step_ticks(SETTLE_FRAMES)
 

@@ -71,12 +71,12 @@ func _run() -> int:
 		printerr("audit_i18n: cannot read %s" % CSV_PATH)
 		return EXIT_BROKEN
 	print("PANOPTICON i18n audit")
-	print("  table      %s (%d keys)" % [CSV_PATH, report["table"].size()])
+	print("  table      %s (%d keys)" % [CSV_PATH, (report["table"] as Dictionary).size()])
 	print("  references %s" % ", ".join(REFERENCE_ROOTS))
 	print("  ui scenes  %s" % ", ".join(UI_SCENE_ROOTS))
 	print("")
-	if args.has(LIST_FLAG) and not report["skips"].is_empty():
-		print("Raw on purpose (%d):" % report["skips"].size())
+	if args.has(LIST_FLAG) and not (report["skips"] as Array).is_empty():
+		print("Raw on purpose (%d):" % (report["skips"] as Array).size())
 		for row: Dictionary in report["skips"]:
 			print("  %s:%d  -- %s" % [row["path"], row["line"], row["reason"]])
 		print("")
@@ -87,7 +87,7 @@ func _run() -> int:
 	hits += _print_rows("Raw text in a UI scene", report["raw"])
 	if hits == 0:
 		print("CLEAN  %d keys, %d referenced, %d lines raw on purpose" % [
-			report["table"].size(), report["referenced"].size(), report["skips"].size(),
+			(report["table"] as Dictionary).size(), (report["referenced"] as Dictionary).size(), (report["skips"] as Array).size(),
 		])
 		return EXIT_OK
 	print("DIRTY  %d problems" % hits)
@@ -131,18 +131,18 @@ static func scan() -> Dictionary:
 			_collect_references(path, referenced, report["skips"])
 	for key: String in referenced:
 		if not table.has(key):
-			report["missing"].append("%s  (%s)" % [key, ", ".join(referenced[key])])
+			(report["missing"] as Array).append("%s  (%s)" % [key, ", ".join(referenced[key])])
 	for key: String in table:
 		if not referenced.has(key):
-			report["unused"].append(key)
+			(report["unused"] as Array).append(key)
 		if String(table[key]["xa"]).is_empty() or table[key]["xa"] == table[key]["en"]:
-			report["no_pseudo"].append(key)
+			(report["no_pseudo"] as Array).append(key)
 	for root: String in UI_SCENE_ROOTS:
 		for path: String in _paths_under(root, [".tscn"]):
 			_collect_raw_text(path, table, report["raw"])
-	report["missing"].sort()
-	report["unused"].sort()
-	report["no_pseudo"].sort()
+	(report["missing"] as Array).sort()
+	(report["unused"] as Array).sort()
+	(report["no_pseudo"] as Array).sort()
 	return report
 
 
@@ -196,7 +196,7 @@ static func _collect_references(path: String, referenced: Dictionary, skips: Arr
 				continue
 			if not referenced.has(key):
 				referenced[key] = []
-			referenced[key].append("%s:%d" % [path, number])
+			(referenced[key] as Array).append("%s:%d" % [path, number])
 
 
 static func _collect_raw_text(path: String, table: Dictionary, raw: Array) -> void:

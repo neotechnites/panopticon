@@ -69,7 +69,8 @@ func _process(delta: float) -> void:
 
 
 func _swim(school: Dictionary, delta: float) -> void:
-	var total: float = school.lengths[school.lengths.size() - 1]
+	var course: PackedFloat32Array = school.lengths
+	var total: float = course[course.size() - 1]
 	school.turn_in -= delta
 	if school.turn_in <= 0.0:
 		school.dir = -school.dir
@@ -89,7 +90,7 @@ func _swim(school: Dictionary, delta: float) -> void:
 		if d < SCARE_RADIUS and d > 0.01:
 			push += away / d * (1.0 - d / SCARE_RADIUS) * SCARE_PUSH
 	var scared := push.length_squared() > 0.01
-	school.flee = school.flee.lerp(push.limit_length(SCARE_PUSH), clampf(delta * (3.0 if scared else 0.4), 0.0, 1.0))
+	school.flee = (school.flee as Vector3).lerp(push.limit_length(SCARE_PUSH), clampf(delta * (3.0 if scared else 0.4), 0.0, 1.0))
 	var speed: float = school.speed * (1.0 + 0.3 * sin(_time * 0.37 + school.phase)) * (2.2 if scared else 1.0)
 	school.s = fposmod(school.s + speed * school.dir * delta, total)
 	var ahead := _at(school, fposmod(school.s + 0.5 * school.dir, total))

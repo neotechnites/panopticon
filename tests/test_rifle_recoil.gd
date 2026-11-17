@@ -22,6 +22,12 @@ const TARGET_HALF_DEPTH: float = 0.5
 ## [code]tests/test_weapon.gd[/code]'s [code]MODEL_MUZZLE[/code].
 const MODEL_MUZZLE: Vector3 = Vector3(0.0, 0.0, -0.9265)
 
+## Where each map keeps its own rules file.
+const MAPS_ROOT: String = "res://maps"
+
+## Tower visits walked when looking for the shortest shipped reload; escalation floors long before.
+const SHIPPED_TURNS: int = 64
+
 var _rifle: Rifle
 var _profile: WeaponProfile
 var _recoil: RifleRecoil
@@ -178,7 +184,8 @@ func test_the_muzzle_rides_the_model_through_the_whole_kick() -> void:
 ## per-frame lerp toward the target -- which would only ever approach it -- would
 ## fail this test where a closed-form decay does not.
 func test_the_view_model_returns_to_rest_after_many_shots_at_uneven_frame_rates() -> void:
-	_rifle.reload_seconds = _profile.min_reload_seconds
+	# The weapon's floor is the reload slider's 0.1 s minimum since ba375097; the base reload is what ships.
+	_rifle.reload_seconds = _profile.base_reload_seconds
 	var cycle: float = _profile.get_cycle_seconds(_rifle.reload_seconds)
 	var kick_duration: float = _profile.get_recoil_duration()
 	assert_lt(kick_duration, cycle, "the fixture's own numbers must leave room for a kick to finish")
@@ -214,15 +221,60 @@ func test_the_view_model_returns_to_rest_after_many_shots_at_uneven_frame_rates(
 
 # --- Timing budget --------------------------------------------------------------
 
-## The shipped numbers leave real margin before the fastest legal cycle, which is
-## what keeps a kick from ever being visible on a shot that has already been
-## fired again.
-func test_the_shipped_recoil_fits_well_inside_the_fastest_cycle() -> void:
-	var soonest: float = _profile.get_cycle_seconds(_profile.min_reload_seconds)
-	assert_lt(
-		_profile.get_recoil_duration(), soonest,
-		"the view-model kick must finish before the weapon can possibly fire again",
-	)
+## The shipped numbers leave real margin before the fastest cycle any shipped rules reach.
+##
+## Every rules file under res://, raw and with a default [GameSettings] applied, over more tower
+## visits than a match has. The weapon's own floor is not that cycle: ba375097 lowered it to the
+## per-visit reload slider's minimum, see [method test_a_reload_shorter_than_the_kick_restarts_it].
+func test_the_shipped_recoil_fits_well_inside_the_fastest_shipped_cycle() -> void:
+	var paths: PackedStringArray = _shipped_rules_paths()
+	assert_gt(float(paths.size()), 1.0, "the default rules and at least one map's own were found")
+	for path: String in paths:
+		var raw: MatchRules = (load(path) as MatchRules).duplicate() as MatchRules
+		var set_up: MatchRules = raw.duplicate() as MatchRules
+		GameSettings.new().apply_to_match_rules(set_up)
+		for rules: MatchRules in [raw, set_up]:
+			var soonest: float = INF
+			for turn: int in SHIPPED_TURNS:
+				soonest = minf(soonest, _profile.get_cycle_seconds(rules.get_reload_seconds_for_turn(
+					turn, _profile.base_reload_seconds, _profile.min_reload_seconds,
+				)))
+			assert_lt(
+				_profile.get_recoil_duration(), soonest,
+				"%s: the view-model kick must finish before the weapon fires again" % path,
+			)
+
+
+## A reload set below the kick's length fires mid-kick: the kick restarts and still lands on rest.
+func test_a_reload_shorter_than_the_kick_restarts_it() -> void:
+	_rifle.reload_seconds = _profile.min_reload_seconds
+	var cycle: float = _profile.get_cycle_seconds(_rifle.reload_seconds)
+	var kick_duration: float = _profile.get_recoil_duration()
+	assert_lt(cycle, kick_duration, "the slider's minimum really is shorter than the kick")
+	assert_true(_recoil.outlasts_reload(_rifle.reload_seconds), "which is the one case the rifle warns about")
+	assert_false(_recoil.outlasts_reload(_profile.base_reload_seconds), "and the shipped reload is not it")
+	var rest: Transform3D = _recoil.get_rest_transform()
+
+	for shot: int in range(6):
+		assert_true(_rifle.try_fire(), "shot %d is allowed the moment the short reload is served" % shot)
+		_recoil.tick(cycle)
+		assert_false(_recoil.is_at_rest(), "the kick from shot %d is still in flight" % shot)
+		_rifle.tick(cycle + 0.001)
+
+	_recoil.tick(kick_duration + 0.001)
+	assert_true(_recoil.is_at_rest(), "the last kick runs out once the firing stops")
+	assert_vec3_almost_eq(_view_model.position, rest.origin, 1e-5, "and the model is back on its rest position")
+	assert_true(_view_model.transform.is_equal_approx(rest), "on its authored rest transform exactly")
+
+
+## Every MatchRules file the game ships: the default rules and each map's own.
+func _shipped_rules_paths() -> PackedStringArray:
+	var found: PackedStringArray = PackedStringArray([TestFixtures.MATCH_RULES_PATH])
+	for map_dir: String in DirAccess.get_directories_at(MAPS_ROOT):
+		for file: String in DirAccess.get_files_at(MAPS_ROOT.path_join(map_dir)):
+			if file.ends_with("_match_rules.tres"):
+				found.append(MAPS_ROOT.path_join(map_dir).path_join(file))
+	return found
 
 
 func _on_fired(origin: Vector3, end_point: Vector3) -> void:
