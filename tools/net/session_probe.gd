@@ -147,6 +147,9 @@ func attach(net_session: NetSession) -> void:
 	lobby.join_refused.connect(func(peer: int, why: String) -> void: line("REFUSED peer=%d %s" % [peer, why]))
 	lobby.seat_occupancy_changed.connect(func(seat: int, occupancy: LobbySeat.Occupancy) -> void:
 		line("SEAT seat=s%d occupancy=%s" % [seat, String(LobbySeat.Occupancy.keys()[occupancy])]))
+	session.flow.host_lost.connect(func() -> void: line("NET host_lost"))
+	session.timed_out.connect(func(peer: int, state: NetLobby.PeerState) -> void:
+		line("TIMEOUT peer=%d state=%s" % [peer, String(NetLobby.PeerState.keys()[state])]))
 	session.session_ended.connect(func(failed: bool) -> void:
 		line("SESSION ended failed=%s" % str(failed))
 		if not is_server() and not finished:
@@ -270,7 +273,6 @@ func _adopt(scene: Node) -> void:
 	controller = found_controller
 	net_match = found
 	_hook_controller()
-	net_match.host_lost.connect(func() -> void: line("NET host_lost"))
 	net_match.match_bound.connect(_on_bound)
 	if net_match.has_started():
 		_on_bound(session.is_authority())

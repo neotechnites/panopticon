@@ -101,13 +101,11 @@ func _line(text: String) -> void:
 	print("DRV t=%.2f %s" % [(Time.get_ticks_msec() - _t0) / 1000.0, text])
 
 
-## The silence ceiling in force and each ENet peer's state and round trip, for reading a drop.
+## Each ENet peer's state and round trip, for reading a drop.
 func _wire() -> String:
 	if _session == null or _session.transport == null:
 		return ""
 	var text: String = ""
-	if _session.transport.has_method(&"get_silence_ceiling_seconds"):
-		text += " ceiling=%.0f" % float(_session.transport.call(&"get_silence_ceiling_seconds"))
 	var enet: ENetMultiplayerPeer = _session.multiplayer.multiplayer_peer as ENetMultiplayerPeer
 	if enet != null and enet.host != null:
 		for packet_peer: ENetPacketPeer in enet.host.get_peers():

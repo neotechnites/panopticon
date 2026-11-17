@@ -198,6 +198,11 @@ for map_name, map_id in MAPS.items():
         match(f"fault_stall{seconds}s_client_2p_{map_name}", 2, length, ["fault", "stall"], {"map": map_id, "seats": 4, "tower": 3},
               peer={"1": {"stall-at": 15, "stall-ms": seconds * 1000}},
               expect={"host": ["SEAT seat=s1 occupancy=BOT"], "host_lost": "in-match", "seat_to_bot": [1]})
+    # Frozen 12 s while STANDING: the host's own rule lets it go, and the client never drops the host.
+    match(f"fault_stall12s_client_2p_{map_name}", 2, 60, ["fault", "stall"], {"map": map_id, "seats": 4, "tower": 3},
+          peer={"1": {"stall-at": 15, "stall-ms": 12000}},
+          expect={"host": ["SEAT seat=s1 occupancy=BOT", "TIMEOUT peer=[0-9]+ state=STANDING"], "host_lost": "in-match",
+                  "seat_to_bot": [1], "never": ["TIMEOUT peer=1 state"]})
 
 # --- G. Leavers ----------------------------------------------------------------
 for map_name, map_id in MAPS.items():
@@ -209,7 +214,7 @@ for map_name, map_id in MAPS.items():
     match(f"quit_clientguard_leave_3p_{map_name}", 3, 60, ["leave", "guard"], {"map": map_id, "seats": 4, "tower": 1},
           peer={"1": {"quit-at": 15}}, expect={"host": ["SEAT seat=s1 occupancy=BOT"], "seat_to_bot": [1]})
     match(f"quit_client_launching_3p_{map_name}", 3, 50, ["leave"], {"map": map_id, "seats": 4, "tower": 3},
-          kill=[{"peer": 1, "when": "LOBBY phase=LAUNCHING", "after": 0}],
+          kill=[{"peer": 1, "when": "LOBBY phase=IN_MATCH", "after": 0}],
           expect={"host": ["SEAT seat=s1 occupancy=BOT"], "seat_to_bot": [1]})
     match(f"quit_host_leave_round_3p_{map_name}", 3, 60, ["leave", "host"], {"map": map_id, "seats": 4, "tower": 3},
           peer={"0": {"quit-at": 15}}, expect={"host_lost": "in-match"})
