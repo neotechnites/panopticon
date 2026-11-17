@@ -1,7 +1,7 @@
 class_name SessionFlow
 extends Node
 
-## The one owner of this machine's scene changes and session end: each epoch's scene is loaded threaded,
+## The one owner of this machine's scene changes and session end: each epoch's scene is loaded, put up,
 ## bound, warmed and acknowledged (LOADING to STANDING); the UI calls intents here and changes no scene.
 
 ## A new epoch wants [param path] standing on this machine; empty keeps the scene already up.
@@ -34,19 +34,14 @@ var _standing: bool = false
 var _in_match: bool = false
 ## A session scene has replaced the screen that started the session; ending must take it down.
 var _away: bool = false
-## The scene the current epoch wants, the epoch the threaded load in flight is for, and its paths.
+## The scene the current epoch wants.
 var _wanted_path: String = ""
-var _load_epoch: int = 0
-var _loading: PackedStringArray = PackedStringArray()
-## What the last load produced, held so the scene's own loads of the same paths hit the cache.
-var _loaded: Array[Resource] = []
 var _warmup: SceneWarmup = null
 ## Why the last session ended under a session scene; the menu takes it. Empty for a chosen leave.
 var _end_reason: StringName = &""
 
 
 func _ready() -> void:
-	set_process(false)
 	if session == null or session.lobby == null:
 		push_error("SessionFlow has no session and lobby; it cannot follow one.")
 		return
@@ -128,47 +123,20 @@ func _on_roster_changed() -> void:
 		_acknowledge(_epoch)
 		return
 	_away = true
-	if follows and _loading.is_empty():
-		_load()
+	if follows:
+		_place.call_deferred(_epoch)
 
 
-## Request the wanted scene, and for a match the map its rules name, on the loader's threads.
-func _load() -> void:
-	_load_epoch = _epoch
-	_loading = PackedStringArray([_wanted_path])
-	var rules: MatchRules = session.lobby.get_rules()
-	var map_path: String = MapCatalog.scene_path_for(rules.map_id) if _in_match and rules != null else ""
-	if not map_path.is_empty():
-		_loading.append(map_path)
-	for path: String in _loading:
-		ResourceLoader.load_threaded_request(path)
-	set_process(true)
-
-
-func _process(_delta: float) -> void:
-	for path: String in _loading:
-		if ResourceLoader.load_threaded_get_status(path) == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
-			return
-	_loaded.clear()
-	for path: String in _loading:
-		_loaded.append(ResourceLoader.load_threaded_get(path))
-	_loading.clear()
-	set_process(false)
-	if _load_epoch != _epoch:
-		# The lobby moved on while this loaded: load what it names now, if anything.
-		if _away and _epoch != 0:
-			_load()
-		return
-	_place(_loaded[0] as PackedScene)
-
-
-func _place(packed: PackedScene) -> void:
-	if packed == null:
-		push_error("SessionFlow could not load %s; leaving the session." % _wanted_path)
-		leave()
+## Load the scene of [param epoch] on the main thread and put it up, unless the lobby has moved on. The
+## machine is LOADING, so its silence is allowed: no game script runs beside a load (no loader deadlock).
+func _place(epoch: int) -> void:
+	if epoch != _epoch:
 		return
 	get_tree().paused = false
-	get_tree().change_scene_to_packed(packed)
+	var error: Error = get_tree().change_scene_to_file(_wanted_path)
+	if error != OK:
+		push_error("SessionFlow could not load %s (%s); leaving the session." % [_wanted_path, error_string(error)])
+		leave()
 
 
 ## The scene of [param epoch] has bound its bodies at [param scene]: warm it, then say it stands.
@@ -202,7 +170,6 @@ func _on_session_ended(failed: bool) -> void:
 	var match_stands: bool = _in_match and _standing
 	_epoch = 0
 	_standing = false
-	_loaded.clear()
 	_stop_warmup()
 	if not _away:
 		return
