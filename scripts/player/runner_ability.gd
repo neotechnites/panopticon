@@ -17,6 +17,10 @@ const CAMO_ALPHA: float = 0.25
 ## Whole-body camo tint: dark hell red.
 const CAMO_COLOR: Color = Color(0.55, 0.11, 0.06, 1.0)
 
+## Power [param which] stopped: "expired", "released", "unheld" (a starved command let the key go),
+## "spent" or "cancelled".
+signal ended(which: MatchRules.RunnerAbility, reason: StringName)
+
 @export var body: PlayerController
 
 var rules: MatchRules = null
@@ -105,26 +109,40 @@ func step(intent: MoveIntent, delta: float, authority: bool) -> void:
 		_cooldown = maxf(_cooldown - delta, 0.0)
 	if body == null or body.held:
 		return
+	var asked: int = intent.pressed & MoveIntent.ALL_POWER_KEYS
 	if _active == MatchRules.RunnerAbility.CAT_GRENADE:
 		# The cat's own fuse is the clock; a predicting client waits on the authority.
 		if is_instance_valid(_cat):
 			if intent.cook_pressed:
 				_cat.cook()
+				_rule(MoveIntent.COOK, &"ran")
 			_remaining = _cat.fuse_left
-		elif authority:
-			_end()
+		else:
+			_rule(intent.pressed & MoveIntent.COOK, &"no-cat")
+			if authority:
+				_end(&"spent")
+		_rule(asked, &"busy")
 		return
+	_rule(intent.pressed & MoveIntent.COOK, &"no-cat")
 	if _active != MatchRules.RunnerAbility.NONE:
 		_remaining -= delta
 		var released: bool = _active == MatchRules.RunnerAbility.ARMOR_LOCK and not intent.ability_held
 		# A predicting client's power runs out on the authority's word, not its own clock.
-		if (_remaining <= 0.0 and authority) or released:
-			_end()
+		if released:
+			_end(&"released" if intent.released & MoveIntent.ALL_POWER_KEYS != 0 else &"unheld")
+		elif _remaining <= 0.0 and authority:
+			_end(&"expired")
+		_rule(asked, &"busy")
 		return
-	if intent.ability_slot > 0:
-		activate(intent.ability_slot as MatchRules.RunnerAbility, authority)
-	elif intent.ability_pressed:
-		activate(MatchRules.RunnerAbility.NONE, authority)
+	var which: MatchRules.RunnerAbility = intent.ability_slot as MatchRules.RunnerAbility
+	if which != MatchRules.RunnerAbility.NONE or intent.ability_pressed:
+		_rule(asked, &"ran" if activate(which, authority) else refusal(which))
+
+
+## Tell the body what this command made of the keys in [param buttons]; nothing when none went down.
+func _rule(buttons: int, ruling: StringName) -> void:
+	if buttons != 0:
+		body.press_ruled.emit(buttons, ruling)
 
 
 ## Give this node the match's rules and reset it for a fresh placement.
@@ -138,12 +156,10 @@ func arm(match_rules: MatchRules, controller: MatchController) -> void:
 ## Start the selected power, as the deciding machine when [param authority] (it spawns the cat);
 ## false when none is selected, one is running, or the cooldown has not run out.
 func activate(which: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE, authority: bool = true) -> bool:
-	if rules == null or body == null or is_active() or _cooldown > 0.0:
+	if not refusal(which).is_empty():
 		return false
 	if which == MatchRules.RunnerAbility.NONE:
 		which = rules.runner_ability
-	if which == MatchRules.RunnerAbility.NONE:
-		return false
 	_active = which
 	_remaining = maxf(rules.ability_duration_seconds, 0.0)
 	match _active:
@@ -163,12 +179,28 @@ func activate(which: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE, a
 	return true
 
 
+## Why [method activate] would not start [param which] now, or empty when it would.
+func refusal(which: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE) -> StringName:
+	if rules == null or body == null:
+		return &"unarmed"
+	if is_active():
+		return &"busy"
+	if _cooldown > 0.0:
+		return &"cooldown"
+	if which == MatchRules.RunnerAbility.NONE and rules.runner_ability == MatchRules.RunnerAbility.NONE:
+		return &"unpicked"
+	return &""
+
+
 ## Tear the power down without starting a cooldown.
 func cancel() -> void:
+	var was: MatchRules.RunnerAbility = _active
 	_teardown()
 	_active = MatchRules.RunnerAbility.NONE
 	_presented = MatchRules.RunnerAbility.NONE
 	_remaining = 0.0
+	if was != MatchRules.RunnerAbility.NONE:
+		ended.emit(was, &"cancelled")
 
 
 ## Draw [param which] on a mirrored body: the same shield, shell and tint
@@ -268,7 +300,8 @@ func get_decoy() -> PlayerController:
 	return _decoy if is_instance_valid(_decoy) else null
 
 
-func _end() -> void:
+func _end(reason: StringName) -> void:
+	var was: MatchRules.RunnerAbility = _active
 	_teardown()
 	_active = MatchRules.RunnerAbility.NONE
 	_remaining = 0.0
@@ -279,6 +312,7 @@ func _end() -> void:
 		if rules != null
 		else 0.0
 	)
+	ended.emit(was, reason)
 
 
 func _teardown(keep_decoy: bool = false) -> void:
@@ -478,7 +512,7 @@ func _spawn_cat() -> void:
 func _on_cat_exploded() -> void:
 	_cat = null
 	if _active == MatchRules.RunnerAbility.CAT_GRENADE:
-		_end()
+		_end(&"spent")
 
 
 ## True while this body carries its own cat, so its swing is the throw.

@@ -260,6 +260,8 @@ func _why_not(key: String, me: MatchParticipant) -> String:
 			if power == null or power.get_shown() != MatchRules.RunnerAbility.CAT_GRENADE:
 				return "no-cat"
 		"b", "n":
+			if me.body.movement_locked:
+				return "locked"
 			if not me.body.is_on_floor():
 				return "airborne"
 			if me.body.velocity.length() > 0.3:

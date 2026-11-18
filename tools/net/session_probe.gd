@@ -25,6 +25,8 @@ const ISOLATION_ENV: String = "PANOPTICON_NET_ISOLATED"
 const PROBE_MAGIC: int = 0x5750
 const PROBE_SIZE: int = 18
 const WIRE_FLUSH_MS: int = 1000
+## The keys the press check follows from the client's PRESS to the host's ruling: powers, cook, emotes.
+const PRESS_BUTTONS: int = MoveIntent.ALL_POWER_KEYS | MoveIntent.COOK | MoveIntent.EMOTE | MoveIntent.EMOTE_ALT
 
 signal match_bound(authority: bool)
 ## A match, or a rematch of it, began on this machine.
@@ -70,6 +72,9 @@ var _probe_last_ms: int = 0
 var _wire_log: FileAccess = null
 var _wire_flushed_ms: int = 0
 var _wire_me: int = 0
+## Host: the bodies whose rulings, knocks, holds and power ends are logged, by instance id.
+var _ruled: Dictionary[int, bool] = {}
+var _press_dropped: bool = false
 
 
 
@@ -307,6 +312,7 @@ func _adopt(scene: Node) -> void:
 	_bound_ms = -1
 	_bound_here = false
 	_seen.clear()
+	_ruled.clear()
 	_state = ""
 	_result_showing = false
 	_scene_kind = "none"
@@ -422,7 +428,8 @@ func _install_actor() -> void:
 	actor.mute_keys = String(o["break"]) == "mute-keys"
 	actor.set_keys(String(o["hub-keys"]) if hub else String(o.keys))
 	actor.key_pressed.connect(_on_key_pressed)
-	actor.key_released.connect(func(key: String) -> void: line("RELEASE key=%s" % key))
+	actor.key_released.connect(func(key: String) -> void:
+		line("RELEASE key=%s frame=%d" % [key, Engine.get_physics_frames()]))
 	actor.role_changed.connect(func(role: String) -> void: line("ACTOR role=%s" % role))
 	actor.trigger_pulled.connect(_on_trigger_pulled)
 	actor.bind(controller, mine.body)
@@ -436,10 +443,58 @@ func _install_actor() -> void:
 func _on_key_pressed(key: String, valid: bool, note: String) -> void:
 	var mine: MatchParticipant = controller.get_human_participant()
 	var power: RunnerPower = RunnerPower.of(mine.body) if mine != null and mine.body != null else null
-	line("PRESS key=%s seat=%s valid=%d note=%s role=%s phase=%s sim=%d shown=%d" % [key, _seat_of(mine), int(valid),
+	line("PRESS key=%s seat=%s valid=%d note=%s role=%s phase=%s sim=%d shown=%d frame=%d" % [key, _seat_of(mine), int(valid),
 		note if not note.is_empty() else "ok", mine.get_role_name() if mine != null else "none", controller.get_phase_name(),
 		int(mine != null and mine.body != null and _simulated(mine.body)),
-		int(power.get_shown()) if power != null else -1])
+		int(power.get_shown()) if power != null else -1, Engine.get_physics_frames()])
+
+
+# --- Press accounting -----------------------------------------------------------
+# A client logs each command it sends with a press or release in it (SENT, by sequence); the host logs
+# what each command it ran made of its presses (RULE), and the host events that can overrule a press the
+# client could not yet see: holds, knocks and power ends. tools/net/check_session.py joins them by sequence.
+
+## Client: the sequence and the edges of a command this machine sent.
+func _on_command_sent(seq: int, command: MoveIntent) -> void:
+	if (command.pressed | command.released) & PRESS_BUTTONS == 0:
+		return
+	line("SENT seat=%s peer=%d seq=%d frame=%d pressed=%d released=%d" % [_seat_of(controller.get_human_participant()),
+		session.get_local_peer_id(), seq, Engine.get_physics_frames(), command.pressed & PRESS_BUTTONS,
+		command.released & PRESS_BUTTONS])
+
+
+## Host: start logging what [param body] does with its commands, once per body.
+func _watch_rulings(body: PlayerController) -> void:
+	if _ruled.has(body.get_instance_id()):
+		return
+	_ruled[body.get_instance_id()] = true
+	body.press_ruled.connect(func(buttons: int, ruling: StringName) -> void:
+		if buttons & PRESS_BUTTONS != 0:
+			var running: RunnerPower = RunnerPower.of(body)
+			line("RULE seat=%s %s pressed=%d ruling=%s ability=%d" % [_seat_of_body(body), _command_of(body),
+				buttons & PRESS_BUTTONS, ruling, int(running.get_active()) if running != null else 0]))
+	body.launched.connect(func(velocity_vector: Vector3) -> void:
+		line("KNOCK seat=%s frame=%d speed=%.1f" % [_seat_of_body(body), Engine.get_physics_frames(), velocity_vector.length()]))
+	body.held_changed.connect(func(hold: bool) -> void:
+		line("HOLD seat=%s frame=%d on=%d" % [_seat_of_body(body), Engine.get_physics_frames(), int(hold)]))
+	var power: RunnerPower = RunnerPower.of(body)
+	if power != null:
+		power.ended.connect(func(which: MatchRules.RunnerAbility, reason: StringName) -> void:
+			line("PWEND seat=%s %s ability=%d reason=%s" % [_seat_of_body(body), _command_of(body), int(which), reason]))
+
+
+func _seat_of_body(body: PlayerController) -> String:
+	return _seat_of(controller.resolve_participant(body)) if is_instance_valid(controller) else "none"
+
+
+## The command [param body] is running: its peer and sequence off the wire (-1 from a local source), the
+## physics frame, and whether it is one the client sent (0: a starved stream's released stand-in).
+func _command_of(body: PlayerController) -> String:
+	var link: PlayerNetLink = PlayerNetLink.of(body)
+	var stream: CommandStream = body.intent_source as CommandStream
+	return "peer=%d seq=%d frame=%d real=%d" % [link.owner_peer_id if link != null else 0,
+		stream.get_ack() if stream != null else -1, Engine.get_physics_frames(),
+		int(stream == null or stream.get_state() == CommandStream.State.RUNNING)]
 
 
 ## The actor pulled the trigger: on the host as on a client, its command carries the pull to the rifle.
@@ -478,6 +533,8 @@ func _watch_bodies() -> void:
 	for p: MatchParticipant in controller.get_participants_ref():
 		if p.body == null:
 			continue
+		if session.is_authority():
+			_watch_rulings(p.body)
 		var seat: String = _seat_of(p)
 		var power: RunnerPower = RunnerPower.of(p.body)
 		var shown: int = int(power.get_shown()) if power != null else 0
@@ -503,6 +560,9 @@ func _watch_bodies() -> void:
 			elif _seen.get("cat" + seat, "gone") != "gone":
 				var last: Array = _cats_seen.get(p.index, [false, 0.0])
 				_note("cat" + seat, "gone", "CATHOST seat=%s held=0 was_cooking=%d fuse_was=%.2f" % [seat, int(last[0]), float(last[1])])
+	var link: PlayerNetLink = net_match.get_local_link()
+	if not session.is_authority() and link != null and not link.command_sent.is_connected(_on_command_sent):
+		link.command_sent.connect(_on_command_sent)
 	if not session.is_authority():
 		var relay: CatGrenadeRelay = CatGrenadeRelay.of(session)
 		cats = relay._shown.size() if relay != null else 0
@@ -674,8 +734,29 @@ func _sample() -> void:
 			int(stats.get("spells", 0)), float(stats.get("spell_ms", 0.0))])
 
 
-func _on_intent_in(_peer: int, _tick_number: int) -> void:
+func _on_intent_in(peer: int, _tick_number: int) -> void:
 	_intents_in += 1
+	if String(o["break"]) == "drop-press" and not _press_dropped and _scene_kind == "match" and match_seconds() >= float(o["break-at"]):
+		_drop_press(session.replicator._streams.get(peer, null) as CommandStream)
+
+
+## --break=drop-press: the host throws away the first command a client pressed a power key in, as a
+## stream past its resend cap does (the skip in [method CommandStream.receive]), and runs on from the next.
+func _drop_press(stream: CommandStream) -> void:
+	if stream == null:
+		return
+	var buttons: int = stream._last.buttons
+	for i: int in stream.get_backlog():
+		var seq: int = stream._last_run + 1 + i
+		var command: MoveIntent = stream._ring[seq % CommandStream.RING]
+		if command.buttons & ~buttons & MoveIntent.ALL_POWER_KEYS != 0:
+			for skipped: int in range(stream._last_run + 1, seq + 1):
+				stream._held[skipped % CommandStream.RING] = -1
+			stream._last_run = seq
+			_press_dropped = true
+			line("BREAK kind=drop-press seq=%d" % seq)
+			return
+		buttons = command.buttons
 
 
 func _clip_of(body: PlayerController) -> String:

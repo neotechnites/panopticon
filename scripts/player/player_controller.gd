@@ -79,6 +79,16 @@ signal crouch_changed(crouching: bool)
 ## or ends. [param remaining] is seconds left, 0.0 on the tick it ends.
 signal speed_boost_changed(remaining: float)
 
+## What this command did with the keys that went down in it ([param buttons], [MoveIntent] bits):
+## "ran", "on", "alt", "off", or the rule that refused them ("held", "airborne", ...).
+signal press_ruled(buttons: int, ruling: StringName)
+
+## Emitted when [method launch] throws this body: a shove, a cat's blast, a boost pad.
+signal launched(velocity_vector: Vector3)
+
+## Emitted when [method set_held] changes whether the match holds this body.
+signal held_changed(hold: bool)
+
 ## Tunables. Without one the body cannot move and says so rather than falling
 ## back on invented numbers.
 @export var profile: MovementProfile
@@ -187,6 +197,7 @@ var _jump_buffer_timer: float = 0.0
 var _speed_boost_multiplier: float = 1.0
 ## Dev turbo (T held) ground multiplier.
 const TURBO_MULTIPLIER: float = 3.0
+const EMOTE_KEYS: int = MoveIntent.EMOTE | MoveIntent.EMOTE_ALT
 var _speed_boost_timer: float = 0.0
 
 ## Downward speed on the last airborne tick, reported by [signal landed].
@@ -269,7 +280,9 @@ var _headroom_query: PhysicsShapeQueryParameters3D = null
 
 ## The match holds this body or lets it go. A held body still takes its commands and moves nothing.
 func set_held(hold: bool) -> void:
-	held = hold
+	if hold != held:
+		held = hold
+		held_changed.emit(hold)
 
 
 func _ready() -> void:
@@ -301,6 +314,9 @@ func run_command(command: MoveIntent, delta: float) -> void:
 	_intent.normalise()
 	if not held:
 		_move(delta)
+	elif _intent.pressed != 0:
+		# PM_FREEZE: nothing below acts on a press while held.
+		press_ruled.emit(_intent.pressed, &"held")
 	# The machine that decides: the session's authority (or no session), and never a prediction.
 	var authority: bool = not net_predicted and (multiplayer.multiplayer_peer == null or multiplayer.is_server())
 	var power: RunnerPower = RunnerPower.of(self)
@@ -315,6 +331,8 @@ func run_command(command: MoveIntent, delta: float) -> void:
 func _move(delta: float) -> void:
 	if movement_locked:
 		velocity = Vector3.ZERO
+		if _intent.pressed & EMOTE_KEYS != 0:
+			press_ruled.emit(_intent.pressed & EMOTE_KEYS, &"locked")
 		return
 
 	# Aim first, so this tick's wish direction reflects this tick's facing.
@@ -691,13 +709,31 @@ func set_emote_state(emoting: bool, alt: bool) -> void:
 
 ## The emote key toggles it on the floor; any move, jump, slide, crouch or leaving the floor ends it.
 func _update_emote(on_floor: bool) -> void:
-	if _intent.emote_pressed or _intent.emote_alt_pressed:
+	var asked: int = _intent.pressed & EMOTE_KEYS
+	if asked != 0:
 		var alt: bool = _intent.emote_alt_pressed
 		_emoting = not (_emoting and _emote_alt == alt)
 		_emote_alt = alt
 	var moved: bool = _intent.move_direction.length_squared() > 0.0 or _intent.jump_pressed or _intent.slide_held
 	if moved or _sliding or _crouching or not on_floor:
 		_emoting = false
+	if asked != 0:
+		press_ruled.emit(asked, _emote_ruling(on_floor, moved))
+
+
+## What [method _update_emote] made of an emote press: the emote it is in now, or what ended it.
+func _emote_ruling(on_floor: bool, moved: bool) -> StringName:
+	if not on_floor:
+		return &"airborne"
+	if moved:
+		return &"moved"
+	if _sliding:
+		return &"sliding"
+	if _crouching:
+		return &"crouching"
+	if not _emoting:
+		return &"off"
+	return &"alt" if _emote_alt else &"on"
 
 
 ## The swing gate, per command: the cooldown runs, and a shove press tries [method try_swing].
@@ -820,6 +856,7 @@ func launch(velocity_vector: Vector3, air_lock_seconds: float = 0.0) -> void:
 	_pending_launch = velocity_vector
 	_has_pending_launch = true
 	_air_lock_timer = maxf(air_lock_seconds, 0.0)
+	launched.emit(velocity_vector)
 
 
 ## Seconds of air control still denied by the last launch; zero when the body may steer.
