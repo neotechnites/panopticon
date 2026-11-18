@@ -56,8 +56,7 @@ signal died()
 ## Emitted when [MatchController] puts this body back in the world: a round's placement, a ghost's respawn.
 signal revived()
 
-## Emitted on the tick this body shoves somebody, by [method
-## MatchController.apply_shove]. The costume's shove clip hangs off it.
+## Emitted on the tick this body swings a shove (see [method _swing]). The costume's shove clip hangs off it.
 signal shoved()
 
 ## Emitted on the tick a slide opens, carrying the horizontal speed the body has
@@ -268,10 +267,9 @@ var _headroom_shape: CapsuleShape3D = null
 var _headroom_query: PhysicsShapeQueryParameters3D = null
 
 
-## The match holds this body or lets it go; [param simulate] is whether this machine then runs it.
-func set_held(hold: bool, simulate: bool = true) -> void:
+## The match holds this body or lets it go. A held body still takes its commands and moves nothing.
+func set_held(hold: bool) -> void:
 	held = hold
-	set_physics_process(simulate and not hold)
 
 
 func _ready() -> void:
@@ -287,11 +285,33 @@ func _ready() -> void:
 	_adopt_profile()
 
 
+## One tick: every command the source has due, each run whole, or the intent set from outside.
 func _physics_process(delta: float) -> void:
-	if intent_source != null:
-		set_intent(intent_source.poll(delta))
-	_intent.normalise()
+	if intent_source == null:
+		run_command(_intent, delta)
+		return
+	for _i: int in intent_source.commands_due():
+		run_command(intent_source.next_command(delta), delta)
 
+
+## Run one command (Quake's ClientThink): the move, the power, the swing gate, then the match's
+## half ([member match_step]). The single entry point for every seat on every machine.
+func run_command(command: MoveIntent, delta: float) -> void:
+	set_intent(command)
+	_intent.normalise()
+	if not held:
+		_move(delta)
+	var authority: bool = not net_predicted
+	var power: RunnerPower = RunnerPower.of(self)
+	if power != null:
+		power.step(_intent, delta, authority)
+	var swung: bool = _swing(delta)
+	if match_step.is_valid():
+		match_step.call(_intent, swung, authority)
+
+
+## The movement half of a command. A held body (Quake's PM_FREEZE) does not run it.
+func _move(delta: float) -> void:
 	if movement_locked:
 		velocity = Vector3.ZERO
 		return
@@ -394,7 +414,8 @@ func _physics_process(delta: float) -> void:
 ## a bot harness stepping the physics by hand, or a replay. Must be called
 ## before the physics tick that should act on it.
 func set_intent(intent: MoveIntent) -> void:
-	_intent.copy_from(intent)
+	if intent != _intent:
+		_intent.copy_from(intent)
 
 
 ## The intent this tick was driven by. Owned by the controller; read, do not keep.
@@ -477,8 +498,16 @@ var net_emote: int = -1
 var net_predicted: bool = false
 
 ## True while the match holds this body still: placed, dead or frozen. Written through
-## [method set_held]; [PlayerNetLink] reads it, so taking a role over never wakes a held body.
+## [method set_held]; a held body runs its commands and moves nothing.
 var held: bool = false
+
+## Seconds before this body may swing again. Predicted state: its owner runs the same gate.
+var shove_cooldown_remaining: float = 0.0
+## What a swing costs now in cooldown seconds, or below zero when the match will not let this body
+## swing; set by [MatchController]. Unset, the body never swings.
+var swing_cost: Callable
+## The match's half of each command: (command, swung, authority). Set by [MatchController].
+var match_step: Callable
 
 
 ## Where the VIEW is drawn relative to the body, in world space. The body is not
@@ -490,7 +519,7 @@ var held: bool = false
 var view_offset: Vector3 = Vector3.ZERO
 
 ## Floats in a captured motion state. See [method capture_motion_state].
-const MOTION_STATE_SIZE: int = 22
+const MOTION_STATE_SIZE: int = 23
 
 
 ## This body's mutable movement state -- the timers, the stance, the slide and
@@ -524,6 +553,7 @@ func capture_motion_state(out: PackedFloat32Array) -> void:
 	out[19] = _landing_release_timer
 	out[20] = 1.0 if _emoting else 0.0
 	out[21] = 1.0 if _emote_alt else 0.0
+	out[22] = shove_cooldown_remaining
 
 
 ## Put a state from [method capture_motion_state] back on the body. A wrongly
@@ -551,6 +581,7 @@ func restore_motion_state(values: PackedFloat32Array) -> void:
 	_landing_release_timer = values[19]
 	_emoting = values[20] > 0.5
 	_emote_alt = values[21] > 0.5
+	shove_cooldown_remaining = values[22]
 	if head != null:
 		head.rotation.x = _pitch
 	# The capsule is sized from the stance, so a restored crouch has to resize
@@ -558,14 +589,14 @@ func restore_motion_state(values: PackedFloat32Array) -> void:
 	_apply_stance()
 
 
-## Run one physics tick on [param intent] rather than on [member intent_source].
-## The replay half of client-side prediction; see [PlayerNetLink].
+## Replay one of this body's own commands: the move and the swing gate, which the motion state
+## restores. Nothing authoritative, and not the power, whose state is not restored. See [PlayerNetLink].
 func simulate_tick(intent: MoveIntent, delta: float) -> void:
-	var source: IntentSource = intent_source
-	intent_source = null
 	set_intent(intent)
-	_physics_process(delta)
-	intent_source = source
+	_intent.normalise()
+	if not held:
+		_move(delta)
+	_swing(delta)
 
 
 ## Start (or refresh) a timed ground-speed boost -- a race power-up. Ground max
@@ -658,18 +689,33 @@ func set_emote_state(emoting: bool, alt: bool) -> void:
 
 
 ## The emote key toggles it on the floor; any move, jump, slide, crouch or leaving the floor ends it.
-## [member MoveIntent.emote_state] sets it outright: an owner on the wire ran the toggle itself.
 func _update_emote(on_floor: bool) -> void:
-	if _intent.emote_state >= 0:
-		_emoting = _intent.emote_state > 0
-		_emote_alt = _intent.emote_state == 2
-	elif _intent.emote_pressed or _intent.emote_alt_pressed:
+	if _intent.emote_pressed or _intent.emote_alt_pressed:
 		var alt: bool = _intent.emote_alt_pressed
 		_emoting = not (_emoting and _emote_alt == alt)
 		_emote_alt = alt
 	var moved: bool = _intent.move_direction.length_squared() > 0.0 or _intent.jump_pressed or _intent.slide_held
 	if moved or _sliding or _crouching or not on_floor:
 		_emoting = false
+
+
+## The swing gate, per command: the cooldown runs, and a shove press tries [method try_swing].
+func _swing(delta: float) -> bool:
+	shove_cooldown_remaining = maxf(shove_cooldown_remaining - delta, 0.0)
+	return _intent.shove_pressed and try_swing()
+
+
+## Swing now if unheld, unarmed, off cooldown and the match willing: spend the cooldown and draw
+## the swing. Whether it lands is the authority's. True when the body swung.
+func try_swing() -> bool:
+	if held or is_armed or shove_cooldown_remaining > 0.0:
+		return false
+	var cost: float = float(swing_cost.call()) if swing_cost.is_valid() else -1.0
+	if cost < 0.0:
+		return false
+	shove_cooldown_remaining = cost
+	shoved.emit()
+	return true
 
 
 ## The collision capsule's current height in metres -- the standing height, or
@@ -867,7 +913,7 @@ func _try_begin_slide(on_floor: bool) -> void:
 ##
 ## [b]Why the intent and not the velocity.[/b] The discriminator reads
 ## [MoveIntent] and the body's own speed and nothing else, so it is identical for
-## a hand on a keyboard, a [BotIntentSource] and a [RemoteIntentSource] replaying
+## a hand on a keyboard, a [BotIntentSource] and a [CommandStream] replaying
 ## a peer's commands -- there is no branch anywhere that asks what kind of thing
 ## is driving. Reading the velocity's alignment with the facing instead would
 ## make the answer depend on which way the mouse had been turned since, so a

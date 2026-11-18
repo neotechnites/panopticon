@@ -234,7 +234,7 @@ func _a_guards_shot_lands_where_the_guard_drew_it(
 			func(_from: Vector3, _to: Vector3) -> void:
 				shots[peer] += 1
 				if peer == HOST:
-					lag.append(host_rifle.lag_ticks)
+					lag.append(host_rifle.get_shot_lag_ticks())
 					fired_on.append(replicator.get_tick())
 		)
 		rifle.target_hit.connect(
@@ -250,7 +250,9 @@ func _a_guards_shot_lands_where_the_guard_drew_it(
 	var steady: int = 0
 	var aimed_at: Vector3 = Vector3.ZERO
 	var truly_at: Vector3 = Vector3.ZERO
-	var drawn_was: Vector3 = drawn.global_position
+	# Where the guard's machine draws the body: a client draws the body itself, the host its avatar.
+	var drawn_link: PlayerNetLink = PlayerNetLink.of(drawn)
+	var drawn_was: Vector3 = drawn_link.drawn_position()
 	var pressed: bool = false
 	for tick: int in 1200:
 		var forward: bool = (tick / LEG_TICKS) % 2 == 0
@@ -259,10 +261,10 @@ func _a_guards_shot_lands_where_the_guard_drew_it(
 		if run == Run.JUMP:
 			legs.command.jump_pressed = real.is_on_floor()
 		steady = steady + 1 if tick % LEG_TICKS != 0 else 0
-		var chest: Vector3 = drawn.global_position + Vector3.UP * CHEST
+		var chest: Vector3 = drawn_link.drawn_position() + Vector3.UP * CHEST
 		var really: Vector3 = real.global_position + Vector3.UP * CHEST
-		var drawn_step: Vector3 = drawn.global_position - drawn_was
-		drawn_was = drawn.global_position
+		var drawn_step: Vector3 = drawn_link.drawn_position() - drawn_was
+		drawn_was = drawn_link.drawn_position()
 		_look_at(input, own, eye.global_position, chest)
 		var gap: float = Vector2(chest.x - really.x, chest.z - really.z).length()
 		var proving: bool = true
@@ -285,15 +287,6 @@ func _a_guards_shot_lands_where_the_guard_drew_it(
 			aimed_at = chest
 			truly_at = really
 			pressed = true
-			if guard_peer == HOST:
-				# The host's own trigger is a key, which a test has not got: its view is on the chest a tick on.
-				await step_ticks(1)
-				aimed_at = drawn.global_position + Vector3.UP * CHEST
-				truly_at = aimed_at
-				_look_at(input, own, eye.global_position, aimed_at)
-				await step_ticks(1)
-				assert_true(host_rifle.try_fire(), "the host fires")
-				break
 			input.command.fire_pressed = true
 			input.command.fire_held = true
 		await step_ticks(1)
@@ -306,7 +299,7 @@ func _a_guards_shot_lands_where_the_guard_drew_it(
 	for _tick: int in 120:
 		if shots[HOST] > 0:
 			break
-		_look_at(input, own, eye.global_position, drawn.global_position + Vector3.UP * CHEST)
+		_look_at(input, own, eye.global_position, drawn_link.drawn_position() + Vector3.UP * CHEST)
 		await step_ticks(1)
 	input.command.fire_held = false
 	_rig.drive(target_peer, Vector2.ZERO)
@@ -330,7 +323,8 @@ func _a_guards_shot_lands_where_the_guard_drew_it(
 	await step_ticks(_cross)
 	assert_eq_int(shots[HOST], 1, "the host fired the guard's one shot")
 	if guard_peer == HOST:
-		assert_true(lag.size() == 1 and lag[0] == 0, "the host's own shot is traced in the present")
+		# The host draws the others HOST_PLAYOUT_TICKS behind, so its own shot rewinds like a client's.
+		assert_true(lag.size() == 1 and lag[0] >= 1, "the host's own shot is traced where it drew the world")
 	elif assert_eq_int(lag.size(), 1, "the host traced one shot"):
 		assert_gt(float(lag[0]), 0.0, "it is traced in the past")
 		assert_lt(float(lag[0]), float(NetReplicator.HISTORY_TICKS - 1), "and inside the history kept")
@@ -469,7 +463,10 @@ func _a_dropped_round_is_replayed_as_the_host_flew_it(map: StringName, clients: 
 		await step_ticks(1)
 	await step_ticks(CROSS_TICKS)
 	var host_end: Array[Vector3] = []
+	var host_from: Array[Vector3] = []
 	var ends: Dictionary[int, Array] = {}
+	# The host's round may fly a tick before it is first sampled here: its path begins at the shot's origin.
+	rifle.fired.connect(func(origin: Vector3, _to: Vector3) -> void: host_from.append(origin))
 	rifle.missed.connect(func(end_point: Vector3) -> void: host_end.append(end_point))
 	rifle.target_hit.connect(func(_c: Node3D, at: Vector3, _n: Vector3) -> void: host_end.append(at))
 	for peer: int in range(1, _rig.peer_count()):
@@ -517,6 +514,8 @@ func _a_dropped_round_is_replayed_as_the_host_flew_it(map: StringName, clients: 
 		"the round met the map before its range ran out, so a replay has to be told where",
 	)
 	host_path.append(host_end[0])
+	if not host_from.is_empty():
+		host_path.insert(0, host_from[0])
 	var straight: Vector3 = host_path[0].lerp(host_end[0], 0.5)
 	assert_gt(_distance_to_path(straight, host_path), 1.0, "its flight is an arc, not the straight line to where it landed")
 	for peer: int in range(1, _rig.peer_count()):

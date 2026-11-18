@@ -91,7 +91,7 @@ extends Resource
 ## [method MatchController._place_ghost_at_start]. It is put through
 ## [method MatchController._hold_body], which is the same inertness every
 ## placement in a match uses -- off every collision layer and mask, velocity
-## zeroed, [method Node.set_physics_process] false -- so it cannot be shot,
+## zeroed, [member PlayerController.held] -- so it cannot be shot,
 ## cannot be caught, cannot trip a hazard, cannot fall, and cannot be moved by
 ## any intent from a keyboard or from a bot brain. [method
 ## MatchController._tick_ghosts] skips it outright, so its own catch clock does

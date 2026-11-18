@@ -103,6 +103,11 @@ func step_seconds(seconds: float) -> void:
 
 # --- Assertions ---------------------------------------------------------------
 
+## True when this machine steps [param body] and the match lets it move: neither held nor someone else's copy.
+func moves(body: PlayerController) -> bool:
+	return body.is_physics_processing() and not body.held
+
+
 ## Record a check. Every other assertion routes through here.
 func check(condition: bool, message: String) -> bool:
 	assertions += 1

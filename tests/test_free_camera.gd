@@ -84,7 +84,7 @@ func test_detaching_zeroes_the_outgoing_intent_and_coming_home_restores_it() -> 
 	assert_vec2_eq(frozen.look_delta, Vector2.ZERO, "and no aim does either")
 	assert_false(frozen.jump_pressed, "nor any edge")
 	assert_true(
-		NetCodec.pack_intent(7, frozen) == NetCodec.pack_intent(7, MoveIntent.new()),
+		NetCodec.pack_commands(1, 7, -1, [frozen], 1) == NetCodec.pack_commands(1, 7, -1, [MoveIntent.new()], 1),
 		"the packet on the wire is an empty intent's, byte for byte",
 	)
 

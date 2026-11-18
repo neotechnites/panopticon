@@ -1,6 +1,6 @@
 extends TestCase
-## Review proof (match flow): a remote player's click made as a RUNNER is latched on the host
-## (RemoteIntentSource._fire_latched) and spent as a rifle shot when that player later takes the tower.
+## Review proof (match flow): a remote player's click made as a RUNNER is never latched on the host
+## and spent as a rifle shot when that player later takes the tower: a command's fire edge is its own.
 
 const Rig: GDScript = preload("res://tests/support/net_match_rig.gd")
 const HOST: int = 0
@@ -74,9 +74,10 @@ func _client_clicks() -> void:
 	var slot_dbg: int = _rig.local_slot(CLIENT)
 	var link_dbg: PlayerNetLink = _rig.net_match(HOST).call(&"_link_of_slot", slot_dbg)
 	var own_link: PlayerNetLink = _rig.net_match(CLIENT).get_local_link()
-	print("PROOF dbg input=%s client_intent_fire=%s phys=%s predicting=%s host_last_tick=%d owner=%d" % [
+	var stream: CommandStream = _rig.sessions[HOST].replicator.stream_for(link_dbg.owner_peer_id)
+	print("PROOF dbg input=%s client_intent_fire=%s phys=%s predicting=%s host_ack=%d owner=%d" % [
 		str(input), str(mine.get_intent().fire_pressed), str(mine.is_physics_processing()),
-		str(own_link.is_predicting()), link_dbg.get_remote_source().last_tick, link_dbg.owner_peer_id])
+		str(own_link.is_predicting()), stream.get_ack(), link_dbg.owner_peer_id])
 	input.command.fire_pressed = false
 	input.command.shove_pressed = false
 
@@ -112,7 +113,7 @@ func test_a_click_made_as_a_runner_is_not_a_shot_when_that_player_takes_the_towe
 	await step_ticks(120)
 	var slot: int = _rig.local_slot(CLIENT)
 	var link: PlayerNetLink = _rig.net_match(HOST).call(&"_link_of_slot", slot)
-	print("PROOF latched on host before the seat change: %s" % str(link.get_remote_source().get(&"_fire_latched")))
+	print("PROOF fire down on the host's copy before the seat change: %s" % str(link.controller.get_intent().fire_held))
 	_client_takes_the_tower()
 	var fired_at: int = -1
 	for tick: int in 120:

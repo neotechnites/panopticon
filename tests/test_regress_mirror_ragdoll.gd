@@ -205,7 +205,7 @@ func _to_the_finale() -> Array[MatchParticipant]:
 	# The test places the shove; the bot's own hunt would land one first.
 	_controller.call(&"_silence_brain", finisher)
 	await step_ticks(SETTLE_TICKS)
-	finisher.shove_cooldown_remaining = 0.0
+	finisher.body.shove_cooldown_remaining = 0.0
 	return [guard, finisher]
 
 

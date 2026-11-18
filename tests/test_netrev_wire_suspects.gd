@@ -31,8 +31,8 @@ func test_two_power_keys_inside_one_blackout_run_as_the_keys_they_were() -> void
 	assert_eq_int(drawn(A_SEAT)[1], SHIELD, "which A still draws")
 
 
-## The emote toggled on then off inside one burst of loss: each press says what it came to, so the
-## host is told the newest (down) once, never has it up, and A's own body is never put back up.
+## The emote toggled on then off inside one burst of loss: the host runs both presses late, as A
+## ran them, so it ends down everywhere and A's own body is never put back up.
 func test_an_emote_put_up_and_down_inside_a_blackout_ends_down_everywhere() -> void:
 	if not await stand_up(0.0, 1):
 		return
@@ -57,7 +57,9 @@ func test_an_emote_put_up_and_down_inside_a_blackout_ends_down_everywhere() -> v
 		if copy.is_emoting():
 			host_up += 1
 	print("PROOF emote-flicker: in the second after, A's own emote was up on %d ticks; the host's copy on %d" % [came_back, host_up])
-	assert_eq_int(host_up, 0, "the host's copy is never up for an emote it did not see go up")
+	# Every command rides every packet, so the host runs the up and the down it was sent, late.
+	assert_gt(float(host_up), 0.0, "the host's copy runs the emote the lost packets carried")
+	assert_le(float(host_up), 6.0, "for no more commands than A had it up")
 	assert_eq_int(came_back, 0, "and A's own body is never put back up")
 	assert_false(mine.is_emoting(), "and it ends down on A's machine")
 	assert_false(copy.is_emoting(), "and on the host")
@@ -125,28 +127,22 @@ func test_an_emote_put_up_inside_a_blackout_does_not_drop() -> void:
 	assert_true(copy.is_emoting(), "and the host has it up")
 
 
-## The slot of the power press before the newest rides the intent beside every other field.
-func test_the_prior_press_slot_survives_the_intent_round_trip() -> void:
-	var sent: MoveIntent = MoveIntent.new()
-	sent.shove_pressed = true
-	sent.aim_held = true
-	sent.cook_pressed = true
-	sent.emote_pressed = true
-	sent.emote_alt_pressed = true
-	sent.ability_slot = 2
-	sent.press_slot = 2
-	sent.press_slot_prior = 5
-	var intents: Array[MoveIntent] = [sent]
-	var got: MoveIntent = MoveIntent.new()
-	var payload: PackedByteArray = NetCodec.pack_intents(7, intents, 1, 1)
-	assert_eq_int(payload.size(), NetCodec.INTENT_SIZE, "the intent is no bigger for it")
-	assert_eq_int(NetCodec.unpack_intent_at(payload, 0, got), 7, "it decodes")
-	assert_eq_int(got.press_slot_prior, 5, "the prior slot")
-	assert_eq_int(got.press_slot, 2, "the newest slot")
-	assert_eq_int(got.ability_slot, 2, "this tick's slot")
-	assert_true(got.shove_pressed and got.aim_held and got.cook_pressed and got.emote_pressed and got.emote_alt_pressed, "and the flags it shares a byte with")
-	sent.press_slot_prior = 0
-	sent.emote_alt_pressed = false
-	NetCodec.unpack_intent_at(NetCodec.pack_intents(8, intents, 1, 1), 0, got)
-	assert_eq_int(got.press_slot_prior, 0, "none")
-	assert_false(got.emote_alt_pressed, "and no flag made of it")
+## Two power keys pressed one after the other ride the wire as their own levels, each on its command.
+func test_two_power_keys_in_one_packet_stay_two_keys() -> void:
+	var two: MoveIntent = MoveIntent.new()
+	two.buttons = MoveIntent.POWER_1 << 1
+	var five: MoveIntent = MoveIntent.new()
+	five.buttons = (MoveIntent.POWER_1 << 4) | MoveIntent.SHOVE | MoveIntent.AIM | MoveIntent.COOK
+	var sent: Array[MoveIntent] = [two, MoveIntent.new(), five]
+	var out: Array[MoveIntent] = []
+	for _i: int in NetCodec.MAX_COMMANDS:
+		out.append(MoveIntent.new())
+	assert_eq_int(NetCodec.unpack_commands(NetCodec.pack_commands(1, 8, -1, sent, 3), out, -1), 3, "it decodes")
+	var edges: Array[int] = []
+	var last: int = 0
+	for i: int in 3:
+		out[i].derive_edges(last)
+		last = out[i].buttons
+		edges.append(out[i].ability_slot)
+	assert_eq_string(str(edges), str([2, 0, 5]), "key 2 on the first command, key 5 on the third")
+	assert_true(out[2].shove_pressed and out[2].aim_held and out[2].cook_pressed, "and the keys pressed with it")

@@ -142,7 +142,7 @@ func _remember_where_the_host_has_everyone() -> void:
 func _assert_drawn_where_the_host_had_it(peer: int, slot: int, who: String) -> void:
 	var session: NetSession = _rig.sessions[peer]
 	var settings: NetSettings = session.get_settings()
-	var view: int = session.replicator.get_view_tick()
+	var view: int = floori(session.replicator.get_view_time())
 	var now: int = (_rig.sessions[HOST] as NetSession).replicator.get_tick()
 	# A frame here runs up to this many ticks between two polls and two draws.
 	var frame: int = Engine.max_physics_steps_per_frame
@@ -194,7 +194,7 @@ func _assert_the_match_stands(map: StringName, why: String) -> void:
 				var there: Vector3 = _rig.body(HOST, participant.index).global_position
 				assert_lt(participant.body.global_position.distance_to(there), 3.0, "%s is where the host has it" % who)
 		var own: PlayerController = _rig.body(peer, _rig.local_slot(peer))
-		assert_true(own.is_physics_processing(), "%s: peer %d simulates its own body" % [why, peer])
+		assert_true(moves(own), "%s: peer %d simulates its own body" % [why, peer])
 		assert_false(_rig.matches[peer].get_viewport().disable_3d, "%s: peer %d draws its match" % [why, peer])
 
 

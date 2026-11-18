@@ -116,8 +116,9 @@ func stand_up(loss: float = 0.0, delay_ms: int = 0) -> bool:
 			for link: PlayerNetLink in links:
 				if link.session == session:
 					RunnerPower.of(link.controller).arm(rules, stub)
-	# A predicts once the host's first snapshot has placed its body.
-	var placed: bool = await until(func() -> bool: return a_links[A_SEAT].is_predicting())
+	# A predicts once the host's first snapshot has placed its body, and sends commands once it has heard the world.
+	var placed: bool = await until(func() -> bool:
+		return a_links[A_SEAT].is_predicting() and a.replicator.get_latest_tick() >= 0)
 	if not placed:
 		fail("client A's body was never placed by a snapshot")
 	return placed

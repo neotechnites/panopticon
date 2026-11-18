@@ -26,11 +26,9 @@ var seat_index: int = 0
 ## order, and dating the two snapshots [PlayerNetLink] interpolates between.
 var tick: int = 0
 
-## The last intent tick from this seat's owner that the authority had applied
-## when it sampled this, or -1 when it has applied none. The client's own
-## clock, echoed back: it is what a predicting client rewinds to, and the only
-## reason a client can replay its unacknowledged inputs rather than snap.
-var last_intent_tick: int = -1
+## The newest command sequence of this seat's owner the authority had run when it sampled this,
+## or -1 for none: what a predicting client rewinds to and replays its later commands on.
+var cmd_ack: int = -1
 
 var position: Vector3 = Vector3.ZERO
 
@@ -106,7 +104,7 @@ var boost_multiplier: float = 1.0
 func clear() -> void:
 	seat_index = 0
 	tick = 0
-	last_intent_tick = -1
+	cmd_ack = -1
 	position = Vector3.ZERO
 	velocity = Vector3.ZERO
 	yaw = 0.0
@@ -132,7 +130,7 @@ func clear() -> void:
 func copy_from(other: PlayerState) -> void:
 	seat_index = other.seat_index
 	tick = other.tick
-	last_intent_tick = other.last_intent_tick
+	cmd_ack = other.cmd_ack
 	position = other.position
 	velocity = other.velocity
 	yaw = other.yaw
@@ -173,7 +171,7 @@ func interpolate_from(from: PlayerState, to: PlayerState, weight: float) -> void
 	# Every other fact below is taken from the newer end for the same reason:
 	# a rifle half-drawn and half of a jump are not things to draw.
 	cooldown_remaining = to.cooldown_remaining
-	last_intent_tick = to.last_intent_tick
+	cmd_ack = to.cmd_ack
 	is_finisher = to.is_finisher
 	is_armed = to.is_armed
 	health = to.health

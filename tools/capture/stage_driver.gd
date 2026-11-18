@@ -732,8 +732,7 @@ static func _inside(point: Vector3, safe: Dictionary, margin: float) -> bool:
 func _shove_ready() -> bool:
 	if _match == null:
 		return true
-	var participant: MatchParticipant = _match.resolve_participant(_body)
-	return participant == null or participant.shove_cooldown_remaining <= 0.0
+	return _body.shove_cooldown_remaining <= 0.0
 
 
 ## A private copy of the movement profile whose friction floor is lowered: the

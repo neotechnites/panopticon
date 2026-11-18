@@ -17,40 +17,40 @@ func test_rv_fuzz_intent_decode_and_accept() -> void:
 		return
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.seed = 794
-	var link: PlayerNetLink = host_links[A_SEAT]
 	var a_id: int = a.get_local_peer_id()
-	var scratch: MoveIntent = MoveIntent.new()
+	var scratch: Array[MoveIntent] = []
+	for _i: int in NetCodec.MAX_COMMANDS:
+		scratch.append(MoveIntent.new())
 	var decoded: int = 0
-	# Pure decode: every size from 0 to 140, random content, and well-formed sizes with hostile content.
+	# Pure decode: every size from 0 to 140, random content, and real headers over hostile commands.
 	for round_index: int in 4000:
 		var size: int = rng.randi_range(0, 140)
-		if round_index % 3 == 0:
-			size = NetCodec.INTENT_HEADER_SIZE + rng.randi_range(1, 4) * NetCodec.INTENT_BODY_SIZE
 		var payload: PackedByteArray = _random_bytes(rng, size)
-		if round_index % 3 == 0 and size > 6:
-			payload[6] = (size - NetCodec.INTENT_HEADER_SIZE) / NetCodec.INTENT_BODY_SIZE
-		for index: int in range(-1, 6):
-			if NetCodec.unpack_intent_at(payload, index, scratch) >= 0:
-				decoded += 1
-				assert_true(scratch.move_direction.is_finite() and scratch.view_angles.is_finite(), "a decoded intent is finite")
-				assert_true(scratch.ability_slot >= 0 and scratch.ability_slot <= 5 and scratch.press_slot >= 0 and scratch.press_slot <= 5, "slots are in range")
-				assert_true(scratch.press_counts >= 0 and scratch.press_counts <= MoveIntent.PRESS_COUNTS_MASK, "press counts are masked")
-		NetCodec.intent_epoch(payload)
-	# Through the host's real accept path, with the right epoch stamped so the bodies are reached.
+		if round_index % 3 == 0 and size > NetCodec.COMMAND_HEADER_SIZE:
+			payload[6] = rng.randi_range(1, NetCodec.MAX_COMMANDS)
+		var count: int = NetCodec.unpack_commands(payload, scratch, rng.randi_range(-1, 1000))
+		decoded += count
+		for i: int in count:
+			var got: MoveIntent = scratch[i]
+			assert_true(got.move_direction.is_finite() and got.view_angles.is_finite() and (is_finite(got.view_time) or got.view_time == MoveIntent.LIVE_WORLD), "a decoded command is finite")
+			assert_true(got.move_direction.length() <= 1.0001, "its move is in the unit disc")
+			assert_true(got.buttons == (got.buttons & MoveIntent.BUTTON_MASK) and got.pressed == 0, "its levels are masked and it carries no edge")
+		NetCodec.command_epoch(payload)
+		NetCodec.command_snap_ack(payload)
+	# Through the host's real receive path, with the right epoch stamped so the bodies are reached.
 	var epoch: int = host.replicator.get_scene()
 	var accepted: int = 0
 	for tick: int in 400:
 		for _n: int in 4:
-			var count: int = rng.randi_range(1, 4)
-			var payload: PackedByteArray = _random_bytes(rng, NetCodec.INTENT_HEADER_SIZE + count * NetCodec.INTENT_BODY_SIZE)
-			payload.encode_u32(0, 100000 + tick * 4 + _n)
-			payload.encode_u16(4, epoch)
-			payload[6] = count
-			link.accept_intent_payload(a_id, payload)
+			var payload: PackedByteArray = _random_bytes(rng, rng.randi_range(NetCodec.COMMAND_HEADER_SIZE, 140))
+			payload.encode_u16(0, epoch)
+			payload.encode_u32(2, 100000 + tick * 4 + _n)
+			payload[6] = rng.randi_range(1, NetCodec.MAX_COMMANDS)
+			host.replicator.take_commands(a_id, payload)
 			accepted += 1
 		await step_ticks(1)
 	var copy: PlayerController = body_of(host_links, A_SEAT)
-	print("PROOF fuzz: %d random intents decoded, %d hostile packets through accept; host copy at %s vel %s" % [decoded, accepted, str(copy.global_position), str(copy.velocity)])
+	print("PROOF fuzz: %d random commands decoded, %d hostile packets through receive; host copy at %s vel %s" % [decoded, accepted, str(copy.global_position), str(copy.velocity)])
 	assert_true(copy.global_position.is_finite() and copy.velocity.is_finite(), "the host's copy is still finite")
 	assert_true(absf(copy.rotation.x) < 0.001 and is_finite(copy.rotation.y), "and upright")
 	if copy.head != null:

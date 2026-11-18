@@ -98,27 +98,27 @@ func _exit_tree() -> void:
 	_remaining = 0.0
 
 
-func _physics_process(delta: float) -> void:
+## One command's worth of the power, run by [method PlayerController.run_command]: its clocks,
+## and a press, release or cook. [param authority] builds what only the host may (decoy, cat).
+func step(intent: MoveIntent, delta: float, authority: bool) -> void:
 	if _cooldown > 0.0:
 		_cooldown = maxf(_cooldown - delta, 0.0)
-	if body == null or not body.is_physics_processing():
+	if body == null or body.held:
 		return
-	var intent: MoveIntent = body.get_intent()
 	if _active == MatchRules.RunnerAbility.CAT_GRENADE:
 		# The cat's own fuse is the clock; a predicting client waits on the authority.
 		if is_instance_valid(_cat):
 			if intent.cook_pressed:
 				_cat.cook()
 			_remaining = _cat.fuse_left
-		elif not body.net_predicted:
+		elif authority:
 			_end()
 		return
 	if _active != MatchRules.RunnerAbility.NONE:
 		_remaining -= delta
 		var released: bool = _active == MatchRules.RunnerAbility.ARMOR_LOCK and not intent.ability_held
 		# A predicting client's power runs out on the authority's word, not its own clock.
-		var expired: bool = _remaining <= 0.0 and not body.net_predicted
-		if expired or released:
+		if (_remaining <= 0.0 and authority) or released:
 			_end()
 		return
 	if intent.ability_slot > 0:
@@ -478,6 +478,11 @@ func _on_cat_exploded() -> void:
 	_cat = null
 	if _active == MatchRules.RunnerAbility.CAT_GRENADE:
 		_end()
+
+
+## True while this body carries its own cat, so its swing is the throw.
+func holds_cat() -> bool:
+	return is_instance_valid(_cat) and is_instance_valid(_cat.carrier)
 
 
 ## Shove while carrying the cat: throw it. True when a cat took the shove. Authority only.

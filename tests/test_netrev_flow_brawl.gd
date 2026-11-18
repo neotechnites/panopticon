@@ -48,7 +48,7 @@ func test_a_late_peer_joins_the_tower_fight_it_arrived_in() -> void:
 	var host: MatchController = _rig.controller(HOST)
 	# Keep the fight going while the late peer binds: nobody can be pushed out by a bot that cannot swing.
 	for participant: MatchParticipant in host.get_participants():
-		participant.shove_cooldown_remaining = 600.0
+		participant.body.shove_cooldown_remaining = 600.0
 	if not await _rig.bind_late(2):
 		fail("the late peer never bound")
 		return
@@ -76,7 +76,7 @@ func test_a_late_peer_finds_a_fighter_thrown_before_it_arrived_already_out() -> 
 		return
 	var host: MatchController = _rig.controller(HOST)
 	for participant: MatchParticipant in host.get_participants():
-		participant.shove_cooldown_remaining = 600.0
+		participant.body.shove_cooldown_remaining = 600.0
 	host.call(&"_brawl_out", _rig.participant(HOST, 4), Vector3(8.0, 2.0, 0.0))
 	await step_ticks(10)
 	if not await _rig.bind_late(2):
@@ -93,7 +93,7 @@ func test_a_fighter_whose_player_leaves_fights_on_as_a_brawl_bot() -> void:
 		return
 	var host: MatchController = _rig.controller(HOST)
 	for participant: MatchParticipant in host.get_participants():
-		participant.shove_cooldown_remaining = 600.0
+		participant.body.shove_cooldown_remaining = 600.0
 	await step_ticks(10)
 	# How a bot born a bot stands in the fight: lap brain silent, lap tracker stopped.
 	var native: MatchParticipant = _rig.participant(HOST, 3)

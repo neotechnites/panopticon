@@ -138,7 +138,7 @@ func _respawned(slot: int) -> bool:
 	var host_side: MatchParticipant = _rig.participant(HOST, slot)
 	var host: MatchController = _rig.controller(HOST)
 	if not await _rig.wait_for(func() -> bool:
-		return host_side.is_ghost and not host.is_awaiting_respawn(host_side) and host_side.body.is_physics_processing()
+		return host_side.is_ghost and not host.is_awaiting_respawn(host_side) and moves(host_side.body)
 	):
 		fail("the host never put slot %d back as a ghost" % slot)
 		return false
@@ -540,7 +540,7 @@ func _watch_a_finale(guard_slot: int, finisher_slot: int) -> void:
 			thrown[1] = own.is_head_hidden() or own.is_spine_hidden() or own.are_arms_hidden())
 	var finisher: MatchParticipant = _rig.participant(HOST, finisher_slot)
 	host.call(&"_arm_the_finisher", finisher)
-	if not await _rig.wait_for(func() -> bool: return finisher.body.is_physics_processing()):
+	if not await _rig.wait_for(func() -> bool: return moves(finisher.body)):
 		fail("the finisher never landed in the tower")
 		return
 	for peer: int in _rig.peer_count():
@@ -572,7 +572,7 @@ func _watch_a_finale(guard_slot: int, finisher_slot: int) -> void:
 				fault = "peer %d: the guard stood up inside the beat" % peer
 			elif not guard.movement_locked or not _rig.body(peer, finisher_slot).movement_locked:
 				fault = "peer %d: a body has its controls inside the beat" % peer
-			elif guard.is_physics_processing():
+			elif moves(guard):
 				fault = "peer %d: the guard's capsule is simulated inside the beat" % peer
 			elif guard.global_position.distance_to(held[peer]) > 0.5:
 				fault = "peer %d: the guard's capsule left the tower" % peer
@@ -603,7 +603,7 @@ func _watch_a_finale(guard_slot: int, finisher_slot: int) -> void:
 		for wall: Node in layers:
 			assert_eq_int(int(layers[wall]), int(towers[peer][wall]), "peer %d: %s collides as it did" % [peer, wall.name])
 		var own: int = _rig.local_slot(peer)
-		assert_true(_rig.body(peer, own).is_physics_processing(), "peer %d simulates its own body in the new round" % peer)
+		assert_true(moves(_rig.body(peer, own)), "peer %d simulates its own body in the new round" % peer)
 	var after: Array[Color] = _assert_shirts_agree("after the tower changed hands")
 	for slot: int in shirts.size():
 		assert_true(after[slot].is_equal_approx(shirts[slot]), "slot %d wears the shirt it wore before the tower changed hands" % slot)
@@ -654,10 +654,26 @@ func _watch_a_shove(shover_slot: int, victim_slot: int) -> void:
 	var owner: int = _owner_of(shover_slot)
 	if owner >= 0:
 		assert_false(bool(_rig.avatar(owner, shover_slot).get(&"_fp_shoving")), "peer %d's own arms are down before it shoves" % owner)
-	assert_same(
-		host.apply_shove(_rig.participant(HOST, shover_slot)), _rig.participant(HOST, victim_slot),
-		"the host lands slot %d's shove on slot %d" % [shover_slot, victim_slot]
-	)
+	if owner > 0:
+		# A client's swing is its own command: pressed on its machine, predicted there, run by the host.
+		var landed: Array[MatchParticipant] = []
+		var on_shove: Callable = func(_by: MatchParticipant, victim: MatchParticipant) -> void: landed.append(victim)
+		host.participant_shoved.connect(on_shove)
+		var keys: BotIntentSource = (_rig.matches[owner].get_node("Player") as PlayerController).intent_source as BotIntentSource
+		keys.command.shove_pressed = true
+		await step_ticks(1)
+		keys.command.shove_pressed = false
+		await _rig.wait_for(func() -> bool: return not landed.is_empty())
+		host.participant_shoved.disconnect(on_shove)
+		assert_true(
+			landed.size() == 1 and landed[0] == _rig.participant(HOST, victim_slot),
+			"the host lands slot %d's shove on slot %d" % [shover_slot, victim_slot],
+		)
+	else:
+		assert_same(
+			host.apply_shove(_rig.participant(HOST, shover_slot)), _rig.participant(HOST, victim_slot),
+			"the host lands slot %d's shove on slot %d" % [shover_slot, victim_slot]
+		)
 	var swung: Array[bool] = []
 	swung.resize(_rig.peer_count())
 	var own_arms: Array[bool] = [false]

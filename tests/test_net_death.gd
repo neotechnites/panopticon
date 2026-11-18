@@ -77,12 +77,12 @@ func test_a_killed_client_runs_again_as_a_ghost_on_its_own_machine() -> void:
 		return
 	var host_side: MatchParticipant = _rig.participant(HOST, slot)
 	if not await _rig.wait_for(
-		func() -> bool: return host_side.is_ghost and host_side.body.is_physics_processing()
+		func() -> bool: return host_side.is_ghost and moves(host_side.body)
 	):
 		fail("the host never woke the ghost")
 		return
 	await step_ticks(_cross)
-	assert_true(mine.body.is_physics_processing(), "the client's own ghost is simulated again after its respawn")
+	assert_true(moves(mine.body), "the client's own ghost is simulated again after its respawn")
 	var from: Vector3 = host_side.body.global_position
 	_rig.drive(CLIENT, Vector2(0.0, 1.0))
 	await step_ticks(90)
@@ -123,7 +123,7 @@ func _respawned(slot: int) -> bool:
 	var host_side: MatchParticipant = _rig.participant(HOST, slot)
 	var host: MatchController = _rig.controller(HOST)
 	if not await _rig.wait_for(func() -> bool:
-		return host_side.is_ghost and not host.is_awaiting_respawn(host_side) and host_side.body.is_physics_processing()
+		return host_side.is_ghost and not host.is_awaiting_respawn(host_side) and moves(host_side.body)
 	):
 		fail("the host never put slot %d back as a ghost" % slot)
 		return false
@@ -266,17 +266,17 @@ func test_a_client_ghost_that_falls_again_is_held_and_shown_its_respawn() -> voi
 	if not await _respawned(slot):
 		return
 	var mine: MatchParticipant = _rig.participant(CLIENT, slot)
-	assert_true(mine.body.is_physics_processing(), "the client's ghost is running")
+	assert_true(moves(mine.body), "the client's ghost is running")
 	assert_true(host.handle_fall(_rig.participant(HOST, slot)), "the host rules the ghost's fall into lava")
 	if not await _rig.wait_for(func() -> bool: return mirror.is_awaiting_respawn(mine)):
 		fail("the client was never told its ghost fell: no hold, no countdown, no death view")
 		return
-	assert_false(mine.body.is_physics_processing(), "the client's ghost is held where it fell")
+	assert_false(moves(mine.body), "the client's ghost is held where it fell")
 	assert_eq_int(int(mine.death_cause), int(MatchParticipant.DeathCause.LAVA), "and the client knows it was the lava")
 	if not await _respawned(slot):
 		return
 	assert_false(mirror.is_awaiting_respawn(mine), "the hold ends at the respawn")
-	assert_true(mine.body.is_physics_processing(), "and the client's ghost runs again")
+	assert_true(moves(mine.body), "and the client's ghost runs again")
 
 
 func test_a_late_peer_finds_a_ghost_already_back_in_the_world() -> void:
@@ -298,7 +298,7 @@ func test_a_late_peer_finds_a_ghost_already_back_in_the_world() -> void:
 		assert_true(ghost.is_ghost, "the late peer holds slot %d as a ghost" % slot)
 		assert_false(late.is_awaiting_respawn(ghost), "and not as one still waiting on a respawn that already landed")
 		assert_lt(late.get_body_color(ghost).a, 1.0, "wearing the ghost colour")
-	assert_true(_rig.body(2, 2).is_physics_processing(), "the late peer's own ghost is simulated")
+	assert_true(moves(_rig.body(2, 2)), "the late peer's own ghost is simulated")
 	assert_false(_lies_dead(2, 1), "and nobody lies dead at the start line")
 
 
@@ -320,7 +320,7 @@ func _watch_a_finale(guard_slot: int, finisher_slot: int) -> void:
 		towers.append(_tower_layers(peer))
 	var finisher: MatchParticipant = _rig.participant(HOST, finisher_slot)
 	host.call(&"_arm_the_finisher", finisher)
-	if not await _rig.wait_for(func() -> bool: return finisher.body.is_physics_processing()):
+	if not await _rig.wait_for(func() -> bool: return moves(finisher.body)):
 		fail("the finisher never landed in the tower")
 		return
 	for peer: int in _rig.peer_count():
@@ -346,7 +346,7 @@ func _watch_a_finale(guard_slot: int, finisher_slot: int) -> void:
 			assert_true(_rig.ragdoll(peer, guard_slot).is_active(), "peer %d: the guard stays limp through the beat" % peer)
 			assert_true(_rig.body(peer, guard_slot).movement_locked, "peer %d: the guard has no controls in the beat" % peer)
 			assert_true(_rig.body(peer, finisher_slot).movement_locked, "peer %d: nor has the finisher" % peer)
-			assert_false(_rig.body(peer, guard_slot).is_physics_processing(), "peer %d: the guard's capsule is held" % peer)
+			assert_false(moves(_rig.body(peer, guard_slot)), "peer %d: the guard's capsule is held" % peer)
 			assert_lt(_rig.body(peer, guard_slot).global_position.distance_to(held[peer]), 0.5, "peer %d: and it has not fallen out of the tower" % peer)
 			assert_false(_rig.controller(peer).is_tower_open(), "peer %d: the tower stays solid" % peer)
 		if is_failed():
@@ -371,7 +371,7 @@ func _watch_a_finale(guard_slot: int, finisher_slot: int) -> void:
 			assert_eq_int(int(layers[wall]), int(towers[peer][wall]), "peer %d: %s collides as it did" % [peer, wall.name])
 	for peer: int in _rig.peer_count():
 		var own: int = _rig.local_slot(peer)
-		assert_true(_rig.body(peer, own).is_physics_processing(), "peer %d simulates its own body in the new round" % peer)
+		assert_true(moves(_rig.body(peer, own)), "peer %d simulates its own body in the new round" % peer)
 
 
 func test_a_client_guard_thrown_by_the_host_stays_down_for_the_beat() -> void:
@@ -588,7 +588,7 @@ func test_a_client_that_drops_while_dead_comes_back_as_a_bot_ghost() -> void:
 		return
 	var ghost: MatchParticipant = _rig.participant(HOST, 1)
 	assert_true(host.is_awaiting_respawn(ghost), "the hold outlives the player")
-	assert_false(ghost.body.is_physics_processing(), "and the body stays held where it died, not simulated")
+	assert_false(moves(ghost.body), "and the body stays held where it died, not simulated")
 	if not await _respawned(1):
 		return
 	assert_true(ghost.brain != null and ghost.brain.is_chasing(), "and it chases, as a bot's ghost does")
@@ -607,7 +607,7 @@ func test_a_finisher_that_drops_is_carried_on_by_a_bot_that_hunts_the_guard() ->
 	var finisher: MatchParticipant = _rig.participant(HOST, 1)
 	TestFixtures.pin_the_field(host, finisher)
 	host.call(&"_arm_the_finisher", finisher)
-	if not await _rig.wait_for(func() -> bool: return _rig.participant(2, 1).is_finisher and finisher.body.is_physics_processing()):
+	if not await _rig.wait_for(func() -> bool: return _rig.participant(2, 1).is_finisher and moves(finisher.body)):
 		fail("the finisher never reached the tower on every peer")
 		return
 	if not await _client_one_drops(1):
@@ -636,7 +636,7 @@ func _assert_runs(slot: int, why: String) -> void:
 		assert_false(_lies_dead(peer, slot), "peer %d: slot %d is on its feet %s" % [peer, slot, why])
 		assert_eq_int(who.body.collision_layer, who.home_collision_layer, "peer %d: slot %d collides as a runner %s" % [peer, slot, why])
 		if _rig.local_slot(peer) == slot or peer == HOST:
-			assert_true(who.body.is_physics_processing(), "peer %d simulates slot %d %s" % [peer, slot, why])
+			assert_true(moves(who.body), "peer %d simulates slot %d %s" % [peer, slot, why])
 
 
 func test_a_ghost_catch_swaps_the_two_on_every_peer() -> void:
@@ -668,7 +668,7 @@ func test_a_ghost_catch_swaps_the_two_on_every_peer() -> void:
 		int(caught_view.get_spectating_state(_rig.participant(2, 2))), int(MatchController.Spectating.RESPAWNING),
 		"the caught client is shown its respawn"
 	)
-	assert_false(_rig.body(2, 2).is_physics_processing(), "and is held on its own machine")
+	assert_false(moves(_rig.body(2, 2)), "and is held on its own machine")
 	if not await _respawned(2):
 		return
 	_assert_runs(1, "after its catch")
@@ -677,7 +677,7 @@ func test_a_ghost_catch_swaps_the_two_on_every_peer() -> void:
 		assert_true(caught.is_ghost and not caught.is_running, "peer %d: the caught client is the ghost now" % peer)
 		assert_lt(_rig.controller(peer).get_body_color(caught).a, 1.0, "peer %d: in the ghost colour" % peer)
 		assert_false(_lies_dead(peer, 2), "peer %d: and on its feet at the start line" % peer)
-	assert_true(_rig.body(2, 2).is_physics_processing(), "the caught client drives its ghost")
+	assert_true(moves(_rig.body(2, 2)), "the caught client drives its ghost")
 	assert_eq_int(host.get_catch_count(), 1, "one catch")
 
 
@@ -787,7 +787,7 @@ func test_marble_a_fallen_client_is_held_shown_its_death_and_runs_again() -> voi
 		return
 	for peer: int in _rig.peer_count():
 		assert_false(_lies_dead(peer, slot), "peer %d: the ghost stands at the start line" % peer)
-	assert_true(mine.body.is_physics_processing(), "and the client drives it")
+	assert_true(moves(mine.body), "and the client drives it")
 	var from: Vector3 = _rig.body(HOST, slot).global_position
 	_rig.participant(HOST, slot).body.movement_locked = false
 	_rig.drive(CLIENT, Vector2(0.0, 1.0))

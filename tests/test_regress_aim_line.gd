@@ -168,7 +168,7 @@ func _a_dead_line_is_told_to_everybody(map: StringName, clients: int) -> void:
 	var seat: LobbySeat = host_session.lobby.get_seat(seat_index)
 	assert_true(seat != null and seat.is_bot(), "its seat is a bot's on the host")
 	var body: PlayerController = _rig.body(HOST, slot)
-	assert_false(body.intent_source is RemoteIntentSource, "the body no longer waits on the dead line's input")
+	assert_false(body.intent_source is CommandStream, "the body no longer waits on the dead line's input")
 	assert_not_null(body.intent_source, "the bot has the body's controls")
 	var from: Vector3 = body.global_position
 	await step_ticks(150)
@@ -368,12 +368,12 @@ func test_a_client_cannot_drive_another_clients_body() -> void:
 	forged.view_angles = Vector2(1.5, 0.0)
 	forged.view_absolute = true
 	var intents: Array[MoveIntent] = [forged]
-	var epoch: int = forged_link.call(&"_epoch")
-	var tick: int = int(real_link.get(&"_tick")) + 600
-	var host_link: PlayerNetLink = _rig.net_match(HOST).call(&"_link_of_slot", victim_slot)
+	var epoch: int = forged_link.replicator.get_scene()
+	var seq: int = real_link.replicator.outbox.next_seq() + 600
+	var host: NetSession = _rig.sessions[HOST] as NetSession
 	var intruder: int = (_rig.sessions[2] as NetSession).multiplayer.get_unique_id()
 	for step: int in 60:
-		host_link.accept_intent_payload(intruder, NetCodec.pack_intents(tick + step, intents, 1, epoch))
+		host.replicator.take_commands(intruder, NetCodec.pack_commands(epoch, seq + step, -1, intents, 1))
 		await step_ticks(1)
 	await step_ticks(CROSS_TICKS)
 	assert_lt(on_host.global_position.distance_to(from), 0.1, "the host did not move client 1's body for client 2")

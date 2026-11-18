@@ -48,7 +48,7 @@ func before_each() -> void:
 		var input: BotIntentSource = participant.body.intent_source as BotIntentSource
 		if input != null:
 			input.shove_enabled = false
-		participant.shove_cooldown_remaining = 0.0
+		participant.body.shove_cooldown_remaining = 0.0
 
 	# The shipped director, forced on. Headless AUTO would otherwise switch it
 	# off and there would be no voices to inspect; it is already the real
@@ -68,7 +68,7 @@ func test_a_distant_shove_is_positional_and_falls_short_of_60_metres() -> void:
 	var victim: MatchParticipant = live[1]
 	shover.body.velocity = Vector3.ZERO
 	victim.body.velocity = Vector3.ZERO
-	shover.shove_cooldown_remaining = 0.0
+	shover.body.shove_cooldown_remaining = 0.0
 
 	var human: MatchParticipant = _controller.get_human_participant()
 	var far_spot: Vector3 = human.body.global_position + Vector3(FAR_FROM_LISTENER_METRES, 0.0, 0.0)

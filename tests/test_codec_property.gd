@@ -9,7 +9,6 @@ const TICKS: int = 10000
 const SNAPSHOT_EVERY: int = 2
 const TICK_MS: float = 1000.0 / 60.0
 const MTU_BUDGET: int = 1200
-const INTENT_REDUNDANCY: int = 3
 const SEED: int = 794
 ## The run starts this close to the tick wrap so it crosses it: the order rule must survive the wrap.
 const FIRST_TICK: int = NetCodec.TICK_MODULUS - 5000
@@ -20,22 +19,19 @@ const KNOWN_DEFECTS: PackedStringArray = [
 	"fixed point: boost_remaining",  # ceil of tenths read back as n*0.1 ceils one tenth higher
 	"fixed point: yaw",  # quantise_turn truncates, and k/65536 of a turn truncates to k-1
 	"fixed point: view_base",  # the same
-	"sentinel: last_intent_tick",  # tick 0xFFFFFFFF is NO_INTENT_ACK on the wire
-	"sentinel: view_tick",  # the same, in the intent
+	"sentinel: cmd_ack",  # sequence 0xFFFFFFFF is NO_ACK on the wire
 ]
 
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 ## Codec properties broken this run, by name, with how often.
 var _defects: Dictionary[String, int] = {}
 var _state_fields: PackedStringArray = PackedStringArray()
-var _intent_fields: PackedStringArray = PackedStringArray()
 
 
 func before_each() -> void:
 	_rng.seed = SEED
 	_defects.clear()
 	_state_fields = _script_fields(PlayerState.new())
-	_intent_fields = _script_fields(MoveIntent.new())
 
 
 ## A wire as bad as any the design claims to survive, in both directions.
@@ -68,7 +64,7 @@ func test_every_accepted_snapshot_is_the_host_world_of_its_tick() -> void:
 
 func test_the_codec_breaks_only_the_properties_already_known() -> void:
 	_snapshots(false, 0.0)
-	_intents()
+	_commands()
 	var unknown: PackedStringArray = PackedStringArray()
 	for defect: String in _defects:
 		if not KNOWN_DEFECTS.has(defect):
@@ -173,77 +169,123 @@ func _snapshots(take_stale: bool, corrupt: float) -> Dictionary[String, int]:
 	return counts
 
 
-func test_every_intent_the_host_reads_is_the_one_the_client_sent_for_that_tick() -> void:
-	var counts: Dictionary[String, int] = _intents()
+func test_every_command_the_host_runs_is_the_one_the_client_numbered() -> void:
+	var counts: Dictionary[String, int] = _commands()
 	assert_eq_int(counts["malformed"], 0, "every packet the client built decodes")
-	assert_eq_int(counts["unfaithful"], 0, "every intent field arrives as the client set it")
-	assert_eq_int(counts["mismatch"], 0, "every intent the host reads is bit for bit the one sent for its tick")
-	assert_eq_int(counts["epoch_mixed"], 0, "and no intent of one epoch is read in another")
-	assert_eq_int(counts["oversize"], 0, "no intent packet reaches %d bytes" % MTU_BUDGET)
+	assert_eq_int(counts["mismatch"], 0, "every command the host runs is, on the wire's quantum, the one sent as its number")
+	assert_eq_int(counts["out_of_order"], 0, "and runs once, after the one before it")
+	assert_eq_int(counts["epoch_mixed"], 0, "and no command of one epoch is run in another")
+	assert_eq_int(counts["oversize"], 0, "no command packet reaches %d bytes" % MTU_BUDGET)
 	assert_gt(float(counts["old_epoch"]), 0.0, "packets from the client's old epoch arrived and were refused")
-	assert_gt(float(counts["heard"]) / TICKS, 0.8, "the redundancy carried most ticks through the loss")
+	assert_eq_int(counts["skipped_unforced"], 0, "resent until acknowledged, no command is skipped but one the client had moved 32 past")
+	assert_gt(float(counts["ran"]), float(counts["made"]) * 0.9, "and the stream ran the commands it was sent")
 
 
-## The client's input over [constant TICKS] through the wire to a host that reads every intent it carries.
-func _intents() -> Dictionary[String, int]:
+## The client's commands over [constant TICKS] through the wire to a real [CommandStream] that runs them
+## at its ticks, and its acknowledgements back the other way. Host ticks cross the u32 wrap.
+func _commands() -> Dictionary[String, int]:
 	_rng.seed = SEED
-	var wire: NetConditions = _wire(2)
-	var recorded: Dictionary[int, PackedByteArray] = {}
-	var epoch_of_tick: Dictionary[int, int] = {}
-	var history: Array[MoveIntent] = []
+	var up: NetConditions = _wire(2)
+	var down: NetConditions = _wire(3)
+	var outbox: CommandStream.Outbox = CommandStream.Outbox.new()
+	var stream: CommandStream = CommandStream.new()
+	var scratch: Array[MoveIntent] = []
+	for _i: int in NetCodec.MAX_COMMANDS:
+		scratch.append(MoveIntent.new())
+	var recorded: Dictionary[int, PackedInt64Array] = {}
+	var epoch_of: Dictionary[int, int] = {}
 	var host_epoch: int = 1
 	var client_epoch: int = 1
 	var client_due: int = -1
 	var next_bump: int = _rng.randi_range(300, 1200)
-	var decoded: MoveIntent = MoveIntent.new()
-	var fresh: MoveIntent = MoveIntent.new()
-	var heard: Dictionary[int, bool] = {}
-	var counts: Dictionary[String, int] = {"sent": 0, "arrived": 0, "intents": 0, "old_epoch": 0, "mismatch": 0,
-		"epoch_mixed": 0, "malformed": 0, "oversize": 0, "epochs": 1, "unfaithful": 0}
+	# The newest snapshot tick the client has heard, as the wire carries it and on the host's own clock.
+	var snap_wire: int = -1
+	var snap_host: int = -1
+	var last_ran: int = -1
+	var counts: Dictionary[String, int] = {"made": 0, "ran": 0, "old_epoch": 0, "mismatch": 0, "out_of_order": 0,
+		"epoch_mixed": 0, "malformed": 0, "oversize": 0, "epochs": 1, "skipped_resync": 0, "skipped_unforced": 0}
+	# A new epoch's first run follows the old epoch's last without a skip: that tail is discarded by design.
+	var epoch_began: bool = true
 	for step: int in TICKS:
-		var tick: int = (FIRST_TICK + step) % NetCodec.TICK_MODULUS
+		var host_tick: int = FIRST_TICK + step
 		var now: float = float(step) * TICK_MS
 		if step == next_bump:
 			host_epoch = (host_epoch + 1) % NetCodec.EPOCH_MODULUS
+			stream.reset()
+			epoch_began = true
 			client_due = step + _rng.randi_range(2, 20)
 			next_bump = step + _rng.randi_range(300, 1200)
 			counts["epochs"] += 1
 		if step == client_due:
-			# The client's links belong to the scene: a new epoch starts their history afresh.
 			client_epoch = host_epoch
-			history.clear()
-		var intent: MoveIntent = _intent(tick)
-		NetCodec.unpack_intent(NetCodec.pack_intent(tick, intent, client_epoch), fresh)
-		recorded[tick] = _object_bytes(fresh, _intent_fields)
-		counts["unfaithful"] += int(not _intent_carried(intent, fresh))
-		epoch_of_tick[tick] = client_epoch
-		history.append(intent)
-		if history.size() > INTENT_REDUNDANCY:
-			history.pop_front()
-		var bytes: PackedByteArray = NetCodec.pack_intents(tick, history, history.size(), client_epoch)
+			outbox.flush()
+		var command: MoveIntent = MoveIntent.new()
+		command.move_direction = Vector2(_rng.randf_range(-1.0, 1.0), _rng.randf_range(-1.0, 1.0)).limit_length(1.0)
+		command.view_angles = Vector2(_rng.randf_range(-PI, PI), _rng.randf_range(-1.5, 1.5))
+		command.view_absolute = true
+		command.buttons = _rng.randi() & MoveIntent.BUTTON_MASK if _rng.randf() < 0.2 else 0
+		# Drawn a little behind the newest snapshot heard, in 64ths, as a client's playout clock is.
+		var behind: int = _rng.randi_range(0, 30 * 64)
+		command.view_time = MoveIntent.LIVE_WORLD if snap_wire < 0 else float(snap_wire) - float(behind) / 64.0
+		var seq: int = outbox.push(command)
+		var move: Vector2i = NetCodec.quantise_move(command.move_direction)
+		recorded[seq] = PackedInt64Array([command.buttons, move.x, move.y, NetCodec.quantise_turn(command.view_angles.x),
+			NetCodec.quantise_pitch(command.view_angles.y), -1 if snap_wire < 0 else snap_host * 64 - behind])
+		epoch_of[seq] = client_epoch
+		# A command made before the client has heard of the host's new epoch can never run.
+		counts["made"] += int(client_epoch == host_epoch)
+		var bytes: PackedByteArray = outbox.pack(client_epoch, snap_wire)
 		counts["oversize"] += int(bytes.size() >= MTU_BUDGET)
-		wire.push(1, false, bytes, now)
-		counts["sent"] += 1
-		for packet: PackedByteArray in wire.pop_due(now):
-			counts["arrived"] += 1
-			var carried: int = NetCodec.intent_count(packet)
-			if carried == 0:
+		up.push(1, false, bytes, now)
+		for packet: PackedByteArray in up.pop_due(now):
+			if NetCodec.unpack_commands(packet, scratch, 0) == 0:
 				counts["malformed"] += 1
 				continue
-			if NetCodec.intent_epoch(packet) != host_epoch:
+			if NetCodec.command_epoch(packet) != host_epoch:
 				counts["old_epoch"] += 1
 				continue
-			for i: int in carried:
-				var at: int = NetCodec.unpack_intent_at(packet, i, decoded)
-				counts["intents"] += 1
-				heard[at] = true
-				if _object_bytes(decoded, _intent_fields) != recorded.get(at, PackedByteArray()):
-					counts["mismatch"] += 1
-				counts["epoch_mixed"] += int(epoch_of_tick.get(at, -1) != host_epoch)
-	counts["heard"] = heard.size()
-	print("          INTENTS over %d ticks: %s; %.4f of ticks reached the host at least once" % [
-		TICKS, str(counts), float(heard.size()) / TICKS])
+			stream.receive(packet, host_tick)
+		for _i: int in stream.commands_due():
+			var ran: MoveIntent = stream.next_command(TICK_MS / 1000.0)
+			if stream.get_ack() == last_ran:
+				continue
+			if last_ran >= 0 and not epoch_began and stream.get_ack() > last_ran + 1:
+				counts["skipped_resync"] += stream.get_ack() - last_ran - 1
+				counts["skipped_unforced"] += int(outbox.next_seq() - 1 - last_ran < NetCodec.MAX_COMMANDS)
+			epoch_began = false
+			counts["out_of_order"] += int(last_ran >= 0 and stream.get_ack() <= last_ran)
+			last_ran = stream.get_ack()
+			counts["ran"] += 1
+			counts["epoch_mixed"] += int(epoch_of.get(last_ran, -1) != host_epoch)
+			var got: Vector2i = NetCodec.quantise_move(ran.move_direction)
+			var carried: PackedInt64Array = PackedInt64Array([ran.buttons, got.x, got.y,
+				_turn_step(ran.view_angles.x), NetCodec.quantise_pitch(ran.view_angles.y),
+				-1 if not is_finite(ran.view_time) else roundi(ran.view_time * NetCodec.VIEW_TIME_STEPS)])
+			counts["mismatch"] += int(carried != recorded.get(last_ran, PackedInt64Array()))
+		stream.end_tick()
+		if step % SNAPSHOT_EVERY == 0:
+			var ack: PackedByteArray = PackedByteArray()
+			ack.resize(12)
+			ack.encode_s64(0, stream.get_ack())
+			ack.encode_u32(8, host_tick % NetCodec.TICK_MODULUS)
+			down.push(1, false, ack, now)
+		for packet: PackedByteArray in down.pop_due(now):
+			outbox.acknowledge(packet.decode_s64(0))
+			var heard: int = packet.decode_u32(8)
+			if snap_wire < 0 or NetCodec.is_newer_tick(heard, snap_wire):
+				snap_host += NetCodec.tick_delta(snap_wire, heard) if snap_wire >= 0 else 0
+				if snap_wire < 0:
+					snap_host = host_tick - NetCodec.tick_delta(heard, host_tick % NetCodec.TICK_MODULUS)
+				snap_wire = heard
+	stream.free()
+	print("          COMMANDS over %d ticks: %s" % [TICKS, str(counts)])
 	return counts
+
+
+## The yaw step a decoded angle came from: the decoder's exact inverse ([method NetCodec.quantise_turn]
+## truncates, a known defect above, and would read k/65536 of a turn back as k - 1).
+func _turn_step(radians: float) -> int:
+	return posmod(roundi(fposmod(radians, TAU) / TAU * 65536.0), 65536)
 
 
 # --- Random state -------------------------------------------------------------
@@ -296,25 +338,7 @@ func _change(body: PlayerState, tick: int) -> void:
 		body.boost_remaining = _rng.randf_range(0.0, 25.0)
 		body.boost_multiplier = _rng.randf_range(0.5, 3.0)
 	body.boost_remaining = maxf(body.boost_remaining - 1.0 / 60.0, 0.0)
-	body.last_intent_tick = -1 if _rng.randf() < 0.01 else posmod(tick - _rng.randi_range(0, 12), NetCodec.TICK_MODULUS)
-
-
-func _intent(tick: int) -> MoveIntent:
-	var intent: MoveIntent = MoveIntent.new()
-	intent.move_direction = Vector2(_rng.randf_range(-1.0, 1.0), _rng.randf_range(-1.0, 1.0)).limit_length(1.0)
-	intent.view_angles = Vector2(_rng.randf_range(-PI, PI), _rng.randf_range(-1.5, 1.5))
-	intent.view_absolute = true
-	intent.view_tick = -1 if _rng.randf() < 0.05 else posmod(tick - _rng.randi_range(0, 10), NetCodec.TICK_MODULUS)
-	for field: String in ["jump_pressed", "jump_held", "slide_pressed", "slide_held", "fire_pressed", "fire_held",
-			"ability_pressed", "ability_held", "cook_pressed", "shove_pressed", "emote_pressed", "emote_alt_pressed",
-			"aim_held"]:
-		intent.set(field, _rng.randf() < 0.2)
-	intent.ability_slot = _rng.randi_range(0, 5)
-	intent.press_slot = _rng.randi_range(0, 5)
-	intent.press_slot_prior = _rng.randi_range(0, 5)
-	intent.press_counts = _rng.randi_range(0, MoveIntent.PRESS_COUNTS_MASK)
-	intent.emote_state = _rng.randi_range(-1, 1)
-	return intent
+	body.cmd_ack = -1 if _rng.randf() < 0.01 else posmod(tick - _rng.randi_range(0, 12), NetCodec.TICK_MODULUS)
 
 
 func _flip(value: bool, chance: float) -> bool:
@@ -333,10 +357,10 @@ func _unfaithful(source: WorldSnapshot, decoded: WorldSnapshot) -> int:
 	for i: int in source.count:
 		var a: PlayerState = source.states[i]
 		var b: PlayerState = decoded.states[i]
-		if a.last_intent_tick == NetCodec.NO_INTENT_ACK:
-			_defect("sentinel: last_intent_tick")
+		if a.cmd_ack == NetCodec.NO_ACK:
+			_defect("sentinel: cmd_ack")
 			continue
-		var ok: bool = a.seat_index == b.seat_index and a.last_intent_tick == b.last_intent_tick \
+		var ok: bool = a.seat_index == b.seat_index and a.cmd_ack == b.cmd_ack \
 			and _within(a.position, b.position, 0.0051) and _within(a.velocity, b.velocity, 0.0051) \
 			and absf(angle_difference(a.yaw, b.yaw)) <= turn and absf(angle_difference(a.view_base, b.view_base)) <= turn \
 			and absf(a.pitch - b.pitch) <= 0.51e-4 \
@@ -363,20 +387,6 @@ func _within(a: Vector3, b: Vector3, quantum: float) -> bool:
 
 func _tenths_floor(source: float, decoded: float) -> bool:
 	return decoded <= source + 1e-4 and decoded > source - 0.1 - 1e-4
-
-
-func _intent_carried(a: MoveIntent, b: MoveIntent) -> bool:
-	if a.view_tick == NetCodec.NO_INTENT_ACK:
-		_defect("sentinel: view_tick")
-		return true
-	return a.move_direction.is_equal_approx(b.move_direction) and a.view_angles.is_equal_approx(b.view_angles) \
-		and a.view_tick == b.view_tick and a.jump_pressed == b.jump_pressed and a.jump_held == b.jump_held \
-		and a.slide_pressed == b.slide_pressed and a.slide_held == b.slide_held and a.fire_pressed == b.fire_pressed \
-		and a.fire_held == b.fire_held and a.ability_pressed == b.ability_pressed and a.ability_held == b.ability_held \
-		and a.cook_pressed == b.cook_pressed and a.shove_pressed == b.shove_pressed and a.emote_pressed == b.emote_pressed \
-		and a.emote_alt_pressed == b.emote_alt_pressed and a.aim_held == b.aim_held and a.ability_slot == b.ability_slot \
-		and a.press_slot == b.press_slot and a.press_slot_prior == b.press_slot_prior and a.press_counts == b.press_counts \
-		and a.emote_state == b.emote_state
 
 
 # --- Bit-for-bit comparison ---------------------------------------------------

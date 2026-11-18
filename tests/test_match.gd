@@ -300,7 +300,7 @@ func test_the_seat_can_be_held_by_an_ai_while_the_human_runs() -> void:
 	assert_false(_trigger.is_processing(), "the trigger is dead once the match is over")
 	for participant: MatchParticipant in _participants:
 		assert_false(
-			participant.body.is_physics_processing(),
+			moves(participant.body),
 			"%s is frozen by the end of the match" % participant.display_name,
 		)
 

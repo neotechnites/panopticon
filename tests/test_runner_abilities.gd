@@ -180,17 +180,23 @@ func test_active_camo_repaints_the_body_then_restores_it_and_cools_down() -> voi
 
 func test_the_codec_carries_the_ability_bits() -> void:
 	var intent: MoveIntent = MoveIntent.new()
-	intent.ability_pressed = true
 	intent.ability_held = true
-	var out: MoveIntent = MoveIntent.new()
-	assert_eq_int(NetCodec.unpack_intent(NetCodec.pack_intent(7, intent), out), 7, "the intent unpacks")
-	assert_true(out.ability_pressed and out.ability_held, "both bits survive the wire")
+	var decoded: Array[MoveIntent] = []
+	for _i: int in NetCodec.MAX_COMMANDS:
+		decoded.append(MoveIntent.new())
+	assert_eq_int(NetCodec.unpack_commands(NetCodec.pack_commands(1, 7, -1, [intent], 1), decoded, -1), 1, "it unpacks")
+	var out: MoveIntent = decoded[0]
+	out.derive_edges(0)
+	assert_true(out.ability_pressed and out.ability_held, "the key's level survives the wire, and its press is the level going down")
 	out.clear()
 	assert_false(out.ability_pressed or out.ability_held, "clear zeroes them")
 
 
-## Press the ability key for one tick and hold it.
+## Put the power key down and keep it down; a key still down from the last press comes up first.
 func _press() -> void:
+	if _input.command.ability_held:
+		_input.command.ability_held = false
+		await step_ticks(1)
 	_input.command.ability_pressed = true
 	_input.command.ability_held = true
 	await step_ticks(2)

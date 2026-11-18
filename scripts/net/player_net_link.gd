@@ -8,9 +8,8 @@ extends Node
 ## depends on where it is running, not on who owns the body:
 ##
 ## [b]On the authority[/b] (the listen server, or an offline bot run) the body
-## simulates. Intent reaches it through a [RemoteIntentSource] fed by
-## [method _receive_intent] when a client owns the seat, or through the local
-## [member local_source] when the host or a bot does. Either way
+## simulates. Commands reach it through the owner's [CommandStream] when a client
+## owns the seat, or through the local [member local_source] when the host or a bot does. Either way
 ## [PlayerController] polls an [IntentSource] and runs the same physics -- there
 ## is no networked movement path and no second copy of the acceleration
 ## routines. The resulting state is sampled by [NetReplicator] after the tick
@@ -26,10 +25,10 @@ extends Node
 ##
 ## A client's own body runs the same [PlayerController] physics off the same
 ## [MoveIntent] on the tick the key goes down, so movement costs no round trip.
-## Every tick is kept -- the intent, and the body it produced -- until a
-## snapshot says the authority has applied it: see
-## [member PlayerState.last_intent_tick]. On a snapshot the body is rewound to
-## the authority's state at the tick it acknowledges, every intent since is
+## Every command is kept -- as run, and the body it produced -- until a
+## snapshot says the authority has run it: see
+## [member PlayerState.cmd_ack]. On a snapshot the body is rewound to
+## the authority's state at the command it acknowledges, every command since is
 ## replayed on top, and the difference between the old prediction and the new
 ## one is taken out of [member PlayerController.view_offset] over
 ## [member NetSettings.prediction_smoothing_seconds] rather than jumped.
@@ -72,9 +71,9 @@ signal prediction_corrected(metres: float, snapped: bool)
 ## A client took the authority's first state for this body: until then it neither simulates nor counts as placed.
 signal placed()
 
-## The authority accepted an intent packet for this seat. Authority-only. The
-## seam for telemetry, input logging and a future server-side movement audit.
-signal intent_received(peer_id: int, tick: int)
+## The authority took a command packet for this seat; [param seq] is its newest command.
+## Authority-only: the seam for telemetry and input logging.
+signal intent_received(peer_id: int, seq: int)
 
 ## The session this link belongs to. Supplies the authority test and the local
 ## peer id; the link never touches a [NetTransport] itself.
@@ -111,19 +110,8 @@ signal intent_received(peer_id: int, tick: int)
 ## and the hit points live on the participant, not on the body. Set by [NetMatch].
 @export var match_controller: MatchController
 
-## Fed by [method _receive_intent] on the authority when a client owns this
-## seat, and switched into the controller in place of [member local_source].
-##
-## Part of [code]match/net/player_net_link.tscn[/code] rather than built here
-## when a client first turns up: a node this project needs is a node in a
-## scene file, and one made in code is one nobody can see, inspect or retune.
-## It costs a handful of bytes on a seat that never has a remote owner.
-@export var remote_source: RemoteIntentSource
-
-## Unacknowledged ticks the prediction buffer holds. 64 at 60 Hz is a second of
-## input the authority has not answered for; past that a client is guessing,
-## not predicting, and is better off taking the authority's word.
-const PREDICTION_CAPACITY: int = 64
+## Unacknowledged commands the prediction buffer holds: as many as the outbox keeps, a second.
+const PREDICTION_CAPACITY: int = CommandStream.RING
 
 ## Time constants spent inside [member NetSettings.prediction_smoothing_seconds],
 ## so a correction is 95% drawn away by the time that setting names.
@@ -136,9 +124,9 @@ const _SMOOTHING_EPSILON: float = 0.001
 const _BOOST_TOLERANCE_SECONDS: float = 0.11
 
 
-## One unacknowledged tick: the intent that was sent, and the body it produced.
+## One unacknowledged command: as the body ran it, and the body it produced.
 class PredictedTick extends RefCounted:
-	var tick: int = 0
+	var seq: int = 0
 	var intent: MoveIntent = MoveIntent.new()
 	var position: Vector3 = Vector3.ZERO
 	var velocity: Vector3 = Vector3.ZERO
@@ -148,32 +136,12 @@ class PredictedTick extends RefCounted:
 	var locked: bool = false
 
 
-## Reused per packet so the per-tick path does not allocate.
+## Reused per tick so the send path does not allocate.
 var _scratch_intent: MoveIntent = MoveIntent.new()
-
-## The last few intents sent, oldest first, for
-## [member NetSettings.intent_redundancy]. Allocated once and written over.
-var _recent_intents: Array[MoveIntent] = []
-
-## This machine's tick of the newest entry in [member _recent_intents], or -1.
-## A gap in it -- a tick that sent nothing -- empties the window, because the
-## packet format says its intents are consecutive.
-var _recent_tick: int = -1
-
-## How many of [member _recent_intents] are filled, oldest at index zero.
-var _recent_count: int = 0
-
-## The bytes last sent by [method _send_intent]. See
-## [method get_last_intent_packet].
-var _last_packet: PackedByteArray = PackedByteArray()
 ## The authority's [member PlayerController.view_base] for this body, off its snapshots.
 var _view_base: float = 0.0
 ## A client's own view (yaw less [member _view_base], pitch) when it is not predicting.
 var _view: Vector2 = Vector2.ZERO
-
-## Intent packets taken from this seat's owner on the current authority tick.
-## See [member NetSettings.max_intent_packets_per_tick].
-var _packets_this_tick: int = 0
 
 ## True when this machine is a client simulating its own body. Latched with the
 ## rest of the role in [method refresh_role].
@@ -194,17 +162,16 @@ var _has_pending_state: bool = false
 ## Prediction error still to be drawn away, in world metres. See
 ## [member PlayerController.view_offset].
 var _view_error: Vector3 = Vector3.ZERO
-## The power this client last predicted, and the intent tick it changed on: the
-## authority's word on it waits until that tick is acknowledged.
+## The power this client last predicted, and the command it changed on: the
+## authority's word on it waits until that command is acknowledged.
 var _predicted_power: int = 0
-var _power_tick: int = -1
+var _power_seq: int = -1
 
-## This machine's own tick count, for stamping outgoing intent. Ordering only:
-## it is not synchronised with the authority's and means nothing across
-## machines. The authority echoes it back in
-## [member PlayerState.last_intent_tick], which is what reconciliation rewinds
-## to -- so it means something to the machine that sent it, and to no other.
-var _tick: int = 0
+## The avatar the host draws from its samples instead of at the body, where it sits on it, and
+## where the body is drawn.
+var _avatar: Node3D = null
+var _avatar_rest: Transform3D = Transform3D.IDENTITY
+var _drawn_at: Vector3 = Vector3.ZERO
 
 ## True if this machine simulates. Latched at [method refresh_role] rather than
 ## queried per tick, so a session state change cannot flip the role halfway
@@ -234,22 +201,6 @@ var _seen_jumps: int = 0
 ## Shove swings this body has made; sampled into the snapshot as the jump counter is.
 var _shove_counter: int = 0
 var _seen_shoves: int = 0
-## A predicting client's own swings the authority has not confirmed yet, and the tick of the newest.
-var _swings_ahead: int = 0
-var _swing_tick: int = -1
-var _shove_cooldown: float = 0.0
-var _shove_was_pressed: bool = false
-## True while a swing the authority reported is being drawn, so it is not counted as a prediction.
-var _presenting_swing: bool = false
-## Ticks an unconfirmed swing is remembered for: past a second the authority refused it.
-const _SWING_MEMORY_TICKS: int = 90
-
-## This machine's running press counts for the intent it sends; see [member MoveIntent.press_counts].
-var _press_counts: int = 0
-var _press_slot: int = 0
-var _press_slot_prior: int = 0
-## What an unpredicted body's last emote tap asked for; see [method _emote_after].
-var _emote_asked: int = 0
 
 ## Links by the instance id of the body they carry: a link sits under [NetMatch], not its body.
 static var _by_body: Dictionary[int, PlayerNetLink] = {}
@@ -274,16 +225,12 @@ func _ready() -> void:
 	# After the body has moved, so a recorded tick is the tick's RESULT and a
 	# rewind happens between two ticks rather than in the middle of one.
 	process_physics_priority = 50
+	_avatar = controller.get_node_or_null(^"Avatar") as Node3D
 	if replicator != null:
 		replicator.register(self)
-		if not session.is_authority() and _owns_locally():
-			_tick = replicator.intent_tick
-			_press_counts = replicator.intent_presses
-			_press_slot = replicator.intent_press_slot
-			_press_slot_prior = replicator.intent_press_slot_prior
 	session.connection_state_changed.connect(_on_connection_state_changed)
 	controller.jumped.connect(func() -> void: _jump_counter += 1)
-	controller.shoved.connect(_on_body_shoved)
+	controller.shoved.connect(func() -> void: _shove_counter += 1)
 	_by_body[controller.get_instance_id()] = self
 	refresh_role()
 
@@ -315,6 +262,9 @@ func refresh_role() -> void:
 	)
 
 	controller.net_predicted = _predicting
+	if _owns_locally() and local_source != null and replicator != null:
+		# This machine's commands carry the time it draws the others at: what its shots rewind to.
+		local_source.view_clock = replicator.get_view_time
 	if not _is_authority and not _predicting:
 		# Somebody else's body on a client owns no simulation. Leaving its
 		# physics running would fight every snapshot that arrives. Our own unplaced body keeps its source.
@@ -333,12 +283,12 @@ func refresh_role() -> void:
 		_view_base = wrapf(controller.rotation.y - _view.x, -PI, PI)
 		_take_own_footing()
 
-	# Whether the body runs is the match's word: a role taken over while it is held leaves it held.
-	controller.set_physics_process(not controller.held)
+	# The body runs its commands here; whether they move it is the match's (held).
+	controller.set_physics_process(true)
 	if _owns_locally():
 		controller.intent_source = local_source
-	else:
-		controller.intent_source = _ensure_remote_source()
+	elif replicator != null:
+		controller.intent_source = replicator.stream_for(owner_peer_id)
 
 	if controller.intent_source != null:
 		# PlayerController configures its source once, at its own _ready. A
@@ -348,46 +298,27 @@ func refresh_role() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	_tick += 1
-	if _is_authority:
-		_packets_this_tick = 0
-		_rest_held_source()
+	if _is_authority or session == null or controller == null or not _owns_locally():
 		return
-	if session == null or controller == null:
+	if local_source == null or not session.is_established():
 		return
-	if not _owns_locally():
-		return
-	if not _predicting:
-		_send_intent()
-		return
-	if not controller.is_physics_processing():
-		# The match has parked this body -- a round break, a kill beat, a ghost
-		# settling. There is nothing to predict until it is woken, and the
-		# replicator mirrors it in the meantime.
-		reset_prediction()
-		_send_intent()
-		return
-	if controller.net_floor >= 0:
-		# Mirrored while it was parked. Its own physics answers for it again.
+	if is_predicting() and controller.net_floor >= 0:
+		# Mirrored while it was held. Its own physics answers for it again.
 		_take_own_footing()
-	# The body has already moved on this tick's intent: record what it did,
-	# tell the authority what it was asked to do, then take whatever answer
-	# arrived since and put the body right.
-	_record_tick()
-	_note_predicted_power()
-	_predict_swing(delta)
-	_send_intent()
+	var seq: int = _send_commands(delta)
+	if seq >= 0 and is_predicting():
+		# The body has already run this command: keep what it did, then take whatever answer
+		# arrived since and put the body right.
+		_record(seq)
+		_note_predicted_power(seq)
+	else:
+		# Unplaced, or held by the match: nothing to predict, and the replicator mirrors it.
+		reset_prediction()
 	if _has_pending_state:
 		_has_pending_state = false
-		_reconcile(delta)
+		if is_predicting():
+			_reconcile(delta)
 	_decay_view_error(delta)
-
-
-## This machine's own intent clock -- what an outgoing intent is stamped with,
-## and what comes back as [member PlayerState.last_intent_tick]. Ordering only;
-## it means nothing on another machine.
-func get_intent_tick() -> int:
-	return _tick
 
 
 ## True when this body should appear in snapshots. A link whose controller has
@@ -401,11 +332,36 @@ func is_replicable() -> bool:
 ## authority. The replicator asks, because a predicted body must not also be
 ## interpolated.
 ##
-## Gated on the body's own physics, not only on the role: the match parks bodies
-## between rounds and through a kill beat, and a parked body is a mirrored one
-## until the match wakes it again.
+## Not while the match holds it: a held body is a mirrored one until the match lets it go.
 func is_predicting() -> bool:
-	return _predicting and controller != null and controller.is_physics_processing()
+	return _predicting and controller != null and not controller.held
+
+
+## True when this machine's own player drives this body: not a bot's seat, and not another peer's.
+func is_owned_here() -> bool:
+	return owner_peer_id != 0 and session != null and owner_peer_id == session.get_local_peer_id()
+
+
+## Host: draw this body's avatar at [param at] instead of at the body ([param playout]), or give
+## it back to the body. The collider never moves for it.
+func draw_avatar_at(at: Transform3D, playout: bool = true) -> void:
+	if _avatar == null:
+		return
+	if not playout:
+		if _avatar.top_level:
+			_avatar.top_level = false
+			_avatar.transform = _avatar_rest
+		return
+	if not _avatar.top_level:
+		_avatar_rest = _avatar.transform
+		_avatar.top_level = true
+	_avatar.global_transform = at * _avatar_rest
+	_drawn_at = at.origin
+
+
+## Where this machine draws the body: on the host, where its playout has it; elsewhere, the body.
+func drawn_position() -> Vector3:
+	return _drawn_at if _avatar != null and _avatar.top_level else controller.global_position
 
 
 ## Let the body answer for its own footing and pose again, rather than the last
@@ -431,20 +387,6 @@ func reset_prediction() -> void:
 		controller.view_offset = Vector3.ZERO
 
 
-## The network-fed source for this body. Present whether or not it is in use;
-## [method PlayerController.intent_source] is what says which source is live.
-func get_remote_source() -> RemoteIntentSource:
-	_rest_held_source()
-	return remote_source
-
-
-## A body the match holds polls nothing, so its source holds nothing: no key, press or
-## trigger pull sent for it meanwhile stands, or waits, for its return.
-func _rest_held_source() -> void:
-	if remote_source != null and controller != null and not controller.is_physics_processing():
-		remote_source.rest()
-
-
 ## Read this body's current state into [param out]. Called by [NetReplicator]
 ## on the authority, after the physics tick.
 func sample_state(out: PlayerState) -> void:
@@ -468,11 +410,11 @@ func sample_state(out: PlayerState) -> void:
 	out.shove_counter = _shove_counter
 	out.boost_remaining = controller.get_speed_boost_remaining()
 	out.boost_multiplier = controller.get_speed_boost_multiplier()
-	# What the owner of this seat may rewind to: the last intent of theirs this
-	# body has actually simulated, not merely received. Nothing to say for a
-	# bot's seat or the host's own, and nobody to say it to.
-	out.last_intent_tick = (
-		remote_source.applied_tick if remote_source != null and owner_peer_id != 0 else -1
+	# What the owner of this seat may rewind to: the last command of theirs this body has run,
+	# not merely received. Nothing to say for a bot's seat or the host's own.
+	out.cmd_ack = (
+		replicator.stream_for(owner_peer_id).get_ack()
+		if replicator != null and owner_peer_id != 0 and not _owns_locally() else -1
 	)
 	var participant: MatchParticipant = _participant()
 	out.is_finisher = participant.is_finisher if participant != null else false
@@ -523,7 +465,7 @@ func _apply_presentation(state: PlayerState, predicted: bool = false) -> void:
 			state.ability_remaining,
 			state.cooldown_remaining,
 		)
-	elif power != null and not _power_unacknowledged(state.last_intent_tick):
+	elif power != null and not _power_unacknowledged(state.cmd_ack):
 		power.reconcile(
 			state.ability as MatchRules.RunnerAbility,
 			state.ability_remaining,
@@ -571,49 +513,22 @@ func _present_events(state: PlayerState) -> void:
 	_was_sliding = state.sliding
 
 
-## A predicting body heard its own jumps, landings and slides as it made them: the mirror's
-## memory moves past them, so none is replayed when the match holds the body.
+## A predicting body heard its own jumps, landings, slides and swings as it made them (its swing
+## gate draws them): the mirror's memory moves past them, so none is replayed when it is held.
 func _pass_own_events(state: PlayerState) -> void:
 	_event_tick = state.tick
 	_was_on_floor = state.on_floor
 	_was_sliding = state.sliding
 	_seen_jumps = state.jump_counter
+	_seen_shoves = state.shove_counter
 
 
-## Draw the swings the authority's counter has advanced by, less the ones this machine
-## already drew for its own body when the key went down.
+## Draw the swings the authority's counter has advanced by on a mirrored body.
 func _present_swings(counter: int) -> void:
 	var swings: int = posmod(counter - _seen_shoves, NetCodec.SHOVE_COUNTER_MODULUS)
 	_seen_shoves = counter
-	var confirmed: int = mini(swings, _swings_ahead)
-	_swings_ahead -= confirmed
-	_presenting_swing = true
-	for _i: int in swings - confirmed:
+	for _i: int in swings:
 		controller.shoved.emit()
-	_presenting_swing = false
-
-
-func _on_body_shoved() -> void:
-	_shove_counter += 1
-	if _predicting and not _presenting_swing:
-		_swings_ahead += 1
-		_swing_tick = _tick
-
-
-## A client's own swing, drawn on the tick the key goes down: the arms punch whether or not
-## the authority finds anybody in reach, and its counter confirms the swing later.
-func _predict_swing(delta: float) -> void:
-	_shove_cooldown = maxf(_shove_cooldown - delta, 0.0)
-	if _swings_ahead > 0 and _tick - _swing_tick > _SWING_MEMORY_TICKS:
-		_swings_ahead = 0
-	var pressed: bool = controller.get_intent().shove_pressed
-	var tapped: bool = pressed and not _shove_was_pressed
-	_shove_was_pressed = pressed
-	if not tapped or controller.is_armed or _shove_cooldown > 0.0:
-		return
-	if match_controller != null:
-		_shove_cooldown = maxf(match_controller.get_rules().shove_cooldown_seconds, 0.0)
-	controller.shoved.emit()
 
 
 ## This body's participant, or null before the match has built them.
@@ -625,136 +540,29 @@ func _participant() -> MatchParticipant:
 
 # --- Sending ------------------------------------------------------------------
 
-func _send_intent() -> void:
-	if local_source == null or not session.is_established():
-		return
-	# A predicting body has already polled the source on this tick, through the
-	# controller. Polling it again here would eat the edges twice and send an
-	# input the body never acted on.
-	if _predicting:
-		if controller.is_physics_processing():
-			_scratch_intent.copy_from(controller.get_intent())
-			_scratch_intent.emote_state = _emote_after(_scratch_intent)
-		else:
-			# Held by the match: nothing polled the source, so its last intent is no longer being made.
-			_scratch_intent.clear()
+## Number this tick's command and send every one the host has not run. A predicting body has
+## already run it; an unplaced one has not, so its device is read here. Returns the sequence, or
+## -1 before this scene's world has been heard: a command is input to the host's world (Quake 3
+## sends none before its first snapshot), so one made before the host runs the scene is not sent.
+func _send_commands(delta: float) -> int:
+	var command: MoveIntent
+	if controller.is_physics_processing():
+		command = controller.get_intent()
 		var view: Vector2 = controller.get_view_angles()
 		_view = Vector2(wrapf(view.x - _view_base, -PI, PI), view.y)
-		_scratch_intent.view_angles = _view
 	else:
-		_scratch_intent.copy_from(local_source.poll(get_physics_process_delta_time()))
-		_scratch_intent.emote_state = _emote_after(_scratch_intent)
-		_view = controller.turned_view(_view, _scratch_intent.look_delta)
-		_scratch_intent.view_angles = _view
+		command = local_source.next_command(delta)
+		_view = controller.turned_view(_view, command.look_delta)
+	_scratch_intent.copy_from(command)
 	# The view goes as absolute angles, Quake's usercmd: a lost packet costs no aim.
+	_scratch_intent.view_angles = _view
 	_scratch_intent.view_absolute = true
-	_scratch_intent.view_tick = replicator.get_view_tick() if replicator != null else -1
 	_scratch_intent.look_delta = Vector2.ZERO
-	_scratch_intent.normalise()
-	_count_presses(_scratch_intent)
-	var redundancy: int = clampi(
-		session.get_settings().intent_redundancy, 1, NetCodec.MAX_INTENT_REDUNDANCY
-	)
-	_remember_intent(_scratch_intent, redundancy)
-	_last_packet = NetCodec.pack_intents(_tick, _recent_intents, _recent_count, _epoch())
-	if replicator != null:
-		replicator.intent_tick = _tick
-		replicator.intent_presses = _press_counts
-		replicator.intent_press_slot = _press_slot
-		replicator.intent_press_slot_prior = _press_slot_prior
-		replicator.send_intent(_last_packet)
-
-
-## What this body's emote comes to once [param intent]'s taps are run: its own answer when it
-## predicts, else the tap applied to what is drawn. The host is told this per press, not a toggle.
-func _emote_after(intent: MoveIntent) -> int:
-	if _predicting:
-		return controller.get_emote_state()
-	if intent.emote_pressed or intent.emote_alt_pressed:
-		var asked: int = 2 if intent.emote_alt_pressed else 1
-		_emote_asked = 0 if controller.get_emote_state() == asked else asked
-	return _emote_asked
-
-
-## The intent packet this body last sent, or an empty array before the first.
-##
-## The seam a test harness needs to put a real packet through a wire it has
-## made lossy: loopback drops nothing, so the only way to measure what loss
-## costs is to carry the real bytes by hand. Nothing in the game reads it.
-## Stamp [param intent] with this machine's running press counts, advanced by its edges.
-func _count_presses(intent: MoveIntent) -> void:
-	for key: int in MoveIntent.PRESS_KEYS:
-		if not intent.presses(key):
-			continue
-		_press_counts = MoveIntent.press_added(_press_counts, key)
-		if key == MoveIntent.Press.POWER:
-			_press_slot_prior = _press_slot
-			_press_slot = intent.ability_slot
-	intent.press_counts = _press_counts
-	intent.press_slot = _press_slot
-	intent.press_slot_prior = _press_slot_prior
-
-
-func get_last_intent_packet() -> PackedByteArray:
-	return _last_packet
-
-
-## Push [param intent] onto the window of ticks the next packet repeats.
-##
-## The window holds consecutive ticks and nothing else: a tick that sent no
-## packet breaks the run, and a packet claiming ticks the sender skipped would
-## acknowledge input that was never made.
-func _remember_intent(intent: MoveIntent, redundancy: int) -> void:
-	if _recent_intents.size() != redundancy:
-		_recent_intents.resize(redundancy)
-		for i: int in redundancy:
-			if _recent_intents[i] == null:
-				_recent_intents[i] = MoveIntent.new()
-		_recent_count = 0
-	if _recent_tick != _tick - 1:
-		_recent_count = 0
-	_recent_tick = _tick
-	if _recent_count < redundancy:
-		_recent_intents[_recent_count].copy_from(intent)
-		_recent_count += 1
-		return
-	for i: int in redundancy - 1:
-		_recent_intents[i].copy_from(_recent_intents[i + 1])
-	_recent_intents[redundancy - 1].copy_from(intent)
-
-
-# --- Receiving ----------------------------------------------------------------
-
-## Take one intent packet from [param sender_id]. Authority-side, and it makes
-## every check itself: [NetReplicator] hands it whatever a peer sent.
-func accept_intent_payload(sender_id: int, payload: PackedByteArray) -> void:
-	if not _is_authority or owner_peer_id == 0 or sender_id != owner_peer_id:
-		# The one check that stops a peer driving somebody else's body.
-		return
-
-	var settings: NetSettings = session.get_settings()
-	_packets_this_tick += 1
-	if _packets_this_tick > settings.max_intent_packets_per_tick:
-		# A peer sending faster than it simulates gains nothing and may not
-		# spend the host's CPU proving it.
-		return
-	var count: int = NetCodec.intent_count(payload)
-	if count == 0 or NetCodec.intent_epoch(payload) != _epoch():
-		# Malformed, or sent from another scene (Quake's serverId check).
-		return
-
-	var source: RemoteIntentSource = _ensure_remote_source()
-	var newest: int = -1
-	# Oldest first. The repeats the authority has already had are refused by
-	# accept(); the ones it missed fill the hole the dropped packet left.
-	for i: int in count:
-		var tick: int = NetCodec.unpack_intent_at(payload, i, _scratch_intent)
-		if tick < 0:
-			continue
-		if source.accept(tick, _scratch_intent):
-			newest = tick
-	if newest >= 0:
-		intent_received.emit(sender_id, newest)
+	if replicator.get_latest_tick() < 0:
+		return -1
+	var seq: int = replicator.outbox.push(_scratch_intent)
+	replicator.send_commands()
+	return seq
 
 
 # --- Prediction ---------------------------------------------------------------
@@ -769,22 +577,22 @@ func receive_authoritative(state: PlayerState) -> void:
 	_has_pending_state = true
 
 
-## Mark the tick this client's own power started or stopped, if it did.
-func _note_predicted_power() -> void:
+## Mark the command this client's own power started or stopped on, if it did.
+func _note_predicted_power(seq: int) -> void:
 	var power: RunnerPower = RunnerPower.of(controller)
 	var active: int = int(power.get_active()) if power != null else 0
 	if active != _predicted_power:
 		_predicted_power = active
-		_power_tick = _tick
+		_power_seq = seq
 
 
-## True while the authority has not yet run the intent that changed this power.
+## True while the authority has not yet run the command that changed this power.
 func _power_unacknowledged(acked: int) -> bool:
-	return _power_tick >= 0 and (acked < 0 or NetCodec.is_newer_tick(_power_tick, acked))
+	return _power_seq >= 0 and (acked < 0 or NetCodec.is_newer_tick(_power_seq, acked))
 
 
-## Keep this tick: the intent the body was driven by, and where it ended up.
-func _record_tick() -> void:
+## Keep command [param seq]: as the body ran it, and where it ended up.
+func _record(seq: int) -> void:
 	if _predicted.is_empty():
 		_predicted.resize(PREDICTION_CAPACITY)
 		for i: int in PREDICTION_CAPACITY:
@@ -796,7 +604,7 @@ func _record_tick() -> void:
 		_predicted_count -= 1
 	var entry: PredictedTick = _slot(_predicted_count)
 	_predicted_count += 1
-	entry.tick = _tick
+	entry.seq = seq
 	entry.intent.copy_from(controller.get_intent())
 	_write_result(entry)
 
@@ -817,7 +625,6 @@ func _write_result(entry: PredictedTick) -> void:
 ## the view it sends, turned by whatever facing the match has set since.
 func _reconcile(delta: float) -> void:
 	_apply_presentation(_pending_state, true)
-	_present_swings(_pending_state.shove_counter)
 	_pass_own_events(_pending_state)
 	var rebase: float = angle_difference(_view_base, _pending_state.view_base)
 	if rebase != 0.0:
@@ -827,7 +634,7 @@ func _reconcile(delta: float) -> void:
 		for i: int in _predicted_count:
 			var held: PredictedTick = _slot(i)
 			held.yaw = wrapf(held.yaw + rebase, -PI, PI)
-	var acked: int = _pending_state.last_intent_tick
+	var acked: int = _pending_state.cmd_ack
 	if acked < 0:
 		# The authority has run none of this client's input yet. There is
 		# nothing to rewind to and nothing to replay.
@@ -845,7 +652,7 @@ func _reconcile(delta: float) -> void:
 		return
 	var index: int = first - 1
 	var predicted: PredictedTick = _slot(index)
-	if predicted.tick != acked:
+	if predicted.seq != acked:
 		# A tick was acknowledged that this buffer straddles but does not hold.
 		_snap_to(_pending_state)
 		prediction_corrected.emit(0.0, true)
@@ -905,7 +712,7 @@ func _reconcile(delta: float) -> void:
 ## the buffer. Equal to the count when it has acknowledged them all.
 func _first_unacknowledged(acked: int) -> int:
 	for i: int in _predicted_count:
-		if NetCodec.is_newer_tick(_slot(i).tick, acked):
+		if NetCodec.is_newer_tick(_slot(i).seq, acked):
 			return i
 	return _predicted_count
 
@@ -971,14 +778,6 @@ func _owns_locally() -> bool:
 	if owner_peer_id == 0:
 		return true
 	return owner_peer_id == session.get_local_peer_id()
-
-
-## The network-fed source, configured from the session's settings the first
-## time it is asked for. Null only when the scene was assembled without one.
-func _ensure_remote_source() -> RemoteIntentSource:
-	if remote_source != null:
-		remote_source.stale_after_ticks = session.get_settings().stale_intent_ticks
-	return remote_source
 
 
 func _on_connection_state_changed(_state: NetTransport.ConnectionState) -> void:

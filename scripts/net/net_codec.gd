@@ -55,19 +55,16 @@ extends RefCounted
 ## which is cheap; it is listed as a gap rather than a feature because it is a
 ## habit that stops being cheap at a player count this game will never reach.
 
-## Bytes of intent header: u32 newest tick, u16 scene epoch, u8 how many intents follow.
-const INTENT_HEADER_SIZE: int = 7
+## Bytes of command packet header: u16 epoch, u32 newest sequence, u8 command count, u32 snap ack
+## (the newest snapshot tick the sender decoded, or [constant NO_ACK]).
+const COMMAND_HEADER_SIZE: int = 11
 
-## Bytes per intent: 2 floats of move, 2 of absolute view (yaw, pitch), u32 view tick,
-## a flag byte, the ability slot (this tick's low, the newest press's high), a second flag
-## byte and u16 press counts.
-const INTENT_BODY_SIZE: int = 25
+## Most commands one packet may carry: every unacknowledged one, up to about half a second.
+const MAX_COMMANDS: int = 32
 
-## Bytes in a packet carrying one intent.
-const INTENT_SIZE: int = INTENT_HEADER_SIZE + INTENT_BODY_SIZE
-
-## Most intents one packet may carry. See [method pack_intents].
-const MAX_INTENT_REDUNDANCY: int = 4
+## What a command's view time is relative to: 64ths of a tick from the packet's snap ack.
+const VIEW_TIME_STEPS: float = 64.0
+const _VIEW_TIME_NONE: int = -32768
 
 ## Bytes of snapshot header: u32 tick, u32 scene epoch, u8 body count.
 const SNAPSHOT_HEADER_SIZE: int = 9
@@ -114,28 +111,12 @@ const EPOCH_MODULUS: int = 1 << 16
 ## u8 flags, u32 peer id, u16 standing epoch, u8 name length. The name follows, that many bytes.
 const ROSTER_SEAT_FIXED_SIZE: int = 11
 
-const _FLAG_JUMP_PRESSED: int = 1 << 0
-const _FLAG_JUMP_HELD: int = 1 << 1
-# Bit 2 was sprint, which the game no longer has. The bit is left unused rather
-# than reclaimed: the remaining flags keep the positions they have always had,
-# so a build of this codec cannot disagree with another about what bit 3 means.
-const _FLAG_SLIDE_PRESSED: int = 1 << 3
-const _FLAG_SLIDE_HELD: int = 1 << 4
-const _FLAG_FIRE_PRESSED: int = 1 << 2
-const _FLAG_FIRE_HELD: int = 1 << 5
-const _FLAG_ABILITY_PRESSED: int = 1 << 6
-const _FLAG_ABILITY_HELD: int = 1 << 7
-## Second flag byte. The first is full; new intent bits start here.
-const _FLAG2_SHOVE_PRESSED: int = 1 << 0
-const _FLAG2_AIM_HELD: int = 1 << 1
-const _FLAG2_COOK_PRESSED: int = 1 << 2
-const _FLAG2_EMOTE_PRESSED: int = 1 << 3
-const _FLAG2_EMOTE_ALT_PRESSED: int = 1 << 4
-## [member MoveIntent.press_slot_prior], in the three bits the flags leave.
-const _FLAG2_PRIOR_SLOT_SHIFT: int = 5
-## [member MoveIntent.emote_state] plus one (0 = not said), in the bits the press counts leave.
-const _EMOTE_STATE_SHIFT: int = MoveIntent.PRESS_KEYS * MoveIntent.PRESS_BITS
-const _EMOTE_STATE_MASK: int = 3
+## A command's changed mask: which fields follow, against the command before it in the packet.
+const _CMD_BUTTONS: int = 1 << 0
+const _CMD_MOVE: int = 1 << 1
+const _CMD_VIEW: int = 1 << 2
+const _CMD_VIEW_TIME: int = 1 << 3
+const _MOVE_STEPS: float = 127.0
 const _FLAG_ON_FLOOR: int = 1 << 0
 ## The rest of the snapshot flag byte: what a mirror cannot work out for itself
 ## because it runs no physics and takes no match decisions.
@@ -151,7 +132,6 @@ const _FLAG2_EMOTE_ALT: int = 1 << 1
 ## Bits 2-3 of the second flag byte: the shove swing counter, a counter for the jump's reason.
 const SHOVE_COUNTER_MODULUS: int = 4
 const _FLAG2_SHOVE_SHIFT: int = 2
-const _PRESS_SLOT_SHIFT: int = 4
 const _BOOST_TENTHS_MAX: int = 255
 
 ## Where the jump counter sits in the flag byte: bits 3, 6 and 7.
@@ -176,169 +156,134 @@ const _HEALTH_MAX: int = 255
 ## Ticks are unsigned 32-bit on the wire and wrap there.
 const TICK_MODULUS: int = 1 << 32
 
-## What [member PlayerState.last_intent_tick] becomes on the wire when the
-## authority has applied no intent for that seat. A u32 has no -1 to carry.
-const NO_INTENT_ACK: int = 0xFFFFFFFF
+## A u32 acknowledgement of nothing: [member PlayerState.cmd_ack] or a command packet's snap ack of -1.
+const NO_ACK: int = 0xFFFFFFFF
 
 
-# --- Intent: client to authority ----------------------------------------------
+# --- Commands: client to authority -------------------------------------------
 
-## One intent, as a packet of one.
-static func pack_intent(tick: int, intent: MoveIntent, epoch: int = 0) -> PackedByteArray:
-	var one: Array[MoveIntent] = [intent]
-	return pack_intents(tick, one, 1, epoch)
-
-
-## The last [param count] intents in one packet, [param intents] oldest first
-## and [param newest_tick] naming the last of them.
-##
-## [b]Redundancy, not batching.[/b] The packet still goes every tick; it simply
-## repeats the ticks before it. Intent rides an unreliable channel and its
-## edges -- a jump, a slide, a shove, a trigger -- are consumed once and gone,
-## so a single dropped packet is a press the player made and the game never
-## saw. Repeating the previous two costs about twenty bytes on a stream that
-## was already the cheap direction, and makes any burst of loss shorter than
-## the redundancy invisible to the authority. The authority's own
-## [method RemoteIntentSource.accept] drops the repeats it has already had, so
-## nothing downstream has to know this is happening.
-static func pack_intents(
-	newest_tick: int, intents: Array[MoveIntent], count: int, epoch: int = 0
+## [param count] commands, [param commands] oldest first, the newest being sequence
+## [param newest_seq]; each delta-coded against the one before (Quake's MSG_WriteDeltaUsercmd).
+## Levels, move, absolute view and view time; no edge is sent. [param snap_ack] is -1 for none.
+static func pack_commands(
+	epoch: int, newest_seq: int, snap_ack: int, commands: Array[MoveIntent], count: int
 ) -> PackedByteArray:
-	var used: int = clampi(mini(count, intents.size()), 1, MAX_INTENT_REDUNDANCY)
+	var used: int = clampi(mini(count, commands.size()), 1, MAX_COMMANDS)
 	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
-	buffer.put_u32(newest_tick % TICK_MODULUS)
 	buffer.put_u16(epoch % EPOCH_MODULUS)
+	buffer.put_u32(newest_seq % TICK_MODULUS)
 	buffer.put_u8(used)
+	buffer.put_u32(NO_ACK if snap_ack < 0 else snap_ack % TICK_MODULUS)
+	var buttons: int = 0
+	var move: Vector2i = Vector2i.ZERO
+	var view: Vector2i = Vector2i.ZERO
+	var view_time: int = 0
 	for i: int in used:
-		_put_intent(buffer, intents[i])
+		var command: MoveIntent = commands[i]
+		var b: int = command.buttons & MoveIntent.BUTTON_MASK
+		var m: Vector2i = quantise_move(command.move_direction)
+		var v: Vector2i = Vector2i(quantise_turn(command.view_angles.x), quantise_pitch(command.view_angles.y))
+		var t: int = _VIEW_TIME_NONE
+		if snap_ack >= 0 and is_finite(command.view_time):
+			t = clampi(roundi((command.view_time - float(snap_ack)) * VIEW_TIME_STEPS), _VIEW_TIME_NONE + 1, 32767)
+		var changed: int = (
+			(_CMD_BUTTONS if b != buttons else 0) | (_CMD_MOVE if m != move else 0)
+			| (_CMD_VIEW if v != view else 0) | (_CMD_VIEW_TIME if t != view_time else 0)
+		)
+		buffer.put_u8(changed)
+		if (changed & _CMD_BUTTONS) != 0:
+			buffer.put_u16(b)
+		if (changed & _CMD_MOVE) != 0:
+			buffer.put_8(m.x)
+			buffer.put_8(m.y)
+		if (changed & _CMD_VIEW) != 0:
+			buffer.put_u16(v.x)
+			buffer.put_16(v.y)
+		if (changed & _CMD_VIEW_TIME) != 0:
+			buffer.put_16(t)
+		buttons = b
+		move = m
+		view = v
+		view_time = t
 	return buffer.data_array
 
 
-static func _put_intent(buffer: StreamPeerBuffer, intent: MoveIntent) -> void:
-	buffer.put_float(intent.move_direction.x)
-	buffer.put_float(intent.move_direction.y)
-	buffer.put_float(intent.view_angles.x)
-	buffer.put_float(intent.view_angles.y)
-	buffer.put_u32(NO_INTENT_ACK if intent.view_tick < 0 else intent.view_tick % TICK_MODULUS)
-	var flags: int = 0
-	if intent.jump_pressed:
-		flags |= _FLAG_JUMP_PRESSED
-	if intent.jump_held:
-		flags |= _FLAG_JUMP_HELD
-	if intent.slide_pressed:
-		flags |= _FLAG_SLIDE_PRESSED
-	if intent.slide_held:
-		flags |= _FLAG_SLIDE_HELD
-	if intent.fire_pressed:
-		flags |= _FLAG_FIRE_PRESSED
-	if intent.fire_held:
-		flags |= _FLAG_FIRE_HELD
-	if intent.ability_pressed:
-		flags |= _FLAG_ABILITY_PRESSED
-	if intent.ability_held:
-		flags |= _FLAG_ABILITY_HELD
-	buffer.put_u8(flags)
-	buffer.put_u8(
-		clampi(intent.ability_slot, 0, _MAX_ABILITY)
-		| (clampi(intent.press_slot, 0, _MAX_ABILITY) << _PRESS_SLOT_SHIFT)
-	)
-	buffer.put_u8(
-		(_FLAG2_SHOVE_PRESSED if intent.shove_pressed else 0)
-		| (_FLAG2_AIM_HELD if intent.aim_held else 0)
-		| (_FLAG2_COOK_PRESSED if intent.cook_pressed else 0)
-		| (_FLAG2_EMOTE_PRESSED if intent.emote_pressed else 0)
-		| (_FLAG2_EMOTE_ALT_PRESSED if intent.emote_alt_pressed else 0)
-		| (clampi(intent.press_slot_prior, 0, _MAX_ABILITY) << _FLAG2_PRIOR_SLOT_SHIFT)
-	)
-	buffer.put_u16(
-		(intent.press_counts & MoveIntent.PRESS_COUNTS_MASK)
-		| (clampi(intent.emote_state + 1, 0, _EMOTE_STATE_MASK) << _EMOTE_STATE_SHIFT)
-	)
+## A command packet's header field, or -1 when [param payload] is too short to have one.
+static func command_epoch(payload: PackedByteArray) -> int:
+	return payload.decode_u16(0) if payload.size() >= COMMAND_HEADER_SIZE else -1
 
 
-## Decode into [param out]. Returns the tick, or -1 if [param payload] is not a
-## well-formed intent, in which case [param out] is untouched.
-##
-## Returning the tick separately keeps [MoveIntent] free of a network field:
-## it is the input struct the whole game shares, and the bot harness has no
-## tick to put in it.
-static func unpack_intent(payload: PackedByteArray, out: MoveIntent) -> int:
-	return unpack_intent_at(payload, intent_count(payload) - 1, out)
+static func command_newest(payload: PackedByteArray) -> int:
+	return payload.decode_u32(2) if payload.size() >= COMMAND_HEADER_SIZE else -1
 
 
-## How many intents [param payload] carries, or 0 when it is not a well-formed
-## intent packet. Checked before any body is read, so a length is never trusted.
-static func intent_count(payload: PackedByteArray) -> int:
-	if payload.size() < INTENT_HEADER_SIZE:
+## The packet's snap ack, or -1 for none or a short packet.
+static func command_snap_ack(payload: PackedByteArray) -> int:
+	if payload.size() < COMMAND_HEADER_SIZE:
+		return -1
+	var acked: int = payload.decode_u32(7)
+	return -1 if acked == NO_ACK else acked
+
+
+## Decode every command of [param payload] into [param out] (at least [constant MAX_COMMANDS]
+## long), oldest first. View times are put on [param snap_tick], the receiver's own tick for the
+## packet's snap ack (-1: none). Returns the count, or 0 for a malformed packet, leaving none written.
+static func unpack_commands(payload: PackedByteArray, out: Array[MoveIntent], snap_tick: int) -> int:
+	if payload.size() < COMMAND_HEADER_SIZE + 1 or out.size() < MAX_COMMANDS:
 		return 0
 	var count: int = payload.decode_u8(6)
-	if count < 1 or count > MAX_INTENT_REDUNDANCY:
+	if count < 1 or count > MAX_COMMANDS:
 		return 0
-	if payload.size() != INTENT_HEADER_SIZE + count * INTENT_BODY_SIZE:
-		return 0
+	var at: int = COMMAND_HEADER_SIZE
+	var buttons: int = 0
+	var move: Vector2i = Vector2i.ZERO
+	var view: Vector2i = Vector2i.ZERO
+	var view_time: int = 0
+	for i: int in count:
+		if at >= payload.size():
+			return _unwritten(out, i)
+		var changed: int = payload.decode_u8(at)
+		at += 1
+		var need: int = (
+			(2 if (changed & _CMD_BUTTONS) != 0 else 0) + (2 if (changed & _CMD_MOVE) != 0 else 0)
+			+ (4 if (changed & _CMD_VIEW) != 0 else 0) + (2 if (changed & _CMD_VIEW_TIME) != 0 else 0)
+		)
+		if (changed & ~0x0F) != 0 or at + need > payload.size():
+			return _unwritten(out, i)
+		if (changed & _CMD_BUTTONS) != 0:
+			buttons = payload.decode_u16(at) & MoveIntent.BUTTON_MASK
+			at += 2
+		if (changed & _CMD_MOVE) != 0:
+			move = Vector2i(payload.decode_s8(at), payload.decode_s8(at + 1))
+			at += 2
+		if (changed & _CMD_VIEW) != 0:
+			view = Vector2i(payload.decode_u16(at), payload.decode_s16(at + 2))
+			at += 4
+		if (changed & _CMD_VIEW_TIME) != 0:
+			view_time = payload.decode_s16(at)
+			at += 2
+		var command: MoveIntent = out[i]
+		command.clear()
+		command.buttons = buttons
+		command.move_direction = Vector2(move) / _MOVE_STEPS
+		command.normalise()
+		command.view_angles = Vector2(
+			wrapf(float(view.x) / float(_YAW_STEPS) * TAU, -PI, PI), float(view.y) / _PITCH_SCALE
+		)
+		command.view_absolute = true
+		command.view_time = (
+			MoveIntent.LIVE_WORLD if snap_tick < 0 or view_time == _VIEW_TIME_NONE
+			else maxf(float(snap_tick) + float(view_time) / VIEW_TIME_STEPS, 0.0)
+		)
+	if at != payload.size():
+		return _unwritten(out, count)
 	return count
 
 
-## The scene epoch [param payload] was sent from, or -1 when it is not a well-formed packet.
-static func intent_epoch(payload: PackedByteArray) -> int:
-	return payload.decode_u16(4) if intent_count(payload) > 0 else -1
-
-
-## Decode the intent at [param index], 0 being the oldest in the packet, into
-## [param out]. Returns that intent's tick, or -1 when there is no such intent.
-static func unpack_intent_at(payload: PackedByteArray, index: int, out: MoveIntent) -> int:
-	var count: int = intent_count(payload)
-	if count == 0 or index < 0 or index >= count:
-		return -1
-	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
-	buffer.data_array = payload
-	var newest: int = buffer.get_u32()
-	buffer.seek(INTENT_HEADER_SIZE + index * INTENT_BODY_SIZE)
-	var move_x: float = buffer.get_float()
-	var move_y: float = buffer.get_float()
-	var view_yaw: float = buffer.get_float()
-	var view_pitch: float = buffer.get_float()
-	var view_tick: int = buffer.get_u32()
-	var flags: int = buffer.get_u8()
-	var slot: int = buffer.get_u8()
-	var flags2: int = buffer.get_u8()
-	var press_counts: int = buffer.get_u16()
-	# NaN and infinity survive a float round-trip and poison a physics body on
-	# contact, so they are rejected here rather than clamped: there is no
-	# sensible value to substitute, and a peer sending them is not playing.
-	if not (is_finite(move_x) and is_finite(move_y) and is_finite(view_yaw) and is_finite(view_pitch)):
-		return -1
-	out.move_direction = Vector2(move_x, move_y)
-	out.look_delta = Vector2.ZERO
-	out.view_angles = Vector2(view_yaw, view_pitch)
-	out.view_absolute = true
-	out.view_tick = -1 if view_tick == NO_INTENT_ACK else view_tick
-	out.jump_pressed = (flags & _FLAG_JUMP_PRESSED) != 0
-	out.jump_held = (flags & _FLAG_JUMP_HELD) != 0
-	out.slide_pressed = (flags & _FLAG_SLIDE_PRESSED) != 0
-	out.slide_held = (flags & _FLAG_SLIDE_HELD) != 0
-	out.fire_pressed = (flags & _FLAG_FIRE_PRESSED) != 0
-	out.fire_held = (flags & _FLAG_FIRE_HELD) != 0
-	out.ability_pressed = (flags & _FLAG_ABILITY_PRESSED) != 0
-	out.ability_held = (flags & _FLAG_ABILITY_HELD) != 0
-	out.ability_slot = mini(slot & ((1 << _PRESS_SLOT_SHIFT) - 1), _MAX_ABILITY)
-	out.press_slot = mini(slot >> _PRESS_SLOT_SHIFT, _MAX_ABILITY)
-	out.press_slot_prior = mini(flags2 >> _FLAG2_PRIOR_SLOT_SHIFT, _MAX_ABILITY)
-	out.press_counts = press_counts & MoveIntent.PRESS_COUNTS_MASK
-	out.shove_pressed = (flags2 & _FLAG2_SHOVE_PRESSED) != 0
-	out.aim_held = (flags2 & _FLAG2_AIM_HELD) != 0
-	out.cook_pressed = (flags2 & _FLAG2_COOK_PRESSED) != 0
-	out.emote_pressed = (flags2 & _FLAG2_EMOTE_PRESSED) != 0
-	out.emote_alt_pressed = (flags2 & _FLAG2_EMOTE_ALT_PRESSED) != 0
-	out.emote_state = ((press_counts >> _EMOTE_STATE_SHIFT) & _EMOTE_STATE_MASK) - 1
-	# The dev keys are not on the wire and must not survive on a reused struct
-	# either. [param out] is owned by the caller and lives for the session, so a
-	# field this format does not carry has to be cleared here or it keeps
-	# whatever the last owner of that object put in it. See [MoveIntent].
-	out.turbo_held = false
-	out.godmode = false
-	out.normalise()
-	return (newest - (count - 1 - index) + TICK_MODULUS) % TICK_MODULUS
+static func _unwritten(out: Array[MoveIntent], written: int) -> int:
+	for i: int in written:
+		out[i].clear()
+	return 0
 
 
 # --- Snapshot: authority to everyone ------------------------------------------
@@ -354,7 +299,7 @@ static func pack_snapshot(snapshot: WorldSnapshot) -> PackedByteArray:
 		_put_metres(buffer, state.position)
 		_put_metres(buffer, state.velocity)
 		buffer.put_u16(quantise_turn(state.yaw))
-		buffer.put_16(clampi(roundi(state.pitch * _PITCH_SCALE), -32768, 32767))
+		buffer.put_16(quantise_pitch(state.pitch))
 		buffer.put_u16(quantise_turn(state.view_base))
 		var flags: int = _pack_jump_counter(state.jump_counter)
 		if state.on_floor:
@@ -384,8 +329,8 @@ static func pack_snapshot(snapshot: WorldSnapshot) -> PackedByteArray:
 		buffer.put_u8(clampi(int(ceilf(state.boost_remaining * 10.0)), 0, _BOOST_TENTHS_MAX))
 		buffer.put_u8(clampi(roundi(state.boost_multiplier * 10.0), 0, _BOOST_TENTHS_MAX))
 		buffer.put_u32(
-			NO_INTENT_ACK if state.last_intent_tick < 0
-			else state.last_intent_tick % TICK_MODULUS
+			NO_ACK if state.cmd_ack < 0
+			else state.cmd_ack % TICK_MODULUS
 		)
 	return buffer.data_array
 
@@ -443,7 +388,7 @@ static func unpack_snapshot(payload: PackedByteArray, out: WorldSnapshot) -> boo
 		state.ability_remaining = float(ability_tenths) * 0.1
 		state.cooldown_remaining = float(cooldown_tenths) * 0.1
 		state.health = health
-		state.last_intent_tick = -1 if acked == NO_INTENT_ACK else acked
+		state.cmd_ack = -1 if acked == NO_ACK else acked
 		state.is_finisher = (flags & _FLAG_IS_FINISHER) != 0
 		state.is_armed = (flags & _FLAG_IS_ARMED) != 0
 		state.jump_counter = _unpack_jump_counter(flags)
@@ -482,6 +427,22 @@ static func quantise_metres(value: float) -> int:
 	if not is_finite(value):
 		return 0
 	return clampi(roundi(value * QUANT_CENTIMETRE), -32768, 32767)
+
+
+## A move as the wire carries it: 1/127ths an axis, so -1, 0 and 1 are exact, and never outside
+## the unit circle the decoder clamps to, so the host runs the quantum the client sent.
+static func quantise_move(direction: Vector2) -> Vector2i:
+	if not direction.is_finite():
+		return Vector2i.ZERO
+	var scaled: Vector2 = direction.limit_length(1.0) * _MOVE_STEPS
+	var steps: Vector2i = Vector2i(roundi(scaled.x), roundi(scaled.y))
+	if steps.length_squared() > roundi(_MOVE_STEPS * _MOVE_STEPS):
+		steps = Vector2i(int(scaled.x), int(scaled.y))
+	return steps
+
+
+static func quantise_pitch(radians: float) -> int:
+	return clampi(roundi(radians * _PITCH_SCALE), -32768, 32767) if is_finite(radians) else 0
 
 
 ## One angle as a fraction of a full turn, in a [code]u16[/code].

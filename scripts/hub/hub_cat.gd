@@ -47,6 +47,8 @@ var _prompt_layer: CanvasLayer = null
 var _pet_tween: Tween = null
 var _fuse: int = 0
 var _gone: bool = false
+## The peer carrying this cat, 0 for none; kept on every machine by [method _held_by].
+var _carrier_peer: int = 0
 var _purr: AudioStreamPlayer3D = null
 var _net: NetMatch = null
 
@@ -200,6 +202,7 @@ func _announce_held(held: bool) -> void:
 ## Authority to everyone: which peer carries the cat now, 0 for none.
 @rpc("authority", "reliable", "call_remote", 1)
 func _held_by(peer: int) -> void:
+	_carrier_peer = peer
 	var mine: int = 1
 	if _networked():
 		mine = multiplayer.get_unique_id()
@@ -211,15 +214,30 @@ func _held_by(peer: int) -> void:
 static func claim_shove(body: PlayerController, forward: Vector3, reach: float) -> bool:
 	if body == null:
 		return false
-	var best: HubCat = null
-	var best_distance: float = 0.0
 	for cat: HubCat in _all:
 		if cat._carrier == body:
 			cat._throw()
 			return true
+	var best: HubCat = _free_in_reach(body, forward, reach)
+	if best == null:
+		return false
+	best._pick_up(body)
+	return true
+
+
+## True when [param body]'s swing now would lift a cat: a lift is free, so the throw can follow at
+## once. Read on every machine, so the owner's swing gate predicts the cooldown the host spends.
+static func swing_lifts(body: PlayerController, forward: Vector3, reach: float) -> bool:
+	return body != null and not is_carrying(body) and _free_in_reach(body, forward, reach) != null
+
+
+## The nearest cat nobody carries inside [param body]'s reach and facing cone, or null.
+static func _free_in_reach(body: PlayerController, forward: Vector3, reach: float) -> HubCat:
+	var best: HubCat = null
+	var best_distance: float = 0.0
 	var here: Vector3 = body.global_position
 	for cat: HubCat in _all:
-		if cat._state == State.HELD or cat._gone or cat.multiplayer != body.multiplayer:
+		if cat._carrier_peer != 0 or cat._gone or cat.multiplayer != body.multiplayer:
 			continue
 		var offset: Vector3 = cat.global_position - here
 		if absf(offset.y) > REACH_HEIGHT:
@@ -231,16 +249,15 @@ static func claim_shove(body: PlayerController, forward: Vector3, reach: float) 
 		if best == null or distance < best_distance:
 			best = cat
 			best_distance = distance
-	if best == null:
-		return false
-	best._pick_up(body)
-	return true
+	return best
 
 
-## True while [param body] holds a cat.
+## True while [param body] holds a cat: on the host its carrier, elsewhere the peer it was told.
 static func is_carrying(body: PlayerController) -> bool:
+	var link: PlayerNetLink = PlayerNetLink.of(body)
+	var peer: int = link.owner_peer_id if link != null else 1
 	for cat: HubCat in _all:
-		if cat._carrier == body:
+		if cat._carrier == body or (not cat._is_authority() and cat._carrier_peer != 0 and cat._carrier_peer == peer):
 			return true
 	return false
 

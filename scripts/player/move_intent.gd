@@ -1,12 +1,33 @@
 class_name MoveIntent
 extends RefCounted
 
-## The complete description of what a body is trying to do this tick.
+## One command: everything a body is trying to do for one tick (Quake's usercmd).
 ##
 ## This is the seam between INPUT and MOVEMENT. [PlayerController] applies
 ## physics to a [MoveIntent] and never reads the keyboard or mouse itself, so a
 ## bot drives the identical controller by filling in the identical struct. If
 ## you find yourself calling [Input] from the controller, the seam has leaked.
+##
+## Buttons are LEVELS ([member buttons]); the edges ([member pressed],
+## [member released]) are derived from consecutive commands by [method IntentSource.next_command]
+## and never sent. A source may report a one-tick tap by setting a [code]*_pressed[/code]
+## flag: it counts as the key held for that command.
+
+## The buttons, one bit each, in wire order.
+const JUMP: int = 1 << 0
+const SLIDE: int = 1 << 1
+const FIRE: int = 1 << 2
+const AIM: int = 1 << 3
+const SHOVE: int = 1 << 4
+const COOK: int = 1 << 5
+const EMOTE: int = 1 << 6
+const EMOTE_ALT: int = 1 << 7
+const POWER: int = 1 << 8
+## Power keys 1-5 pick that power outright: bit [code]POWER_1 << (n - 1)[/code].
+const POWER_1: int = 1 << 9
+const POWER_SLOTS: int = 5
+const ALL_POWER_KEYS: int = POWER | (((1 << POWER_SLOTS) - 1) * POWER_1)
+const BUTTON_MASK: int = (1 << 14) - 1
 
 ## Desired move direction in the body's local space: x is right, y is forward.
 ## Length is clamped to 1.0 by [method normalise]; a shorter vector is a valid
@@ -14,7 +35,7 @@ extends RefCounted
 var move_direction: Vector2 = Vector2.ZERO
 
 ## Rotation requested this tick, in radians: x turns (yaw), y pitches. Already
-## scaled by sensitivity -- the controller applies it verbatim.
+## scaled by sensitivity -- the controller applies it verbatim. Never on the wire.
 var look_delta: Vector2 = Vector2.ZERO
 
 ## Absolute view (yaw, head pitch) in radians, from the machine that owns it; the wire's
@@ -22,64 +43,106 @@ var look_delta: Vector2 = Vector2.ZERO
 var view_angles: Vector2 = Vector2.ZERO
 var view_absolute: bool = false
 
-## The authority tick of the world the sender was drawing when it made this intent, or -1;
-## what the authority rewinds other bodies to for its shot (Source's lag compensation).
-var view_tick: int = -1
+## A [member view_time] naming no drawn world: the shot is traced against the live one.
+const LIVE_WORLD: float = -INF
 
-## True on the tick jump was first requested. Edge-triggered; feeds the jump
-## buffer.
-var jump_pressed: bool = false
+## The authority tick (fractional) the sender was drawing other bodies at, or [constant LIVE_WORLD]:
+## what the authority rewinds them to for this command's shot (Source's lag compensation).
+var view_time: float = LIVE_WORLD
 
-## True for as long as jump is held. Drives auto bunny hopping.
-var jump_held: bool = false
+## Levels: which buttons are down for this command.
+var buttons: int = 0
+## Edges against the previous command of the same stream: went down, went up.
+var pressed: int = 0
+var released: int = 0
 
-## True on the tick slide was first requested. Edge-triggered; feeds the slide
-## buffer, so a press made just before touchdown still opens a slide on landing.
-##
-## [PlayerController] latches the rising edge itself rather than trusting this
-## field to be one tick wide, so a source that reports the button as a level --
-## a reused struct handed to [method PlayerController.set_intent], say -- opens
-## exactly one slide per press like every other source.
-var slide_pressed: bool = false
-
-## True for as long as slide is held. A slide ends early when this goes false,
-## unless [member MovementProfile.slide_requires_hold] is off.
-var slide_held: bool = false
-
-## Trigger. Ignored by movement; the net layer carries it to the rifle.
-var fire_pressed: bool = false
-var fire_held: bool = false
-
-## The runner's power. Edge on the press; the level lets Armor Lock end on release.
-var ability_pressed: bool = false
-var ability_held: bool = false
-## 1-5 picks that power directly this tick (test keys); 0 = none.
-var ability_slot: int = 0
-## True on the tick E was pressed: lights a held cat grenade.
-var cook_pressed: bool = false
-
-## True on the tick shove was tapped. Resolved by the authority; see
-## [method MatchController.apply_shove].
-var shove_pressed: bool = false
-## True on the tick the emote key was tapped; toggles the emote.
-var emote_pressed: bool = false
-## True on the tick the alternate emote key was tapped; toggles the emote with the alternate object.
-var emote_alt_pressed: bool = false
-## The emote to be in, outright (0 none, 1, 2 with the alternate object), or -1 from a source that
-## taps. On the wire, what the sender's last emote press came to; [RemoteIntentSource] hands it on per press.
-var emote_state: int = -1
-## Wire only: running counts of the one-tick keys below (3 bits each), written by [PlayerNetLink]
-## so a press outlives a lost packet; and the slots of the newest power press and the one before
-## it (0 = the picked power), so two keys pressed inside one burst of loss stay two keys.
-var press_counts: int = 0
-var press_slot: int = 0
-var press_slot_prior: int = 0
-## True while the scope is asked up. Ignored by movement; the host drives the seat's optic with it.
-var aim_held: bool = false
 ## Dev: hold for 300% ground speed. Local only; never on the wire.
 var turbo_held: bool = false
 ## Dev: invincible to the rifle. Local only.
 var godmode: bool = false
+
+var jump_held: bool:
+	get:
+		return (buttons & JUMP) != 0
+	set(on):
+		buttons = _with(buttons, JUMP, on)
+var jump_pressed: bool:
+	get:
+		return (pressed & JUMP) != 0
+	set(on):
+		pressed = _with(pressed, JUMP, on)
+var slide_held: bool:
+	get:
+		return (buttons & SLIDE) != 0
+	set(on):
+		buttons = _with(buttons, SLIDE, on)
+var slide_pressed: bool:
+	get:
+		return (pressed & SLIDE) != 0
+	set(on):
+		pressed = _with(pressed, SLIDE, on)
+## Trigger. Ignored by movement; the seat's weapon gate reads it.
+var fire_held: bool:
+	get:
+		return (buttons & FIRE) != 0
+	set(on):
+		buttons = _with(buttons, FIRE, on)
+var fire_pressed: bool:
+	get:
+		return (pressed & FIRE) != 0
+	set(on):
+		pressed = _with(pressed, FIRE, on)
+## True while the scope is asked up. Ignored by movement; the host drives the seat's optic with it.
+var aim_held: bool:
+	get:
+		return (buttons & AIM) != 0
+	set(on):
+		buttons = _with(buttons, AIM, on)
+## Shove, resolved by the authority; see [method MatchController.apply_shove].
+var shove_pressed: bool:
+	get:
+		return (pressed & SHOVE) != 0
+	set(on):
+		pressed = _with(pressed, SHOVE, on)
+## Lights a held cat grenade.
+var cook_pressed: bool:
+	get:
+		return (pressed & COOK) != 0
+	set(on):
+		pressed = _with(pressed, COOK, on)
+## Toggles the emote; the alternate key toggles it with the alternate object.
+var emote_pressed: bool:
+	get:
+		return (pressed & EMOTE) != 0
+	set(on):
+		pressed = _with(pressed, EMOTE, on)
+var emote_alt_pressed: bool:
+	get:
+		return (pressed & EMOTE_ALT) != 0
+	set(on):
+		pressed = _with(pressed, EMOTE_ALT, on)
+## The runner's power key (the rules' pick). The level is any power key, so Armor Lock ends on release.
+var ability_pressed: bool:
+	get:
+		return (pressed & POWER) != 0
+	set(on):
+		pressed = _with(pressed, POWER, on)
+var ability_held: bool:
+	get:
+		return (buttons & ALL_POWER_KEYS) != 0
+	set(on):
+		buttons = buttons | POWER if on else buttons & ~ALL_POWER_KEYS
+## The power key 1-5 that went down on this command (the lowest, if several), or 0 for none.
+var ability_slot: int:
+	get:
+		for slot: int in POWER_SLOTS:
+			if (pressed & (POWER_1 << slot)) != 0:
+				return slot + 1
+		return 0
+	set(slot):
+		pressed &= ~(ALL_POWER_KEYS & ~POWER)
+		if slot >= 1 and slot <= POWER_SLOTS:
+			pressed |= POWER_1 << (slot - 1)
 
 
 ## Zero every field. Call before refilling, so a source can never leak a stale
@@ -89,25 +152,10 @@ func clear() -> void:
 	look_delta = Vector2.ZERO
 	view_angles = Vector2.ZERO
 	view_absolute = false
-	view_tick = -1
-	jump_pressed = false
-	jump_held = false
-	slide_pressed = false
-	slide_held = false
-	fire_pressed = false
-	fire_held = false
-	ability_pressed = false
-	ability_held = false
-	ability_slot = 0
-	cook_pressed = false
-	shove_pressed = false
-	emote_pressed = false
-	emote_alt_pressed = false
-	emote_state = -1
-	press_counts = 0
-	press_slot = 0
-	press_slot_prior = 0
-	aim_held = false
+	view_time = LIVE_WORLD
+	buttons = 0
+	pressed = 0
+	released = 0
 	turbo_held = false
 	godmode = false
 
@@ -124,60 +172,20 @@ func copy_from(other: MoveIntent) -> void:
 	look_delta = other.look_delta
 	view_angles = other.view_angles
 	view_absolute = other.view_absolute
-	view_tick = other.view_tick
-	jump_pressed = other.jump_pressed
-	jump_held = other.jump_held
-	slide_pressed = other.slide_pressed
-	slide_held = other.slide_held
-	fire_pressed = other.fire_pressed
-	fire_held = other.fire_held
-	ability_pressed = other.ability_pressed
-	ability_held = other.ability_held
-	ability_slot = other.ability_slot
-	cook_pressed = other.cook_pressed
-	shove_pressed = other.shove_pressed
-	emote_pressed = other.emote_pressed
-	emote_alt_pressed = other.emote_alt_pressed
-	emote_state = other.emote_state
-	press_counts = other.press_counts
-	press_slot = other.press_slot
-	press_slot_prior = other.press_slot_prior
-	aim_held = other.aim_held
+	view_time = other.view_time
+	buttons = other.buttons
+	pressed = other.pressed
+	released = other.released
 	turbo_held = other.turbo_held
 	godmode = other.godmode
 
 
-# --- Press counts ---------------------------------------------------------------
-
-## The keys [member press_counts] counts, in bit order.
-enum Press { POWER, COOK, SHOVE, EMOTE }
-const PRESS_KEYS: int = 4
-const PRESS_BITS: int = 3
-const PRESS_MODULUS: int = 1 << PRESS_BITS
-const PRESS_COUNTS_MASK: int = (1 << (PRESS_KEYS * PRESS_BITS)) - 1
+## Take the edges this command makes after [param previous_buttons]; taps count as held first.
+func derive_edges(previous_buttons: int) -> void:
+	buttons = (buttons | pressed) & BUTTON_MASK
+	pressed = buttons & ~previous_buttons
+	released = previous_buttons & ~buttons
 
 
-## How many times [param key] has been pressed, modulo [constant PRESS_MODULUS].
-static func press_count(counts: int, key: int) -> int:
-	return (counts >> (key * PRESS_BITS)) & (PRESS_MODULUS - 1)
-
-
-## [param counts] with one more press of [param key].
-static func press_added(counts: int, key: int) -> int:
-	var shift: int = key * PRESS_BITS
-	var next: int = (press_count(counts, key) + 1) & (PRESS_MODULUS - 1)
-	return (counts & ~((PRESS_MODULUS - 1) << shift)) | (next << shift)
-
-
-## Whether this intent presses [param key] on this tick.
-func presses(key: int) -> bool:
-	match key:
-		Press.POWER:
-			return ability_pressed or ability_slot > 0
-		Press.COOK:
-			return cook_pressed
-		Press.SHOVE:
-			return shove_pressed
-		Press.EMOTE:
-			return emote_pressed or emote_alt_pressed
-	return false
+static func _with(mask: int, bit: int, on: bool) -> int:
+	return mask | bit if on else mask & ~bit

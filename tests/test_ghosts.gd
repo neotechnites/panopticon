@@ -180,7 +180,7 @@ func test_a_shot_prisoner_becomes_a_ghost() -> void:
 	# never got its physics back could not chase anything, which is the whole
 	# mechanic.
 	assert_false(
-		victim.body.is_physics_processing(),
+		moves(victim.body),
 		"a held body is not stepped -- it cannot fall, act or be moved",
 	)
 	await _await_respawn(victim)
@@ -200,7 +200,7 @@ func test_a_shot_prisoner_becomes_a_ghost() -> void:
 	)
 	assert_true(victim.body.visible, "a ghost is visible")
 	assert_true(
-		victim.body.is_physics_processing(),
+		moves(victim.body),
 		"and once it has landed a ghost's body is being stepped again",
 	)
 	assert_false(
@@ -377,9 +377,9 @@ func test_a_ghost_cannot_be_hit_by_the_rifle() -> void:
 	# a single further tick of motion.
 	for _tick: int in SETTLE_TICKS:
 		await step_ticks(1)
-		if victim.body.is_physics_processing():
+		if moves(victim.body):
 			break
-	assert_true(victim.body.is_physics_processing(), "the ghost's placement woke within the budget")
+	assert_true(moves(victim.body), "the ghost's placement woke within the budget")
 	assert_eq_int(
 		victim.body.collision_layer, MatchController.GHOST_HAZARD_LAYER,
 		"once woken a ghost stands on the hazard layer, not on its own",
@@ -542,11 +542,12 @@ func test_a_ghost_takes_a_spot_by_shoving_the_prisoner_who_holds_it() -> void:
 
 	var quarry: MatchParticipant = _controller.get_live_participants()[0]
 	_put_ghost_on(victim, quarry, true)
-	victim.shove_cooldown_remaining = 0.0
+	victim.body.shove_cooldown_remaining = 0.0
 
+	# Its body is stopped, so the tap is run by hand: the one command path every seat's swing takes.
 	var tap: MoveIntent = MoveIntent.new()
 	tap.shove_pressed = true
-	victim.body.set_intent(tap)
+	victim.body.run_command(tap, SIM_DELTA)
 	await step_ticks(2)
 
 	assert_eq_int(_catches, 1, "the shove took the spot")
@@ -556,8 +557,8 @@ func test_a_ghost_takes_a_spot_by_shoving_the_prisoner_who_holds_it() -> void:
 	assert_true(quarry.is_ghost, "and the prisoner who was shoved is the ghost")
 	# The new ghost cannot take the spot straight back: it is held out of the world,
 	# and a ghost is not a body that can be shoved anyway -- tests/test_shove.gd.
-	victim.shove_cooldown_remaining = 0.0
-	quarry.shove_cooldown_remaining = 0.0
+	victim.body.shove_cooldown_remaining = 0.0
+	quarry.body.shove_cooldown_remaining = 0.0
 	assert_null(_controller.apply_shove(quarry), "a ghost held out of the world cannot shove back")
 	assert_eq_int(_catches, 1, "and no second catch happened")
 
@@ -593,7 +594,7 @@ func test_a_bot_ghost_shoves_the_prisoner_it_is_chasing() -> void:
 		quarry.brain.set_physics_process(false)
 	quarry.body.set_physics_process(false)
 	quarry.body.velocity = Vector3.ZERO
-	ghost.shove_cooldown_remaining = 0.0
+	ghost.body.shove_cooldown_remaining = 0.0
 	# A chase restarted as the match starts one, so a tap the ghost spent on the
 	# way over does not leave its brain resting through the whole window.
 	ghost.brain.begin_chase(MatchController.RUNNER_GROUP)
@@ -920,9 +921,9 @@ func test_the_held_body_can_do_nothing_at_all() -> void:
 		if victim.body.collision_layer != 0:
 			fail("the held body was back on collision layer %d" % victim.body.collision_layer)
 			break
-		# NOT ACTING and NOT FALLING: its physics is switched off, so no intent
-		# from any brain and no gravity reaches it.
-		if victim.body.is_physics_processing():
+		# NOT ACTING and NOT FALLING: it is held, so its commands move nothing
+		# and no gravity reaches it.
+		if moves(victim.body):
 			fail("the held body was being stepped")
 			break
 		if victim.body.velocity.length() > 1e-6:
@@ -1023,7 +1024,7 @@ func test_a_ghost_returned_by_a_hazard_waits_too() -> void:
 		_ghosted.size(), deaths_before,
 		"and it is not announced as a second death -- it was already a ghost",
 	)
-	assert_false(victim.body.is_physics_processing(), "the body is inert while it waits")
+	assert_false(moves(victim.body), "the body is inert while it waits")
 	assert_eq_int(victim.body.collision_layer, 0, "and off every layer, hazards included")
 	assert_vec3_almost_eq(
 		victim.body.global_position, fell_at, 1e-3, "and has not been moved yet",
@@ -1230,7 +1231,7 @@ func _put_ghost_on(
 ## Shove the prisoner in front of [param ghost], which is the only way a spot
 ## changes hands. Returns the prisoner who was shoved, or null.
 func _shove_catch(ghost: MatchParticipant) -> MatchParticipant:
-	ghost.shove_cooldown_remaining = 0.0
+	ghost.body.shove_cooldown_remaining = 0.0
 	return _controller.apply_shove(ghost)
 
 

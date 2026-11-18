@@ -1,25 +1,13 @@
 extends NetPowerRig
 
-## The shove swing across three machines. There is no match here, so nothing decides a shove:
-## the test plays the authority and emits [signal PlayerController.shoved] on the host's bodies.
+## The shove swing across three machines. There is no match here: every body's swing gate is
+## priced with a flat cooldown in its place, so a swing is the gate's and lands on nobody.
 
 const SHOVE: StringName = &"shove_pressed"
 ## Ticks let pass after connecting, so a press is not made while a new connection is still settling.
 const SETTLE_TICKS: int = 180
-
-
-## Stands in for the match on the host: a seat's shove press becomes a swing on its body.
-class Authority extends Node:
-	var body: PlayerController
-
-	func _init(swinger: PlayerController) -> void:
-		body = swinger
-		# After the body has run the tick's intent, before its link samples it.
-		process_physics_priority = 10
-
-	func _physics_process(_delta: float) -> void:
-		if body.get_intent().shove_pressed:
-			body.shoved.emit()
+## The stand-in match's price of a swing: 15 ticks, so taps 25 ticks apart each swing.
+const COOLDOWN_SECONDS: float = 0.25
 
 
 func test_the_hosts_swing_is_drawn_once_on_each_client() -> void:
@@ -73,7 +61,6 @@ func test_one_tap_is_one_swing_on_every_machine_at_60_ms() -> void:
 func test_three_taps_are_three_swings_on_every_machine() -> void:
 	if not await _stand_up_settled():
 		return
-	_play_authority()
 	var own: Array[int] = _count_swings(body_of(a_links, A_SEAT))
 	var on_b: Array[int] = _count_swings(body_of(b_links, A_SEAT))
 	var on_host: Array[int] = _count_swings(body_of(host_links, A_SEAT))
@@ -86,14 +73,19 @@ func test_three_taps_are_three_swings_on_every_machine() -> void:
 	assert_eq_int(on_b[0], 3, "B's mirror of A swung three times")
 
 
-func test_a_swing_the_client_never_pressed_is_drawn_on_its_own_body() -> void:
-	if not await _stand_up_settled():
+func test_a_tap_inside_the_cooldown_swings_on_no_machine() -> void:
+	if not await _stand_up_settled(0.0, 60):
 		return
 	var own: Array[int] = _count_swings(body_of(a_links, A_SEAT))
-	body_of(host_links, A_SEAT).shoved.emit()
-	await until(func() -> bool: return own[0] >= 1, 1000)
-	await step_ticks(30)
-	assert_eq_int(own[0], 1, "A's own body swung once for a swing only the host made")
+	var on_b: Array[int] = _count_swings(body_of(b_links, A_SEAT))
+	var on_host: Array[int] = _count_swings(body_of(host_links, A_SEAT))
+	a_keys.tap(SHOVE)
+	await step_ticks(5)
+	a_keys.tap(SHOVE)
+	await step_ticks(90)
+	assert_eq_int(own[0], 1, "A's own gate refused the second tap, inside its cooldown")
+	assert_eq_int(on_host[0], 1, "and the host's gate, running the same commands, refused it too")
+	assert_eq_int(on_b[0], 1, "so B's mirror of A swung once")
 
 
 func test_an_armed_body_does_not_predict_a_swing() -> void:
@@ -116,24 +108,14 @@ func test_an_armed_body_does_not_predict_a_swing() -> void:
 	assert_eq_int(own[0], 1, "and unarmed again it does")
 
 
-func test_a_swing_the_host_never_confirmed_is_forgotten() -> void:
-	if not await _stand_up_settled():
-		return
-	var own: Array[int] = _count_swings(body_of(a_links, A_SEAT))
-	a_keys.tap(SHOVE)
-	await step_ticks(120)
-	assert_eq_int(own[0], 1, "A's own body swung once for the tap nobody confirmed")
-	body_of(host_links, A_SEAT).shoved.emit()
-	await until(func() -> bool: return own[0] >= 2, 1000)
-	await step_ticks(30)
-	assert_eq_int(own[0], 2, "a later swing the host made is drawn, not taken for the old tap's answer")
-
-
 # --- Helpers ------------------------------------------------------------------
 
 func _stand_up_settled(loss: float = 0.0, delay_ms: int = 0) -> bool:
 	if not await stand_up(loss, delay_ms):
 		return false
+	for links: Array[PlayerNetLink] in [host_links, a_links, b_links]:
+		for link: PlayerNetLink in links:
+			link.controller.swing_cost = func() -> float: return COOLDOWN_SECONDS
 	await step_ticks(SETTLE_TICKS)
 	return true
 
@@ -145,12 +127,7 @@ func _count_swings(body: PlayerController) -> Array[int]:
 	return count
 
 
-func _play_authority() -> void:
-	host.get_parent().add_child(Authority.new(body_of(host_links, A_SEAT)))
-
-
 func _one_tap_one_swing(line: String) -> void:
-	_play_authority()
 	var own: Array[int] = _count_swings(body_of(a_links, A_SEAT))
 	var on_b: Array[int] = _count_swings(body_of(b_links, A_SEAT))
 	var on_host: Array[int] = _count_swings(body_of(host_links, A_SEAT))

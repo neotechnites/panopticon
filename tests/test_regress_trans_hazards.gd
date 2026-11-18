@@ -156,12 +156,12 @@ func _back_as_a_ghost(slot: int) -> bool:
 	var host: MatchController = _rig.controller(HOST)
 	var host_side: MatchParticipant = _rig.participant(HOST, slot)
 	if not await _rig.wait_for(func() -> bool:
-		return host_side.is_ghost and not host.is_awaiting_respawn(host_side) and host_side.body.is_physics_processing(), 8000):
+		return host_side.is_ghost and not host.is_awaiting_respawn(host_side) and moves(host_side.body), 8000):
 		fail("the host never put slot %d back as a ghost" % slot)
 		return false
 	await step_ticks(CROSS_TICKS)
 	var owner: int = _owner_of(slot)
-	return assert_true(_rig.body(owner, slot).is_physics_processing(), "slot %d's own machine drives its ghost again" % slot)
+	return assert_true(moves(_rig.body(owner, slot)), "slot %d's own machine drives its ghost again" % slot)
 
 
 func _start_point(peer: int) -> Vector3:
@@ -335,7 +335,7 @@ func test_no_living_bot_stands_frozen_for_ten_seconds_on_hell_or_marble() -> voi
 				var body: PlayerController = participant.body
 				var free: bool = (
 					participant.is_running and not participant.is_ghost and participant.brain != null
-					and body.is_physics_processing() and not body.movement_locked
+					and moves(body) and not body.movement_locked
 					and controller.get_phase() == MatchController.Phase.ROUND and not controller.is_resolved()
 				)
 				var anchor: Vector3 = anchors.get(participant.index, Vector3.INF)

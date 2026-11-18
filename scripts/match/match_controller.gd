@@ -725,9 +725,6 @@ func _physics_process(delta: float) -> void:
 			if _settle_frames == 0:
 				_wake_bodies()
 		if not _mirror:
-			# The server rules on a shove in a hub exactly as it does in a
-			# round: a client's press arrives as intent and is read here.
-			_tick_shoves(delta)
 			_catch_hub_fallers()
 		return
 	if _mirror:
@@ -763,7 +760,6 @@ func _physics_process(delta: float) -> void:
 	_wake_settled_ghosts()
 	_tick_respawn_holds(delta)
 	_tick_ghosts(delta)
-	_tick_shoves(delta)
 	_tick_brawl(delta)
 	# BEFORE the hold: a beat ending this tick resolves the round the killing
 	# shot already won, and a resolved round is not one the siege can also win.
@@ -967,7 +963,7 @@ func _catch_hub_fallers() -> void:
 	var spawns: Array[Marker3D] = []
 	for index: int in _participants.size():
 		var body: PlayerController = _participants[index].body
-		if body == null or not body.is_physics_processing() or body.global_position.y >= _hub_bottom:
+		if body == null or body.held or body.global_position.y >= _hub_bottom:
 			continue
 		if spawns.is_empty():
 			spawns = _hub_spawns()
@@ -990,7 +986,7 @@ static func _lowest_geometry(root: Node) -> float:
 ## Stand one player on their own hub spawn.
 ##
 ## [member MatchParticipant.is_running] is true for a body in the hub, and it is
-## load-bearing rather than decorative: it is what [method _tick_shoves] and
+## load-bearing rather than decorative: it is what [method _swing_cost] and
 ## [method _shovable_from] read to decide a body is in the world, so a hub where
 ## it were false would be a hub in which nobody could push anybody.
 func _place_in_hub(participant: MatchParticipant, index: int, spawns: Array[Marker3D]) -> void:
@@ -1246,7 +1242,7 @@ func _drive_brawl_bot(participant: MatchParticipant, standing: Array[MatchPartic
 	# Shove once lined up: in reach, facing it, and the push points outward.
 	var lined_up: bool = (
 		to_target.length() <= BRAWL_SHOVE_REACH and absf(turn) < 0.3
-		and forward.dot(outward) > 0.3 and participant.shove_cooldown_remaining <= 0.0
+		and forward.dot(outward) > 0.3 and body.shove_cooldown_remaining <= 0.0
 		and not near_edge
 	)
 	# Drawn once per target and again after each shove: a line-up that flickers keeps its wait.
@@ -1661,9 +1657,9 @@ func configure_net(
 	_net_names = names.duplicate()
 	_local_index = local_index
 	_mirror = mirror
-	# Built stacked at the scene default: a body simulates nothing until its first placement wakes it.
+	# Built stacked at the scene default: a body moves nothing until its first placement wakes it.
 	for body: PlayerController in bodies:
-		body.set_physics_process(false)
+		body.set_held(true)
 	if not hub_mode:
 		# A hub's population is not a match's prisoner count, and writing one
 		# into the shared rules would edit the player's own setting every time
@@ -2425,50 +2421,20 @@ func _return_seat_holder_to_tower() -> bool:
 
 # --- The shove ----------------------------------------------------------------
 
-## Spend every shove cooldown, and resolve the taps prisoners and ghosts made.
-##
-## Run here, over participants, for the reason [method _tick_ghosts] is: the
-## human shoves on exactly a bot's terms, and the authority is the only machine
-## that decides it. The level is latched rather than trusted to be one tick
-## wide, so a held button is still one shove.
-func _tick_shoves(delta: float) -> void:
-	for participant: MatchParticipant in _participants:
-		if participant.shove_cooldown_remaining > 0.0:
-			participant.shove_cooldown_remaining = maxf(
-				participant.shove_cooldown_remaining - delta, 0.0
-			)
-		# A body out of the world reads as no button at all rather than being
-		# skipped: a latch left standing while it was held or dead would eat the
-		# first tap it makes on the way back.
-		var pressed: bool = false
-		if participant.body != null:
-			if participant.is_running or _ghost_is_in_the_world(participant):
-				pressed = participant.body.get_intent().shove_pressed
-		if pressed and not participant.shove_was_pressed:
-			apply_shove(participant)
-		participant.shove_was_pressed = pressed
-
-
-## Throw the living prisoner in front of [param shover]. Returns the one
+## Swing [param shover] now, as a shove press would, and rule on what it meets. Returns the one
 ## launched, or null when there is nobody there, no charge, or no right to ask.
 ##
 ## A ghost shoves too, and its landed shove IS the catch: see [method _swap_with_ghost].
 func apply_shove(shover: MatchParticipant) -> MatchParticipant:
-	if shover == null or is_resolved() or _refuses_local_decision():
+	if shover == null or shover.body == null or _refuses_local_decision():
 		return null
-	if _phase != Phase.RACE and _phase != Phase.ROUND and _phase != Phase.HUB and _phase != Phase.BRAWL:
+	if not shover.body.try_swing():
 		return null
-	if shover.body == null:
-		return null
-	if not shover.is_running and not _ghost_is_in_the_world(shover):
-		# A ghost that is held or still settling is not in the world to swing.
-		return null
-	if shover.body.is_armed:
-		# Click fires the rifle for an armed body.
-		return null
-	if shover.shove_cooldown_remaining > 0.0:
-		return null
+	return _resolve_shove(shover)
 
+
+## What a swing the gate let through meets: a cat, the guard, a prisoner, or the air.
+func _resolve_shove(shover: MatchParticipant) -> MatchParticipant:
 	var forward: Vector3 = -shover.body.global_transform.basis.z
 	forward.y = 0.0
 	if forward.length_squared() < 1e-6:
@@ -2478,14 +2444,9 @@ func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 	var match_rules: MatchRules = get_rules()
 	var power: RunnerPower = RunnerPower.of(shover.body)
 	if power != null and power.throw_cat():
-		shover.shove_cooldown_remaining = maxf(match_rules.shove_cooldown_seconds, 0.0)
-		shover.body.shoved.emit()
 		return null
 	if HubCat.claim_shove(shover.body, forward, match_rules.shove_range_metres):
-		# A cat took the swing: a pickup is free so the throw is instant; a throw cools down.
-		if not HubCat.is_carrying(shover.body):
-			shover.shove_cooldown_remaining = maxf(match_rules.shove_cooldown_seconds, 0.0)
-		shover.body.shoved.emit()
+		# A cat took the swing; the gate priced a lift at nothing (see [method _swing_cost]).
 		return null
 	if shover == _finisher and _phase == Phase.ROUND:
 		# The finale: the finisher's shove is for the guard, and one is the round.
@@ -2493,9 +2454,6 @@ func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 		if guard != null and throw_guard(guard, forward):
 			return guard
 	var victim: MatchParticipant = _shovable_from(shover, forward, match_rules.shove_range_metres)
-	shover.shove_cooldown_remaining = maxf(match_rules.shove_cooldown_seconds, 0.0)
-	# A whiff still swings: the arms punch and the cooldown runs.
-	shover.body.shoved.emit()
 	# The local human's kick, not every human's: on a listen server a remote
 	# player's shove must not move the host's camera.
 	if shove_camera_kick != null and shover == get_human_participant():
@@ -2854,8 +2812,7 @@ func _wake_ghost(participant: MatchParticipant) -> void:
 		participant.home_collision_layer if profile.shootable else GHOST_HAZARD_LAYER
 	)
 	body.collision_mask = participant.home_collision_mask
-	# A mirror simulates nothing -- except the one body it is predicting.
-	body.set_held(false, not _mirror or body.net_predicted)
+	body.set_held(false)
 	body.revived.emit()
 
 
@@ -3181,6 +3138,54 @@ func _build_participants() -> void:
 		if participant.body != null:
 			_participant_by_body_id[participant.body.get_instance_id()] = participant
 			_assign_runner_color(participant)
+			_take_commands(participant.body)
+
+
+## Run [param body]'s commands under this match: the swing gate asks it, and each command's
+## second half (the shove's hit, the trigger) is ruled here.
+func _take_commands(body: PlayerController) -> void:
+	body.swing_cost = _swing_cost.bind(body)
+	body.match_step = _step_command.bind(body)
+
+
+## Cooldown seconds a swing by [param body] costs now, or -1 where the rules let it swing nothing:
+## [method apply_shove]'s own conditions, which a predicting client evaluates on its mirror too.
+func _swing_cost(body: PlayerController) -> float:
+	var shover: MatchParticipant = _participant_by_body_id.get(body.get_instance_id(), null)
+	if shover == null or is_resolved():
+		return -1.0
+	if _phase != Phase.RACE and _phase != Phase.ROUND and _phase != Phase.HUB and _phase != Phase.BRAWL:
+		return -1.0
+	if not shover.is_running and not _ghost_is_in_the_world(shover):
+		# A ghost that is held or still settling is not in the world to swing.
+		return -1.0
+	var forward: Vector3 = Vector3(-body.global_transform.basis.z.x, 0.0, -body.global_transform.basis.z.z)
+	var power: RunnerPower = RunnerPower.of(body)
+	if (power == null or not power.holds_cat()) and forward.length_squared() > 1e-6 \
+			and HubCat.swing_lifts(body, forward.normalized(), get_rules().shove_range_metres):
+		# Lifting a hub cat is free, so the throw can follow at once.
+		return 0.0
+	return maxf(get_rules().shove_cooldown_seconds, 0.0)
+
+
+## The match's half of one command of [param body]'s, on the machine that decides it: the hit of
+## a swing the gate opened, then the trigger of the rifle it holds.
+func _step_command(command: MoveIntent, swung: bool, authority: bool, body: PlayerController) -> void:
+	if not authority or _refuses_local_decision():
+		return
+	var participant: MatchParticipant = _participant_by_body_id.get(body.get_instance_id(), null)
+	if participant == null:
+		return
+	if swung:
+		_resolve_shove(participant)
+	if rifle != null and rifle.shooter_body == body and participant.is_human() and not body.held:
+		# A person's trigger is their commands'; a bot's [TowerShooter] pulls its own.
+		if rifle.optic != null:
+			rifle.optic.set_zoomed(command.aim_held)
+		rifle.trigger(
+			command.fire_pressed, command.fire_held,
+			(command.released & MoveIntent.FIRE) != 0, command.view_time,
+		)
 
 
 ## One seat's participant from the net roster: a human wears no brain, a bot keeps its own.
@@ -3644,8 +3649,7 @@ func _wake_body(participant: MatchParticipant) -> void:
 		return
 	body.collision_layer = participant.home_collision_layer
 	body.collision_mask = participant.home_collision_mask
-	# A mirror simulates nothing -- except the one body it is predicting.
-	body.set_held(false, not _mirror or body.net_predicted)
+	body.set_held(false)
 	body.revived.emit()
 
 
@@ -3725,8 +3729,8 @@ func _end_chase(participant: MatchParticipant) -> void:
 ##
 ## Two reasons, both measured rather than assumed. A placed body is inert for
 ## [constant SETTLE_PHYSICS_FRAMES] frames -- see [method _hold_body] -- so a
-## brain started any earlier would be writing intent at a controller whose
-## physics is switched off, and aiming from a stand the physics server has not
+## brain started any earlier would be writing intent at a body that is
+## still held, and aiming from a stand the physics server has not
 ## flushed yet. And this is deliberately the LAST word on the subject: anything
 ## else that has attached a [TowerShooter] to one of these bodies is stood down
 ## here and, if it is on the seat holder, adopted rather than duplicated. Two
@@ -3994,9 +3998,9 @@ func _attach_rifle(participant: MatchParticipant) -> void:
 	rifle.optic = body.get_node_or_null(^"Optic") as WeaponOptic
 
 	var local_holder: bool = participant.is_human() and participant.index == _local_index
-	# The trigger stays on the host: a client's shots are the host's to fire.
-	# The vignette is presentation, so it follows the holder, not the authority.
-	_set_human_trigger(local_holder and not _mirror)
+	# The holder's commands pull the trigger (see [method _step_command]), not the device. The
+	# vignette is presentation, so it follows the holder, not the authority.
+	_silence_trigger(rifle)
 	_set_local_holder(rifle, local_holder)
 	_light_weapon(rifle)
 
@@ -4035,12 +4039,8 @@ func _stow_rifle() -> void:
 		sway.release()
 		sway.optic = null
 		sway.aim_node = null
-	_set_human_trigger(false)
+	_silence_trigger(rifle)
 	_set_local_holder(rifle, false)
-
-
-func _set_human_trigger(active: bool) -> void:
-	_set_trigger(rifle, active)
 
 
 ## Tell [param weapon]'s [ScopeVignette] whether the person at this keyboard is
@@ -4053,13 +4053,13 @@ func _set_local_holder(weapon: Rifle, local: bool) -> void:
 		vignette.set_local_holder(local)
 
 
-## Hand [param weapon]'s trigger to the mouse, or take it away.
-func _set_trigger(weapon: Rifle, active: bool) -> void:
+## Take [param weapon]'s device trigger away: a held rifle fires on its holder's commands.
+func _silence_trigger(weapon: Rifle) -> void:
 	if weapon == null:
 		return
 	var trigger: WeaponInput = _find_trigger(weapon)
 	if trigger != null:
-		trigger.set_active(active)
+		trigger.set_active(false)
 
 
 func _find_trigger(node: Node) -> WeaponInput:
@@ -4351,7 +4351,6 @@ func _win_match(participant: MatchParticipant) -> void:
 	_phase = Phase.MATCH_OVER
 	_winner = participant
 	_freeze_everyone()
-	_set_human_trigger(false)
 	match_won.emit(participant)
 
 
@@ -4741,6 +4740,7 @@ func debug_add_hub_body(body: PlayerController) -> MatchParticipant:
 	_participants.append(participant)
 	_participant_by_body_id[body.get_instance_id()] = participant
 	_assign_runner_color(participant)
+	_take_commands(body)
 	body.crouch_enabled = get_rules().crouch_enabled
 	body.slide_enabled = get_rules().slide_enabled
 	return participant

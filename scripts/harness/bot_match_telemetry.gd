@@ -278,7 +278,7 @@ func _trace_runners() -> void:
 		var brain: RunnerBrain = participant.brain
 		if brain == null or participant.body == null or not participant.is_running:
 			continue
-		if not participant.body.is_physics_processing():
+		if participant.body.held:
 			continue
 		var position: Vector3 = participant.body.global_position
 		var perception: RunnerPerception = brain.get_perception()
@@ -459,7 +459,7 @@ func _sample_runners() -> void:
 		var w: Dictionary = _watch.get(participant.index, {})
 		var here: Vector3 = participant.body.global_position
 		# A finisher stands in the tower hunting the guard: not a lap, not a stall.
-		var running: bool = participant.is_running and participant.body.is_physics_processing() \
+		var running: bool = participant.is_running and not participant.body.held \
 			and not participant.is_finisher
 		var last: Vector3 = _last_point.get(participant.index, here)
 		# Stopped running, or picked up and put back on the start line: either way

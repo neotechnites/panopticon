@@ -101,7 +101,7 @@ func _stale_sends_are_quiet(peers: int, map: StringName) -> void:
 	replicator.snapshot_sent.connect(tally)
 	await step_ticks(CROSS_TICKS)
 	for peer: int in range(1, peers):
-		assert_gt(float(_rig.net_match(peer).get_local_link().get_intent_tick()), 0.0, "client %d is still sending its input" % peer)
+		assert_gt(float(_rig.sessions[peer].replicator.outbox.next_seq()), 0.0, "client %d is still sending its input" % peer)
 		_rig.sessions[peer].flow.rematch()
 	await step_ticks(CROSS_TICKS)
 	replicator.snapshot_sent.disconnect(tally)

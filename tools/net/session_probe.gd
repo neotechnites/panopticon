@@ -62,7 +62,6 @@ var _result_showing: bool = false
 var _quit_done: bool = false
 var _cats_seen: Dictionary[int, Array] = {}
 var _broke: bool = false
-var _trigger_due: bool = false
 var _hubs_bound: int = 0
 ## Freezes still to come: [scene kind ("match", "hub" or "any"), nth bind, seconds, ms].
 var _freezes: Array[Array] = []
@@ -263,7 +262,6 @@ func _process(_delta: float) -> void:
 	if not is_instance_valid(controller):
 		return
 	_install_actor()
-	_pull_host_trigger()
 	_break()
 	_watch_state()
 	_watch_bodies()
@@ -440,29 +438,23 @@ func _on_key_pressed(key: String, valid: bool, note: String) -> void:
 	var power: RunnerPower = RunnerPower.of(mine.body) if mine != null and mine.body != null else null
 	line("PRESS key=%s seat=%s valid=%d note=%s role=%s phase=%s sim=%d shown=%d" % [key, _seat_of(mine), int(valid),
 		note if not note.is_empty() else "ok", mine.get_role_name() if mine != null else "none", controller.get_phase_name(),
-		int(mine != null and mine.body != null and mine.body.is_physics_processing()),
+		int(mine != null and mine.body != null and _simulated(mine.body)),
 		int(power.get_shown()) if power != null else -1])
 
 
-## The host's own rifle answers its device, which a headless run has none of: pull it as WeaponInput would.
+## The actor pulled the trigger: on the host as on a client, its command carries the pull to the rifle.
 func _on_trigger_pulled() -> void:
 	var mine: MatchParticipant = controller.get_human_participant()
 	var aimed: MatchParticipant = actor.get_aimed()
 	line("TRIGGER seat=%s guard=%d aimed=%s" % [_seat_of(mine), int(mine != null and mine.is_shooter), _seat_of(aimed)])
-	# On the frame after the tick, where WeaponInput reads the button: the view the pull was made on has landed.
-	_trigger_due = session.is_authority()
-
-
-func _pull_host_trigger() -> void:
-	if not _trigger_due:
-		return
-	_trigger_due = false
-	var mine: MatchParticipant = controller.get_human_participant()
-	if mine != null and mine == controller.get_seat_participant() and controller.rifle != null:
-		controller.rifle.try_fire()
 
 
 # --- Watching -----------------------------------------------------------------
+
+## The body moves on this machine: it runs here and the match is not holding it.
+func _simulated(body: PlayerController) -> bool:
+	return body.is_physics_processing() and not body.held
+
 
 func _note(key: String, value: String, text: String) -> void:
 	if _seen.get(key, "") == value:
@@ -656,7 +648,7 @@ func _sample() -> void:
 		var at: Vector3 = b.global_position
 		var power: RunnerPower = RunnerPower.of(b)
 		parts.append("%s:%s:%.2f,%.2f,%.2f:v%.1f:sim%d:vis%d:fl%d:pw%d:lay%d:yaw%.2f:clip-%s" % [_seat_of(p), p.get_role_name(),
-			at.x, at.y, at.z, b.velocity.length(), int(b.is_physics_processing()), int(b.is_visible_in_tree()),
+			at.x, at.y, at.z, b.velocity.length(), int(_simulated(b)), int(b.is_visible_in_tree()),
 			int(b.is_on_floor()), int(power.get_shown()) if power != null else 0, b.collision_layer, b.rotation.y, _clip_of(b)])
 	line("POS tick=%d %s paused=%d 3d=%d | %s" % [_tick(), _state, int(get_tree().paused),
 		int(not get_viewport().disable_3d), " | ".join(parts)])
@@ -664,7 +656,7 @@ func _sample() -> void:
 	if mine != null and mine.body != null:
 		var source: IntentSource = mine.body.intent_source
 		line("LOCAL seat=%s role=%s sim=%d hold=%.1f settle=%d predicted=%d src=%s result=%d vel=%.1f actor=%s" % [
-			_seat_of(mine), mine.get_role_name(), int(mine.body.is_physics_processing()), mine.respawn_hold_remaining,
+			_seat_of(mine), mine.get_role_name(), int(_simulated(mine.body)), mine.respawn_hold_remaining,
 			mine.ghost_settle_frames, int(mine.body.net_predicted),
 			(source.get_script() as Script).get_global_name() if source != null and source.get_script() != null else "none",
 			int(_result_showing), mine.body.velocity.length(), actor.get_role_name() if actor != null else "none"])

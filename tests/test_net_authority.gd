@@ -42,10 +42,14 @@ func test_the_wire_never_carries_a_dev_key() -> void:
 	# The struct decoded into is reused for the life of the session, so the test
 	# is not only "does the format carry it" but "is it cleared off whatever was
 	# there before" -- which is the way this leaks back in.
-	var got: MoveIntent = MoveIntent.new()
-	got.turbo_held = true
-	got.godmode = true
-	assert_eq_int(NetCodec.unpack_intent(NetCodec.pack_intent(9, sent), got), 9, "it decodes")
+	var out: Array[MoveIntent] = []
+	for _i: int in NetCodec.MAX_COMMANDS:
+		var reused: MoveIntent = MoveIntent.new()
+		reused.turbo_held = true
+		reused.godmode = true
+		out.append(reused)
+	assert_eq_int(NetCodec.unpack_commands(NetCodec.pack_commands(1, 9, -1, [sent], 1), out, -1), 1, "it decodes")
+	var got: MoveIntent = out[0]
 	assert_false(got.turbo_held, "turbo is not a thing a packet can ask for")
 	assert_false(got.godmode, "and neither is invulnerability")
 	assert_almost_eq(got.move_direction.y, 1.0, 0.001, "the rest of the intent is untouched")
@@ -56,14 +60,19 @@ func test_the_authority_runs_a_power_key_a_client_pressed() -> void:
 	var owner: int = 77
 	var link: PlayerNetLink = _authority_link(owner)
 	await step_ticks(1)
+	var before: MoveIntent = MoveIntent.new()
 	var asking: MoveIntent = MoveIntent.new()
-	asking.ability_slot = 3
-
-	link.accept_intent_payload(owner, NetCodec.pack_intent(1, asking, link.replicator.get_scene()))
-	var source: RemoteIntentSource = link.get_remote_source()
-	if not assert_not_null(source, "the link has a network-fed source"):
-		return
-	assert_eq_int(source.poll(SIM_DELTA).ability_slot, 3, "the press reaches the host's body")
+	asking.buttons = MoveIntent.POWER_1 << 2
+	var slots: Array[int] = []
+	link.controller.match_step = func(command: MoveIntent, _swung: bool, _authority: bool) -> void:
+		slots.append(command.ability_slot)
+	# The stream's first command is its baseline, so the press follows one.
+	link.replicator.take_commands(owner, NetCodec.pack_commands(link.replicator.get_scene(), 0, -1, [before], 1))
+	await step_ticks(1)
+	link.replicator.take_commands(owner, NetCodec.pack_commands(link.replicator.get_scene(), 1, -1, [before, asking], 2))
+	await step_ticks(4)
+	assert_true(slots.has(3), "the press reaches the host's body as power key 3: %s" % str(slots))
+	assert_eq_int(slots.count(3), 1, "once")
 
 
 # --- Edges --------------------------------------------------------------------
@@ -108,26 +117,36 @@ func test_a_jump_survives_a_dropped_snapshot() -> void:
 
 # --- Flooding -----------------------------------------------------------------
 
-func test_the_authority_stops_reading_a_flood_of_intent() -> void:
+func test_a_flood_of_commands_runs_no_faster_than_its_budget() -> void:
 	var owner: int = 77
 	var link: PlayerNetLink = _authority_link(owner)
 	await step_ticks(1)
-	var budget: int = _host.get_settings().max_intent_packets_per_tick
+	var budget: int = _host.get_settings().cmd_budget
 	var accepted: Array[int] = []
-	link.intent_received.connect(func(_peer: int, tick: int) -> void: accepted.append(tick))
-
-	var intent: MoveIntent = MoveIntent.new()
-	for i: int in budget * 4:
-		link.accept_intent_payload(owner, NetCodec.pack_intent(100 + i, intent, link.replicator.get_scene()))
-	assert_eq_int(
-		accepted.size(), budget, "the host reads its budget of packets and drops the rest"
+	link.intent_received.connect(func(_peer: int, seq: int) -> void: accepted.append(seq))
+	var per_tick: Array[int] = [0]
+	link.controller.match_step = func(_command: MoveIntent, _swung: bool, _authority: bool) -> void:
+		per_tick[0] += 1
+	var commands: Array[MoveIntent] = []
+	for _i: int in NetCodec.MAX_COMMANDS:
+		commands.append(MoveIntent.new())
+	var epoch: int = link.replicator.get_scene()
+	for i: int in 20:
+		link.replicator.take_commands(owner, NetCodec.pack_commands(epoch, 31 + i * 32, -1, commands, 32))
+		# The same packet again, and an older one: a stale discard, not a second hearing.
+		link.replicator.take_commands(owner, NetCodec.pack_commands(epoch, 31 + i * 32, -1, commands, 32))
+	assert_eq_int(accepted.size(), 20, "every new packet is heard once, a repeat not at all")
+	var most: int = 0
+	for _tick: int in 120:
+		per_tick[0] = 0
+		await step_ticks(1)
+		most = maxi(most, per_tick[0])
+	assert_le(float(most), float(budget), "the host never runs more than %d of one seat's commands a tick" % budget)
+	var stream: CommandStream = link.replicator.stream_for(owner)
+	assert_le(
+		float(stream.get_run_total()), float(stream.get_elapsed()) * (1.0 + CommandStream.LEDGER_SLOPE) + CommandStream.LEDGER_BURST,
+		"nor more in all than the ledger allows",
 	)
-
-	# And the budget comes back on the next tick, or a peer on a jittery line
-	# would be throttled for being bursty rather than for flooding.
-	await step_ticks(1)
-	link.accept_intent_payload(owner, NetCodec.pack_intent(1000, intent, link.replicator.get_scene()))
-	assert_eq_int(accepted.size(), budget + 1, "the allowance is per tick, not per session")
 
 
 func test_a_lobby_request_flood_is_throttled() -> void:
@@ -342,13 +361,18 @@ func test_every_per_tick_message_fits_in_one_datagram() -> void:
 		"and a full lobby's snapshot is nowhere near a datagram",
 	)
 
-	var intents: Array[MoveIntent] = []
-	for _i: int in NetCodec.MAX_INTENT_REDUNDANCY:
-		intents.append(MoveIntent.new())
+	var commands: Array[MoveIntent] = []
+	for i: int in NetCodec.MAX_COMMANDS:
+		var command: MoveIntent = MoveIntent.new()
+		command.buttons = (i + 1) & MoveIntent.BUTTON_MASK
+		command.move_direction = Vector2(float(i % 3) - 1.0, 1.0 - float(i % 2))
+		command.view_angles = Vector2(float(i) * 0.1, float(i) * 0.01)
+		command.view_time = 100.0 - float(i)
+		commands.append(command)
 	assert_lt(
-		float(NetCodec.pack_intents(5, intents, NetCodec.MAX_INTENT_REDUNDANCY).size()),
+		float(NetCodec.pack_commands(1, 99, 100, commands, NetCodec.MAX_COMMANDS).size()),
 		float(ENetTransport.SAFE_PAYLOAD_BYTES),
-		"nor is the most redundant intent packet this build can send",
+		"nor is the fullest command packet this build can send, every field changing",
 	)
 	assert_lt(
 		float(NetCodec.DECOY_MOVE_SIZE),
@@ -362,7 +386,7 @@ func test_intent_from_another_scene_epoch_is_refused() -> void:
 	var link: PlayerNetLink = _authority_link(owner)
 	await step_ticks(1)
 	var accepted: Array[int] = []
-	link.intent_received.connect(func(_peer: int, tick: int) -> void: accepted.append(tick))
+	link.intent_received.connect(func(_peer: int, seq: int) -> void: accepted.append(seq))
 	var stale: int = link.replicator.get_scene() + 1
-	link.accept_intent_payload(owner, NetCodec.pack_intent(5, MoveIntent.new(), stale))
+	link.replicator.take_commands(owner, NetCodec.pack_commands(stale, 5, -1, [MoveIntent.new()], 1))
 	assert_eq_int(accepted.size(), 0, "an intent stamped with another scene's epoch drives nothing")

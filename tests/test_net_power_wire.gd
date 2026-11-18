@@ -1,18 +1,8 @@
 extends NetPowerRig
 
-## The wire under the powers: the codec's new fields, the host's press accounting in
-## [RemoteIntentSource], and the transport three machines share. Fields a build may lack are
-## reached by name, so this file loads on a build without them and says what is missing.
-
-const KEYS: PackedStringArray = ["POWER", "COOK", "SHOVE"]
-const POWER: int = 0
-const COOK: int = 1
-const SHOVE: int = 2
-## Counted too, and handed on as what the press came to rather than as an edge: see the emote tests.
-const EMOTE: int = 3
-## The intent flag each counted key is pressed with.
-const FLAG: PackedStringArray = ["ability_pressed", "cook_pressed", "shove_pressed"]
-
+## The wire under the powers: button levels on the wire, the host's [CommandStream] turning them
+## into edges, and the transport three machines share. A press is never sent; it is the level going
+## down on one command, and every command is resent until the host has run it.
 
 ## Only the transport tests need machines; the rest are plain unit tests.
 var _machines_up: bool = false
@@ -51,59 +41,16 @@ class ErrorLog extends Logger:
 
 # --- Codec --------------------------------------------------------------------
 
-func test_press_counts_and_press_slot_survive_the_intent_round_trip() -> void:
-	if not _has(MoveIntent.new(), &"press_counts", "MoveIntent.press_counts"):
-		return
+func test_every_button_level_survives_the_command_round_trip() -> void:
 	var sent: Array[MoveIntent] = []
-	var all_at_most: int = 0
-	var mixed: int = 0
-	for key: int in KEYS.size():
-		for _n: int in 7:
-			all_at_most = _press_added(all_at_most, key)
-		for _n: int in key + 1:
-			mixed = _press_added(mixed, key)
-	var counts: Array[int] = [0, all_at_most, mixed]
-	var slots: Array[int] = [3, 0, 5]
-	var press_slots: Array[int] = [5, 2, 0]
-	var emotes: Array[int] = [-1, 2, 0]
-	for i: int in 3:
-		var intent: MoveIntent = MoveIntent.new()
-		intent.ability_slot = slots[i]
-		intent.emote_alt_pressed = i == 1
-		intent.emote_state = emotes[i]
-		intent.set(&"press_counts", counts[i])
-		intent.set(&"press_slot", press_slots[i])
-		sent.append(intent)
-	var packed: PackedByteArray = NetCodec.pack_intents(900, sent, 3, 7)
-	assert_eq_int(
-		packed.size(), NetCodec.INTENT_HEADER_SIZE + 3 * NetCodec.INTENT_BODY_SIZE,
-		"three intents are a header and three bodies",
-	)
-	assert_eq_int(NetCodec.intent_count(packed), 3, "three intents came back")
-	for i: int in 3:
-		var got: MoveIntent = MoveIntent.new()
-		assert_eq_int(NetCodec.unpack_intent_at(packed, i, got), 898 + i, "intent %d carries its tick" % i)
-		assert_eq_int(int(got.get(&"press_counts")), counts[i], "intent %d press_counts" % i)
-		assert_eq_int(int(got.get(&"press_slot")), press_slots[i], "intent %d press_slot" % i)
-		assert_eq_int(got.ability_slot, slots[i], "intent %d ability_slot is not mixed with press_slot" % i)
-		assert_true(got.emote_alt_pressed == (i == 1), "intent %d emote_alt_pressed" % i)
-		assert_eq_int(got.emote_state, emotes[i], "intent %d emote_state is not mixed with the press counts" % i)
-		for key: int in KEYS.size():
-			var expected: int = [0, 7, key + 1][i]
-			assert_eq_int(
-				int(_intent_script().call(&"press_count", int(got.get(&"press_counts")), key)), expected,
-				"intent %d: %s was pressed %d times" % [i, KEYS[key], expected],
-			)
-
-
-func test_a_press_count_wraps_at_eight_without_touching_its_neighbours() -> void:
-	if not _has(MoveIntent.new(), &"press_counts", "MoveIntent.press_counts"):
-		return
-	for key: int in KEYS.size():
-		var counts: int = 0
-		for _n: int in 8:
-			counts = _press_added(counts, key)
-		assert_eq_int(counts, 0, "eight presses of %s wrap its count to 0 and carry into no other key" % KEYS[key])
+	for bit: int in 14:
+		var command: MoveIntent = MoveIntent.new()
+		command.buttons = 1 << bit
+		sent.append(command)
+	var out: Array[MoveIntent] = _decoded()
+	assert_eq_int(NetCodec.unpack_commands(NetCodec.pack_commands(7, 900, -1, sent, 14), out, -1), 14, "fourteen commands")
+	for bit: int in 14:
+		assert_eq_int(out[bit].buttons, 1 << bit, "button %d alone, not mixed with its neighbours" % bit)
 
 
 func test_shove_counter_and_boost_survive_the_snapshot_round_trip() -> void:
@@ -154,222 +101,123 @@ func test_shove_counter_and_boost_survive_the_snapshot_round_trip() -> void:
 			assert_almost_eq(float(state.get(&"boost_multiplier")), 1.0, 0.0001, "seat %d: and plain speed" % seat)
 
 
-# --- The host's press accounting ----------------------------------------------
+# --- The host's edges ------------------------------------------------------------
 
-func test_the_first_command_is_taken_at_its_own_word() -> void:
-	var source: RemoteIntentSource = _source()
-	# Counts already running, as from a client that has been pressing since before this link.
-	source.accept(1, _command(_counts_of({SHOVE: 5, COOK: 2}), [SHOVE]))
-	var first: MoveIntent = source.poll(SIM_DELTA)
-	assert_true(first.shove_pressed, "the first command's shove press is run")
-	assert_false(first.cook_pressed, "its cook count, with no press on it, starts nothing")
-	assert_eq_int(_edges(source, SHOVE, 5), 0, "and the shove is run once")
-
-
-func test_a_press_on_a_command_that_never_arrived_is_run_once() -> void:
-	var source: RemoteIntentSource = _source()
-	var before: int = 0
-	var after: int = _press_added(before, SHOVE)
-	source.accept(1, _command(before))
-	source.accept(2, _command(before))
-	assert_eq_int(_edges(source, SHOVE, 2), 0, "no shove before one is pressed")
-	# Tick 3 carried the press and tick 4 repeated its count; neither arrived.
-	source.accept(5, _command(after))
-	assert_eq_int(_edges(source, SHOVE, 6), 1, "the shove pressed on the lost tick 3 is run exactly once")
+func test_the_first_command_is_pressed_against_nothing() -> void:
+	var stream: CommandStream = _stream()
+	_send(stream, 0, [_keys([SHOVE, COOK])])
+	assert_eq_int(
+		_run(stream, 3)[0], MoveIntent.SHOVE | MoveIntent.COOK,
+		"keys down on the stream's first command are pressed, as the client's new source pressed them",
+	)
 
 
-func test_two_presses_on_lost_commands_are_two_edges_on_two_ticks() -> void:
-	var source: RemoteIntentSource = _source()
-	source.accept(1, _command(0))
-	source.poll(SIM_DELTA)
-	source.accept(6, _command(_counts_of({COOK: 2})))
-	var first: bool = source.poll(SIM_DELTA).cook_pressed
-	var second: bool = source.poll(SIM_DELTA).cook_pressed
-	var third: bool = source.poll(SIM_DELTA).cook_pressed
-	assert_true(first, "the first missed cook press is run on the tick the count arrives")
-	assert_true(second, "the second on the tick after")
-	assert_false(third, "and there is no third")
+func test_a_press_whose_packet_was_lost_is_run_once_from_the_next() -> void:
+	var stream: CommandStream = _stream()
+	_send(stream, 0, [_keys([])])
+	_run(stream, 1)
+	# Commands 1 (shove down) and 2 (still down) went in packets that were lost; 3 carries all three.
+	_send(stream, 3, [_keys([SHOVE]), _keys([SHOVE]), _keys([])])
+	var pressed: Array[int] = _run(stream, 6)
+	assert_eq_int(_count(pressed, MoveIntent.SHOVE), 1, "the shove is run once: %s" % str(pressed))
 
 
-func test_a_delivered_press_is_not_counted_twice() -> void:
-	var source: RemoteIntentSource = _source()
-	source.accept(1, _command(0))
-	source.poll(SIM_DELTA)
-	for key: int in KEYS.size():
-		var counts: int = _counts_of({key: 1})
-		source.accept(2 + key * 2, _command(counts, [key]))
-		source.accept(3 + key * 2, _command(counts))
-		assert_eq_int(_edges(source, key, 6), 1, "%s pressed on a command that arrived is run once" % KEYS[key])
-		# Each key starts from its own baseline.
-		source.reset()
-		source.accept(1, _command(0))
-		source.poll(SIM_DELTA)
+func test_two_presses_inside_lost_packets_are_two_edges() -> void:
+	var stream: CommandStream = _stream()
+	_send(stream, 0, [_keys([])])
+	_run(stream, 1)
+	_send(stream, 4, [_keys([COOK]), _keys([]), _keys([COOK]), _keys([])])
+	assert_eq_int(_count(_run(stream, 8), MoveIntent.COOK), 2, "down, up, down is two presses")
 
 
-func test_a_lost_power_press_is_run_with_the_slot_it_named() -> void:
-	var source: RemoteIntentSource = _source()
-	source.accept(1, _command(0))
-	source.poll(SIM_DELTA)
-	source.accept(4, _command(_counts_of({POWER: 1}), [], 4))
-	var got: MoveIntent = source.poll(SIM_DELTA)
-	assert_eq_int(got.ability_slot, 4, "a lost press of power key 4 is run as slot 4")
-	assert_false(got.ability_pressed, "and not as the picked power")
-	assert_eq_int(source.poll(SIM_DELTA).ability_slot, 0, "for one tick")
+func test_a_resent_press_is_not_run_twice() -> void:
+	var stream: CommandStream = _stream()
+	_send(stream, 0, [_keys([])])
+	_run(stream, 1)
+	_send(stream, 1, [_keys([]), _keys([POWER])])
+	var first: Array[int] = _run(stream, 4)
+	# The same commands again, as every packet repeats what the host has not acknowledged.
+	_send(stream, 2, [_keys([]), _keys([POWER]), _keys([POWER])])
+	_send(stream, 2, [_keys([]), _keys([POWER]), _keys([POWER])])
+	var after: Array[int] = _run(stream, 4)
+	assert_eq_int(_count(first, MoveIntent.POWER) + _count(after, MoveIntent.POWER), 1, "one press, once")
 
 
-func test_a_lost_press_of_the_picked_power_is_run_as_the_picked_power() -> void:
-	var source: RemoteIntentSource = _source()
-	source.accept(1, _command(0))
-	source.poll(SIM_DELTA)
-	source.accept(4, _command(_counts_of({POWER: 1}), [], 0))
-	var got: MoveIntent = source.poll(SIM_DELTA)
-	assert_true(got.ability_pressed, "a lost press of the picked power is run as ability_pressed")
-	assert_eq_int(got.ability_slot, 0, "with no slot")
-	assert_false(source.poll(SIM_DELTA).ability_pressed, "for one tick")
+func test_a_power_key_press_runs_as_that_key() -> void:
+	var stream: CommandStream = _stream()
+	_send(stream, 0, [_keys([])])
+	_run(stream, 1)
+	var four: MoveIntent = MoveIntent.new()
+	four.buttons = MoveIntent.POWER_1 << 3
+	_send(stream, 2, [_keys([]), four, _keys([])])
+	var slots: Array[int] = []
+	for _tick: int in 5:
+		for _i: int in stream.commands_due():
+			slots.append(stream.next_command(SIM_DELTA).ability_slot)
+	assert_eq_int(slots.count(4), 1, "power key 4 is run once, as slot 4: %s" % str(slots))
 
 
-func test_after_a_reset_the_next_command_is_a_new_baseline() -> void:
-	var source: RemoteIntentSource = _source()
-	source.accept(1, _command(0))
-	source.poll(SIM_DELTA)
-	source.reset()
-	var jumped: int = _counts_of({SHOVE: 3, POWER: 2, COOK: 5})
-	source.accept(1, _command(jumped))
-	var total: int = 0
-	for key: int in KEYS.size():
-		total += _edges(source, key, 1)
-	for _i: int in 6:
-		var got: MoveIntent = source.poll(SIM_DELTA)
-		total += int(got.shove_pressed) + int(got.ability_pressed) + int(got.cook_pressed)
-		total += 1 if got.ability_slot > 0 else 0
-	assert_eq_int(total, 0, "counts that jumped across a reset press nothing")
-	source.accept(2, _command(_press_added(jumped, SHOVE)))
-	assert_eq_int(_edges(source, SHOVE, 4), 1, "and a press counted after it is run once")
+func test_after_a_reset_the_next_command_starts_from_nothing() -> void:
+	var stream: CommandStream = _stream()
+	_send(stream, 0, [_keys([JUMP])])
+	_run(stream, 1)
+	stream.reset()
+	_send(stream, 50, [_keys([JUMP])])
+	assert_eq_int(_run(stream, 2)[0], MoveIntent.JUMP, "the new scene's first jump is a press, not the old scene's held key")
+	_send(stream, 52, [_keys([JUMP]), _keys([]), _keys([JUMP])])
+	assert_eq_int(_count(_run(stream, 4), MoveIntent.JUMP), 1, "and the next press is taken once")
 
 
-func test_a_press_on_a_command_the_full_queue_threw_away_is_still_run() -> void:
-	var source: RemoteIntentSource = _source()
-	source.accept(1, _command(0))
-	source.poll(SIM_DELTA)
-	var pressed: int = _counts_of({COOK: 1})
-	# Six arrive before one is run: the queue holds four, so ticks 2 and 3 are thrown away.
-	source.accept(2, _command(pressed, [COOK]))
-	for tick: int in range(3, 8):
-		source.accept(tick, _command(pressed))
-	assert_eq_int(_edges(source, COOK, 6), 1, "the cook press on the discarded tick 2 is run exactly once")
-	assert_eq_int(source.applied_tick, 7, "and the newest command was reached")
+func test_a_press_the_full_ring_could_not_hold_is_run_when_resent() -> void:
+	var stream: CommandStream = _stream()
+	_send(stream, 0, [_keys([])])
+	_run(stream, 1)
+	var commands: Array[MoveIntent] = []
+	for _i: int in NetCodec.MAX_COMMANDS:
+		commands.append(_keys([]))
+	_send(stream, 32, commands)
+	_send(stream, 64, commands)
+	commands[5] = _keys([COOK])
+	_send(stream, 96, commands)
+	assert_eq_int(stream.get_backlog(), CommandStream.RING, "the ring holds 64 ahead and stores nothing past it")
+	var pressed: Array[int] = _run(stream, 40)
+	# Command 70 is not acknowledged, so the client's next packet carries it again.
+	_send(stream, 97, commands.slice(1) + [_keys([])])
+	pressed.append_array(_run(stream, 80))
+	assert_eq_int(_count(pressed, MoveIntent.COOK), 1, "the cook on command 70 is run once, off the resend")
+	assert_eq_int(stream.get_ack(), 97, "and the stream ran on to the newest")
 
 
-func test_a_press_made_while_the_source_was_stale_is_run_when_it_comes_back() -> void:
-	var source: RemoteIntentSource = _source()
-	var held: MoveIntent = _command(0)
-	held.move_direction = Vector2(0.0, 1.0)
-	source.accept(1, held)
-	source.poll(SIM_DELTA)
-	for _i: int in source.stale_after_ticks + 3:
-		source.poll(SIM_DELTA)
-	assert_true(source.is_stale(), "the source went stale with nothing arriving")
-	source.accept(40, _command(_counts_of({SHOVE: 1})))
-	assert_eq_int(_edges(source, SHOVE, 4), 1, "the shove pressed while it was stale is run once")
-	assert_false(source.is_stale(), "and the source is live again")
+func test_a_press_made_while_the_stream_was_paused_is_run_when_it_comes_back() -> void:
+	var stream: CommandStream = _stream()
+	var walking: MoveIntent = _keys([])
+	walking.move_direction = Vector2(0.0, 1.0)
+	_send(stream, 0, [walking])
+	_run(stream, stream.stale_after_ticks + 4)
+	assert_eq_int(stream.get_state(), CommandStream.State.PAUSED, "starved past the limit, the stream paused")
+	var released: MoveIntent = stream.next_command(SIM_DELTA)
+	assert_true(released.move_direction == Vector2.ZERO and released.buttons == 0, "and runs the body on released keys")
+	_send(stream, 2, [walking, _keys([SHOVE])])
+	assert_eq_int(_count(_run(stream, 4), MoveIntent.SHOVE), 1, "the shove pressed in the silence is run once")
+	assert_eq_int(stream.get_state(), CommandStream.State.RUNNING, "and the stream runs again")
 
 
-func test_every_one_tick_key_is_an_edge_when_no_command_follows_it() -> void:
-	var source: RemoteIntentSource = _source()
-	source.accept(1, _command(0))
-	source.poll(SIM_DELTA)
-	var pressed: MoveIntent = _command(_counts_of({POWER: 1, COOK: 1, SHOVE: 1}))
-	pressed.ability_slot = 2
-	pressed.cook_pressed = true
-	pressed.shove_pressed = true
-	pressed.emote_pressed = true
-	pressed.emote_alt_pressed = true
-	pressed.set(&"press_slot", 2)
-	source.accept(2, pressed)
-	var first: MoveIntent = source.poll(SIM_DELTA)
-	assert_eq_int(first.ability_slot, 2, "the power key is run on its tick")
-	assert_true(first.cook_pressed and first.shove_pressed, "and cook and shove with it")
-	assert_false(first.emote_pressed or first.emote_alt_pressed, "an emote press is not handed on as a tap")
-	# The ticks after it, with no new command: what the body is handed again.
-	var again: PackedStringArray = PackedStringArray()
-	for _i: int in 3:
-		var got: MoveIntent = source.poll(SIM_DELTA)
-		if got.ability_slot > 0:
-			again.append("ability_slot")
-		for key: int in KEYS.size():
-			if bool(got.get(FLAG[key])):
-				again.append(FLAG[key])
-		if got.emote_pressed or got.emote_alt_pressed:
-			again.append("emote")
-	assert_eq_string(", ".join(again), "", "one-tick keys handed to the body again on a tick with no new command")
+func test_a_key_pressed_on_the_last_command_is_one_edge() -> void:
+	var stream: CommandStream = _stream()
+	_send(stream, 0, [_keys([])])
+	_run(stream, 1)
+	_send(stream, 1, [_keys([]), _keys([POWER, COOK, SHOVE, EMOTE])])
+	var pressed: Array[int] = _run(stream, 6)
+	for key: int in [MoveIntent.POWER, MoveIntent.COOK, MoveIntent.SHOVE, MoveIntent.EMOTE]:
+		assert_eq_int(_count(pressed, key), 1, "key %d: one edge, however long nothing follows" % key)
 
 
-# --- An emote press, and what it came to ---------------------------------------
-
-## A command whose sender has pressed an emote key [param presses] times so far and stands in [param state].
-func _emote_command(presses: int, state: int) -> MoveIntent:
-	var command: MoveIntent = _command(_counts_of({EMOTE: presses}))
-	command.emote_state = state
-	return command
-
-
-func test_an_emote_press_hands_the_body_what_it_came_to_once() -> void:
-	var source: RemoteIntentSource = _source()
-	var presses: Array[int] = [0, 0, 1, 1, 2, 3]
-	var states: Array[int] = [0, 0, 1, 1, 2, 0]
-	var handed: Array[int] = []
-	for tick: int in 6:
-		source.accept(tick + 1, _emote_command(presses[tick], states[tick]))
-		var got: MoveIntent = source.poll(SIM_DELTA)
-		handed.append(got.emote_state)
-		assert_false(got.emote_pressed or got.emote_alt_pressed, "and never a tap to toggle by")
-	assert_eq_string(str(handed), str([-1, -1, 1, -1, 2, 0]), "each press is handed on once, as the state it came to")
-
-
-func test_an_emote_put_up_and_down_on_lost_commands_is_one_word_that_it_is_down() -> void:
-	var source: RemoteIntentSource = _source()
-	source.accept(1, _emote_command(0, 0))
-	source.poll(SIM_DELTA)
-	# Ticks 2 to 8 carried the two presses and never arrived; by tick 9 it was down again.
-	source.accept(9, _emote_command(2, 0))
-	var handed: Array[int] = []
-	for _i: int in 4:
-		handed.append(source.poll(SIM_DELTA).emote_state)
-	assert_eq_string(str(handed), str([0, -1, -1, -1]), "two owed presses are the newest's word, once: never up")
-
-
-func test_an_emote_put_up_on_a_lost_command_is_handed_on_when_the_next_arrives() -> void:
-	var source: RemoteIntentSource = _source()
-	source.accept(1, _emote_command(0, 0))
-	source.poll(SIM_DELTA)
-	source.accept(9, _emote_command(1, 2))
-	assert_eq_int(source.poll(SIM_DELTA).emote_state, 2, "what the lost press came to is taken")
-	assert_eq_int(source.poll(SIM_DELTA).emote_state, -1, "once")
-
-
-func test_a_state_that_changes_with_no_press_is_handed_to_nobody() -> void:
-	var source: RemoteIntentSource = _source()
-	source.accept(1, _emote_command(1, 1))
-	source.poll(SIM_DELTA)
-	var handed: Array[int] = []
-	# The sender's own body was put right and says otherwise: nobody pressed anything.
-	for tick: int in 4:
-		source.accept(2 + tick, _emote_command(1, [0, 1, 0, 2][tick]))
-		handed.append(source.poll(SIM_DELTA).emote_state)
-	assert_eq_string(str(handed), str([-1, -1, -1, -1]), "only a press moves the host's copy")
-
-
-func test_an_emote_pressed_at_a_resting_source_is_not_handed_on_when_it_is_let_go() -> void:
-	var source: RemoteIntentSource = _source()
-	source.accept(1, _emote_command(0, 0))
-	source.poll(SIM_DELTA)
-	source.rest()
-	source.accept(2, _emote_command(1, 1))
-	source.rest()
-	source.accept(3, _emote_command(1, 1))
-	assert_eq_int(source.poll(SIM_DELTA).emote_state, -1, "what was pressed at a held body is pressed at nothing")
-	source.accept(4, _emote_command(2, 0))
-	assert_eq_int(source.poll(SIM_DELTA).emote_state, 0, "and the next press is taken")
+func test_an_emote_put_up_and_down_inside_lost_packets_toggles_twice() -> void:
+	var stream: CommandStream = _stream()
+	_send(stream, 0, [_keys([])])
+	_run(stream, 1)
+	_send(stream, 4, [_keys([EMOTE]), _keys([]), _keys([EMOTE]), _keys([])])
+	assert_eq_int(_count(_run(stream, 6), MoveIntent.EMOTE), 2, "two taps, two toggles: the emote ends where it began")
 
 
 # --- Transport ----------------------------------------------------------------
@@ -400,19 +248,22 @@ func test_three_connected_machines_log_no_engine_error() -> void:
 	assert_eq_int(log.count(), 0, "engine errors with host, A and B connected (first: %s)" % first)
 
 
-func test_a_rebuilt_link_carries_on_the_intent_sequence() -> void:
+func test_a_rebuilt_link_carries_on_the_command_sequence() -> void:
 	if not await _machines():
 		return
+	# A machine numbers nothing before it has heard the host's world.
+	await until(func() -> bool: return a.replicator.get_latest_tick() >= 0)
+	await step_ticks(1)
+	var heard: int = a.replicator.outbox.next_seq()
 	await step_ticks(60)
-	if not _has(a.replicator, &"intent_tick", "NetReplicator.intent_tick"):
-		return
-	var reached: int = int(a.replicator.get(&"intent_tick"))
-	assert_eq_int(reached, a_links[A_SEAT].get_intent_tick(), "the connection's sequence is its link's")
-	assert_ge(float(reached), 60.0, "after 60 ticks of sending")
-	var rebuilt: PlayerNetLink = NetFixtures.add_seat_body(a, 2, a.get_local_peer_id(), profile, true)
-	assert_eq_int(rebuilt.get_intent_tick(), reached, "a new link for this machine starts where the last one was")
-	var other: PlayerNetLink = NetFixtures.add_seat_body(a, 3, 1, profile, false)
-	assert_eq_int(other.get_intent_tick(), 0, "a link for somebody else's body does not take the sequence")
+	var reached: int = a.replicator.outbox.next_seq()
+	assert_ge(float(reached - heard), 60.0, "after 60 ticks of sending, the connection numbered every one")
+	a_links[A_SEAT].queue_free()
+	await step_ticks(1)
+	var rebuilt: PlayerNetLink = NetFixtures.add_seat_body(a, A_SEAT + 2, a.get_local_peer_id(), profile, true)
+	await step_ticks(3)
+	assert_ge(float(a.replicator.outbox.next_seq()), float(reached), "a new link for this machine carries on the sequence")
+	assert_true(rebuilt != null, "the rebuilt link stood up")
 
 
 # --- Helpers ------------------------------------------------------------------
@@ -424,8 +275,13 @@ func _machines() -> bool:
 	return await stand_up()
 
 
-func _intent_script() -> GDScript:
-	return MoveIntent as GDScript
+## Keys by index into [constant BITS].
+const POWER: int = 0
+const COOK: int = 1
+const SHOVE: int = 2
+const EMOTE: int = 3
+const JUMP: int = 4
+const BITS: Array[int] = [MoveIntent.POWER, MoveIntent.COOK, MoveIntent.SHOVE, MoveIntent.EMOTE, MoveIntent.JUMP]
 
 
 ## True when [param object] has [param property]; fails naming the missing API otherwise.
@@ -436,44 +292,48 @@ func _has(object: Object, property: StringName, title: String) -> bool:
 	return false
 
 
-## [param counts] with one more press of [param key]; unchanged on a build that keeps no counts.
-func _press_added(counts: int, key: int) -> int:
-	if not (&"press_counts" in MoveIntent.new()):
-		return counts
-	return int(_intent_script().call(&"press_added", counts, key))
+func _decoded() -> Array[MoveIntent]:
+	var out: Array[MoveIntent] = []
+	for _i: int in NetCodec.MAX_COMMANDS:
+		out.append(MoveIntent.new())
+	return out
 
 
-## Press counts with each key of [param presses] pressed that many times.
-func _counts_of(presses: Dictionary) -> int:
-	var counts: int = 0
-	for key: int in presses:
-		for _n: int in int(presses[key]):
-			counts = _press_added(counts, key)
-	return counts
-
-
-## An intent carrying [param counts], pressing [param keys] on its own tick.
-func _command(counts: int, keys: Array = [], press_slot: int = 0) -> MoveIntent:
-	var intent: MoveIntent = MoveIntent.new()
-	intent.set(&"press_counts", counts)
-	intent.set(&"press_slot", press_slot)
+## A command holding [param keys] down (indices into [constant BITS]).
+func _keys(keys: Array) -> MoveIntent:
+	var command: MoveIntent = MoveIntent.new()
 	for key: int in keys:
-		intent.set(FLAG[key], true)
-	return intent
+		command.buttons |= BITS[key]
+	return command
 
 
-func _source() -> RemoteIntentSource:
-	var source: RemoteIntentSource = RemoteIntentSource.new()
-	add_child(source)
-	return source
+func _stream() -> CommandStream:
+	var stream: CommandStream = CommandStream.new()
+	add_child(stream)
+	return stream
 
 
-## Poll [param source] [param ticks] times; on how many was [param key] pressed.
-func _edges(source: RemoteIntentSource, key: int, ticks: int) -> int:
-	var edges: int = 0
-	for _i: int in ticks:
-		var got: MoveIntent = source.poll(SIM_DELTA)
-		if bool(got.get(FLAG[key])) or (key == POWER and got.ability_slot > 0):
-			edges += 1
-	return edges
+## [param commands] as one packet whose newest is [param newest], taken at tick 0.
+func _send(stream: CommandStream, newest: int, commands: Array) -> void:
+	var typed: Array[MoveIntent] = []
+	typed.assign(commands)
+	stream.receive(NetCodec.pack_commands(1, newest, -1, typed, typed.size()), 0)
 
+
+## Run [param ticks] ticks of [param stream] as a body would; the edges of each command run.
+func _run(stream: CommandStream, ticks: int) -> Array[int]:
+	var pressed: Array[int] = []
+	for _tick: int in ticks:
+		for _i: int in stream.commands_due():
+			pressed.append(stream.next_command(SIM_DELTA).pressed)
+		stream.end_tick()
+	if pressed.is_empty():
+		pressed.append(0)
+	return pressed
+
+
+func _count(pressed: Array[int], bit: int) -> int:
+	var total: int = 0
+	for mask: int in pressed:
+		total += int((mask & bit) != 0)
+	return total

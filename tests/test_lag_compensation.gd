@@ -268,6 +268,7 @@ func _rifle_aimed_at(feet: Vector3, travelling: bool) -> Rifle:
 	add_child(rifle)
 	rifle.set_physics_process(false)
 	rifle.shooter_body = _shooter
+	rifle.lag_back = _replicator.rewind_ticks
 	rifle.lag_trace = _replicator.trace
 	rifle.global_transform = Transform3D(Basis.IDENTITY, EYE).looking_at(feet + CHEST)
 	return rifle
@@ -279,9 +280,8 @@ func _fire(rifle: Rifle, lag: int) -> Node3D:
 	rifle.target_hit.connect(func(collider: Node3D, _at: Vector3, _normal: Vector3) -> void: struck.append(collider))
 	var ended: Array[bool] = []
 	rifle.missed.connect(func(_at: Vector3) -> void: ended.append(true))
-	rifle.lag_ticks = lag
-	assert_true(rifle.try_fire(), "the rifle fires")
-	rifle.lag_ticks = 0
+	# The shooter saw the world [param lag] ticks ago: that is the view time its command carries.
+	assert_true(rifle.try_fire(float(_replicator.get_tick() - lag)), "the rifle fires")
 	for _tick: int in 120:
 		if not struck.is_empty() or not ended.is_empty():
 			break

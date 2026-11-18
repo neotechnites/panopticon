@@ -1,7 +1,8 @@
 class_name WeaponInput
 extends Node
 
-## Turns a device into calls to [method Rifle.try_fire].
+## Turns a device into [method Rifle.trigger] for a rifle no body holds: a held rifle fires on its
+## holder's commands ([method MatchController._step_command]), and its device trigger is switched off.
 ##
 ## This is the only script in the weapon that is allowed to touch [Input], and
 ## it is deliberately the thinnest thing in the directory: it holds no state
@@ -25,17 +26,6 @@ extends Node
 
 ## The weapon this device drives.
 @export var weapon: Rifle
-
-## When true, holding the trigger fires again the moment the rifle is ready.
-##
-## On by default, and it is not a convenience. The reload is measured in
-## seconds, so requiring a fresh click on the exact frame the weapon comes back
-## would tax reaction time on a beat the player has been watching count down for
-## two seconds -- a dexterity test the design never asked for. The interesting
-## decision is *whether* to spend the shot and *where* to be pointing, not
-## whether you can click on cue. Turn it off for a variant that wants the
-## opposite.
-@export var allow_held_fire: bool = true
 
 ## Grab the mouse as soon as this node is ready. Off by default, because the
 ## player scene's [HumanIntentSource] already owns the cursor and two nodes
@@ -65,25 +55,18 @@ func _ready() -> void:
 		MouseFocus.set_play_wants(true)
 
 
-## Polled rather than event-driven, matching [HumanIntentSource]. An event
-## handler would have to remember an unconsumed press across the whole reload to
-## support [member allow_held_fire]; polling the button's current state each
-## frame needs no memory at all and cannot desynchronise from the device.
+## Polled rather than event-driven, matching [HumanIntentSource]: the rifle reads the button's state
+## each frame, so a press across a reload needs no memory here.
 func _process(_delta: float) -> void:
 	if Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
 		# The cursor is loose, so the player is in a menu or has released the
 		# window. Clicks there are not shots.
 		return
-	if _is_charged_weapon():
-		_drive_charge()
-		return
-	var wants_fire: bool = (
-		Input.is_action_pressed(WeaponActions.FIRE)
-		if allow_held_fire
-		else Input.is_action_just_pressed(WeaponActions.FIRE)
+	weapon.trigger(
+		Input.is_action_just_pressed(WeaponActions.FIRE),
+		Input.is_action_pressed(WeaponActions.FIRE),
+		Input.is_action_just_released(WeaponActions.FIRE),
 	)
-	if wants_fire:
-		weapon.try_fire()
 
 
 ## Enable or disable reading this device. A disabled source simply stops asking
@@ -100,40 +83,7 @@ func set_active(active: bool) -> void:
 		weapon.cancel_charge()
 
 
-## True while the HUMAN is the one holding this weapon.
-##
-## [method MatchController._attach_rifle] switches this on for a human holder
-## and off for a bot one, and [method MatchController._stow_rifle] switches it
-## off when nobody has the rifle at all -- so this is already the game's own
-## answer to "is the person at this keyboard in the tower", and anything that
-## needs to know reads it here rather than inventing a second flag that could
-## disagree with it. [ScopeVignette] is the first such reader.
-##
-## [b]It checks [method Node.can_process] as well as its own flag[/b], because
-## there are two ways this node gets switched off and only one of them comes
-## through [method set_active]: [code]characters/bots/tower_shooter.tscn[/code]
-## silences its own copy with [member Node.process_mode] DISABLED instead, so
-## that a human's mouse can never spend a bot's one shot. Reading only the flag
-## would report that bot's rifle as human-held.
+## True while this device drives its rifle. [code]characters/bots/tower_shooter.tscn[/code] silences
+## its copy with [member Node.process_mode] instead, so [method Node.can_process] counts too.
 func is_active() -> bool:
 	return _active and can_process()
-
-
-## Whether the weapon in hand charges rather than fires on press. A fact about
-## the profile, read every frame because a sweep can hand the same rifle a
-## different profile between rounds.
-func _is_charged_weapon() -> bool:
-	return weapon.profile != null and weapon.profile.charge_enabled
-
-
-## Press starts the hold, release takes the shot.
-##
-## [member allow_held_fire] is deliberately ignored here. Its whole purpose is
-## to spare the player a reaction test on the frame the reload ends, and a
-## charged weapon has no such frame: the trigger is already down, the charge is
-## already building, and the shot goes when the player decides it goes.
-func _drive_charge() -> void:
-	if Input.is_action_just_pressed(WeaponActions.FIRE):
-		weapon.begin_charge()
-	elif Input.is_action_just_released(WeaponActions.FIRE):
-		weapon.release_charge()

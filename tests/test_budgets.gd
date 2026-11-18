@@ -95,6 +95,10 @@ const B4_HOST_UP_BYTES_PER_TICK: float = 535.0
 ## Measured 63.6 B/tick, identical on three runs; budget is that +20 %.
 const B5_CLIENT_DOWN_BYTES_PER_TICK: float = 76.5
 
+## B6 -- bytes one client sends per tick: its commands, every unacknowledged one in each packet.
+## Measured 31.1 B/tick, 31.0 and 31.0 on three runs; budget is that +20 %.
+const B6_CLIENT_UP_BYTES_PER_TICK: float = 37.3
+
 
 func _skipped_by_machine() -> bool:
 	if OS.get_environment(SKIP_ENV).is_empty():
@@ -275,6 +279,7 @@ func test_eight_seats_stay_inside_their_wire_budget() -> void:
 	_snapshots = 0
 	await step_ticks(NET_MEASURE_TICKS)
 	var host_stats: Dictionary = _host.transport.take_wire_stats()
+	var client_stats: Dictionary = _client.transport.take_wire_stats()
 
 	if not assert_gt(float(_snapshots), 10.0, "the host actually sent snapshots in the window"):
 		return
@@ -285,11 +290,13 @@ func test_eight_seats_stay_inside_their_wire_budget() -> void:
 	var down_per_tick: float = float(int(host_stats.get("sent_bytes", 0))) / float(NET_MEASURE_TICKS)
 	# One client is measured; a full lobby is the host talking to seven of them.
 	var host_up_per_tick: float = down_per_tick * float(SEATS - 1)
+	var client_up_per_tick: float = float(int(client_stats.get("sent_bytes", 0))) / float(NET_MEASURE_TICKS)
 
-	print("          BUDGET wire at %d seats over %d ticks: host up %.1f B/tick (B4 %.0f), client down %.1f B/tick (B5 %.0f), %d snapshots" % [
+	print("          BUDGET wire at %d seats over %d ticks: host up %.1f B/tick (B4 %.0f), client down %.1f B/tick (B5 %.0f), client up %.1f B/tick (B6 %.1f), %d snapshots" % [
 		SEATS, NET_MEASURE_TICKS, host_up_per_tick, B4_HOST_UP_BYTES_PER_TICK,
-		down_per_tick, B5_CLIENT_DOWN_BYTES_PER_TICK, _snapshots,
+		down_per_tick, B5_CLIENT_DOWN_BYTES_PER_TICK, client_up_per_tick, B6_CLIENT_UP_BYTES_PER_TICK, _snapshots,
 	])
 
 	assert_le(host_up_per_tick, B4_HOST_UP_BYTES_PER_TICK, "B4: host upstream is inside budget")
 	assert_le(down_per_tick, B5_CLIENT_DOWN_BYTES_PER_TICK, "B5: a client's downstream is inside budget")
+	assert_le(client_up_per_tick, B6_CLIENT_UP_BYTES_PER_TICK, "B6: a client's upstream is inside budget")

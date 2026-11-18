@@ -61,7 +61,7 @@ func before_each() -> void:
 		var input: BotIntentSource = participant.body.intent_source as BotIntentSource
 		if input != null:
 			input.shove_enabled = false
-		participant.shove_cooldown_remaining = 0.0
+		participant.body.shove_cooldown_remaining = 0.0
 	_shoves.clear()
 
 
@@ -142,7 +142,7 @@ func test_the_cooldown_holds_the_second_shove_back() -> void:
 
 	assert_same(_controller.apply_shove(shover), victim, "the first shove lands")
 	assert_almost_eq(
-		shover.shove_cooldown_remaining, _rules.shove_cooldown_seconds, 1e-3,
+		shover.body.shove_cooldown_remaining, _rules.shove_cooldown_seconds, 1e-3,
 		"and spends the whole cooldown",
 	)
 
@@ -166,7 +166,7 @@ func _still(participant: MatchParticipant) -> void:
 		if participant.brain.input != null:
 			participant.brain.input.command.clear()
 	participant.body.velocity = Vector3.ZERO
-	participant.shove_cooldown_remaining = 0.0
+	participant.body.shove_cooldown_remaining = 0.0
 
 
 ## Stand [param victim] [param metres] in front of [param shover] and point the

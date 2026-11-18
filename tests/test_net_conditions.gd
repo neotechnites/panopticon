@@ -7,9 +7,8 @@ extends TestCase
 ## nothing, so the only way to find out what a bad line costs is to carry the
 ## real bytes over a wire this file owns. Both sessions are real and really
 ## connected -- a client is a client because a host told it so -- and everything
-## crossing the wire below goes through [NetCodec] and through the same
-## [method PlayerNetLink.accept_intent_payload] the RPC lands in, so the format
-## and the authority's guards are exercised rather than stepped around.
+## crossing the wire below goes through [NetCodec] and into the seat's own
+## [CommandStream], so the format and the stream are exercised rather than stepped around.
 ##
 ## The host's seat 0 is owned by a peer id nobody has, which is what stops the
 ## client's own RPCs arriving instantly beside the delayed copies.
@@ -73,9 +72,11 @@ var _last_down_tick: int = -1
 var _corrections: PackedFloat32Array = PackedFloat32Array()
 var _snaps: int = 0
 
-## Intent ticks the authority has actually SIMULATED, and how many were sent.
+## Commands the authority has run, and the span of sequences they covered: a resync skips some.
 var _applied_ticks: int = 0
+var _acked_span: int = 0
 var _last_applied: int = -1
+var _last_ack: int = -1
 var _sent_packets: int = 0
 
 ## Per-tick travel of the mirrored body on the client, for pops and freezes.
@@ -181,12 +182,13 @@ func _measure() -> Array:
 	var deviation: float = sqrt(variance / float(maxi(_steps.size(), 1)))
 	var result: Array = [
 		worst, _snaps, _corrections.size(), _applied_ticks, _sent_packets, worst_step, frozen,
-		deviation,
+		deviation, _acked_span,
 	]
 	_corrections.clear()
 	_steps.clear()
 	_snaps = 0
 	_applied_ticks = 0
+	_acked_span = 0
 	_sent_packets = 0
 	return result
 
@@ -218,7 +220,7 @@ func _dropped() -> bool:
 
 ## The real packet the client's link built this tick.
 func _send_up() -> void:
-	var payload: PackedByteArray = _client_own.get_last_intent_packet()
+	var payload: PackedByteArray = _client.replicator.get_last_command_packet()
 	if payload.is_empty():
 		return
 	_sent_packets += 1
@@ -236,7 +238,7 @@ func _deliver_up() -> void:
 		if packet.due > _tick:
 			held.append(packet)
 			continue
-		_host_own.accept_intent_payload(_host_own.owner_peer_id, packet.payload)
+		_stream().receive(packet.payload, _host.replicator.get_tick())
 	_up = held
 
 
@@ -280,52 +282,37 @@ func _note_mirror_step() -> void:
 	_have_mirror_position = true
 
 
-## Count the intent ticks the authority has actually simulated. A tick that
-## brings no packet repeats the last command and does not advance this, which is
-## exactly the input the player made and the game did not act on.
+## Count the commands the authority has run, and how far its acknowledgement moved.
 func _note_applied_intent() -> void:
-	var source: RemoteIntentSource = _host_own.get_remote_source()
-	if source == null or source.applied_tick == _last_applied:
-		return
-	_last_applied = source.applied_tick
-	_applied_ticks += 1
+	var stream: CommandStream = _stream()
+	if _last_applied >= 0:
+		_applied_ticks += stream.get_run_total() - _last_applied
+		_acked_span += stream.get_ack() - _last_ack
+	_last_applied = stream.get_run_total()
+	_last_ack = stream.get_ack()
+
+
+func _stream() -> CommandStream:
+	return _host.replicator.stream_for(_host_own.owner_peer_id)
 
 
 # --- Tests --------------------------------------------------------------------
 
-func test_repeating_the_last_intent_buys_back_a_lossy_line() -> void:
+func test_every_command_is_run_once_on_a_lossy_line() -> void:
 	_jitter = JITTER_TICKS
 	_loss = LOSS
 	if not await _stand_up():
 		fail("the loopback handshake did not complete")
 		return
-
-	# One intent a packet: the shipped behaviour before this, and what every
-	# dropped packet costs.
-	_client.get_settings().intent_redundancy = 1
 	await step_ticks(WINDOW_TICKS)
-	var alone: Array = _measure()
-
-	_client.get_settings().intent_redundancy = 2
-	await step_ticks(WINDOW_TICKS)
-	var repeated: Array = _measure()
-
-	var alone_rate: float = float(int(alone[3])) / float(maxi(int(alone[4]), 1))
-	var repeated_rate: float = float(int(repeated[3])) / float(maxi(int(repeated[4]), 1))
-	print("          INTENT at %.0f%% loss: %.1f%% simulated alone, %.1f%% repeated" % [
-		_loss * 100.0, alone_rate * 100.0, repeated_rate * 100.0,
+	var measured: Array = _measure()
+	print("          COMMANDS at %.0f%% loss: %d run over a span of %d sequences, %d packets sent, %d starved ticks" % [
+		_loss * 100.0, int(measured[3]), int(measured[8]), int(measured[4]), _stream().get_starved_total(),
 	])
-
-	assert_lt(alone_rate, 0.95, "one intent a packet loses what the line loses, and then some")
-	assert_gt(
-		repeated_rate,
-		1.0 - _loss,
-		"repeating the previous tick puts MORE input into the simulation than the wire delivered packets, which only a repeat can do",
-	)
-	assert_gt(
-		repeated_rate - alone_rate,
-		0.1,
-		"and it is worth a tenth of the player's input on this line",
+	assert_gt(float(int(measured[3])), float(WINDOW_TICKS) * 0.9, "the host ran the client's commands")
+	assert_eq_int(
+		int(measured[3]), int(measured[8]),
+		"every sequence the acknowledgement passed was run: a lost packet loses no command",
 	)
 
 

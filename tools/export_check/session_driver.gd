@@ -548,7 +548,6 @@ func _make_aim_source(scene_node: Node, mine: PlayerController) -> IntentSource:
 	source.body = mine
 	source.controller = scene_node.get_node_or_null(^"MatchController") as MatchController
 	source.fire_every = float(_o["fire-every"])
-	source.drives_action = _is_server()
 	return source
 
 
@@ -560,7 +559,6 @@ class AimSource:
 	var controller: MatchController = null
 	var fire_every: float = 1.2
 	const HOLD_SECONDS: float = 0.9
-	var drives_action: bool = false
 	var _elapsed: float = 0.0
 	var _next_fire: float = 3.0
 	var _held: bool = false
@@ -577,11 +575,13 @@ class AimSource:
 		for p: MatchParticipant in controller.get_participants():
 			if p.body == null or p.body == body or not p.is_running:
 				continue
-			var chest: Vector3 = p.body.global_position + Vector3.UP * 0.9
+			# Where this machine draws it, as a person aims: the host draws others a little behind.
+			var link: PlayerNetLink = PlayerNetLink.of(p.body)
+			var chest: Vector3 = (link.drawn_position() if link != null else p.body.global_position) + Vector3.UP * 0.9
 			var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(eye, chest)
 			query.exclude = [body.get_rid()]
 			var hit: Dictionary = body.get_world_3d().direct_space_state.intersect_ray(query)
-			if hit.is_empty() or hit.collider != p.body:
+			if not hit.is_empty() and hit.collider != p.body:
 				continue
 			var distance: float = eye.distance_to(chest) * (0.1 if p.body.movement_locked else 1.0)
 			if distance < best:
@@ -589,8 +589,6 @@ class AimSource:
 				at = chest
 				target_velocity = p.body.velocity
 		if not at.is_finite():
-			if _held and drives_action:
-				Input.action_release(WeaponActions.FIRE)
 			_held = false
 			return _intent
 		at = _lead(eye, at, target_velocity)
@@ -598,7 +596,7 @@ class AimSource:
 		var want: Vector2 = Vector2(atan2(-dir.x, -dir.z), asin(clampf(dir.y, -1.0, 1.0)))
 		var view: Vector2 = body.get_view_angles()
 		_intent.look_delta = Vector2(angle_difference(want.x, view.x), -(want.y - view.y))
-		# A charged rifle wants the trigger held and let go; the host's own trigger reads the action itself.
+		# A charged rifle wants the trigger held and let go; the command carries it, on the host as on a client.
 		var holding: bool = _elapsed >= _next_fire
 		if holding and not _held:
 			_intent.fire_pressed = true
@@ -606,15 +604,7 @@ class AimSource:
 			holding = false
 			_next_fire = _elapsed + fire_every
 		_intent.fire_held = holding
-		if holding != _held:
-			_held = holding
-			if drives_action and holding and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
-				# No captured mouse (headless): WeaponInput reads nothing, so the host pulls its own trigger.
-				controller.rifle.try_fire()
-			elif drives_action and holding:
-				Input.action_press(WeaponActions.FIRE)
-			elif drives_action:
-				Input.action_release(WeaponActions.FIRE)
+		_held = holding
 		return _intent
 
 

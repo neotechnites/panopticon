@@ -231,13 +231,13 @@ func test_a_blast_does_not_store_a_launch_on_a_body_held_out_of_the_world() -> v
 	var runner: MatchParticipant = await _standing_runner()
 	var body: PlayerController = runner.body
 	var start: Vector3 = body.global_position
-	body.set_physics_process(false)
+	body.set_held(true)
 	_blast_beside(runner)
-	body.set_physics_process(true)
+	body.set_held(false)
 	await step_ticks(5)
 	assert_lt(
 		body.global_position.distance_to(start), 0.1,
-		"a body that was not simulating when the cat went off is not thrown when it is let go",
+		"a body that was held when the cat went off is not thrown when it is let go",
 	)
 	assert_lt(body.velocity.length(), 0.5, "and carries no launch speed")
 	assert_almost_eq(body.get_air_lock_remaining(), 0.0, 0.001, "nor a launch's air lock")

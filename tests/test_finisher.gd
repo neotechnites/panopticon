@@ -44,7 +44,9 @@ func _to_the_finale() -> Array[MatchParticipant]:
 	var finisher: MatchParticipant = _controller.get_live_participants()[0]
 	TestFixtures.pin_the_field(_controller, finisher)
 	finisher.tracker.lap_finished.emit(12.0, 96.0)
-	finisher.shove_cooldown_remaining = 0.0
+	# Placed in the tower, the finisher is held until the placement settles; a held body cannot swing.
+	await step_ticks(MatchController.SETTLE_PHYSICS_FRAMES + 2)
+	finisher.body.shove_cooldown_remaining = 0.0
 	return [guard, finisher]
 
 
@@ -131,7 +133,7 @@ func test_an_ordinary_shove_is_not_scaled() -> void:
 	TestFixtures.pin_the_field(_controller, null)
 	var shover: MatchParticipant = runners[0]
 	var victim: MatchParticipant = runners[1]
-	shover.shove_cooldown_remaining = 0.0
+	shover.body.shove_cooldown_remaining = 0.0
 	var forward: Vector3 = -shover.body.global_transform.basis.z
 	forward = Vector3(forward.x, 0.0, forward.z).normalized()
 	victim.body.global_position = shover.body.global_position + forward * 0.3

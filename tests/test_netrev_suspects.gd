@@ -54,11 +54,11 @@ func test_a_ghost_respawned_at_once_is_not_left_frozen_on_a_client() -> void:
 	await step_ticks(60)
 	var on_host: MatchParticipant = _rig.participant(HOST, slot)
 	print("PROOF instant-respawn: host ghost body simulated=%s awaiting=%s | client's own ghost simulated=%s awaiting=%s" % [
-		str(on_host.body.is_physics_processing()), str(host.is_awaiting_respawn(on_host)),
-		str(mine.body.is_physics_processing()), str(mirror.is_awaiting_respawn(mine))])
-	assert_true(on_host.body.is_physics_processing(), "the host's ghost is up and running")
+		str(moves(on_host.body)), str(host.is_awaiting_respawn(on_host)),
+		str(moves(mine.body)), str(mirror.is_awaiting_respawn(mine))])
+	assert_true(moves(on_host.body), "the host's ghost is up and running")
 	assert_false(mirror.is_awaiting_respawn(mine), "the client is not left waiting on a respawn that has happened")
-	assert_true(mine.body.is_physics_processing(), "and its own ghost moves")
+	assert_true(moves(mine.body), "and its own ghost moves")
 
 
 ## The same with a catch instead of a shot: the caught runner is made a ghost by another event.
@@ -98,10 +98,10 @@ func test_a_runner_caught_with_no_respawn_delay_is_not_left_frozen_on_its_client
 		return
 	await step_ticks(90)
 	print("PROOF instant-respawn-catch: host caught body simulated=%s awaiting=%s | client's own caught body simulated=%s held=%s" % [
-		str(caught.body.is_physics_processing()), str(host.is_awaiting_respawn(caught)),
-		str(mine.body.is_physics_processing()), str(mine.body.held)])
-	assert_true(caught.body.is_physics_processing(), "the host's caught ghost is up and running")
-	assert_true(mine.body.is_physics_processing(), "and the client's own caught ghost moves")
+		str(moves(caught.body)), str(host.is_awaiting_respawn(caught)),
+		str(moves(mine.body)), str(mine.body.held)])
+	assert_true(moves(caught.body), "the host's caught ghost is up and running")
+	assert_true(moves(mine.body), "and the client's own caught ghost moves")
 
 
 ## A restart (the debug menu's, mid-finale) into an opening race: the old round's beat must not score in it.
@@ -113,7 +113,7 @@ func test_a_restart_inside_the_kill_beat_does_not_score_into_the_new_match() -> 
 	var finisher: MatchParticipant = _rig.participant(HOST, 2)
 	TestFixtures.pin_the_field(host, finisher)
 	host.call(&"_arm_the_finisher", finisher)
-	if not await _rig.wait_for(func() -> bool: return finisher.body.is_physics_processing()):
+	if not await _rig.wait_for(func() -> bool: return moves(finisher.body)):
 		fail("the finisher never landed in the tower")
 		return
 	assert_same(host.apply_shove(finisher), guard, "the finisher's shove takes the guard")

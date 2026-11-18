@@ -284,10 +284,23 @@ var _charging: bool = false
 ## single-shot cycle unless the reload is shorter than the flight time.
 var _projectiles: Array[WeaponProjectile] = []
 
-## Lag compensation: ticks behind the authority a remote shooter saw the world, set for its shot;
-## its rays are cast by [member lag_trace] (space, ray query, ticks back) against bodies as they stood.
-var lag_ticks: int = 0
+## Lag compensation, set by the session: [member lag_back] turns the tick a shooter saw (a shot's
+## view time) into ticks back, and [member lag_trace] casts a ray (space, query, ticks back) there.
+var lag_back: Callable
 var lag_trace: Callable
+## Ticks back the shot being resolved is traced; a round keeps its own for its flight.
+var _lag_ticks: int = 0
+
+## When true, holding the trigger fires again the moment the rifle is ready.
+##
+## On by default, and it is not a convenience. The reload is measured in
+## seconds, so requiring a fresh click on the exact frame the weapon comes back
+## would tax reaction time on a beat the player has been watching count down for
+## two seconds -- a dexterity test the design never asked for. The interesting
+## decision is *whether* to spend the shot and *where* to be pointing, not
+## whether you can click on cue. Turn it off for a variant that wants the
+## opposite.
+@export var allow_held_fire: bool = true
 
 ## Rounds a client is flying purely to be seen, one per replayed remote shot.
 ##
@@ -418,7 +431,10 @@ func _step_cycle(delta: float) -> void:
 ## Refusal is silent and cheap: callers -- bots especially -- are expected to
 ## call optimistically and read the return value, not to gate on
 ## [method can_fire] first and race the clock.
-func try_fire() -> bool:
+##
+## [param view_time] is the tick the shooter was drawing the world at (see
+## [member MoveIntent.view_time]); the shot is traced against bodies as they stood then.
+func try_fire(view_time: float = MoveIntent.LIVE_WORLD) -> bool:
 	if not can_fire():
 		return false
 	var charge: float = get_charge()
@@ -427,10 +443,29 @@ func try_fire() -> bool:
 	# [member WeaponProfile.charge_min_fraction_to_fire].
 	if profile.charge_enabled and charge < profile.charge_min_fraction_to_fire:
 		return false
+	_lag_ticks = int(lag_back.call(view_time)) if is_finite(view_time) and lag_back.is_valid() else 0
 	_end_charge(charge)
 	_resolve_shot(charge)
 	_set_state(State.FIRING)
+	_lag_ticks = 0
 	return true
+
+
+## One reading of a trigger: down this time, held, let go. A charged weapon charges on the press
+## and fires on the release; any other fires on the press, or on the hold when [member allow_held_fire].
+func trigger(pressed: bool, held: bool, released: bool, view_time: float = MoveIntent.LIVE_WORLD) -> void:
+	if profile != null and profile.charge_enabled:
+		if pressed:
+			begin_charge()
+		elif released:
+			release_charge(view_time)
+	elif pressed or (held and allow_held_fire):
+		try_fire(view_time)
+
+
+## Ticks back the shot being resolved is traced; 0 between shots.
+func get_shot_lag_ticks() -> int:
+	return _lag_ticks
 
 
 ## True when a call to [method try_fire] would succeed.
@@ -615,13 +650,13 @@ func begin_charge() -> bool:
 ## [member WeaponProfile.charge_min_fraction_to_fire] -- spends the hold anyway.
 ## A released trigger is released; letting it silently keep charging would make
 ## the tell a runner reads off the tower a lie.
-func release_charge() -> bool:
+func release_charge(view_time: float = MoveIntent.LIVE_WORLD) -> bool:
 	if profile == null or not profile.charge_enabled:
-		return try_fire()
+		return try_fire(view_time)
 	if not _charging:
 		return false
 	var held: float = _charge
-	var took_shot: bool = try_fire()
+	var took_shot: bool = try_fire(view_time)
 	if not took_shot:
 		_end_charge(held)
 	return took_shot
@@ -969,8 +1004,8 @@ func _cast(from: Vector3, to: Vector3) -> Dictionary:
 	query.collide_with_bodies = true
 	if shooter_body != null:
 		query.exclude = [shooter_body.get_rid()]
-	if lag_ticks > 0 and lag_trace.is_valid():
-		return lag_trace.call(space, query, lag_ticks)
+	if _lag_ticks > 0 and lag_trace.is_valid():
+		return lag_trace.call(space, query, _lag_ticks)
 	return space.intersect_ray(query)
 
 
@@ -1165,7 +1200,7 @@ func _launch(
 		parent, origin, direction, speed, travel_range, profile, exclude
 	)
 	round_shot.muzzle_origin = muzzle_position
-	round_shot.lag_ticks = lag_ticks
+	round_shot.lag_ticks = _lag_ticks
 	round_shot.lag_trace = lag_trace
 	_last_launch_speed = speed
 	_projectiles.append(round_shot)

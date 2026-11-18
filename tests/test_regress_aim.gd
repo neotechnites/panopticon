@@ -173,7 +173,7 @@ func _hand_the_tower_to(finisher_slot: int) -> bool:
 	var round_before: int = host.get_round_number()
 	TestFixtures.pin_the_field(host, finisher)
 	host.call(&"_arm_the_finisher", finisher)
-	if not await _rig.wait_for(func() -> bool: return finisher.body.is_physics_processing()):
+	if not await _rig.wait_for(func() -> bool: return moves(finisher.body)):
 		fail("the finisher never landed in the tower")
 		return false
 	# A finisher takes longer than a round trip to cross the room.

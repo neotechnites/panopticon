@@ -104,9 +104,9 @@ func test_a_ghost_wears_its_own_colour_translucent() -> void:
 	await step_seconds(hold + 0.2)
 	for _tick: int in SETTLE_TICKS:
 		await step_ticks(1)
-		if victim.body.is_physics_processing():
+		if moves(victim.body):
 			break
-	assert_true(victim.body.is_physics_processing(), "the ghost's placement woke within the budget")
+	assert_true(moves(victim.body), "the ghost's placement woke within the budget")
 
 	var ghost_color: Color = _controller.get_body_color(victim)
 	var palette: RunnerPalette = _controller.get_runner_palette()

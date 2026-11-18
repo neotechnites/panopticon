@@ -25,12 +25,17 @@ func _make_intent() -> MoveIntent:
 	var intent: MoveIntent = MoveIntent.new()
 	intent.move_direction = Vector2(0.6, -0.8)
 	intent.view_angles = Vector2(0.125, -0.0625)
-	intent.jump_pressed = true
-	intent.jump_held = false
-	intent.slide_pressed = false
 	intent.slide_held = true
-	intent.shove_pressed = true
+	intent.buttons |= MoveIntent.SHOVE | (MoveIntent.POWER_1 << 2)
+	intent.view_time = 1000.5
 	return intent
+
+
+func _decoded() -> Array[MoveIntent]:
+	var out: Array[MoveIntent] = []
+	for _i: int in NetCodec.MAX_COMMANDS:
+		out.append(MoveIntent.new())
+	return out
 
 
 func _make_state(seat: int, offset: float) -> PlayerState:
@@ -53,57 +58,78 @@ func _make_state(seat: int, offset: float) -> PlayerState:
 	return state
 
 
-# --- Intent -------------------------------------------------------------------
+# --- Commands -----------------------------------------------------------------
 
-func test_an_intent_survives_the_round_trip() -> void:
+func test_a_command_survives_the_round_trip() -> void:
 	var sent: MoveIntent = _make_intent()
-	var packed: PackedByteArray = NetCodec.pack_intent(4242, sent)
-	assert_eq_int(packed.size(), NetCodec.INTENT_SIZE, "an intent is a fixed size")
-
-	var got: MoveIntent = MoveIntent.new()
-	assert_eq_int(NetCodec.unpack_intent(packed, got), 4242, "the tick comes back")
-	assert_vec2_eq(got.move_direction, sent.move_direction, "move direction")
-	assert_vec2_eq(got.view_angles, sent.view_angles, "view angles")
-	assert_true(got.view_absolute, "the wire's view is absolute")
-	assert_true(got.jump_pressed, "jump_pressed")
-	assert_false(got.jump_held, "jump_held")
-	assert_false(got.slide_pressed, "slide_pressed")
-	assert_true(got.slide_held, "slide_held")
-	assert_true(got.shove_pressed, "shove_pressed, off the second flag byte")
-
-
-func test_a_malformed_intent_is_refused_without_touching_the_output() -> void:
-	var untouched: MoveIntent = MoveIntent.new()
-	untouched.move_direction = Vector2(1.0, 0.0)
-
-	assert_eq_int(
-		NetCodec.unpack_intent(PackedByteArray(), untouched), -1, "an empty payload is refused"
-	)
-	var short_payload: PackedByteArray = NetCodec.pack_intent(1, _make_intent())
-	short_payload.resize(NetCodec.INTENT_SIZE - 1)
-	assert_eq_int(NetCodec.unpack_intent(short_payload, untouched), -1, "a short payload is refused")
-
-	var long_payload: PackedByteArray = NetCodec.pack_intent(1, _make_intent())
-	long_payload.append(0)
-	assert_eq_int(NetCodec.unpack_intent(long_payload, untouched), -1, "a long payload is refused")
-
-	assert_vec2_eq(untouched.move_direction, Vector2(1.0, 0.0), "the output was never written")
+	var packed: PackedByteArray = NetCodec.pack_commands(9, 4242, 1002, [sent], 1)
+	assert_eq_int(NetCodec.command_epoch(packed), 9, "the epoch comes back")
+	assert_eq_int(NetCodec.command_newest(packed), 4242, "the newest sequence comes back")
+	assert_eq_int(NetCodec.command_snap_ack(packed), 1002, "the snap ack comes back")
+	var out: Array[MoveIntent] = _decoded()
+	assert_eq_int(NetCodec.unpack_commands(packed, out, 1002), 1, "one command")
+	var got: MoveIntent = out[0]
+	assert_eq_int(got.buttons, sent.buttons, "the levels, every bit")
+	assert_eq_int(got.pressed | got.released, 0, "no edge is sent: the receiver derives them")
+	assert_almost_eq(got.move_direction.x, 0.6, 1.0 / 127.0, "move x, to a 127th")
+	assert_almost_eq(got.move_direction.y, -0.8, 1.0 / 127.0, "move y, to a 127th")
+	assert_almost_eq(got.view_angles.x, 0.125, TAU / 65536.0, "yaw, to a 65536th of a turn")
+	assert_almost_eq(got.view_angles.y, -0.0625, 0.0001, "pitch, to a ten-thousandth")
+	assert_true(got.view_absolute, "the view is absolute")
+	assert_almost_eq(got.view_time, 1000.5, 1.0 / 64.0, "the view time, on the receiver's own tick")
 
 
-func test_an_intent_carrying_nan_is_refused() -> void:
-	# NaN survives a float round trip and poisons a body on contact, so it has
-	# to die at the decoder rather than be clamped to something invented.
-	var poisoned: MoveIntent = MoveIntent.new()
-	poisoned.move_direction = Vector2(NAN, 0.0)
-	var packed: PackedByteArray = NetCodec.pack_intent(7, poisoned)
-	assert_eq_int(packed.size(), NetCodec.INTENT_SIZE, "a NaN intent still packs to full size")
+func test_commands_are_delta_coded_against_the_one_before() -> void:
+	var a: MoveIntent = _make_intent()
+	var b: MoveIntent = MoveIntent.new()
+	b.copy_from(a)
+	var c: MoveIntent = MoveIntent.new()
+	c.copy_from(a)
+	c.jump_held = true
+	var packed: PackedByteArray = NetCodec.pack_commands(1, 12, 1002, [a, b, c], 3)
+	var first_alone: int = NetCodec.pack_commands(1, 10, 1002, [a], 1).size()
+	assert_eq_int(packed.size(), first_alone + 1 + 3, "a repeat costs its mask byte; a new level 3 bytes")
+	var out: Array[MoveIntent] = _decoded()
+	assert_eq_int(NetCodec.unpack_commands(packed, out, 1002), 3, "three commands")
+	assert_eq_int(out[1].buttons, a.buttons, "the repeat carries the levels it did not resend")
+	assert_true(out[2].jump_held, "the third has its new level")
+	assert_almost_eq(out[2].view_angles.x, 0.125, TAU / 65536.0, "and the view it did not resend")
 
-	var got: MoveIntent = MoveIntent.new()
-	assert_eq_int(NetCodec.unpack_intent(packed, got), -1, "NaN is refused")
-	assert_vec2_eq(got.move_direction, Vector2.ZERO, "nothing reached the output")
+
+func test_a_malformed_command_packet_is_refused_and_writes_nothing() -> void:
+	var good: PackedByteArray = NetCodec.pack_commands(1, 5, 100, [_make_intent(), _make_intent()], 2)
+	var cases: Dictionary = {
+		"empty": PackedByteArray(),
+		"a header alone": good.slice(0, NetCodec.COMMAND_HEADER_SIZE),
+		"truncated": good.slice(0, good.size() - 1),
+		"trailing bytes": good + PackedByteArray([0]),
+	}
+	var zero: PackedByteArray = good.duplicate()
+	zero.encode_u8(6, 0)
+	cases["no commands"] = zero
+	var many: PackedByteArray = good.duplicate()
+	many.encode_u8(6, NetCodec.MAX_COMMANDS + 1)
+	cases["more than the cap"] = many
+	var bits: PackedByteArray = good.duplicate()
+	bits.encode_u8(NetCodec.COMMAND_HEADER_SIZE, 0x10)
+	cases["an unknown field bit"] = bits
+	for name: String in cases:
+		var out: Array[MoveIntent] = _decoded()
+		out[0].buttons = 7
+		assert_eq_int(NetCodec.unpack_commands(cases[name], out, 100), 0, "%s is refused" % name)
+		assert_true(out[0].buttons != _make_intent().buttons, "%s leaves nothing half-written" % name)
 
 
-# --- Snapshot -----------------------------------------------------------------
+func test_a_command_carrying_nan_reaches_the_host_as_numbers() -> void:
+	var poisoned: MoveIntent = _make_intent()
+	poisoned.move_direction = Vector2(NAN, 0.5)
+	poisoned.view_angles = Vector2(INF, NAN)
+	poisoned.view_time = NAN
+	var out: Array[MoveIntent] = _decoded()
+	assert_eq_int(NetCodec.unpack_commands(NetCodec.pack_commands(1, 1, 10, [poisoned], 1), out, 10), 1, "it decodes")
+	assert_true(out[0].move_direction.is_finite() and out[0].view_angles.is_finite(), "every float is finite")
+	assert_true(out[0].view_time == MoveIntent.LIVE_WORLD, "a view time that was not a number is none")
+
 
 func test_a_snapshot_survives_the_round_trip() -> void:
 	var sent: WorldSnapshot = WorldSnapshot.new()

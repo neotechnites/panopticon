@@ -16,11 +16,10 @@ extends TestCase
 ## client's own RPCs arriving instantly alongside the delayed copies; the host's
 ## replicator has no registered bodies, so it sends no snapshots of its own.
 
-## One packet in flight: an intent going up, or a packed snapshot coming down.
+## One packet in flight: commands going up, or a packed snapshot coming down.
 class Wire extends RefCounted:
 	var due: int = 0
 	var tick: int = 0
-	var intent: MoveIntent = MoveIntent.new()
 	var payload: PackedByteArray = PackedByteArray()
 
 
@@ -29,16 +28,8 @@ class Wire extends RefCounted:
 const LATENCY_TICKS: int = 5
 
 ## Ticks of jitter added on top, per packet, when a test asks for it. Enough to
-## reorder an intent, which is what an unreliable channel does and what the
-## receive path has to survive.
-##
-## Jitter costs accuracy and there is no prediction bug in that. The authority
-## simulates one tick whatever arrives, so a tick that brings two intents leaves
-## one unsimulated and a tick that brings none repeats the last -- either way
-## the authority's answer for a given input tick is one tick of travel away from
-## the client's, and the client is put right by that much. Closing that needs
-## the client to pace its sending against the authority's clock, which is a
-## different feature and is not here.
+## reorder a packet, which is what an unreliable channel does and what the
+## receive path has to survive: the host's stream waits for a late command rather than guessing.
 const JITTER_TICKS: int = 2
 
 
@@ -176,17 +167,19 @@ func _due() -> int:
 	return _tick + LATENCY_TICKS + (_rng.randi_range(0, _jitter) if _jitter > 0 else 0)
 
 
-## The intent the client's body ran on its last tick, sent late.
+## The command packet the client sent on its last tick, sent late.
 func _send_up() -> void:
+	var payload: PackedByteArray = _client.replicator.get_last_command_packet()
+	if payload.is_empty():
+		return
 	var packet: Wire = Wire.new()
 	packet.due = _due()
-	packet.tick = _client_link.get_intent_tick()
-	packet.intent.copy_from(_client_link.controller.get_intent())
+	packet.payload = payload.duplicate()
 	_up.append(packet)
 
 
 func _deliver_up() -> void:
-	var source: RemoteIntentSource = _host_link.get_remote_source()
+	var stream: CommandStream = _host.replicator.stream_for(_host_link.owner_peer_id)
 	var held: Array[Wire] = []
 	for packet: Wire in _up:
 		if packet.due > _tick:
@@ -194,7 +187,7 @@ func _deliver_up() -> void:
 			continue
 		# Refused when jitter has already delivered a newer one, exactly as the
 		# authority refuses a reordered packet off the socket.
-		source.accept(packet.tick, packet.intent)
+		stream.receive(packet.payload, _host.replicator.get_tick())
 	_up = held
 
 
@@ -236,10 +229,10 @@ func _both_run(direction: Vector2) -> void:
 
 # --- Tests --------------------------------------------------------------------
 
-func test_the_snapshot_carries_the_intent_the_authority_has_applied() -> void:
+func test_the_snapshot_carries_the_command_the_authority_has_run() -> void:
 	var state: PlayerState = PlayerState.new()
 	state.seat_index = 3
-	state.last_intent_tick = 77
+	state.cmd_ack = 77
 	var snapshot: WorldSnapshot = WorldSnapshot.new()
 	snapshot.append(state)
 	var packed: PackedByteArray = NetCodec.pack_snapshot(snapshot)
@@ -251,9 +244,9 @@ func test_the_snapshot_carries_the_intent_the_authority_has_applied() -> void:
 
 	var decoded: WorldSnapshot = WorldSnapshot.new()
 	assert_true(NetCodec.unpack_snapshot(packed, decoded), "it decodes")
-	assert_eq_int(decoded.states[0].last_intent_tick, 77, "and the acknowledgement survived")
+	assert_eq_int(decoded.states[0].cmd_ack, 77, "and the acknowledgement survived")
 
-	state.last_intent_tick = -1
+	state.cmd_ack = -1
 	snapshot.clear()
 	snapshot.append(state)
 	assert_true(
@@ -261,7 +254,7 @@ func test_the_snapshot_carries_the_intent_the_authority_has_applied() -> void:
 		"a body the authority has run no input for decodes too",
 	)
 	assert_eq_int(
-		decoded.states[0].last_intent_tick, -1, "and says so rather than claiming tick 0"
+		decoded.states[0].cmd_ack, -1, "and says so rather than claiming tick 0"
 	)
 
 	# The size is the version. A body from a build with one field fewer must be

@@ -41,7 +41,7 @@ func test_rv_a_late_peer_dead_at_bind_does_not_walk_its_corpse() -> void:
 	if not await _rig.wait_for(func() -> bool: return host_side.is_ghost and host.is_awaiting_respawn(host_side)):
 		fail("the host never held the dead runner (ghost %s)" % str(host_side.is_ghost))
 		return
-	assert_false(host_side.body.is_physics_processing(), "the host holds the dead body")
+	assert_false(moves(host_side.body), "the host holds the dead body")
 	if not await _rig.bind_late(LATE):
 		fail("the late peer never bound")
 		return
@@ -51,10 +51,10 @@ func test_rv_a_late_peer_dead_at_bind_does_not_walk_its_corpse() -> void:
 	assert_eq_int(own, slot, "the late peer's own slot is the dead one")
 	var mine: MatchParticipant = _rig.participant(LATE, slot)
 	print("PROOF late-dead: late peer own body: ghost=%s awaiting=%s physics=%s ; host body physics=%s" % [
-		str(mine.is_ghost), str(mirror.is_awaiting_respawn(mine)), str(mine.body.is_physics_processing()),
-		str(host_side.body.is_physics_processing())])
+		str(mine.is_ghost), str(mirror.is_awaiting_respawn(mine)), str(moves(mine.body)),
+		str(moves(host_side.body))])
 	assert_true(mirror.is_awaiting_respawn(mine), "the late peer knows it is waiting on a respawn")
-	assert_false(mine.body.is_physics_processing(), "and its held corpse is not simulated on its own machine")
+	assert_false(moves(mine.body), "and its held corpse is not simulated on its own machine")
 	var from: Vector3 = mine.body.global_position
 	var host_from: Vector3 = host_side.body.global_position
 	_rig.drive(LATE, Vector2(0.0, 1.0))
@@ -65,5 +65,5 @@ func test_rv_a_late_peer_dead_at_bind_does_not_walk_its_corpse() -> void:
 	assert_true(walked < 0.2, "the dead player's own copy stays where the host holds it: it moved %.2f m" % walked)
 	# The hold is the match's to lift: the respawn hands the body back to its own machine.
 	host_side.respawn_hold_remaining = 0.05
-	var back: bool = await _rig.wait_for(func() -> bool: return mine.body.is_physics_processing())
+	var back: bool = await _rig.wait_for(func() -> bool: return moves(mine.body))
 	assert_true(back, "and the respawn wakes it on its own machine")

@@ -327,11 +327,12 @@ func _watch(seat: int, ticks: int) -> Run:
 			run.scale[machine].append(bodies[machine].get_speed_boost_multiplier())
 		if bodies[HOST].get_speed_boost_remaining() > 0.0:
 			# Kept only while boosted: that is the run being compared.
-			var applied: int = host_link.get_remote_source().applied_tick
+			var applied: int = host_link.replicator.stream_for(host_link.owner_peer_id).get_ack()
 			run.host_at[applied] = host_link.controller.global_position
 			run.host_at_on[applied] = i
-		if not run.own_at.has(own_link.get_intent_tick()):
-			run.own_at[own_link.get_intent_tick()] = own.global_position
+		var sent: int = own_link.replicator.outbox.next_seq() - 1
+		if not run.own_at.has(sent):
+			run.own_at[sent] = own.global_position
 	own.speed_boost_changed.disconnect(on_boost)
 	own_link.prediction_corrected.disconnect(on_corrected)
 	return run

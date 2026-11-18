@@ -52,7 +52,7 @@ var muzzle_origin: Vector3 = Vector3.ZERO:
 		muzzle_origin = value
 		_muzzle_offset = value - _origin
 
-## Ticks behind the authority this round's rays are cast, and what casts them; see [member Rifle.lag_ticks].
+## Ticks behind the authority this round's rays are cast, and what casts them; see [method Rifle.try_fire].
 var lag_ticks: int = 0
 var lag_trace: Callable
 

@@ -84,17 +84,19 @@ func poll(_delta: float) -> MoveIntent:
 		PlayerActions.MOVE_BACK,
 		PlayerActions.MOVE_FORWARD,
 	)
-	_intent.jump_pressed = Input.is_action_just_pressed(PlayerActions.JUMP)
-	_intent.jump_held = Input.is_action_pressed(PlayerActions.JUMP)
-	_intent.slide_pressed = Input.is_action_just_pressed(PlayerActions.SLIDE)
-	_intent.slide_held = Input.is_action_pressed(PlayerActions.SLIDE)
-	_intent.fire_pressed = Input.is_action_just_pressed(WeaponActions.FIRE)
-	_intent.fire_held = Input.is_action_pressed(WeaponActions.FIRE)
-	_intent.ability_pressed = Input.is_action_just_pressed(PlayerActions.ABILITY)
-	_intent.shove_pressed = Input.is_action_just_pressed(PlayerActions.SHOVE)
-	_intent.cook_pressed = Input.is_action_just_pressed(PlayerActions.INTERACT)
-	_intent.emote_pressed = Input.is_action_just_pressed(PlayerActions.EMOTE)
-	_intent.emote_alt_pressed = Input.is_action_just_pressed(PlayerActions.EMOTE_ALT)
+	# Levels, with a press and release inside one tick still counted as down for it (Quake's
+	# kbutton wasPressed); the edges are taken in [method IntentSource.next_command].
+	_intent.jump_held = _down(PlayerActions.JUMP)
+	_intent.slide_held = _down(PlayerActions.SLIDE)
+	# A loose cursor is a menu or a released window: clicks there are not shots.
+	_intent.fire_held = _down(WeaponActions.FIRE) and Input.mouse_mode != Input.MOUSE_MODE_VISIBLE
+	_intent.ability_held = _down(PlayerActions.ABILITY)
+	_intent.buttons |= (
+		(MoveIntent.SHOVE if _down(PlayerActions.SHOVE) else 0)
+		| (MoveIntent.COOK if _down(PlayerActions.INTERACT) else 0)
+		| (MoveIntent.EMOTE if _down(PlayerActions.EMOTE) else 0)
+		| (MoveIntent.EMOTE_ALT if _down(PlayerActions.EMOTE_ALT) else 0)
+	)
 	_intent.aim_held = optic != null and optic.is_zoom_requested()
 	if Input.is_action_just_pressed(PlayerActions.TURBO):
 		_turbo = not _turbo
@@ -102,13 +104,9 @@ func poll(_delta: float) -> MoveIntent:
 	if Input.is_action_just_pressed(PlayerActions.GODMODE):
 		_godmode = not _godmode
 	_intent.godmode = _godmode
-	_intent.ability_held = Input.is_action_pressed(PlayerActions.ABILITY)
 	for i: int in PlayerActions.ABILITY_SLOTS.size():
-		var slot: StringName = PlayerActions.ABILITY_SLOTS[i]
-		if Input.is_action_just_pressed(slot):
-			_intent.ability_slot = i + 1
-		if Input.is_action_pressed(slot):
-			_intent.ability_held = true
+		if _down(PlayerActions.ABILITY_SLOTS[i]):
+			_intent.buttons |= MoveIntent.POWER_1 << i
 	# Dimensionless, and the delta is already in radians, so the order of the
 	# two scalars does not matter. Null optic == 1.0: see the export above.
 	var aim_scale: float = profile.mouse_sensitivity
@@ -117,6 +115,11 @@ func poll(_delta: float) -> MoveIntent:
 	_intent.look_delta = _look_pixels * aim_scale
 	_look_pixels = Vector2.ZERO
 	return _intent
+
+
+## Held for this tick: down now, or pressed and let go since the last poll.
+func _down(action: StringName) -> bool:
+	return Input.is_action_pressed(action) or Input.is_action_just_pressed(action)
 
 
 ## Enable or disable reading this device. Disabled sources report an empty

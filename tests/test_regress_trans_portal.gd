@@ -193,7 +193,7 @@ func _a_client_takes_the_tower_through_the_portal(map: StringName, clients: int)
 			armed_on_all = armed_on_all and seen.is_finisher
 		if is_failed():
 			return
-		if armed_on_all and _rig.body(HOST, slot).is_physics_processing() and _rig.body(CLIENT, slot).is_physics_processing():
+		if armed_on_all and moves(_rig.body(HOST, slot)) and moves(_rig.body(CLIENT, slot)):
 			break
 	if not assert_true(armed_on_all, "every machine learned the client is the finisher"):
 		return
@@ -203,7 +203,7 @@ func _a_client_takes_the_tower_through_the_portal(map: StringName, clients: int)
 		var at: Vector3 = _rig.body(peer, slot).global_position
 		assert_lt(at.distance_to(_tower_point(peer)), MatchController.FINISHER_TOWER_OFFSET + 1.5, "peer %d draws the finisher in the tower room (at %s)" % [peer, at])
 		assert_same(_rig.controller(peer).get_finisher(), _rig.participant(peer, slot), "peer %d knows who the finisher is" % peer)
-	assert_true(_rig.body(CLIENT, slot).is_physics_processing(), "the client has its body back in the tower")
+	assert_true(moves(_rig.body(CLIENT, slot)), "the client has its body back in the tower")
 	# The client's own key, over the wire: the shove that throws the guard.
 	var beats: Array[int] = []
 	host.kill_beat_started.connect(func(guard: MatchParticipant, _seconds: float, _throw: Vector3) -> void: beats.append(guard.index))

@@ -55,9 +55,9 @@ func test_control_a_guard_who_leaves_mid_round_is_carried_on_by_the_tower_bot() 
 	var shooter: TowerShooter = host.call(&"_find_tower_brain", guard)
 	print("PROOF guard leaves mid-round: tower brain=%s processing=%s body phys=%s is_shooter=%s" % [
 		str(shooter != null), str(shooter != null and shooter.is_physics_processing()),
-		str(guard.body.is_physics_processing()), str(guard.is_shooter)])
+		str(moves(guard.body)), str(guard.is_shooter)])
 	assert_true(shooter != null and shooter.is_physics_processing(), "a tower bot takes the rifle over")
-	assert_true(guard.body.is_physics_processing(), "and the body is simulated")
+	assert_true(moves(guard.body), "and the body is simulated")
 
 
 func test_a_guard_who_leaves_inside_the_kill_beat_stays_dead_for_the_beat() -> void:
@@ -68,7 +68,7 @@ func test_a_guard_who_leaves_inside_the_kill_beat_stays_dead_for_the_beat() -> v
 	var guard: MatchParticipant = _rig.participant(HOST, 1)
 	TestFixtures.pin_the_field(host, finisher)
 	host.call(&"_arm_the_finisher", finisher)
-	if not await _rig.wait_for(func() -> bool: return finisher.body.is_physics_processing()):
+	if not await _rig.wait_for(func() -> bool: return moves(finisher.body)):
 		fail("the finisher never landed in the tower")
 		return
 	host.rifle.fired.connect(func(_origin: Vector3, _end: Vector3) -> void: _shots[0] += 1)
@@ -82,9 +82,9 @@ func test_a_guard_who_leaves_inside_the_kill_beat_stays_dead_for_the_beat() -> v
 	var shooter: TowerShooter = host.call(&"_find_tower_brain", guard)
 	var awake: bool = shooter != null and shooter.is_physics_processing()
 	print("PROOF guard leaves in kill beat: beat_left=%.2fs tower brain processing=%s body phys=%s locked=%s" % [
-		beat_left, str(awake), str(guard.body.is_physics_processing()), str(guard.body.movement_locked)])
+		beat_left, str(awake), str(moves(guard.body)), str(guard.body.movement_locked)])
 	assert_gt(beat_left, 0.0, "the beat is still running when the seat turns bot")
-	assert_false(guard.body.is_physics_processing(), "the thrown guard's capsule stays held")
+	assert_false(moves(guard.body), "the thrown guard's capsule stays held")
 	assert_false(awake, "and no tower brain is driving the dead guard's rifle during the beat")
 	var round_before: int = host.get_round_number()
 	while float(host.get(&"_kill_beat_remaining")) > 0.0:

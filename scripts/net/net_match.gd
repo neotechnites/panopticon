@@ -44,7 +44,6 @@ var _links: Array[PlayerNetLink] = []
 var _slot_of_seat: Dictionary[int, int] = {}
 var _seat_of_slot: PackedInt32Array = PackedInt32Array()
 var _started: bool = false
-var _fire_was_held: bool = false
 ## Instance ids of the rifles already subscribed to. A bound Callable is a new
 ## object every time, so [method Signal.is_connected] cannot answer this.
 var _watched_rifles: Dictionary[int, bool] = {}
@@ -400,6 +399,7 @@ func _watch_rifle(weapon: Rifle, which: int) -> void:
 	if weapon == null or _watched_rifles.has(weapon.get_instance_id()):
 		return
 	_watched_rifles[weapon.get_instance_id()] = true
+	weapon.lag_back = _session.replicator.rewind_ticks
 	weapon.lag_trace = _session.replicator.trace
 	weapon.fired.connect(_on_rifle_fired.bind(weapon, which))
 	weapon.target_hit.connect(_on_rifle_hit.bind(which))
@@ -430,55 +430,11 @@ func _start_if_ready() -> void:
 
 
 func _physics_process(_delta: float) -> void:
-	if not is_authority():
+	if not is_authority() or _started:
 		return
-	if not _started:
-		# Acknowledgements start it through the roster; this is only the launch wait running out.
-		if _session.get_epoch_age_ms() >= int(_session.get_settings().launch_timeout_seconds * 1000.0):
-			_start_if_ready()
-		return
-	_drive_remote_trigger()
-
-
-## A remote human in the tower fires through its intent; the server pulls the trigger.
-func _drive_remote_trigger() -> void:
-	_fire_was_held = _drive_trigger(
-		controller.get_seat_participant(), controller.rifle, _fire_was_held
-	)
-
-
-## Pull [param weapon]'s trigger from [param who]'s intent packets. Returns
-## whether the trigger is still held.
-func _drive_trigger(who: MatchParticipant, weapon: Rifle, was_held: bool) -> bool:
-	if who == null or weapon == null or not who.is_human() or who == controller.get_human_participant():
-		return false
-	var link: PlayerNetLink = _link_of_slot(who.index)
-	var source: RemoteIntentSource = link.get_remote_source() if link != null else null
-	if source == null:
-		return was_held
-	if not link.controller.is_physics_processing():
-		# Held by the match: its keys were let go for it, which is not the holder releasing a charge.
-		weapon.cancel_charge()
-		return false
-	# The scope is the holder's; the host raises the seat's optic with it so sway and hip spread agree.
-	if weapon.optic != null:
-		weapon.optic.set_zoomed(source.command.aim_held)
-	var pressed: bool = source.take_fire()
-	var held: bool = source.is_fire_held()
-	var charged: bool = weapon.profile != null and weapon.profile.charge_enabled
-	if charged and pressed:
-		weapon.begin_charge()
-	elif (charged and was_held and not held) or (not charged and (pressed or held) and weapon.can_fire()):
-		# The shot is traced against the world as this shooter was drawing it.
-		weapon.lag_ticks = _session.replicator.get_lag_ticks(
-			source.fire_view_tick if pressed else source.command.view_tick
-		)
-		if charged:
-			weapon.release_charge()
-		else:
-			weapon.try_fire()
-		weapon.lag_ticks = 0
-	return held
+	# Acknowledgements start it through the roster; this is only the launch wait running out.
+	if _session.get_epoch_age_ms() >= int(_session.get_settings().launch_timeout_seconds * 1000.0):
+		_start_if_ready()
 
 
 func _on_round_started() -> void:

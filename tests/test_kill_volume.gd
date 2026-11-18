@@ -214,7 +214,7 @@ func test_a_prisoner_who_falls_in_becomes_a_ghost() -> void:
 	# falling while it waits: it is off every layer and is not being stepped, so
 	# it hangs exactly where the volume found it.
 	assert_true(_controller.is_awaiting_respawn(victim), "the faller is held before it is moved")
-	assert_false(victim.body.is_physics_processing(), "and is not being stepped, so it cannot fall")
+	assert_false(moves(victim.body), "and is not being stepped, so it cannot fall")
 	var held_at: Vector3 = victim.body.global_position
 	await step_ticks(FALL_TICKS)
 	assert_vec3_almost_eq(
@@ -240,7 +240,7 @@ func test_a_prisoner_who_falls_in_becomes_a_ghost() -> void:
 		"and are not a legitimate target",
 	)
 	await step_ticks(FALL_TICKS)
-	assert_true(victim.body.is_physics_processing(), "the ghost's body is being stepped again")
+	assert_true(moves(victim.body), "the ghost's body is being stepped again")
 
 
 # --- The guard ----------------------------------------------------------------
@@ -295,7 +295,7 @@ func test_the_guard_who_falls_in_is_put_back_on_the_tower() -> void:
 		"and the ring is untouched",
 	)
 	assert_eq_int(_controller.get_ghosts_remaining(), 0, "nobody became a ghost")
-	assert_true(seat.body.is_physics_processing(), "the guard is back on their feet")
+	assert_true(moves(seat.body), "the guard is back on their feet")
 
 
 # --- A ghost --------------------------------------------------------------------
@@ -379,7 +379,7 @@ func test_a_ghost_who_falls_in_is_returned_to_the_start() -> void:
 		0.0, START_ANGLE_TOLERANCE,
 		"they were put down at the start line's own bearing",
 	)
-	assert_true(victim.body.is_physics_processing(), "the ghost's body is being stepped again")
+	assert_true(moves(victim.body), "the ghost's body is being stepped again")
 	assert_eq_int(
 		victim.body.collision_layer, MatchController.GHOST_HAZARD_LAYER,
 		"and is back on the hazard layer once this placement has woken too",
@@ -422,7 +422,7 @@ func test_a_racer_who_falls_in_is_out_of_the_race() -> void:
 	assert_false(racer.is_ghost, "there is no shooter, so there is no ghost to become")
 	assert_false(racer.body.visible, "their body is out of the world")
 	assert_eq_int(racer.body.collision_layer, 0, "and cannot be touched")
-	assert_false(racer.body.is_physics_processing(), "or move")
+	assert_false(moves(racer.body), "or move")
 	assert_false(
 		racer.body.is_in_group(MatchController.RUNNER_GROUP),
 		"and is not a runner any more",

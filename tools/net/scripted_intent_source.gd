@@ -230,7 +230,7 @@ func _press(entry: Dictionary, me: MatchParticipant, due: float) -> bool:
 func _why_not(key: String, me: MatchParticipant) -> String:
 	if me == null or me.body == null:
 		return "no-body"
-	if not me.body.is_physics_processing():
+	if me.body.held or not me.body.is_physics_processing():
 		return "held"
 	var in_hub: bool = match_controller.get_phase() == MatchController.Phase.HUB
 	if not in_hub and not me.is_running:
@@ -321,7 +321,7 @@ func _play(me: MatchParticipant, delta: float) -> void:
 
 
 func _role_of(me: MatchParticipant) -> Role:
-	if me == null or me.body == null or not me.body.is_physics_processing():
+	if me == null or me.body == null or me.body.held or not me.body.is_physics_processing():
 		return Role.HELD
 	var phase: MatchController.Phase = match_controller.get_phase()
 	if phase == MatchController.Phase.BRAWL:
@@ -460,11 +460,13 @@ func _aim_view(me: MatchParticipant) -> Vector2:
 	for p: MatchParticipant in match_controller.get_participants_ref():
 		if p == me or p.body == null or not p.is_running:
 			continue
-		var chest: Vector3 = p.body.global_position + Vector3.UP * 0.9
+		# Where this machine draws it, as a person aims: the host draws others a little behind.
+		var link: PlayerNetLink = PlayerNetLink.of(p.body)
+		var chest: Vector3 = (link.drawn_position() if link != null else p.body.global_position) + Vector3.UP * 0.9
 		var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(eye, chest)
 		query.exclude = [me.body.get_rid()]
 		var hit: Dictionary = me.body.get_world_3d().direct_space_state.intersect_ray(query)
-		if hit.is_empty() or hit.collider != p.body or eye.distance_to(chest) >= best:
+		if (not hit.is_empty() and hit.collider != p.body) or eye.distance_to(chest) >= best:
 			continue
 		best = eye.distance_to(chest)
 		at = chest

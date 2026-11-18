@@ -119,38 +119,12 @@ extends Resource
 ## the view goes with it.
 @export_range(0.05, 10.0, 0.05) var prediction_snap_metres: float = 1.0
 
-## Intents each intent packet carries: the current tick's, and that many minus
-## one from the ticks before it.
-##
-## [b]Two, and it is the cheapest reliability in the project.[/b] Intent rides
-## an unreliable channel and its edges -- jump, slide, shove, trigger -- are
-## consumed once. A dropped packet is therefore a press the player made and the
-## game never saw, and on a 5% line that is one press in twenty. Repeating the
-## previous tick costs nineteen bytes on the direction that was already sending
-## a twentieth of what the host sends, and makes every single-packet loss
-## invisible. Three covers a loss of two in a row.
-##
-## One turns it off, which is the old behaviour and is here so the cost of the
-## feature can be measured rather than argued about.
-@export_range(1, 4, 1) var intent_redundancy: int = 2
+## Most commands the host runs for one seat in one tick: one, plus one more while it drains a
+## buffer its line no longer needs. Two keeps every trigger crossed at most twice per physics step.
+@export_range(1, 4, 1) var cmd_budget: int = 2
 
-## Intent packets the authority will read from one peer in one tick before it
-## starts dropping them.
-##
-## A peer that sends faster than it simulates gains nothing -- the authority
-## consumes one intent per tick whatever arrives -- but it can still spend the
-## host's CPU decoding. This bounds that. Four is twice what a peer sending one
-## packet a tick with the jitter of a bad line will ever need.
-@export_range(1, 32, 1) var max_intent_packets_per_tick: int = 4
-
-## Authority ticks a body's [RemoteIntentSource] holds its last packet before
-## deciding the peer has gone quiet and releasing every held button.
-##
-## Holding the last input is right across a dropped packet and disastrous
-## across a dropped player: a peer that stops sending mid-stride would
-## otherwise sprint into the distance forever. Twelve ticks is 200 ms at 60 Hz
-## -- long enough to ride out a burst of loss, short enough that nobody can use
-## a pulled cable as a movement tech.
+## Ticks a seat's [CommandStream] waits for a command before it pauses: the body is then run on
+## released buttons, under gravity and friction, until the peer is heard again. Twelve is 200 ms.
 @export_range(2, 120, 1) var stale_intent_ticks: int = 12
 
 ## Authority ticks a client holds a snapshot before drawing it: the jitter

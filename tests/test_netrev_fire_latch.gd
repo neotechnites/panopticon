@@ -36,8 +36,6 @@ func _run(click_as_runner: bool) -> int:
 	await step_ticks(40)
 	var slot: int = _rig.local_slot(CLIENT)
 	var input: BotIntentSource = (_rig.matches[CLIENT].get_node("Player") as PlayerController).intent_source as BotIntentSource
-	var link: PlayerNetLink = PlayerNetLink.of(_rig.body(HOST, slot))
-	var source: RemoteIntentSource = link.get_remote_source()
 	if click_as_runner:
 		# One left click as a runner: the shove key and the trigger are the same button.
 		# (Held over many ticks only because the runner's 50x clock drops most intent packets.)
@@ -45,7 +43,6 @@ func _run(click_as_runner: bool) -> int:
 		await step_ticks(100)
 		input.command.fire_pressed = false
 	await step_ticks(40)
-	print("PROOF fire-latch: clicked=%s; host's latch for the client runner before the turnover: %s" % [str(click_as_runner), str(source.get("_fire_latched"))])
 	var shots: Array[int] = [0]
 	host.rifle.fired.connect(func(_origin: Vector3, _end: Vector3) -> void: shots[0] += 1)
 	# The tower changes hands: the client is the guard of a fresh match on the same scene.

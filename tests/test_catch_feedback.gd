@@ -625,7 +625,7 @@ func _put_ghost_on(ghost: MatchParticipant, quarry: MatchParticipant) -> void:
 ## Take the spot the only way the rules allow: [param ghost] shoves the prisoner
 ## in front of it. Returns the prisoner shoved, or null.
 func _shove_catch(ghost: MatchParticipant) -> MatchParticipant:
-	ghost.shove_cooldown_remaining = 0.0
+	ghost.body.shove_cooldown_remaining = 0.0
 	return _controller.apply_shove(ghost)
 
 

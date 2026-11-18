@@ -130,7 +130,7 @@ func _push(participant: MatchParticipant, at: Vector3) -> void:
 		return
 	if not participant.is_running and not participant.is_ghost and not participant.is_shooter:
 		return
-	if not target.is_physics_processing():
+	if target.held:
 		# Held out of the world: a launch stored on it would fire when it is let go.
 		return
 	var offset: Vector3 = target.global_position + Vector3.UP * BODY_CENTRE - at

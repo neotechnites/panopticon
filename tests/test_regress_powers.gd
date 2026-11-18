@@ -400,7 +400,7 @@ func test_four_machines_marble_the_hosts_cat() -> void: await _run(CAT, 4, MARBL
 ## The presser's body answers its own keys again on the host and on its own machine.
 func _walks_again(why: String) -> void:
 	var body: PlayerController = _rig.body(HOST, _slot)
-	if not await _rig.wait_for(func() -> bool: return body.is_physics_processing()):
+	if not await _rig.wait_for(func() -> bool: return moves(body)):
 		fail("the host never woke the presser %s" % why)
 		return
 	await step_ticks(CROSS_TICKS)
@@ -451,7 +451,7 @@ func _lock_through_a_death(peers: int, map: StringName) -> void:
 		await step_ticks(7)
 	_release()
 	if not await _rig.wait_for(func() -> bool:
-		return not host.is_awaiting_respawn(who) and who.body.is_physics_processing(), 8000):
+		return not host.is_awaiting_respawn(who) and moves(who.body), 8000):
 		fail("the host never put the dead presser back as a ghost")
 		return
 	await step_ticks(CROSS_TICKS)
@@ -487,7 +487,7 @@ func _lock_through_a_finale(peers: int, map: StringName) -> void:
 	if not await _every_peer_shows(ARMOR, "while the key is held"):
 		return
 	host.call(&"_arm_the_finisher", finisher)
-	if not await _rig.wait_for(func() -> bool: return finisher.body.is_physics_processing()):
+	if not await _rig.wait_for(func() -> bool: return moves(finisher.body)):
 		fail("the finisher never landed in the tower")
 		return
 	var round_before: int = host.get_round_number()
@@ -616,10 +616,12 @@ func _cooldown(peers: int, map: StringName) -> void:
 	if not await _rig.wait_for(func() -> bool: return owner.get_cooldown_remaining() > 0.0):
 		fail("the machine that owns the power was never told the cooldown")
 		return
-	var pressed_before: int = MoveIntent.press_count(_rig.body(HOST, _slot).get_intent().press_counts, MoveIntent.Press.POWER)
+	var presser: NetSession = _rig.sessions[_presser] as NetSession
+	var pressed_on: int = presser.replicator.outbox.next_seq()
 	await _tap(SHIELD)
+	var host_session: NetSession = _rig.sessions[HOST] as NetSession
 	if _presser != HOST and not await _rig.wait_for(func() -> bool:
-		return MoveIntent.press_count(_rig.body(HOST, _slot).get_intent().press_counts, MoveIntent.Press.POWER) != pressed_before):
+		return host_session.replicator.stream_for(presser.get_local_peer_id()).get_ack() >= pressed_on):
 		fail("the press inside the cooldown never reached the host")
 		return
 	for _i: int in 6:

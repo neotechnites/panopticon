@@ -244,7 +244,7 @@ func test_play_again_produces_a_genuinely_fresh_match() -> void:
 	await step_ticks(SETTLE_TICKS)
 	for participant: MatchParticipant in after:
 		assert_true(
-			participant.body.is_physics_processing(),
+			moves(participant.body),
 			"%s is moving again" % participant.display_name,
 		)
 

@@ -12,10 +12,8 @@ extends Node
 ## let a client draw a frame stitched together from bodies sampled at
 ## different ticks. See [WorldSnapshot].
 ##
-## Intent does not come through here. A client owns exactly one body, so its
-## intent is already one packet, and it is addressed to that body's own
-## [PlayerNetLink] -- which is also the only node that knows whose packets it
-## is allowed to take.
+## Commands come up through here too: [member outbox] numbers a client's and packs every one the
+## host has not run, and on the host each peer's [CommandStream] runs its seat's (DESIGN 3.2, 3.3).
 ##
 ## [b]The rate is not the simulation rate[/b]
 ##
@@ -57,8 +55,9 @@ extends Node
 ## that freezes and teleports reads as a broken game.
 ##
 ## [b]Lag compensation[/b] (Source's): the authority keeps every body's position for
-## [constant HISTORY_TICKS] ticks; a client's shot is traced against the others where they stood on
-## the tick its intent says it was drawing ([method trace]).
+## [constant HISTORY_TICKS] ticks; a shot is traced against the others where they stood on the tick
+## its command says the shooter was drawing ([method trace]). The host draws every body but its own
+## [constant HOST_PLAYOUT_TICKS] behind out of its own samples, so its shots rewind like a client's.
 ##
 ## What is still missing:
 ##
@@ -142,6 +141,8 @@ var _delay_ticks: float = 2.0
 
 ## Authority ticks of body positions kept for lag compensation: Source's sv_maxunlag, one second.
 const HISTORY_TICKS: int = 64
+## How far behind its own tick the host draws other bodies: one sample interval, never extrapolated.
+const HOST_PLAYOUT_TICKS: float = 2.0
 ## Position of seat s at the tick in slot i is _history[s * HISTORY_TICKS + i].
 var _history: PackedVector3Array = PackedVector3Array()
 var _history_ticks: PackedInt32Array = PackedInt32Array()
@@ -185,6 +186,15 @@ var _shields_told: Dictionary[int, int] = {}
 
 var _is_authority: bool = false
 
+## Client: this machine's commands, numbered and kept until the host has run them.
+var outbox: CommandStream.Outbox = CommandStream.Outbox.new()
+## Host: each remote peer's commands, by peer id, and the same streams in a list for the tick.
+var _streams: Dictionary[int, CommandStream] = {}
+var _stream_list: Array[CommandStream] = []
+var _last_command_packet: PackedByteArray = PackedByteArray()
+## The tick (fractional) of the world this machine last drew other bodies at, or [constant MoveIntent.LIVE_WORLD].
+var _drawn_time: float = MoveIntent.LIVE_WORLD
+
 ## The scene epoch this machine's bodies belong to ([method NetLobby.get_epoch]): stamped on what
 ## the authority sends, required of what a client takes and of every intent. 0 is none.
 var _scene: int = 0
@@ -222,6 +232,10 @@ func bind_scene(scene: int) -> void:
 	_scene = scene
 	# Where the last scene's bodies stood is not where this one's did.
 	_history_ticks.fill(-1)
+	# A new scene runs no command of the last one's.
+	for stream: CommandStream in _stream_list:
+		stream.reset()
+	outbox.flush()
 	if not _is_authority:
 		_clear_playback()
 
@@ -248,6 +262,7 @@ func unregister(link: PlayerNetLink) -> void:
 	var index: int = _links.find(link)
 	if index != -1:
 		_links.remove_at(index)
+	_draw_live(link)
 
 
 func find_link(seat_index: int) -> PlayerNetLink:
@@ -261,9 +276,16 @@ func get_link_count() -> int:
 	return _links.size()
 
 
-## Client to authority, every tick, unreliable and ordered: this machine's input for its own body.
-func send_intent(payload: PackedByteArray) -> void:
-	rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_receive_intent", payload)
+## Client to authority, every tick: every command of this machine's the host has not run yet.
+func send_commands() -> void:
+	_last_command_packet = outbox.pack(_scene, get_latest_tick())
+	if not _last_command_packet.is_empty():
+		rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_receive_intent", _last_command_packet)
+
+
+## The command packet this machine last sent, or an empty array before the first. For tests.
+func get_last_command_packet() -> PackedByteArray:
+	return _last_command_packet
 
 
 ## Taken here, not on the body's link: this node outlives every scene, and a scene that has gone has no link.
@@ -271,11 +293,35 @@ func send_intent(payload: PackedByteArray) -> void:
 func _receive_intent(payload: PackedByteArray) -> void:
 	if not _is_authority:
 		return
-	var sender: int = multiplayer.get_remote_sender_id()
+	take_commands(multiplayer.get_remote_sender_id(), payload)
+
+
+## Take [param payload] from [param sender] as its seat's commands. The sender is the one check
+## that stops a peer driving somebody else's body; a packet from another scene is dropped.
+func take_commands(sender: int, payload: PackedByteArray) -> void:
+	if _scene == 0 or NetCodec.command_epoch(payload) != _scene % NetCodec.EPOCH_MODULUS:
+		return
 	for link: PlayerNetLink in _links:
-		if link.owner_peer_id == sender:
-			link.accept_intent_payload(sender, payload)
+		if link.owner_peer_id == sender and sender != 0:
+			var newest: int = stream_for(sender).receive(payload, _tick)
+			if newest >= 0:
+				link.intent_received.emit(sender, newest)
 			return
+
+
+## Host: [param peer_id]'s command stream, made the first time it is asked for.
+func stream_for(peer_id: int) -> CommandStream:
+	var stream: CommandStream = _streams.get(peer_id, null)
+	if stream == null:
+		stream = CommandStream.new()
+		stream.name = "Commands%d" % peer_id
+		add_child(stream)
+		_streams[peer_id] = stream
+		_stream_list.append(stream)
+	var settings: NetSettings = session.get_settings()
+	stream.stale_after_ticks = settings.stale_intent_ticks
+	stream.cmd_budget = settings.cmd_budget
+	return stream
 
 
 ## The bound scene epoch, or 0 when none is.
@@ -311,14 +357,6 @@ func get_jitter_seconds() -> float:
 	return _jitter_seconds
 
 
-## This machine's intent sequence -- the tick its own link stamps and the press counts it
-## carries. The connection's, not a body's: a rebuilt link carries on where the last stopped.
-var intent_tick: int = 0
-var intent_presses: int = 0
-var intent_press_slot: int = 0
-var intent_press_slot_prior: int = 0
-
-
 # --- Sending ------------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
@@ -326,6 +364,9 @@ func _physics_process(delta: float) -> void:
 		_advance_clock(delta)
 		return
 	_tick += 1
+	var wall: int = int(Time.get_ticks_usec() * Engine.physics_ticks_per_second / 1000000)
+	for stream: CommandStream in _stream_list:
+		stream.end_tick(wall)
 	if session == null or not session.is_established() or session.get_peer_count() <= 1 or _scene == 0:
 		# Offline -- single player, or the headless bot harness -- is
 		# authoritative with nobody to tell. A lone host has the same shape.
@@ -369,6 +410,8 @@ func _send_snapshot() -> void:
 
 	if _outgoing.count == 0:
 		return
+	# The host's own playout is fed from what it sends: what it draws is what everybody is told.
+	_buffer_snapshot(_outgoing)
 	rpc(&"_receive_snapshot", NetCodec.pack_snapshot(_outgoing))
 	snapshot_sent.emit(_outgoing.tick, _outgoing.count)
 
@@ -393,19 +436,18 @@ func _record_history() -> void:
 			_history_layers[at] = link.controller.collision_layer
 
 
-## The authority tick a client is drawing remote bodies at, for its intent; -1 on the authority
-## or before the first snapshot.
-func get_view_tick() -> int:
-	if _is_authority or not _have_clock or _playback_count == 0:
-		return -1
-	return posmod(_newest().tick - maxi(roundi(_render_lag), 0), NetCodec.TICK_MODULUS)
+## The tick (fractional) of the world this machine last drew other bodies at, stamped on its
+## commands as their view time; [constant MoveIntent.LIVE_WORLD] before it has drawn one, or with nobody to draw.
+func get_view_time() -> float:
+	return _drawn_time
 
 
-## Authority ticks between [param view_tick] (an intent's) and now, within the history kept; 0 for none.
-func get_lag_ticks(view_tick: int) -> int:
-	if view_tick < 0:
+## Authority: ticks back to the world a command's [param view_time] names, within the history
+## kept; 0 for the live world.
+func rewind_ticks(view_time: float) -> int:
+	if not is_finite(view_time):
 		return 0
-	return clampi(NetCodec.tick_delta(view_tick, _tick), 0, HISTORY_TICKS - 1)
+	return clampi(roundi(float(_tick) - view_time), 0, HISTORY_TICKS - 1)
 
 
 ## [param query]'s ray in [param space], with every body it does not exclude standing where it
@@ -612,6 +654,7 @@ func _receive_snapshot(payload: PackedByteArray) -> void:
 ## Take a snapshot as though it had arrived over the wire. Public because a
 ## test and a future replay viewer both drive it directly.
 func apply_snapshot(snapshot: WorldSnapshot) -> void:
+	_acknowledge(snapshot)
 	_buffer_snapshot(snapshot)
 	_update_delay()
 	if not _have_clock:
@@ -624,6 +667,16 @@ func apply_snapshot(snapshot: WorldSnapshot) -> void:
 		# the zero-seconds case of the same routine playback uses.
 		_draw_extrapolated(_newest(), 0.0)
 	snapshot_received.emit(_newest().tick, _newest().count)
+
+
+## Hand the outbox the host's word on this machine's own seat: the commands it has run.
+func _acknowledge(snapshot: WorldSnapshot) -> void:
+	for link: PlayerNetLink in _links:
+		if link.is_owned_here():
+			var state: PlayerState = snapshot.find_seat(link.seat_index)
+			if state != null:
+				outbox.acknowledge(state.cmd_ack)
+			return
 
 
 ## Keep [param snapshot], dropping the oldest when the buffer is full. The
@@ -714,11 +767,45 @@ func _process(delta: float) -> void:
 
 ## One frame of playback. Public because the cost test times it directly.
 func play_back(_delta: float) -> void:
-	if _is_authority or not _have_clock or _playback_count == 0 or not _should_interpolate():
+	if _is_authority:
+		draw_host_at(float(_tick) - HOST_PLAYOUT_TICKS + Engine.get_physics_interpolation_fraction())
 		return
-	_draw(maxf(
-		_render_lag - Engine.get_physics_interpolation_fraction(), -_extrapolation_ticks()
-	))
+	if not _have_clock or _playback_count == 0 or not _should_interpolate():
+		return
+	var lag: float = maxf(_render_lag - Engine.get_physics_interpolation_fraction(), -_extrapolation_ticks())
+	_drawn_time = float(_newest().tick) - lag
+	_draw(lag)
+
+
+## Host: draw every body but its own at tick [param time], [constant HOST_PLAYOUT_TICKS] behind its
+## own, from the samples it sent. Render-only: the avatar moves, the collider stays where physics has it.
+func draw_host_at(time: float) -> void:
+	var live: bool = _playback_count < 2 or session == null or session.get_peer_count() <= 1 or _scene == 0
+	_drawn_time = MoveIntent.LIVE_WORLD if live else time
+	var to_index: int = 0
+	while to_index < _playback_count - 1 and float(_slot(to_index).tick) < _drawn_time:
+		to_index += 1
+	var to_snapshot: WorldSnapshot = _slot(to_index) if not live else null
+	var from_snapshot: WorldSnapshot = _slot(maxi(to_index - 1, 0)) if not live else null
+	for link: PlayerNetLink in _links:
+		if live or link.is_owned_here() or not link.is_replicable():
+			_draw_live(link)
+			continue
+		var to_state: PlayerState = to_snapshot.find_seat(link.seat_index)
+		var from_state: PlayerState = from_snapshot.find_seat(link.seat_index)
+		if to_state == null or from_state == null:
+			_draw_live(link)
+			continue
+		var span: float = float(to_snapshot.tick - from_snapshot.tick)
+		var weight: float = 1.0 if span <= 0.0 else clampf((_drawn_time - float(from_snapshot.tick)) / span, 0.0, 1.0)
+		var yaw: float = lerp_angle(from_state.yaw, to_state.yaw, weight)
+		link.draw_avatar_at(
+			Transform3D(Basis(Vector3.UP, yaw), from_state.position.lerp(to_state.position, weight))
+		)
+
+
+func _draw_live(link: PlayerNetLink) -> void:
+	link.draw_avatar_at(Transform3D.IDENTITY, false)
 
 
 ## How far past the newest snapshot a body may be carried, in authority ticks.

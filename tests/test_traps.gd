@@ -322,7 +322,7 @@ func test_a_ghost_who_touches_a_trap_is_returned_to_the_start() -> void:
 		0.0, START_ANGLE_TOLERANCE,
 		"they were put down at the start line's own bearing",
 	)
-	assert_true(victim.body.is_physics_processing(), "the ghost's body is being stepped again")
+	assert_true(moves(victim.body), "the ghost's body is being stepped again")
 
 
 # --- The pits -----------------------------------------------------------------

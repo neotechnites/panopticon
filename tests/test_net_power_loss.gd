@@ -149,8 +149,8 @@ func test_emote_alt_is_one_edge_on_a_clean_line() -> void:
 	# At rest on the floor, so the tap is an emote A's own body takes.
 	await step_ticks(30)
 	a_keys.tap(&"emote_alt_pressed")
-	var edges: int = await _count_ticks_emote_told(60)
-	assert_eq_int(edges, 1, "one N press: ticks the host's body was told its emote in the next 60")
+	var edges: int = await _count_ticks_set(&"emote_alt_pressed", 60)
+	assert_eq_int(edges, 1, "one N press: commands the host's body ran it on in the next 60 ticks")
 
 
 func test_power_slot_is_one_edge_on_a_clean_line() -> void:
@@ -165,7 +165,7 @@ func test_power_slot_is_one_edge_on_a_clean_line() -> void:
 func test_emote_alt_is_one_edge_when_no_packet_follows_it() -> void:
 	var edges: int = await _edges_when_the_line_goes_quiet(&"emote_alt_pressed")
 	if edges >= 0:
-		assert_eq_int(edges, 1, "one N press, then silence: ticks the host's body was told its emote")
+		assert_eq_int(edges, 1, "one N press, then silence: commands the host's body ran it on")
 
 
 func test_power_slot_is_one_edge_when_no_packet_follows_it() -> void:
@@ -280,31 +280,19 @@ func _edges_when_the_line_goes_quiet(flag: StringName) -> int:
 	await step_ticks(1)
 	@warning_ignore("missing_await")
 	black_out(a_wire, 8)
-	if flag == &"emote_alt_pressed":
-		return await _count_ticks_emote_told(30)
 	return await _count_ticks_set(flag, 30)
 
 
-## How many of the next [param ticks] ticks the host's copy of A's body was told where its emote stands.
-func _count_ticks_emote_told(ticks: int) -> int:
-	var body: PlayerController = body_of(host_links, A_SEAT)
-	var seen: int = 0
-	for _tick: int in ticks:
-		await step_ticks(1)
-		if body.get_intent().emote_state >= 0:
-			seen += 1
-	return seen
-
-
-## How many of the next [param ticks] ticks the host's copy of A's body read [param flag] as set.
+## How many of the commands the host's copy of A's body runs in the next [param ticks] ticks have
+## [param flag] set: every command, however many a tick runs.
 func _count_ticks_set(flag: StringName, ticks: int) -> int:
 	var body: PlayerController = body_of(host_links, A_SEAT)
-	var seen: int = 0
-	for _tick: int in ticks:
-		await step_ticks(1)
-		if int(body.get_intent().get(flag)) != 0:
-			seen += 1
-	return seen
+	var seen: Array[int] = [0]
+	body.match_step = func(command: MoveIntent, _swung: bool, _authority: bool) -> void:
+		seen[0] += int(int(command.get(flag)) != 0)
+	await step_ticks(ticks)
+	body.match_step = Callable()
+	return seen[0]
 
 
 ## Nodes under [param root] whose name carries [param fragment] and that are not on their way out.

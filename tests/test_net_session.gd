@@ -382,11 +382,9 @@ func test_a_clients_intent_drives_its_body_through_the_same_seam_a_bot_uses() ->
 	var client_link: PlayerNetLink = NetFixtures.add_seat_body(_client, 0, client_id, _profile, true)
 	await step_ticks(1)
 
-	assert_not_null(host_link.get_remote_source(), "the authority has a network-fed source ready")
+	var stream: CommandStream = _host.replicator.stream_for(client_id)
 	assert_same(
-		host_link.controller.intent_source,
-		host_link.get_remote_source(),
-		"and has switched the body onto it",
+		host_link.controller.intent_source, stream, "the authority runs the body off the client's command stream",
 	)
 
 	var bot_source: BotIntentSource = client_link.local_source as BotIntentSource
@@ -397,19 +395,11 @@ func test_a_clients_intent_drives_its_body_through_the_same_seam_a_bot_uses() ->
 	bot_source.command.jump_held = true
 
 	var arrived: bool = await NetFixtures.poll_until(
-		self,
-		func() -> bool:
-			var source: RemoteIntentSource = host_link.get_remote_source()
-			return source != null and source.last_tick >= 0 and source.command.jump_held
+		self, func() -> bool: return stream.get_ack() >= 0 and host_link.controller.get_intent().jump_held
 	)
-	assert_true(arrived, "the client's intent reached the authority")
-	assert_almost_eq(
-		host_link.get_remote_source().command.move_direction.y,
-		1.0,
-		0.01,
-		"and arrived intact",
-	)
-	assert_false(host_link.get_remote_source().is_stale(), "the source is being fed, not timing out")
+	assert_true(arrived, "the client's commands reached the authority and ran")
+	assert_almost_eq(host_link.controller.get_intent().move_direction.y, 1.0, 0.01, "and arrived intact")
+	assert_eq_int(stream.get_state(), CommandStream.State.RUNNING, "the stream is being fed, not paused")
 
 
 func test_the_authority_refuses_intent_for_a_seat_a_peer_does_not_own() -> void:
@@ -438,8 +428,8 @@ func test_the_authority_refuses_intent_for_a_seat_a_peer_does_not_own() -> void:
 	forger.command.move_direction = Vector2(1.0, 0.0)
 
 	await step_ticks(REPLICATION_TICKS)
-	var source: RemoteIntentSource = host_link.get_remote_source()
-	assert_not_null(source, "the authority has a network-fed source")
+	assert_true(host_link.controller.intent_source == host_link.local_source, "the host's own seat runs its own input")
 	assert_eq_int(
-		source.last_tick, -1, "and never accepted a packet for a seat the sender does not own"
+		_host.replicator.stream_for(_client.get_local_peer_id()).get_run_total(), 0,
+		"and the host ran nothing the client sent for a seat it does not own",
 	)
