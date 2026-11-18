@@ -28,8 +28,9 @@ class Wire extends RefCounted:
 const LATENCY_TICKS: int = 5
 
 ## The worst reconcile error the base (82baf5ae) measured at 100 ms round trip, 5% loss and this jitter:
-## 0.0067 m on five seeds. The exact owner block must do no worse (DESIGN Phase 3).
+## 0.0067 m on five seeds. The exact owner block leaves only float noise (DESIGN Phase 3).
 const BASE_RECONCILE_AT_100MS: float = 0.0067
+const FLOAT_NOISE_METRES: float = 1e-4
 
 ## Ticks of jitter added per packet when a test asks for it.
 const JITTER_TICKS: int = 2
@@ -356,7 +357,7 @@ func test_the_reconcile_error_at_a_hundred_milliseconds_and_five_percent_loss_is
 		int(measured[1]), BASE_RECONCILE_AT_100MS,
 	])
 	assert_gt(float(int(measured[2])), 20.0, "there were corrections to measure")
-	assert_le(float(measured[0]), BASE_RECONCILE_AT_100MS, "no worse than the base's quantised restore")
+	assert_le(float(measured[0]), FLOAT_NOISE_METRES, "float noise, where the base's quantised restore cost 0.0067 m")
 	assert_eq_int(int(measured[1]), 0, "and nothing had to be snapped")
 
 

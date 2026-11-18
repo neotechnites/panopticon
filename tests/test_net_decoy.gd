@@ -3,7 +3,7 @@ extends TestCase
 ## The hologram over the wire: two real [NetSession] scenes on two real UDP
 ## sockets, one spawning a decoy and one being told where it is.
 ##
-## The decoy RUNS, which is the whole reason it needs a stream of its own. A
+## The decoy RUNS, which is the whole reason its pose rides every snapshot. A
 ## client that is only told one exists draws it where its own body happened to
 ## be standing, and then shoots at a hologram the host does not have there.
 
@@ -17,9 +17,6 @@ const TOLERANCE_METRES: float = 0.05
 ## enough for it to leave the place it spawned by a good margin.
 const LIFETIME_TICKS: int = 40
 
-## Ticks a streamed transform may be behind and still count as the host's: the socket is a real
-## one, and a busy machine delivers a datagram a tick or two after the tick that sent it.
-const STALE_TICKS: int = 4
 const DURATION_SECONDS: float = 0.5
 
 var _host: NetSession
@@ -94,7 +91,6 @@ func test_a_clients_hologram_stands_where_the_hosts_does_and_dies_with_it() -> v
 	var worst: float = 0.0
 	var worst_yaw: float = 0.0
 	var behind: int = 0
-	var trail: Array[Vector3] = []
 	for _tick: int in LIFETIME_TICKS:
 		# Sampled at the TOP of a tick, before the authority's hologram moves
 		# again: physics_frame fires ahead of every _physics_process, so the
@@ -110,16 +106,22 @@ func test_a_clients_hologram_stands_where_the_hosts_does_and_dies_with_it() -> v
 		if mirror == null:
 			fail("the client's hologram vanished while the host's was still running")
 			return
-		# Held to the host's own path: the nearest place the host stood within the last few ticks.
-		trail.push_front(last)
-		if trail.size() > STALE_TICKS + 1:
-			trail.pop_back()
+		# Held to the host's own path: drawn at the playout clock, a client stands between two of the
+		# worlds the host sent, so the path is the segments between them.
 		var gap: float = INF
-		for age: int in trail.size():
-			var distance: float = mirror.global_position.distance_to(trail[age])
+		var ring: NetReplicator = _host.replicator
+		var seat: int = PlayerNetLink.of(host_power.body).seat_index
+		for i: int in range(1, ring._ring_count):
+			var from_state: PlayerState = ring._slot(i - 1).find_seat(seat)
+			var to_state: PlayerState = ring._slot(i).find_seat(seat)
+			if from_state == null or to_state == null or not from_state.decoy_alive or not to_state.decoy_alive:
+				continue
+			var on_path: Vector3 = Geometry3D.get_closest_point_to_segment(
+				mirror.global_position, from_state.anchor_position, to_state.anchor_position)
+			var distance: float = mirror.global_position.distance_to(on_path)
 			if distance < gap:
 				gap = distance
-				behind = maxi(behind, age) if distance < TOLERANCE_METRES else behind
+				behind = maxi(behind, ring._newest().tick - ring._slot(i).tick) if distance < TOLERANCE_METRES else behind
 		worst = maxf(worst, gap)
 		worst_yaw = maxf(worst_yaw, absf(angle_difference(mirror.rotation.y, host_decoy.rotation.y)))
 

@@ -339,17 +339,27 @@ func test_a_brawls_events_at_a_150_ms_round_trip_stay_inside_b5() -> void:
 	var replicator: NetReplicator = _host.replicator
 	var client_peer: int = _client.get_local_peer_id()
 	var landed: Array[int] = [0]
+	var sent: Array[int] = [0]
+	var heard: Array[int] = [0]
+	# Cues of the window are told apart by their point's height: 2 m, where the settle's are at 1 m.
+	var height: Array[float] = [1.0]
+	_client.replicator.event_received.connect(func(type: NetEvents.Type, payload: PackedByteArray, _tick: int) -> void:
+		if type == NetEvents.Type.SHOVE_LANDED and NetCodec.event_point(payload, 1).y > 1.5:
+			heard[0] += 1)
 	var shover: Callable = func() -> void:
 		var tick: int = replicator.get_tick()
 		for seat: int in SEATS:
 			# Staggered, so the fighters' swings spread over the cooldown rather than land together.
 			if (tick + seat * cooldown_ticks / SEATS) % cooldown_ticks == 0:
 				landed[0] += 1
-				replicator.send_event(NetEvents.Type.SHOVE_LANDED, NetCodec.pack_point((seat + 1) % SEATS, Vector3(seat, 1.0, 2.0)))
+				sent[0] += 1
+				replicator.send_event(NetEvents.Type.SHOVE_LANDED, NetCodec.pack_point((seat + 1) % SEATS, Vector3(seat, height[0], 2.0)))
 				if seat == 0:
 					replicator.send_event(NetEvents.Type.SHOVE_KICK, NetCodec.pack_kick(Vector3.FORWARD), NetEvents.Target.ONE, client_peer)
 	get_tree().physics_frame.connect(shover)
 	await step_ticks(NET_SETTLE_TICKS)
+	sent[0] = 0
+	height[0] = 2.0
 	var _discard_host: Dictionary = _host.transport.take_wire_stats()
 	var _discard_client: Dictionary = _client.transport.take_wire_stats()
 	_snapshots = 0
@@ -359,6 +369,8 @@ func test_a_brawls_events_at_a_150_ms_round_trip_stay_inside_b5() -> void:
 	var host_stats: Dictionary = _host.transport.take_wire_stats()
 	var down_per_tick: float = float(int(host_stats.get("sent_bytes", 0))) / float(NET_MEASURE_TICKS)
 	var expired: int = replicator.events.expired_total - expired_before
+	# The last cues' round trip and playout, then every cue sent in the window has been presented.
+	await step_ticks(BRAWL_DELAY_MS * 2 * int(SIM_HZ) / 1000 + 30)
 	print("          BUDGET wire under a brawl at %d ms RTT: client down %.1f B/tick (B5 %.0f), host up %.1f B/tick (B4 %.0f), %d shoves landed, %d cues expired, %d snapshots" % [
 		BRAWL_DELAY_MS * 2, down_per_tick, B5_CLIENT_DOWN_BYTES_PER_TICK, down_per_tick * float(SEATS - 1),
 		B4_HOST_UP_BYTES_PER_TICK, landed[0], expired, _snapshots,
@@ -366,6 +378,7 @@ func test_a_brawls_events_at_a_150_ms_round_trip_stay_inside_b5() -> void:
 	if not assert_gt(float(_snapshots), 10.0, "the host actually sent snapshots in the window"):
 		return
 	assert_gt(float(landed[0]), float(NET_MEASURE_TICKS) / float(cooldown_ticks) * float(SEATS) * 0.8, "the brawl's shoves were all made")
-	assert_eq_int(expired, 0, "and every cue reached the client inside its TTL at this round trip")
+	assert_eq_int(expired, 0, "no cue was dropped before it was sent")
+	assert_eq_int(heard[0], sent[0], "and the client presented every landing cue sent in the window, once")
 	assert_le(down_per_tick * float(SEATS - 1), B4_HOST_UP_BYTES_PER_TICK, "B4: host upstream under a brawl is inside budget")
 	assert_le(down_per_tick, B5_CLIENT_DOWN_BYTES_PER_TICK, "B5: a client's downstream under a brawl is inside budget")

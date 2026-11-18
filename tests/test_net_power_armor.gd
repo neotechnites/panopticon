@@ -61,7 +61,7 @@ func test_a_held_lock_holds_the_body_on_the_host_and_frees_it_on_release() -> vo
 		on_host.global_position.distance_to(held_at), 0.01,
 		"metres the host's copy of A moved in 20 ticks of a held lock with forward down",
 	)
-	assert_true(on_host.movement_locked, "the host holds A's body while the key is down")
+	assert_true(on_host.is_movement_locked(), "the host holds A's body while the key is down")
 	assert_true(power_of(host_links, A_SEAT).is_hit_immune(), "A is immune on the host while locked")
 	assert_eq_int(drawn(A_SEAT)[2], ARMOR, "B draws A's lock while the key is down")
 	assert_eq_int(_live_nodes(body_of(b_links, A_SEAT), "ArmorShell"), 1, "shells B draws on A")
@@ -89,7 +89,7 @@ func test_a_one_tick_tap_of_the_lock_ends_everywhere() -> void:
 	assert_true(all_draw(A_SEAT, NONE), "a tapped lock ended on host, A and B: %s" % str(drawn(A_SEAT)))
 	assert_eq_int(_shells_anywhere(), 0, "shells left on any machine after a tapped lock")
 	for links: Array[PlayerNetLink] in [host_links, a_links, b_links]:
-		assert_false(body_of(links, A_SEAT).movement_locked, "a tapped lock left a copy of A held")
+		assert_false(body_of(links, A_SEAT).is_movement_locked(), "a tapped lock left a copy of A held")
 	a_keys.held.move_direction = FORWARD
 	var from: Vector3 = body_of(host_links, A_SEAT).global_position
 	await step_ticks(20)
@@ -120,7 +120,7 @@ func test_a_lock_started_inside_a_blackout_still_locks_on_the_host() -> void:
 	assert_true(locked, "the host locked A although the press itself never arrived")
 	await step_ticks(20)
 	assert_true(all_draw(A_SEAT, ARMOR), "the lock stands while held: %s" % str(drawn(A_SEAT)))
-	assert_true(body_of(host_links, A_SEAT).movement_locked, "the host holds A's body")
+	assert_true(body_of(host_links, A_SEAT).is_movement_locked(), "the host holds A's body")
 	a_keys.held.ability_held = false
 	var ticks: int = await _ticks_until_all_none(60)
 	assert_le(float(ticks), 30.0, "ticks from release until host, A and B all draw nothing")
@@ -147,7 +147,7 @@ func test_twenty_lock_hologram_lock_cycles_on_a_bad_line_end_clean() -> void:
 	await step_ticks(10)
 	assert_eq_int(_shells_anywhere(), 0, "shells left on any machine after the cycles")
 	for links: Array[PlayerNetLink] in [host_links, a_links, b_links]:
-		assert_false(body_of(links, A_SEAT).movement_locked, "the cycles left a copy of A held")
+		assert_false(body_of(links, A_SEAT).is_movement_locked(), "the cycles left a copy of A held")
 		assert_null(power_of(links, A_SEAT).get_decoy(), "the cycles left a hologram standing")
 
 
