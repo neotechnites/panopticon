@@ -155,13 +155,16 @@ func _physics_process(delta: float) -> void:
 func poll(delta: float) -> MoveIntent:
 	_intent.clear()
 	var me: MatchParticipant = _me()
-	if me != null and me.body != null and me.body.held:
-		# A held body's commands move nothing: the script waits with it, keys and clock alike.
-		return _intent
-	_elapsed += delta
-	_drive_keys(me)
+	# A held body's commands move nothing: its script waits (clock and key schedule), but a key
+	# already down stays down, as a player's finger would.
+	var held: bool = me != null and me.body != null and me.body.held
+	if not held:
+		_elapsed += delta
+		_drive_keys(me)
 	if _human != null:
 		_intent.copy_from(_human.poll(delta))
+	if held:
+		return _intent
 	match mode:
 		Mode.WALK:
 			_walk(delta)
