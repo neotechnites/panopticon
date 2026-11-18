@@ -342,7 +342,7 @@ func net_apply(record: PackedByteArray) -> void:
 		_returned()
 	_state = state
 	var seat: int = (record[0] >> 2) - 1
-	if seat != _carrier_seat:
+	if seat != _carrier_seat or (state == State.HELD and not is_instance_valid(_carrier)):
 		_carrier_seat = seat
 		var link: PlayerNetLink = _link_of_seat(seat)
 		_carrier = link.controller if link != null and state == State.HELD else null

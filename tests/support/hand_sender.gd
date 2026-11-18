@@ -15,14 +15,7 @@ var _no_events: Array[NetEvents.Entry] = []
 ## whose commands [param stream] runs.
 func send(links: Array[PlayerNetLink], tick: int, epoch: int, owner_seat: int, stream: CommandStream) -> PackedByteArray:
 	var world: WorldSnapshot = WorldSnapshot.new()
-	world.tick = tick
-	world.epoch = epoch
-	for link: PlayerNetLink in links:
-		var state: PlayerState = world.slot(link.seat_index)
-		link.sample_state(state, tick)
-		NetCodec.quantise_state(state, tick)
-		link.sample_predicted(world.owners[link.seat_index])
-		world.owner_valid |= 1 << link.seat_index
+	NetReplicator.sample_bodies(world, links, tick, epoch)
 	_ring.append(world)
 	if _ring.size() > NetReplicator.RING:
 		_ring.pop_front()

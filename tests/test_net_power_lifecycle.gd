@@ -84,7 +84,6 @@ func test_a_presented_armor_lock_refuses_a_second_start() -> void:
 	assert_eq_int(_live_nodes(body, "ArmorShell"), 1, "shells on the body while the lock is drawn")
 	power.present(MatchRules.RunnerAbility.NONE, 0.0, 0.0)
 	assert_eq_int(_live_nodes(body, "ArmorShell"), 0, "shells on the body once the lock is over")
-	assert_false(body.movement_locked, "the body is free once the presented lock is over")
 
 
 func test_a_presented_shield_refuses_a_second_start() -> void:
@@ -132,7 +131,7 @@ func test_presenting_a_predicted_power_leaves_one_drawing_and_one_flag() -> void
 	power.present(MatchRules.RunnerAbility.NONE, 0.0, 0.0)
 	assert_eq_int(_live_nodes(body, "ArmorShell"), 0, "shells once the host says it is over")
 	assert_eq_int(int(power.get_shown()), NONE, "nothing drawn once the host says it is over")
-	assert_false(body.movement_locked, "the body is free once the host says it is over")
+	assert_false(body.is_movement_locked(), "the body is free once the host says it is over")
 	assert_true(power.activate(MatchRules.RunnerAbility.BUBBLE_SHIELD), "a shield starts on a press")
 	power.present(MatchRules.RunnerAbility.ACTIVE_CAMO, 1.0, 0.0)
 	assert_eq_int(
@@ -321,3 +320,27 @@ func _skin_of(body: PlayerController) -> MeshInstance3D:
 	if avatar != null and avatar.mesh != null:
 		return avatar.mesh
 	return body.get_node_or_null(^"BodyMesh") as MeshInstance3D
+
+
+func test_the_owners_own_hologram_is_built_once_and_goes_once() -> void:
+	# A draws the world a jitter buffer late, so the record's hologram outlives the owner block's power.
+	a.get_settings().interpolation_delay_ticks = B_DELAY_TICKS
+	if not await stand_up():
+		return
+	var power: RunnerPower = power_of(a_links, A_SEAT)
+	a_keys.tap_slot(HOLOGRAM)
+	var built: Dictionary[int, bool] = {}
+	var gone_for: int = 0
+	for _tick: int in 600:
+		await step_ticks(1)
+		var decoy: PlayerController = power.get_decoy()
+		if decoy != null:
+			built[decoy.get_instance_id()] = true
+			gone_for = 0
+		elif not built.is_empty():
+			gone_for += 1
+			if gone_for > 60:
+				break
+	assert_false(built.is_empty(), "A drew its own hologram")
+	# Its end is the owner block's before the record at the playout clock says so: never rebuilt between.
+	assert_eq_int(built.size(), 1, "times A built its own hologram")

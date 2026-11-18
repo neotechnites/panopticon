@@ -23,11 +23,8 @@ extends Node
 ##
 ## [b]Prediction[/b]
 ##
-## A client's own body runs each of its commands exactly as the host will decode them, the tick the
-## key goes down, and keeps them until a snapshot's [code]cmd_ack[/code] says the host ran them. On
-## a snapshot the body takes the host's exact [PredictedState] at that command and replays the rest
-## (Quake 3's playerState, Source's local-player table); the difference is drawn away through
-## [member PlayerController.view_offset], or jumped when it is too large to be a prediction's.
+## A client's own body runs each command as the host will decode it, then on a snapshot takes the host's
+## exact [PredictedState] at [code]cmd_ack[/code] and replays the rest (Quake 3's playerState).
 ##
 ## [b]A seat, not a peer[/b]
 ##
@@ -613,18 +610,29 @@ func _reconcile(delta: float) -> void:
 	var acked: int = _pending_ack
 	var first: int = _first_unacknowledged(acked) if acked >= 0 else 0
 	var missed: float = 0.0
-	if first > 0 and _slot(first - 1).seq == acked:
+	var compared: bool = first > 0 and _slot(first - 1).seq == acked
+	if compared:
 		missed = _pending_owner.get_position().distance_to(_slot(first - 1).position)
 	var snapped: bool = missed > session.get_settings().prediction_snap_metres
-	if first > 0:
+	if compared:
 		prediction_corrected.emit(missed, snapped)
 	var before: Vector3 = controller.global_position
 	var weapon: Rifle = _weapon()
 	_pending_owner.restore(controller, weapon)
+	var power: RunnerPower = RunnerPower.of(controller)
+	# What the replay moves says nothing: its reload and power cues were heard the first time.
+	var quiet: Array[Object] = [weapon, power]
+	var was_blocked: Array[bool] = []
+	for node: Object in quiet:
+		was_blocked.append(node != null and node.is_blocking_signals())
+		if node != null:
+			node.set_block_signals(true)
 	for i: int in range(first, _predicted_count):
 		controller.simulate_tick(_slot(i).intent, delta)
 		_slot(i).position = controller.global_position
-	var power: RunnerPower = RunnerPower.of(controller)
+	for j: int in quiet.size():
+		if quiet[j] != null:
+			quiet[j].set_block_signals(was_blocked[j])
 	if power != null:
 		power.settle_visuals()
 	if first > 0:

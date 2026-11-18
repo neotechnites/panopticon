@@ -227,8 +227,7 @@ func restore_predicted(which: int, remaining: float, cooldown: float) -> void:
 
 ## After a replay: what this power draws follows the state it was left in.
 func settle_visuals() -> void:
-	if _active != MatchRules.RunnerAbility.HOLOGRAM:
-		clear_decoy()
+	# The hologram is the host's entity: only the record ([method present_anchor]) builds or ends it.
 	var drawn: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE
 	if _shield != null:
 		drawn = MatchRules.RunnerAbility.BUBBLE_SHIELD

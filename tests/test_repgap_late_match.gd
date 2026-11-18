@@ -92,7 +92,8 @@ func _draws(peer: int, which: int) -> bool:
 		HOLOGRAM:
 			return power.get_decoy() != null
 		ARMOR:
-			return power.get_shell() != null and body.is_movement_locked()
+			# A mirror draws the lock; only the machines running the body hold it.
+			return power.get_shell() != null
 		CAMO:
 			var mesh: MeshInstance3D = RunnerPower._avatar_mesh(body)
 			var worn: BaseMaterial3D = mesh.material_override as BaseMaterial3D if mesh != null else null

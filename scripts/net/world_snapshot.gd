@@ -1,11 +1,8 @@
 class_name WorldSnapshot
 extends RefCounted
 
-## The whole lasting world at one host tick (DESIGN 3.4): every body's record, every seat's predicted
-## state, the match record and the props. One moment, so a client's frame is consistent; one baseline,
-## so a snapshot is coded as its difference from the last one the client acknowledged.
-##
-## Fixed storage: eight records and eight predicted states for life, indexed by seat.
+## The whole lasting world at one host tick (DESIGN 3.4): bodies, predicted states, match record and
+## props, by seat in fixed storage; one moment for a consistent frame, one baseline for a delta.
 
 ## The host tick every record here was sampled on.
 var tick: int = 0

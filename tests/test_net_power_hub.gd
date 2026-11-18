@@ -416,3 +416,19 @@ func _throw_and_watch(seat: int) -> void:
 			"machine %d has the returned cat on its home spot" % machine,
 		)
 	assert_false(holds_locally(HOST) or holds_locally(A) or holds_locally(B), "nobody is offered the pet for a cat nobody holds")
+
+
+func test_a_mirror_that_lost_the_carriers_body_finds_it_again() -> void:
+	if not await stand_up():
+		return
+	if not await lift_hub_cat(A):
+		return
+	if not assert_true(await until(func() -> bool: return cat(B, HUB_CAT).get(&"_carrier") == body(B, A)), "B draws A carrying it"):
+		return
+	# B's copy of A's body is gone from under its cat (a rebuilt hub, a late registration): the seat is unchanged.
+	cat(B, HUB_CAT).set(&"_carrier", null)
+	var follows: bool = await until(
+		func() -> bool:
+			return cat(B, HUB_CAT).get(&"_carrier") == body(B, A)
+	)
+	assert_true(follows, "B carries the cat in its copy of A's hands again")

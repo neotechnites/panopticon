@@ -1,9 +1,8 @@
 class_name NetEvents
 extends RefCounted
 
-## The host's last [constant CAPACITY] transient events (DESIGN 3.4, 6): each rides every snapshot to
-## its targets until that client acknowledges a snapshot carrying it, or it is [constant TTL_TICKS]
-## old (Quake 3's reliable server commands, given a TTL because they are cosmetic).
+## The host's last [constant CAPACITY] transient events (DESIGN 6): each rides every snapshot to its targets
+## until acknowledged or [constant TTL_TICKS] old (Quake 3's reliable server commands, with a TTL).
 
 enum Type { NONE, SHOT, HIT, MISS, SHOVE_LANDED, SHOVE_KICK, CAT_BLAST }
 enum Target { ALL, ONE, ALL_BUT }

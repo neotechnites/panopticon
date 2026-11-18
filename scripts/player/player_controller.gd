@@ -314,8 +314,7 @@ func run_command(command: MoveIntent, delta: float) -> void:
 
 ## The movement half of a command. A held body (Quake's PM_FREEZE) does not run it.
 func _move(delta: float) -> void:
-	var power: RunnerPower = RunnerPower.of(self)
-	if movement_locked or (power != null and power.get_active() == MatchRules.RunnerAbility.ARMOR_LOCK):
+	if is_movement_locked():
 		velocity = Vector3.ZERO
 		return
 
@@ -482,10 +481,10 @@ func get_horizontal_speed() -> float:
 var net_floor: int = -1
 
 
-## Held still by the match or by the armor lock this machine runs or draws.
+## Held still, as a body this machine runs it: by the match, or by the armor lock it is running.
 func is_movement_locked() -> bool:
 	var power: RunnerPower = RunnerPower.of(self)
-	return movement_locked or (power != null and power.get_shown() == MatchRules.RunnerAbility.ARMOR_LOCK)
+	return movement_locked or (power != null and power.get_active() == MatchRules.RunnerAbility.ARMOR_LOCK)
 
 
 ## On the floor, however this machine knows it. Read this, not [method is_on_floor],

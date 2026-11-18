@@ -226,6 +226,16 @@ static func command_newest(payload: PackedByteArray) -> int:
 	return payload.decode_u32(2) if payload.size() >= COMMAND_HEADER_SIZE else -1
 
 
+## A command header carrying no commands: a client with nothing to send still acknowledges [param snap_ack].
+static func pack_ack(epoch: int, snap_ack: int) -> PackedByteArray:
+	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
+	buffer.put_u16(epoch % EPOCH_MODULUS)
+	buffer.put_u32(0)
+	buffer.put_u8(_COUNT_HAS_SNAP_ACK)
+	buffer.put_u32(snap_ack % TICK_MODULUS)
+	return buffer.data_array
+
+
 ## The packet's snap ack, or -1 for none or a short packet.
 static func command_snap_ack(payload: PackedByteArray) -> int:
 	if payload.size() < COMMAND_HEADER_SIZE or (payload.decode_u8(6) & _COUNT_HAS_SNAP_ACK) == 0:
@@ -433,8 +443,11 @@ static func unpack_snapshot(
 			var state: PlayerState = out.states[seat]
 			var bit: int = 1 << seat
 			if (out.present & bit) == 0 or (was_present & bit) == 0:
-				# Gone, or new: a new body is coded against the defaults, so it must be in the changed set.
+				# Gone, or new: a new body is coded against the defaults, so it must be in the changed set,
+				# and so is its owner block, which the host zeroes with it.
 				state.clear()
+				out.owners[seat].clear()
+				out.owner_valid &= ~bit
 				if (out.present & bit) != 0 and (changed & bit) == 0:
 					return false
 			state.seat_index = seat

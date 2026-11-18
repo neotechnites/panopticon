@@ -256,6 +256,27 @@ func test_the_owner_block_is_exact() -> void:
 	assert_true(got.owners[1].equals(now.owners[1]), "every float is the host's f32, exactly")
 
 
+func test_an_owner_block_leaves_and_returns_with_its_body() -> void:
+	var first: WorldSnapshot = _world(2)
+	first.owners[1].values[PredictedState.LOCKED] = 1.0
+	first.owner_valid = 0b11
+	var got_first: WorldSnapshot = WorldSnapshot.new()
+	assert_true(_unpack(_pack(first, null, 1), null, got_first), "the full update decodes")
+	# The body leaves the tree: the host's world has no seat 1, and zeroes its owner with it.
+	var gone: WorldSnapshot = _world(1)
+	gone.tick = TICK + 2
+	var got_gone: WorldSnapshot = WorldSnapshot.new()
+	assert_true(_unpack(_pack(gone, first, 1), got_first, got_gone), "the leaving delta decodes")
+	assert_null(got_gone.find_owner(1), "a seat with no body has no owner block")
+	var back: WorldSnapshot = _world(2)
+	back.tick = TICK + 4
+	back.owners[1].values[PredictedState.POSITION] = 2.5
+	back.owner_valid = 0b11
+	var got_back: WorldSnapshot = WorldSnapshot.new()
+	assert_true(_unpack(_pack(back, gone, 1), got_gone, got_back), "the returning delta decodes")
+	assert_true(got_back.owners[1].equals(back.owners[1]), "the returned owner block is the host's, its old lock gone")
+
+
 func test_events_ride_the_snapshot_until_it_is_full() -> void:
 	var world: WorldSnapshot = _world(8)
 	var events: Array[NetEvents.Entry] = []

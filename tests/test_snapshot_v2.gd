@@ -26,8 +26,9 @@ func after_each() -> void:
 			session.leave()
 
 
-## Connect; [param stand] stands the client in the lobby's epoch. Seat 0 is the client's, seat 1 a bot.
-func _stand_up(stand: bool = true) -> bool:
+## Connect; [param stand] stands the client in the lobby's epoch. Seat 0 is the client's (a bot's
+## when not [param owns]), seat 1 a bot.
+func _stand_up(stand: bool = true, owns: bool = true) -> bool:
 	var port: int = await NetFixtures.host_and_wait(self, _host)
 	if port < 0 or not await NetFixtures.join_and_wait(self, _client, _host, port):
 		return false
@@ -36,9 +37,9 @@ func _stand_up(stand: bool = true) -> bool:
 	var profile: MovementProfile = TestFixtures.movement_profile()
 	var client_id: int = _client.get_local_peer_id()
 	for seat: int in SEATS:
-		var owner: int = client_id if seat == 0 else 0
-		_host_links.append(NetFixtures.add_seat_body(_host, seat, owner, profile, seat != 0))
-		_client_links.append(NetFixtures.add_seat_body(_client, seat, owner, profile, seat == 0))
+		var owner: int = client_id if seat == 0 and owns else 0
+		_host_links.append(NetFixtures.add_seat_body(_host, seat, owner, profile, owner == 0))
+		_client_links.append(NetFixtures.add_seat_body(_client, seat, owner, profile, owner != 0))
 	for links: Array[PlayerNetLink] in [_host_links, _client_links]:
 		for seat: int in SEATS:
 			links[seat].controller.collision_mask = 1
@@ -156,3 +157,12 @@ func test_a_lossless_line_predicts_the_host_exactly() -> void:
 	print("          lossless reconcile: worst %.7f m over %d corrections" % [worst, errors.size()])
 	assert_gt(float(errors.size()), 20.0, "the client was corrected against many snapshots")
 	assert_lt(worst, 1e-4, "and the host's state at each acknowledgement was the prediction, within float noise")
+
+
+func test_a_client_with_no_body_of_its_own_still_acknowledges() -> void:
+	if not assert_true(await _stand_up(true, false), "the sessions stand"):
+		return
+	_bot(1).command.move_direction = Vector2(0.0, 1.0)
+	await step_ticks(40)
+	assert_eq_int(_client.replicator.get_last_command_packet().size(), 0, "it sent no commands")
+	assert_gt(float(_client.replicator.last_baseline), -1.0, "yet its snapshots are deltas against what it acknowledged")

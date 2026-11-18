@@ -1,16 +1,8 @@
 class_name NetReplicator
 extends Node
 
-## The per-tick traffic, on a node that outlives every scene. Up: each client's commands (DESIGN 3.2,
-## 3.3). Down: one snapshot per STANDING client per send (DESIGN 3.4), coded against the last world
-## that client acknowledged, carrying its own seat's exact predicted state and the transient events
-## it has not acknowledged (Quake 3's snapshots and reliable commands; Source's local-player table).
-##
-## A client draws every other body out of its ring of decoded worlds by a playout clock held behind
-## the newest by a measured jitter buffer, and presents remote events and props as that clock passes
-## their tick; its own body predicts, and is put right on arrival ([PlayerNetLink]). The host draws
-## everyone else [constant HOST_PLAYOUT_TICKS] behind out of the worlds it sent, so its shots rewind
-## like a client's. Lag compensation (Source's): [method trace] stands bodies where they were.
+## Per-tick traffic on a scene-outliving node: commands up, one snapshot per standing client down (delta
+## against its ack, its owner block, unacked events), drawn at a playout clock; lag compensation (DESIGN 3-7).
 
 ## The authority sent a snapshot round. Authority-only, for telemetry.
 signal snapshot_sent(tick: int, body_count: int)
@@ -142,6 +134,8 @@ var outbox: CommandStream.Outbox = CommandStream.Outbox.new()
 var _streams: Dictionary[int, CommandStream] = {}
 var _stream_list: Array[CommandStream] = []
 var _last_command_packet: PackedByteArray = PackedByteArray()
+var _acked_by_commands: int = -1
+var _bare_acked: int = -1
 ## The tick (fractional) of the world this machine last drew other bodies at, or [constant MoveIntent.LIVE_WORLD].
 var _drawn_time: float = MoveIntent.LIVE_WORLD
 
@@ -242,7 +236,17 @@ func get_link_count() -> int:
 func send_commands() -> void:
 	_last_command_packet = outbox.pack(_scene, get_latest_tick())
 	if not _last_command_packet.is_empty():
+		_acked_by_commands = Engine.get_physics_frames()
 		rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_receive_intent", _last_command_packet)
+
+
+## A client that sent no commands last tick (no body of its own) acknowledges its newest world alone.
+func _send_bare_ack() -> void:
+	var newest: int = get_latest_tick()
+	if newest < 0 or newest == _bare_acked or _acked_by_commands >= Engine.get_physics_frames() - 1:
+		return
+	_bare_acked = newest
+	rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_receive_intent", NetCodec.pack_ack(_scene, newest))
 
 
 ## The command packet this machine last sent, or an empty array before the first. For tests.
@@ -319,6 +323,8 @@ func get_jitter_seconds() -> float:
 func _physics_process(delta: float) -> void:
 	if not _is_authority:
 		_advance_clock(delta)
+		if session != null and session.is_established() and _scene != 0:
+			_send_bare_ack()
 		return
 	_tick += 1
 	var wall: int = int(Time.get_ticks_usec() * Engine.physics_ticks_per_second / 1000000)
@@ -384,25 +390,29 @@ func _send_to(peer: int, recipient: Recipient, world: WorldSnapshot) -> void:
 ## The world at this tick, at wire precision: every body, each remote owner's predicted state,
 ## the match record and the props.
 func _sample_world() -> void:
-	_world.clear()
-	_world.tick = _tick
-	_world.epoch = _scene
-	for link: PlayerNetLink in _links:
-		if not link.is_replicable() or link.seat_index >= NetTransport.MAX_PLAYERS:
-			continue
-		var state: PlayerState = _world.slot(link.seat_index)
-		link.sample_state(state, _tick)
-		NetCodec.quantise_state(state, _tick)
-		if link.owner_peer_id != 0 and not link.is_owned_here():
-			link.sample_predicted(_world.owners[link.seat_index])
+	sample_bodies(_world, _links, _tick, _scene)
 	if match_source.is_valid():
 		_world.match_record = match_source.call()
 	for i: int in _props.size():
 		if is_instance_valid(_props[i]):
 			_world.set_prop(_prop_ids[i], _props[i].call(&"net_record"))
-	for seat: int in NetTransport.MAX_PLAYERS:
-		if _world.has_seat(seat):
-			_world.owner_valid |= 1 << seat
+
+
+## [param links]' bodies into a cleared [param world] at [param tick] in [param epoch], quantised, with
+## each remote owner's exact predicted state. The host's sampling, shared with hand-carried test wires.
+static func sample_bodies(world: WorldSnapshot, links: Array[PlayerNetLink], tick: int, epoch: int) -> void:
+	world.clear()
+	world.tick = tick
+	world.epoch = epoch
+	for link: PlayerNetLink in links:
+		if not link.is_replicable() or link.seat_index >= NetTransport.MAX_PLAYERS:
+			continue
+		var state: PlayerState = world.slot(link.seat_index)
+		link.sample_state(state, tick)
+		NetCodec.quantise_state(state, tick)
+		if link.owner_peer_id != 0 and not link.is_owned_here():
+			link.sample_predicted(world.owners[link.seat_index])
+		world.owner_valid |= 1 << link.seat_index
 
 
 ## The seat whose body [param peer] drives, or -1.
