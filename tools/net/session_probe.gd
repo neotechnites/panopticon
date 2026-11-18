@@ -25,8 +25,13 @@ const ISOLATION_ENV: String = "PANOPTICON_NET_ISOLATED"
 const PROBE_MAGIC: int = 0x5750
 const PROBE_SIZE: int = 18
 const WIRE_FLUSH_MS: int = 1000
-## The keys the press check follows from the client's PRESS to the host's ruling: powers, cook, emotes.
-const PRESS_BUTTONS: int = MoveIntent.ALL_POWER_KEYS | MoveIntent.COOK | MoveIntent.EMOTE | MoveIntent.EMOTE_ALT
+## The keys the press check follows from the client's PRESS to the host's ruling: powers, cook, emotes, shove, jump.
+const PRESS_BUTTONS: int = (MoveIntent.ALL_POWER_KEYS | MoveIntent.COOK | MoveIntent.EMOTE | MoveIntent.EMOTE_ALT
+	| MoveIntent.SHOVE | MoveIntent.JUMP)
+## --break=drop-*: the key whose first command the host throws away.
+const DROPPED_KEYS: Dictionary[String, int] = {
+	"drop-press": MoveIntent.ALL_POWER_KEYS, "drop-shove": MoveIntent.SHOVE, "drop-jump": MoveIntent.JUMP,
+}
 
 signal match_bound(authority: bool)
 ## A match, or a rematch of it, began on this machine.
@@ -469,7 +474,9 @@ func _watch_rulings(body: PlayerController) -> void:
 		return
 	_ruled[body.get_instance_id()] = true
 	body.press_ruled.connect(func(buttons: int, ruling: StringName) -> void:
-		if buttons & PRESS_BUTTONS != 0:
+		var p: MatchParticipant = controller.resolve_participant(body) if is_instance_valid(controller) else null
+		# A bot's rulings answer no press anyone logged.
+		if buttons & PRESS_BUTTONS != 0 and p != null and p.is_human():
 			var running: RunnerPower = RunnerPower.of(body)
 			line("RULE seat=%s %s pressed=%d ruling=%s ability=%d" % [_seat_of_body(body), _command_of(body),
 				buttons & PRESS_BUTTONS, ruling, int(running.get_active()) if running != null else 0]))
@@ -736,25 +743,26 @@ func _sample() -> void:
 
 func _on_intent_in(peer: int, _tick_number: int) -> void:
 	_intents_in += 1
-	if String(o["break"]) == "drop-press" and not _press_dropped and _scene_kind == "match" and match_seconds() >= float(o["break-at"]):
-		_drop_press(session.replicator._streams.get(peer, null) as CommandStream)
+	var kind: String = String(o["break"])
+	if DROPPED_KEYS.has(kind) and not _press_dropped and _scene_kind == "match" and match_seconds() >= float(o["break-at"]):
+		_drop_press(session.replicator._streams.get(peer, null) as CommandStream, DROPPED_KEYS[kind], kind)
 
 
-## --break=drop-press: the host throws away the first command a client pressed a power key in, as a
-## stream past its resend cap does (the skip in [method CommandStream.receive]), and runs on from the next.
-func _drop_press(stream: CommandStream) -> void:
+## --break=drop-*: the host throws away the first command a client pressed [param keys] in, as a stream
+## past its resend cap does (the skip in [method CommandStream.receive]), and runs on from the next.
+func _drop_press(stream: CommandStream, keys: int, kind: String) -> void:
 	if stream == null:
 		return
 	var buttons: int = stream._last.buttons
 	for i: int in stream.get_backlog():
 		var seq: int = stream._last_run + 1 + i
 		var command: MoveIntent = stream._ring[seq % CommandStream.RING]
-		if command.buttons & ~buttons & MoveIntent.ALL_POWER_KEYS != 0:
+		if (command.buttons | command.pressed) & ~buttons & keys != 0:
 			for skipped: int in range(stream._last_run + 1, seq + 1):
 				stream._held[skipped % CommandStream.RING] = -1
 			stream._last_run = seq
 			_press_dropped = true
-			line("BREAK kind=drop-press seq=%d" % seq)
+			line("BREAK kind=%s seq=%d" % [kind, seq])
 			return
 		buttons = command.buttons
 

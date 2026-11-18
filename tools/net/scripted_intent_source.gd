@@ -68,6 +68,10 @@ var _aimed: MatchParticipant = null
 var _brawl_rest: float = 0.0
 var _walked: Dictionary[StringName, bool] = {}
 var _rest_ticks: int = 0
+## Keys ("j", "f") this source presses itself: until when the brain's own jumps or swings are held off,
+## and since when, so the key's press is an edge and not lost in the brain's.
+var _own_until: Dictionary[String, float] = {}
+var _own_since: Dictionary[String, float] = {}
 var _optic: WeaponOptic = null
 var _posts: PackedVector3Array = PackedVector3Array()
 var _posts_middle: Vector3 = Vector3.ZERO
@@ -176,8 +180,9 @@ func poll(delta: float) -> MoveIntent:
 		_optic.set_zoomed(false)
 	if _elapsed < _still_until:
 		_intent.move_direction = Vector2.ZERO
-		_intent.jump_pressed = false
-		_intent.jump_held = false
+		if not _down.has("j"):
+			_intent.jump_pressed = false
+			_intent.jump_held = false
 		_intent.slide_pressed = false
 		_intent.slide_held = false
 	return _intent
@@ -218,6 +223,11 @@ func _press(entry: Dictionary, me: MatchParticipant, due: float) -> bool:
 	if key == "b" or key == "n":
 		# An emote wants a body at rest on the floor: stop first, press once it has.
 		_still_until = maxf(_still_until, _elapsed + 0.5)
+	if key == "j" or key == "f":
+		# The brain's jumps or swings stand aside, so this key's press is an edge of its own.
+		if not _owned(key):
+			_own_since[key] = _elapsed
+		_own_until[key] = maxf(_own_until.get(key, -1.0), _elapsed + 0.25 + float(entry.hold))
 	var note: String = _why_not(key, me)
 	if not note.is_empty() and keys_wait and _elapsed < due + KEY_PATIENCE_SECONDS:
 		return false
@@ -259,6 +269,22 @@ func _why_not(key: String, me: MatchParticipant) -> String:
 		"e":
 			if power == null or power.get_shown() != MatchRules.RunnerAbility.CAT_GRENADE:
 				return "no-cat"
+		"j":
+			if me.body.movement_locked:
+				return "locked"
+			if not me.body.is_on_floor():
+				return "airborne"
+			if _elapsed < _own_since.get(key, 0.0) + 0.05:
+				return "settling"
+		"f":
+			if me.body.is_armed:
+				return "armed"
+			if me.body.shove_cooldown_remaining > 0.0:
+				return "cooldown"
+			if not me.body.swing_cost.is_valid() or float(me.body.swing_cost.call()) < 0.0:
+				return "refused"
+			if _elapsed < _own_since.get(key, 0.0) + 0.05:
+				return "settling"
 		"b", "n":
 			if me.body.movement_locked:
 				return "locked"
@@ -317,11 +343,13 @@ func _play(me: MatchParticipant, delta: float) -> void:
 			var command: MoveIntent = _bot.poll(delta)
 			_intent.move_direction = command.move_direction
 			_intent.look_delta = command.look_delta
-			_intent.jump_pressed = command.jump_pressed
-			_intent.jump_held = command.jump_held
+			if not _owned("j"):
+				_intent.jump_pressed = command.jump_pressed
+				_intent.jump_held = command.jump_held
 			_intent.slide_pressed = command.slide_pressed
 			_intent.slide_held = command.slide_held
-			_intent.shove_pressed = _intent.shove_pressed or command.shove_pressed
+			if not _owned("f"):
+				_intent.shove_pressed = _intent.shove_pressed or command.shove_pressed
 		Role.GUARD:
 			_guard(me)
 		Role.BRAWL:
@@ -513,6 +541,11 @@ func _brawl(me: MatchParticipant, delta: float) -> void:
 	var want_yaw: float = atan2(-to.x, -to.z)
 	_intent.look_delta = Vector2(angle_difference(want_yaw, me.body.get_view_angles().x), 0.0)
 	_intent.move_direction = Vector2(0.0, 1.0 if best > 1.2 else 0.0)
-	if best < 2.2 and _brawl_rest <= 0.0:
+	if best < 2.2 and _brawl_rest <= 0.0 and not _owned("f"):
 		_intent.shove_pressed = true
 		_brawl_rest = BRAWL_SHOVE_REST
+
+
+## True while [param key] is this source's to press: the brain's own presses of it stand aside.
+func _owned(key: String) -> bool:
+	return _elapsed < _own_until.get(key, -1.0)

@@ -58,10 +58,10 @@ PRESS_DELIVERY = 0.5
 PRESS_FRAMES = 2
 # MoveIntent's bits for each scripted key (scripts/player/move_intent.gd), and what the host must make of it.
 KEY_BUTTONS = {"q": 1 << 8, "1": 1 << 9, "2": 1 << 10, "3": 1 << 11, "4": 1 << 12, "5": 1 << 13,
-               "e": 1 << 5, "b": 1 << 6, "n": 1 << 7}
+               "e": 1 << 5, "b": 1 << 6, "n": 1 << 7, "f": 1 << 4, "j": 1 << 0}
 POWER_KEYS = ("1", "2", "3", "4", "5", "q")
 PRESS_WANTED = {"b": "on", "n": "alt"}
-PRESS_WHAT = {"e": "cook the cat", "b": "emote", "n": "emote (alt)"}
+PRESS_WHAT = {"e": "cook the cat", "b": "emote", "n": "emote (alt)", "f": "shove", "j": "jump"}
 # Refusals a knock (shove, cat blast) on the host can cause before the presser hears of it.
 OVERRULED_BY_KNOCK = ("airborne", "sliding")
 WORLD_HIDDEN_GRACE = 8.0
@@ -666,7 +666,8 @@ def check_presentation(host: Peer, clients: list[Peer], v: Verdict, lag: float, 
 def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, scenario: dict) -> dict:
     """Every usable press a machine made reached exactly one command the host ran, by sequence, and the host
     ran it; or a host event the presser could not yet have seen overruled it. Every press the host ran on a
-    client's seat is one that client sent there. An armor lock ends on the command its key came up in."""
+    client's seat is one that client sent there, and every press a client sent (its own keys or its
+    brain's) reached exactly one host ruling. An armor lock ends on the command its key came up in."""
     stats: dict[str, dict] = defaultdict(lambda: {"pressed": 0, "ran": 0, "overruled": defaultdict(int), "unrun": 0})
     unseen = lag + PRESS_CROSSING
     delivery = lag + PRESS_DELIVERY
@@ -683,9 +684,12 @@ def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, 
         for line in host.tagged(tag):
             by_seat[tag][line.kv.get("seat", "?")].append(line)
     match_rules = [l for l in host.tagged("MATCH") if l.rest.startswith("rules")]
+    turns = sorted(host.tagged("STATE") + host.tagged("ROLE"), key=lambda l: l.w)
     # Where the host stopped running a scene's commands; the last line too, for a host that was killed.
     host_ends = [l.w for l in host.lines if l.tag in ("SCENE", "END")] + [host.last_w]
     valid_by_peer: dict[int, int] = defaultdict(int)
+    # (peer, seq, bit) a press's own check already failed for want of exactly one ruling.
+    reported: set[tuple[str, int, int]] = set()
 
     def last_before(tag: str, seat: str, w: float, keep=lambda l: True) -> Line | None:
         return next((l for l in reversed(by_seat[tag][seat]) if l.w <= w and keep(l)), None)
@@ -699,6 +703,9 @@ def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, 
             event = last_before("KNOCK", seat, rule.w, lambda l: float(l.kv.get("speed", 0)) > 0.0)
         elif ruling == "no-cat":
             event = last_before("PWEND", seat, rule.w, lambda l: l.kv.get("ability") == "5")
+        elif ruling == "refused":
+            # The match's swing gate: the round resolved, the phase moved on, or this seat stopped running.
+            event = next((l for l in reversed(turns) if l.w <= rule.w and (l.tag == "STATE" or l.kv.get("seat") == seat)), None)
         else:
             return None
         return event if event is not None and pressed_w < event.w + unseen else None
@@ -779,6 +786,8 @@ def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, 
                     continue
                 seq = int(command.kv["seq"])
                 ran = [r for r in by_command[(command.kv.get("peer"), seq)] if int(r.kv.get("pressed", 0)) & bit]
+                if len(ran) != 1:
+                    reported.add((command.kv.get("peer"), seq, bit))
                 if len(ran) > 1:
                     v.fail("press", peer.name, f"command {seq} with {key} pressed ran {len(ran)} times on the host", host.ref(ran[1]))
                 if not ran:
@@ -808,13 +817,25 @@ def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, 
             v.fail("press", peer.name, f"pressed {key} ({what}) as {seat}: the host ruled it {ruling} (ability "
                    f"{rule.kv.get('ability')}), and no host event this machine could not yet see explains it", host.ref(rule))
 
-    # The other way: a press the host ran on a client's seat is one that client sent in that command.
+    # Every press a client sent, keyed or its brain's, reached exactly one ruling in that command.
     sent_by: dict[tuple[str, int], int] = {}
     first_seq: dict[str, int] = {}
     for peer in peers[1:]:
         for command in peer.tagged("SENT"):
-            sent_by[(command.kv.get("peer"), int(command.kv["seq"]))] = int(command.kv.get("pressed", 0))
-            first_seq.setdefault(command.kv.get("peer"), int(command.kv["seq"]))
+            seq = int(command.kv["seq"])
+            pressed = int(command.kv.get("pressed", 0))
+            sent_by[(command.kv.get("peer"), seq)] = pressed
+            first_seq.setdefault(command.kv.get("peer"), seq)
+            if pressed == 0 or quiet(command.w):
+                continue
+            ruled = [int(r.kv.get("pressed", 0)) for r in by_command[(command.kv.get("peer"), seq)]]
+            for bit in (1 << b for b in range(14) if pressed & (1 << b)):
+                count = sum(1 for r in ruled if r & bit)
+                if count == 1 or (command.kv.get("peer"), seq, bit) in reported:
+                    continue
+                if count == 0 and (own_end(peer, command.w, delivery) or any(command.w <= e <= command.w + delivery for e in host_ends)):
+                    continue
+                v.fail("press", peer.name, f"sent press {bit} in command {seq}; the host ruled it {count} times", peer.ref(command))
     for (peer_id, seq), ran in by_command.items():
         if peer_id not in first_seq or seq < first_seq[peer_id]:
             continue

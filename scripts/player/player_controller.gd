@@ -198,6 +198,8 @@ var _speed_boost_multiplier: float = 1.0
 ## Dev turbo (T held) ground multiplier.
 const TURBO_MULTIPLIER: float = 3.0
 const EMOTE_KEYS: int = MoveIntent.EMOTE | MoveIntent.EMOTE_ALT
+## The presses [method _move] answers, which a movement lock swallows.
+const LOCKED_KEYS: int = EMOTE_KEYS | MoveIntent.JUMP
 var _speed_boost_timer: float = 0.0
 
 ## Downward speed on the last airborne tick, reported by [signal landed].
@@ -331,8 +333,8 @@ func run_command(command: MoveIntent, delta: float) -> void:
 func _move(delta: float) -> void:
 	if movement_locked:
 		velocity = Vector3.ZERO
-		if _intent.pressed & EMOTE_KEYS != 0:
-			press_ruled.emit(_intent.pressed & EMOTE_KEYS, &"locked")
+		if _intent.pressed & LOCKED_KEYS != 0:
+			press_ruled.emit(_intent.pressed & LOCKED_KEYS, &"locked")
 		return
 
 	# Aim first, so this tick's wish direction reflects this tick's facing.
@@ -368,7 +370,11 @@ func _move(delta: float) -> void:
 	# CLOSES after the move instead -- see _update_slide_exit.
 	_try_begin_slide(on_floor)
 
-	if _try_jump(on_floor):
+	var jumped_now: bool = _try_jump(on_floor)
+	if _intent.jump_pressed:
+		# A press _try_jump cannot take is off the floor past coyote time; it stays buffered.
+		press_ruled.emit(MoveIntent.JUMP, &"ran" if jumped_now else &"airborne")
+	if jumped_now:
 		_end_slide()
 		# A jump makes the rest of this tick an air tick. This is not a detail:
 		# skipping ground friction on the launch frame is precisely what lets a
@@ -739,20 +745,35 @@ func _emote_ruling(on_floor: bool, moved: bool) -> StringName:
 ## The swing gate, per command: the cooldown runs, and a shove press tries [method try_swing].
 func _swing(delta: float) -> bool:
 	shove_cooldown_remaining = maxf(shove_cooldown_remaining - delta, 0.0)
-	return _intent.shove_pressed and try_swing()
+	if not _intent.shove_pressed:
+		return false
+	var ruling: StringName = swing()
+	if not held:
+		# A held body's press is ruled in [method run_command].
+		press_ruled.emit(MoveIntent.SHOVE, ruling)
+	return ruling == &"ran"
+
+
+## [method swing], true when the body swung.
+func try_swing() -> bool:
+	return swing() == &"ran"
 
 
 ## Swing now if unheld, unarmed, off cooldown and the match willing: spend the cooldown and draw
-## the swing. Whether it lands is the authority's. True when the body swung.
-func try_swing() -> bool:
-	if held or is_armed or shove_cooldown_remaining > 0.0:
-		return false
+## the swing. Whether it lands is the authority's. Returns "ran", or the rule that refused it.
+func swing() -> StringName:
+	if held:
+		return &"held"
+	if is_armed:
+		return &"armed"
+	if shove_cooldown_remaining > 0.0:
+		return &"cooldown"
 	var cost: float = float(swing_cost.call()) if swing_cost.is_valid() else -1.0
 	if cost < 0.0:
-		return false
+		return &"refused"
 	shove_cooldown_remaining = cost
 	shoved.emit()
-	return true
+	return &"ran"
 
 
 ## The collision capsule's current height in metres -- the standing height, or
