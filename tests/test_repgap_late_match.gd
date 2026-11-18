@@ -92,7 +92,7 @@ func _draws(peer: int, which: int) -> bool:
 		HOLOGRAM:
 			return power.get_decoy() != null
 		ARMOR:
-			return power.get_shell() != null and body.movement_locked
+			return power.get_shell() != null and body.is_movement_locked()
 		CAMO:
 			var mesh: MeshInstance3D = RunnerPower._avatar_mesh(body)
 			var worn: BaseMaterial3D = mesh.material_override as BaseMaterial3D if mesh != null else null
@@ -100,6 +100,18 @@ func _draws(peer: int, which: int) -> bool:
 		CAT:
 			return _cats_drawn(peer) == 1
 	return false
+
+
+## Metres from [param at] to the nearest place the host's worlds put the presser's hologram.
+func _from_hosts_worlds(at: Vector3) -> float:
+	var replicator: NetReplicator = (_rig.sessions[HOST] as NetSession).replicator
+	var seat: int = PlayerNetLink.of(_rig.body(HOST, _slot)).seat_index
+	var nearest: float = INF
+	for i: int in replicator._ring_count:
+		var state: PlayerState = replicator._slot(i).find_seat(seat)
+		if state != null and state.decoy_alive:
+			nearest = minf(nearest, at.distance_to(state.anchor_position))
+	return nearest
 
 
 ## Start [param which] on the host, bind the late machine under it, and hold it to what the others draw.
@@ -139,9 +151,11 @@ func _a_late_machine_draws(which: int, map: StringName, on_bot: bool) -> void:
 	if which == HOLOGRAM:
 		# The hologram runs on: one built where it began and never moved would be left behind.
 		var ran: float = _power(HOST).get_decoy().global_position.distance_to(_rig.body(HOST, _slot).global_position)
-		var gap: float = _power(LATE).get_decoy().global_position.distance_to(_power(EARLY).get_decoy().global_position)
 		assert_gt(ran, 3.0, "the hologram has run on from its runner")
-		assert_lt(gap, 0.3, "the late machine's hologram is where the early machine's is (%.2f m off, %.1f m from its runner)" % [gap, ran])
+		# Each machine draws at its own playout clock: where the host had it in a world it sent.
+		for machine: int in [EARLY, LATE]:
+			var gap: float = _from_hosts_worlds(_power(machine).get_decoy().global_position)
+			assert_lt(gap, 0.3, "machine %d's hologram is where the host's was (%.2f m off, %.1f m from its runner)" % [machine, gap, ran])
 	# The host ends it: the late machine is left drawing nothing.
 	if which == CAT:
 		var cat: CatGrenade = _power(HOST).get("_cat")

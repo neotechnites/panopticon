@@ -88,6 +88,10 @@ func stand_up(loss: float = 0.0, delay_ms: int = 0) -> bool:
 	if loss > 0.0 or delay_ms > 0:
 		a_wire = _condition(a, loss, 11, delay_ms)
 		host_wire = _condition(host, loss, 7, delay_ms)
+	# The host sends snapshots only to machines standing in its epoch.
+	if not await NetFixtures.stand(self, host, [a, b]):
+		fail("the clients never stood in the host's epoch")
+		return false
 	var a_id: int = a.get_local_peer_id()
 	host_links = [
 		NetFixtures.add_seat_body(host, HOST_SEAT, 1, profile, true),

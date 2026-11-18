@@ -63,9 +63,7 @@ var _turn: float = 0.0
 
 ## Ticks of jitter this test wants. Zero is a wire that is merely slow.
 var _jitter: int = 0
-var _outgoing: WorldSnapshot = WorldSnapshot.new()
-var _incoming: WorldSnapshot = WorldSnapshot.new()
-var _last_delivered_tick: int = -1
+var _sender: HandSender = HandSender.new()
 
 ## Every correction the client has been handed since [method _measure] was last
 ## called, in metres, and how many of them were snaps.
@@ -101,6 +99,8 @@ func _stand_up() -> bool:
 	if not await NetFixtures.join_and_wait(self, _client, _host, port):
 		return false
 	var client_id: int = _client.get_local_peer_id()
+	if not await NetFixtures.stand(self, _host, [_client]):
+		return false
 
 	# An owner the client is not, so the client's own RPCs are refused by the
 	# sender check and the only intent the host sees is the delayed one.
@@ -188,35 +188,31 @@ func _deliver_up() -> void:
 		# Refused when jitter has already delivered a newer one, exactly as the
 		# authority refuses a reordered packet off the socket.
 		stream.receive(packet.payload, _host.replicator.get_tick())
+		_sender.take_commands(packet.payload)
 	_up = held
 
 
-## The host's body as it stood at the end of its last tick, packed and sent late.
+## The host's body as it stood at the end of its last tick, coded against the client's last
+## acknowledged world, and sent late.
 func _send_down() -> void:
-	_outgoing.clear()
-	_host_link.sample_state(_outgoing.next_slot())
-	_outgoing.tick = _tick
-	_outgoing.states[0].tick = _tick
-	_outgoing.commit()
 	var packet: Wire = Wire.new()
 	packet.due = _due()
 	packet.tick = _tick
-	packet.payload = NetCodec.pack_snapshot(_outgoing)
+	packet.payload = _sender.send(
+		[_host_link], _tick, _client.replicator.get_scene(), 0,
+		_host.replicator.stream_for(_host_link.owner_peer_id),
+	)
 	_down.append(packet)
 
 
+## The client refuses what is stale or on a baseline it lacks itself, as off the socket.
 func _deliver_down() -> void:
 	var held: Array[Wire] = []
 	for packet: Wire in _down:
 		if packet.due > _tick:
 			held.append(packet)
 			continue
-		if not NetCodec.unpack_snapshot(packet.payload, _incoming):
-			continue
-		if _last_delivered_tick >= 0 and not NetCodec.is_newer_tick(_incoming.tick, _last_delivered_tick):
-			continue
-		_last_delivered_tick = _incoming.tick
-		_client.replicator.apply_snapshot(_incoming)
+		_client.replicator.receive_snapshot(packet.payload)
 	_down = held
 
 
@@ -230,38 +226,18 @@ func _both_run(direction: Vector2) -> void:
 # --- Tests --------------------------------------------------------------------
 
 func test_the_snapshot_carries_the_command_the_authority_has_run() -> void:
-	var state: PlayerState = PlayerState.new()
-	state.seat_index = 3
-	state.cmd_ack = 77
 	var snapshot: WorldSnapshot = WorldSnapshot.new()
-	snapshot.append(state)
-	var packed: PackedByteArray = NetCodec.pack_snapshot(snapshot)
-	assert_eq_int(
-		packed.size(),
-		NetCodec.SNAPSHOT_HEADER_SIZE + NetCodec.SNAPSHOT_BODY_SIZE,
-		"the acknowledged tick is part of a body's fixed size",
-	)
-
+	snapshot.slot(3)
+	var info: NetCodec.SnapshotInfo = NetCodec.SnapshotInfo.new()
+	info.cmd_ack = 77
+	var none: Array[NetEvents.Entry] = []
+	var read: NetCodec.SnapshotInfo = NetCodec.SnapshotInfo.new()
 	var decoded: WorldSnapshot = WorldSnapshot.new()
-	assert_true(NetCodec.unpack_snapshot(packed, decoded), "it decodes")
-	assert_eq_int(decoded.states[0].cmd_ack, 77, "and the acknowledgement survived")
-
-	state.cmd_ack = -1
-	snapshot.clear()
-	snapshot.append(state)
-	assert_true(
-		NetCodec.unpack_snapshot(NetCodec.pack_snapshot(snapshot), decoded),
-		"a body the authority has run no input for decodes too",
-	)
-	assert_eq_int(
-		decoded.states[0].cmd_ack, -1, "and says so rather than claiming tick 0"
-	)
-
-	# The size is the version. A body from a build with one field fewer must be
-	# refused whole, not read as a shorter body plus rubbish.
-	var short: PackedByteArray = packed.duplicate()
-	short.resize(short.size() - 4)
-	assert_false(NetCodec.unpack_snapshot(short, decoded), "a body of the old size is refused")
+	assert_true(NetCodec.unpack_snapshot(NetCodec.pack_snapshot(snapshot, null, 3, none, info), null, decoded, read, none), "it decodes")
+	assert_eq_int(read.cmd_ack, 77, "the acknowledgement is the header's, for the receiving client")
+	info.cmd_ack = -1
+	assert_true(NetCodec.unpack_snapshot(NetCodec.pack_snapshot(snapshot, null, 3, none, info), null, decoded, read, none), "it decodes")
+	assert_eq_int(read.cmd_ack, -1, "and none is none rather than tick 0")
 
 
 func test_a_client_running_flat_out_predicts_within_five_centimetres() -> void:

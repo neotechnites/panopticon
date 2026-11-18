@@ -23,6 +23,10 @@ var profile: MovementProfile = null
 ## [member MoveIntent.view_time]); unset means the live world. Set by [PlayerNetLink].
 var view_clock: Callable
 
+## Set by [PlayerNetLink] on a client's own device: makes each command exactly what the host will
+## run, and numbers it, before the body runs it. Unset means the command as polled.
+var shape: Callable
+
 ## The buttons of the last command handed out, which this one's edges are taken against.
 var _last_buttons: int = 0
 
@@ -50,7 +54,7 @@ func next_command(delta: float) -> MoveIntent:
 	command.derive_edges(_last_buttons)
 	_last_buttons = command.buttons
 	command.view_time = view_clock.call() if view_clock.is_valid() else MoveIntent.LIVE_WORLD
-	return command
+	return shape.call(command) if shape.is_valid() else command
 
 
 ## Take the next command's edges against nothing, as a stream that starts with it will.

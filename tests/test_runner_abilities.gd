@@ -127,7 +127,7 @@ func test_armor_lock_freezes_the_body_and_ignores_hits_until_released() -> void:
 
 	await _press()
 	assert_true(_ability.is_active(), "the lock is on")
-	assert_true(_body.movement_locked, "the body is locked")
+	assert_true(_body.is_movement_locked(), "the body is locked")
 	var held: Vector3 = _body.global_position
 	await step_ticks(10)
 	assert_almost_eq(_body.velocity.length(), 0.0, 1e-6, "no velocity under lock")
@@ -142,10 +142,27 @@ func test_armor_lock_freezes_the_body_and_ignores_hits_until_released() -> void:
 	_input.command.ability_held = false
 	await step_ticks(2)
 	assert_false(_ability.is_active(), "release ends the lock early")
-	assert_false(_body.movement_locked, "the body is free")
+	assert_false(_body.is_movement_locked(), "the body is free")
 	assert_gt(_ability.get_cooldown_remaining(), 0.0, "the cooldown started")
 	await step_ticks(10)
 	assert_gt(_body.velocity.length(), 0.5, "the body runs again")
+
+
+func test_a_power_never_frees_a_body_the_match_holds() -> void:
+	_rules.runner_ability = MatchRules.RunnerAbility.ARMOR_LOCK
+	_body.movement_locked = true
+	_body.launch(Vector3(0.0, 4.0, 12.0))
+	await _press()
+	assert_true(_ability.is_active(), "the lock is on under the match's hold")
+	_input.command.ability_held = false
+	await step_ticks(2)
+	assert_false(_ability.is_active(), "and over")
+	_ability.present(MatchRules.RunnerAbility.NONE, 0.0, 0.0)
+	_ability.settle_visuals()
+	assert_true(_body.movement_locked, "the match's hold outlives the power and its presentation")
+	var held: Vector3 = _body.global_position
+	await step_ticks(10)
+	assert_almost_eq(_body.global_position.distance_to(held), 0.0, 1e-3, "and a launch waiting on the held body stays waiting")
 
 
 ## Active camo is a REPAINT, not a fade. Ryan's ruling: [i]"not invisible -- hell

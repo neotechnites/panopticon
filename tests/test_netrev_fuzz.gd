@@ -60,27 +60,42 @@ func test_rv_fuzz_intent_decode_and_accept() -> void:
 func test_rv_fuzz_client_side_decoders() -> void:
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.seed = 795
+	var base: WorldSnapshot = WorldSnapshot.new()
+	base.tick = 500
+	for seat: int in 8:
+		base.slot(seat).position = Vector3(seat, 1.0, -seat)
+		NetCodec.quantise_state(base.states[seat], 500)
+	var now: WorldSnapshot = WorldSnapshot.new()
+	now.copy_from(base)
+	now.tick = 502
+	for seat: int in 8:
+		now.states[seat].velocity = Vector3(1.0, 0.0, seat)
+		now.states[seat].health = seat
+	var none: Array[NetEvents.Entry] = []
+	var good: PackedByteArray = NetCodec.pack_snapshot(now, base, 2, none, NetCodec.SnapshotInfo.new())
 	var snapshot: WorldSnapshot = WorldSnapshot.new()
-	var state: PlayerState = PlayerState.new()
+	var info: NetCodec.SnapshotInfo = NetCodec.SnapshotInfo.new()
+	var events: Array[NetEvents.Entry] = []
 	var seats: Array[LobbySeat] = []
-	var took: Array[int] = [0, 0, 0]
+	var took: Array[int] = [0, 0]
 	for round_index: int in 6000:
-		var size: int = rng.randi_range(0, 300)
+		var payload: PackedByteArray = _random_bytes(rng, rng.randi_range(0, 300))
 		if round_index % 2 == 0:
-			size = NetCodec.SNAPSHOT_HEADER_SIZE + rng.randi_range(0, 8) * NetCodec.SNAPSHOT_BODY_SIZE
-		var payload: PackedByteArray = _random_bytes(rng, size)
-		if round_index % 2 == 0 and size >= NetCodec.SNAPSHOT_HEADER_SIZE:
-			payload[8] = (size - NetCodec.SNAPSHOT_HEADER_SIZE) / NetCodec.SNAPSHOT_BODY_SIZE
-		if NetCodec.unpack_snapshot(payload, snapshot):
+			# A real packet with a few bits flipped: past the header checks, into the sections.
+			payload = good.duplicate()
+			for _flip: int in rng.randi_range(1, 4):
+				var at: int = rng.randi_range(NetCodec.SNAPSHOT_HEADER_SIZE - 2, payload.size() - 1)
+				payload[at] = payload[at] ^ (1 << rng.randi_range(0, 7))
+		var on: WorldSnapshot = base if NetCodec.snapshot_baseline(payload) == 500 else null
+		if NetCodec.unpack_snapshot(payload, on, snapshot, info, events):
 			took[0] += 1
 			for seat: int in 8:
 				var found: PlayerState = snapshot.find_seat(seat)
 				if found != null:
 					assert_true(found.position.is_finite() and found.velocity.is_finite() and is_finite(found.yaw), "snapshot state finite")
-					assert_true(found.shove_counter >= 0 and found.shove_counter < 4 and found.boost_remaining >= 0.0 and found.boost_multiplier >= 0.0, "new fields in range")
-		if NetCodec.unpack_decoy_move(_random_bytes(rng, rng.randi_range(0, 24)), state) >= 0:
-			took[1] += 1
+					assert_true(found.shove_counter >= 0 and found.shove_counter < 4 and found.boost_remaining() >= 0.0 and found.boost_multiplier >= 0.0, "fields in range")
+					assert_true(found.ability >= 0 and found.ability <= 5 and found.weapon_state >= 0 and found.weapon_state < 4, "enums in range")
 		if NetCodec.unpack_roster(_random_bytes(rng, rng.randi_range(0, 260)), seats, 24) >= 0:
-			took[2] += 1
-	print("PROOF fuzz: client decoders took snapshot/decoy/roster %s of 6000 random payloads each" % str(took))
-	assert_true(took[0] > 0, "some well-sized snapshots decoded")
+			took[1] += 1
+	print("PROOF fuzz: client decoders took snapshot/roster %s of 6000 random payloads each" % str(took))
+	assert_true(took[0] > 0, "some mutated snapshots decoded")

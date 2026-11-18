@@ -499,9 +499,8 @@ func _on_rifle_hit(collider: Node3D, at: Vector3, normal: Vector3, which: int) -
 	_session.replicator.send_event(NetEvents.Type.HIT, NetCodec.pack_hit(which, seat, at, normal))
 
 
-## One match transition, reliable, to every peer standing in this scene, stamped with the first host
-## tick whose world includes it. A mirror takes those its first world does not (Quake 3's gamestate
-## and serverCommandSequence), so a peer standing late needs no catch-up message.
+## One match transition, reliable, stamped with the first tick whose world includes it: a mirror takes
+## only those its first world does not (Quake 3's gamestate and serverCommandSequence).
 func _event(method: StringName, args: Array = []) -> void:
 	var stamp: int = (_session.replicator.get_tick() + 1) % NetCodec.TICK_MODULUS
 	var index: int = _EVENTS.find(method)
@@ -544,8 +543,8 @@ func _on_event(type: NetEvents.Type, payload: PackedByteArray, _tick: int) -> vo
 			var weapon: Rifle = _weapon_of(payload[0])
 			if weapon != null:
 				weapon.show_remote_shot(
-					NetCodec.event_point(payload, 1), NetCodec.event_point(payload, 7),
-					payload.decode_float(13), payload.decode_float(17), payload.decode_float(21),
+					NetCodec.event_point(payload, 1), NetCodec.event_point(payload, 13),
+					payload.decode_float(25), payload.decode_float(29), payload.decode_float(33),
 				)
 		NetEvents.Type.HIT:
 			var weapon: Rifle = _weapon_of(payload[0])
@@ -553,7 +552,7 @@ func _on_event(type: NetEvents.Type, payload: PackedByteArray, _tick: int) -> vo
 			if weapon != null:
 				weapon.show_remote_hit(
 					link.controller if link != null else null, NetCodec.event_point(payload, 2),
-					NetCodec.event_unit(payload, 8),
+					NetCodec.event_unit(payload, 14),
 				)
 		NetEvents.Type.MISS:
 			var weapon: Rifle = _weapon_of(payload[0])

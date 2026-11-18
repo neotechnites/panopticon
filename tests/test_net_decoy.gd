@@ -184,6 +184,9 @@ func _bring_up() -> Array[RunnerPower]:
 	if not await NetFixtures.join_and_wait(self, _client, _host, port):
 		fail("the loopback handshake did not complete")
 		return []
+	if not await NetFixtures.stand(self, _host, [_client]):
+		fail("the client never stood in the host's epoch")
+		return []
 
 	var host_link: PlayerNetLink = NetFixtures.add_seat_body(_host, 0, 0, _profile, true)
 	var client_link: PlayerNetLink = NetFixtures.add_seat_body(_client, 0, 0, _profile, false)

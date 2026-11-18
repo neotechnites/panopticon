@@ -139,8 +139,8 @@ var jump_scale: float = 1.0
 var crouch_enabled: bool = false
 var slide_enabled: bool = false
 
-## True while Armor Lock holds the body: no movement, no turning, this tick's
-## intent still readable through [method get_intent].
+## True while the match holds the body (a kill beat, the finisher's seat): no movement, no turning,
+## this tick's intent still readable through [method get_intent]. Its own armor lock holds it too.
 var movement_locked: bool = false
 
 ## True while this body holds the tower seat. [MatchController] is the only
@@ -314,7 +314,8 @@ func run_command(command: MoveIntent, delta: float) -> void:
 
 ## The movement half of a command. A held body (Quake's PM_FREEZE) does not run it.
 func _move(delta: float) -> void:
-	if movement_locked:
+	var power: RunnerPower = RunnerPower.of(self)
+	if movement_locked or (power != null and power.get_active() == MatchRules.RunnerAbility.ARMOR_LOCK):
 		velocity = Vector3.ZERO
 		return
 
@@ -479,6 +480,12 @@ func get_horizontal_speed() -> float:
 ## physics, so [method CharacterBody3D.is_on_floor] there answers for a tick that
 ## never happened. Written by [method PlayerNetLink.apply_state].
 var net_floor: int = -1
+
+
+## Held still by the match or by the armor lock this machine runs or draws.
+func is_movement_locked() -> bool:
+	var power: RunnerPower = RunnerPower.of(self)
+	return movement_locked or (power != null and power.get_shown() == MatchRules.RunnerAbility.ARMOR_LOCK)
 
 
 ## On the floor, however this machine knows it. Read this, not [method is_on_floor],

@@ -27,6 +27,10 @@ class Wire extends RefCounted:
 ## snapshot interval -- the brief's 150 ms, rounded to the tick.
 const LATENCY_TICKS: int = 5
 
+## The worst reconcile error the base (82baf5ae) measured at 100 ms round trip, 5% loss and this jitter:
+## 0.0067 m on five seeds. The exact owner block must do no worse (DESIGN Phase 3).
+const BASE_RECONCILE_AT_100MS: float = 0.0067
+
 ## Ticks of jitter added per packet when a test asks for it.
 const JITTER_TICKS: int = 2
 
@@ -61,12 +65,12 @@ var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 var _jitter: int = 0
 var _loss: float = 0.0
+## One way, in ticks, for this test.
+var _latency: int = LATENCY_TICKS
 ## True while the host is pretending to hitch: it simulates but sends nothing.
 var _host_stalled: bool = false
 
-var _outgoing: WorldSnapshot = WorldSnapshot.new()
-var _incoming: WorldSnapshot = WorldSnapshot.new()
-var _last_down_tick: int = -1
+var _sender: HandSender = HandSender.new()
 
 ## Corrections handed to the predicted body since the last [method _measure].
 var _corrections: PackedFloat32Array = PackedFloat32Array()
@@ -113,6 +117,8 @@ func _stand_up() -> bool:
 	if not await NetFixtures.join_and_wait(self, _client, _host, port):
 		return false
 	var client_id: int = _client.get_local_peer_id()
+	if not await NetFixtures.stand(self, _host, [_client]):
+		return false
 	# An owner the client is not, so its real RPCs are refused by the sender
 	# check and the only intent the host sees is the one carried below.
 	var stand_in: int = client_id + 1
@@ -211,7 +217,7 @@ func _physics_process(_delta: float) -> void:
 
 
 func _due() -> int:
-	return _tick + LATENCY_TICKS + (_rng.randi_range(0, _jitter) if _jitter > 0 else 0)
+	return _tick + _latency + (_rng.randi_range(0, _jitter) if _jitter > 0 else 0)
 
 
 func _dropped() -> bool:
@@ -239,22 +245,20 @@ func _deliver_up() -> void:
 			held.append(packet)
 			continue
 		_stream().receive(packet.payload, _host.replicator.get_tick())
+		_sender.take_commands(packet.payload)
 	_up = held
 
 
+## Both host bodies, coded against the client's last acknowledged world; a dropped one never leaves.
 func _send_down() -> void:
-	_outgoing.clear()
-	for link: PlayerNetLink in [_host_own, _host_mirror]:
-		var slot: PlayerState = _outgoing.next_slot()
-		link.sample_state(slot)
-		slot.tick = _tick
-		_outgoing.commit()
-	_outgoing.tick = _tick
+	var payload: PackedByteArray = _sender.send(
+		[_host_own, _host_mirror], _tick, _client.replicator.get_scene(), 0, _stream()
+	)
 	if _dropped():
 		return
 	var packet: Wire = Wire.new()
 	packet.due = _due()
-	packet.payload = NetCodec.pack_snapshot(_outgoing)
+	packet.payload = payload
 	_down.append(packet)
 
 
@@ -264,12 +268,7 @@ func _deliver_down() -> void:
 		if packet.due > _tick:
 			held.append(packet)
 			continue
-		if not NetCodec.unpack_snapshot(packet.payload, _incoming):
-			continue
-		if _last_down_tick >= 0 and not NetCodec.is_newer_tick(_incoming.tick, _last_down_tick):
-			continue
-		_last_down_tick = _incoming.tick
-		_client.replicator.apply_snapshot(_incoming)
+		_client.replicator.receive_snapshot(packet.payload)
 	_down = held
 
 
@@ -340,6 +339,24 @@ func test_prediction_holds_at_a_hundred_and_fifty_millisecond_round_trip_with_lo
 		per_tick * float(JITTER_TICKS + SNAPSHOT_EVERY + 3),
 		"a bad line costs ticks of travel, not metres",
 	)
+	assert_eq_int(int(measured[1]), 0, "and nothing had to be snapped")
+
+
+func test_the_reconcile_error_at_a_hundred_milliseconds_and_five_percent_loss_is_no_worse_than_the_base() -> void:
+	_latency = 3
+	_jitter = JITTER_TICKS
+	_loss = LOSS
+	if not await _stand_up():
+		fail("the loopback handshake did not complete")
+		return
+	await step_ticks(WINDOW_TICKS)
+	var measured: Array = _measure()
+	print("          PREDICTION at %d ms RTT, %.0f%% loss: worst %.6f m over %d corrections, %d snaps (base %.4f m)" % [
+		int(float(_latency * 2) * SIM_DELTA * 1000.0), _loss * 100.0, float(measured[0]), int(measured[2]),
+		int(measured[1]), BASE_RECONCILE_AT_100MS,
+	])
+	assert_gt(float(int(measured[2])), 20.0, "there were corrections to measure")
+	assert_le(float(measured[0]), BASE_RECONCILE_AT_100MS, "no worse than the base's quantised restore")
 	assert_eq_int(int(measured[1]), 0, "and nothing had to be snapped")
 
 

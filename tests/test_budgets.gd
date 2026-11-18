@@ -219,6 +219,12 @@ var _host: NetSession = null
 var _client: NetSession = null
 var _links: Array[PlayerNetLink] = []
 var _snapshots: int = 0
+var _wires: NetWires = NetWires.new()
+var _saved_hz: int = 0
+var _saved_scale: float = 1.0
+
+## One way, in real milliseconds, for B5 under a brawl: a 150 ms round trip.
+const BRAWL_DELAY_MS: int = 75
 
 
 func after_each() -> void:
@@ -227,20 +233,39 @@ func after_each() -> void:
 		_client.leave()
 	if _host != null:
 		_host.leave()
+	_wires.clear()
+	if _saved_hz > 0:
+		Engine.physics_ticks_per_second = _saved_hz
+		Engine.time_scale = _saved_scale
+		_saved_hz = 0
 
 
-## Two sessions on two real UDP sockets, eight seats, seat 0 owned by the client.
-## The same shape as [code]tests/test_net_cost.gd[/code] stands up, kept short.
-func _stand_up_session() -> bool:
+## Two sessions on two real UDP sockets, eight seats, seat 0 owned by the client. The same shape as
+## [code]tests/test_net_cost.gd[/code] stands up, kept short; [param delay_ms] delays both ways' sends.
+func _stand_up_session(delay_ms: int = 0) -> bool:
 	var profile: MovementProfile = TestFixtures.movement_profile()
 	_host = NetFixtures.make_peer(self, "Host", NetFixtures.settings())
 	_client = NetFixtures.make_peer(self, "Client", NetFixtures.settings())
 	add_child(TestFixtures.make_floor(0.0))
+	if delay_ms > 0:
+		# A delay in real milliseconds is only a round trip at real time.
+		_saved_hz = Engine.physics_ticks_per_second
+		_saved_scale = Engine.time_scale
+		Engine.physics_ticks_per_second = int(SIM_HZ)
+		Engine.time_scale = 1.0
+		for session: NetSession in [_host, _client]:
+			session.connection_state_changed.connect(
+				func(_state: NetTransport.ConnectionState) -> void:
+					if _wires.of(session) == null and session.multiplayer.multiplayer_peer != null:
+						_wires.wrap(session).conditions.delay_ms = delay_ms
+			)
 
 	var port: int = await NetFixtures.host_and_wait(self, _host)
 	if port < 0:
 		return false
 	if not await NetFixtures.join_and_wait(self, _client, _host, port):
+		return false
+	if not await NetFixtures.stand(self, _host, [_client]):
 		return false
 	var client_id: int = _client.get_local_peer_id()
 
@@ -300,3 +325,47 @@ func test_eight_seats_stay_inside_their_wire_budget() -> void:
 	assert_le(host_up_per_tick, B4_HOST_UP_BYTES_PER_TICK, "B4: host upstream is inside budget")
 	assert_le(down_per_tick, B5_CLIENT_DOWN_BYTES_PER_TICK, "B5: a client's downstream is inside budget")
 	assert_le(client_up_per_tick, B6_CLIENT_UP_BYTES_PER_TICK, "B6: a client's upstream is inside budget")
+
+
+## B5 under a brawl's events at a 150 ms round trip (DESIGN 3.5): every fighter landing a shove as
+## often as the rules let it, each cue riding every snapshot until the client acknowledges it.
+func test_a_brawls_events_at_a_150_ms_round_trip_stay_inside_b5() -> void:
+	if _skipped_by_machine():
+		return
+	if not await _stand_up_session(BRAWL_DELAY_MS):
+		fail("the delayed loopback handshake did not complete")
+		return
+	var cooldown_ticks: int = ceili((load(RULES_PATH) as MatchRules).shove_cooldown_seconds * SIM_HZ)
+	var replicator: NetReplicator = _host.replicator
+	var client_peer: int = _client.get_local_peer_id()
+	var landed: Array[int] = [0]
+	var shover: Callable = func() -> void:
+		var tick: int = replicator.get_tick()
+		for seat: int in SEATS:
+			# Staggered, so the fighters' swings spread over the cooldown rather than land together.
+			if (tick + seat * cooldown_ticks / SEATS) % cooldown_ticks == 0:
+				landed[0] += 1
+				replicator.send_event(NetEvents.Type.SHOVE_LANDED, NetCodec.pack_point((seat + 1) % SEATS, Vector3(seat, 1.0, 2.0)))
+				if seat == 0:
+					replicator.send_event(NetEvents.Type.SHOVE_KICK, NetCodec.pack_kick(Vector3.FORWARD), NetEvents.Target.ONE, client_peer)
+	get_tree().physics_frame.connect(shover)
+	await step_ticks(NET_SETTLE_TICKS)
+	var _discard_host: Dictionary = _host.transport.take_wire_stats()
+	var _discard_client: Dictionary = _client.transport.take_wire_stats()
+	_snapshots = 0
+	var expired_before: int = replicator.events.expired_total
+	await step_ticks(NET_MEASURE_TICKS)
+	get_tree().physics_frame.disconnect(shover)
+	var host_stats: Dictionary = _host.transport.take_wire_stats()
+	var down_per_tick: float = float(int(host_stats.get("sent_bytes", 0))) / float(NET_MEASURE_TICKS)
+	var expired: int = replicator.events.expired_total - expired_before
+	print("          BUDGET wire under a brawl at %d ms RTT: client down %.1f B/tick (B5 %.0f), host up %.1f B/tick (B4 %.0f), %d shoves landed, %d cues expired, %d snapshots" % [
+		BRAWL_DELAY_MS * 2, down_per_tick, B5_CLIENT_DOWN_BYTES_PER_TICK, down_per_tick * float(SEATS - 1),
+		B4_HOST_UP_BYTES_PER_TICK, landed[0], expired, _snapshots,
+	])
+	if not assert_gt(float(_snapshots), 10.0, "the host actually sent snapshots in the window"):
+		return
+	assert_gt(float(landed[0]), float(NET_MEASURE_TICKS) / float(cooldown_ticks) * float(SEATS) * 0.8, "the brawl's shoves were all made")
+	assert_eq_int(expired, 0, "and every cue reached the client inside its TTL at this round trip")
+	assert_le(down_per_tick * float(SEATS - 1), B4_HOST_UP_BYTES_PER_TICK, "B4: host upstream under a brawl is inside budget")
+	assert_le(down_per_tick, B5_CLIENT_DOWN_BYTES_PER_TICK, "B5: a client's downstream under a brawl is inside budget")

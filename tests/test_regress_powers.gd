@@ -173,6 +173,18 @@ func _shield() -> void:
 	assert_same(host.resolve_participant(_round_from_above()), _rig.participant(HOST, _slot), "and the round lands on the presser again")
 
 
+## Metres from [param at] to the nearest place the host's worlds put the presser's hologram.
+func _from_hosts_worlds(at: Vector3) -> float:
+	var replicator: NetReplicator = (_rig.sessions[HOST] as NetSession).replicator
+	var seat: int = PlayerNetLink.of(_rig.body(HOST, _slot)).seat_index
+	var nearest: float = INF
+	for i: int in replicator._ring_count:
+		var state: PlayerState = replicator._slot(i).find_seat(seat)
+		if state != null and state.decoy_alive:
+			nearest = minf(nearest, at.distance_to(state.anchor_position))
+	return nearest
+
+
 func _hologram() -> void:
 	# The pinned field stands on the start line ahead; a hologram stops against a body like anyone else.
 	for other: MatchParticipant in _rig.controller(HOST).get_participants():
@@ -201,7 +213,8 @@ func _hologram() -> void:
 	for peer: int in range(1, _rig.peer_count()):
 		var copy: PlayerController = _power(peer).get_decoy()
 		if assert_not_null(copy, "peer %d still has it" % peer):
-			assert_lt(copy.global_position.distance_to(decoy.global_position), 2.5, "peer %d draws it where the host has it" % peer)
+			# Drawn at the playout clock, like the bodies: where the host had it in a world it sent.
+			assert_lt(_from_hosts_worlds(copy.global_position), 0.5, "peer %d draws it where the host had it, a buffer late" % peer)
 			assert_gt(copy.velocity.length(), 0.5, "peer %d draws it running, not standing in the air pose" % peer)
 	_land_on(decoy)
 	# Counted in ticks, well inside the hologram's own time: it must go because it was shot.
@@ -241,8 +254,8 @@ func _armor() -> void:
 		return
 	for peer: int in _rig.peer_count():
 		assert_null(_rig.body(peer, _slot).get_node_or_null("ArmorShell"), "peer %d: no shell is left behind" % peer)
-	assert_false(_rig.body(HOST, _slot).movement_locked, "the host frees the body")
-	assert_false(_rig.body(_presser, _slot).movement_locked, "and so does the machine that owns it")
+	assert_false(_rig.body(HOST, _slot).is_movement_locked(), "the host frees the body")
+	assert_false(_rig.body(_presser, _slot).is_movement_locked(), "and so does the machine that owns it")
 
 
 ## The material the drawn body wears whole, on [param peer].
@@ -405,8 +418,8 @@ func _walks_again(why: String) -> void:
 		return
 	await step_ticks(CROSS_TICKS)
 	await _every_peer_shows(NONE, why)
-	assert_false(body.movement_locked, "the host holds no lock on the body %s" % why)
-	assert_false(_rig.body(_presser, _slot).movement_locked, "nor does its own machine %s" % why)
+	assert_false(body.is_movement_locked(), "the host holds no lock on the body %s" % why)
+	assert_false(_rig.body(_presser, _slot).is_movement_locked(), "nor does its own machine %s" % why)
 	var from: Vector3 = body.global_position
 	_rig.drive(_presser, Vector2(0.0, 1.0))
 	await step_ticks(90)
@@ -446,6 +459,8 @@ func _lock_through_a_death(peers: int, map: StringName) -> void:
 	await step_ticks(CROSS_TICKS)
 	_land_on(who.body)
 	assert_true(who.is_ghost, "an unlocked body is converted by the same hit")
+	# The test's hold for the shot is the test's to let go: no power frees a body the match holds.
+	who.body.movement_locked = false
 	for _i: int in 6:
 		await _tap(ARMOR, true)
 		await step_ticks(7)

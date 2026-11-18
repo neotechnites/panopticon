@@ -155,6 +155,24 @@ static func add_seat_body(
 	return link
 
 
+## Open the host's lobby and stand every client in its epoch: the host sends snapshots only to
+## standing peers (DESIGN 4.3). The epoch is the first, 1, which [method add_seat_body] binds.
+static func stand(case: Node, host: NetSession, clients: Array[NetSession]) -> bool:
+	if host.lobby.get_phase() == NetLobby.Phase.IDLE:
+		host.lobby.open("Host")
+	var epoch: int = host.lobby.get_epoch()
+	host.lobby.acknowledge_scene(epoch)
+	for client: NetSession in clients:
+		if not await poll_until(case, func() -> bool: return client.lobby.get_epoch() == epoch):
+			return false
+		client.lobby.acknowledge_scene(epoch)
+	return await poll_until(case, func() -> bool:
+		for client: NetSession in clients:
+			if not host.lobby.is_standing_in(client.get_local_peer_id(), epoch):
+				return false
+		return true)
+
+
 ## Run frames until [param predicate] is true, or until the wall clock runs out.
 ##
 ## Returns whether it came true. Process frames, not physics frames: polling the

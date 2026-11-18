@@ -54,51 +54,41 @@ func test_every_button_level_survives_the_command_round_trip() -> void:
 
 
 func test_shove_counter_and_boost_survive_the_snapshot_round_trip() -> void:
-	if not _has(PlayerState.new(), &"shove_counter", "PlayerState.shove_counter"):
-		return
-	if not _has(PlayerState.new(), &"boost_remaining", "PlayerState.boost_remaining"):
-		return
 	var left: Array[float] = [0.0, 0.04, 3.26, 7.0, 30.0, 0.1]
 	var scale: Array[float] = [1.0, 3.0, 3.0, 1.5, 2.0, 3.0]
 	var sent: WorldSnapshot = WorldSnapshot.new()
 	sent.tick = 900
 	for seat: int in left.size():
-		var state: PlayerState = PlayerState.new()
-		state.seat_index = seat
+		var state: PlayerState = sent.slot(seat)
 		# Swings 0..5: the wire keeps them modulo 4.
-		state.set(&"shove_counter", seat)
-		state.set(&"boost_remaining", left[seat])
-		state.set(&"boost_multiplier", scale[seat])
+		state.shove_counter = seat
+		state.boost_end_tick = NetCodec.end_tick(900, left[seat])
+		state.boost_multiplier = scale[seat]
 		state.emoting = seat % 2 == 0
 		state.emote_alt = seat % 3 == 0
-		assert_true(sent.append(state), "seat %d fits" % seat)
-	var packed: PackedByteArray = NetCodec.pack_snapshot(sent)
-	assert_eq_int(
-		packed.size(), NetCodec.SNAPSHOT_HEADER_SIZE + left.size() * NetCodec.SNAPSHOT_BODY_SIZE,
-		"six bodies are a header and six records",
-	)
+		NetCodec.quantise_state(state, 900)
+	var none: Array[NetEvents.Entry] = []
+	var packed: PackedByteArray = NetCodec.pack_snapshot(sent, null, -1, none, NetCodec.SnapshotInfo.new())
 	var got: WorldSnapshot = WorldSnapshot.new()
-	if not assert_true(NetCodec.unpack_snapshot(packed, got), "the snapshot decodes"):
+	if not assert_true(NetCodec.unpack_snapshot(packed, null, got, NetCodec.SnapshotInfo.new(), none), "the snapshot decodes"):
 		return
-	assert_eq_int(got.count, left.size(), "six bodies came back")
+	assert_eq_int(got.get_count(), left.size(), "six bodies came back")
 	for seat: int in left.size():
 		var state: PlayerState = got.find_seat(seat)
 		if not assert_not_null(state, "seat %d is in the snapshot" % seat):
 			continue
-		assert_eq_int(int(state.get(&"shove_counter")), seat % 4, "seat %d shove counter" % seat)
+		assert_eq_int(state.shove_counter, seat % 4, "seat %d shove counter" % seat)
 		assert_true(state.emoting == (seat % 2 == 0), "seat %d emoting is not disturbed by the counter" % seat)
 		assert_true(state.emote_alt == (seat % 3 == 0), "seat %d emote_alt is not disturbed by the counter" % seat)
-		var boost: float = float(state.get(&"boost_remaining"))
-		var expected: float = minf(left[seat], 25.5)
-		assert_almost_eq(boost, expected, 0.1001, "seat %d boost left, to a tenth" % seat)
-		if left[seat] > 0.0:
+		var boost: float = state.boost_remaining()
+		var expected: float = float(roundi(left[seat] * 60.0)) / 60.0
+		assert_almost_eq(boost, expected, 1.0 / 60.0 + 1e-4, "seat %d boost left, to the tick" % seat)
+		if roundi(left[seat] * 60.0) > 0:
 			assert_gt(boost, 0.0, "seat %d: a boost still running is never sent as none" % seat)
-			assert_almost_eq(
-				float(state.get(&"boost_multiplier")), scale[seat], 0.051, "seat %d boost multiplier" % seat
-			)
+			assert_almost_eq(state.boost_multiplier, scale[seat], 0.051, "seat %d boost multiplier" % seat)
 		else:
 			assert_almost_eq(boost, 0.0, 0.0001, "seat %d: no boost is sent as none" % seat)
-			assert_almost_eq(float(state.get(&"boost_multiplier")), 1.0, 0.0001, "seat %d: and plain speed" % seat)
+			assert_almost_eq(state.boost_multiplier, 1.0, 0.0001, "seat %d: and plain speed" % seat)
 
 
 # --- The host's edges ------------------------------------------------------------

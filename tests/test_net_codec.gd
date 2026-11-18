@@ -19,6 +19,8 @@ extends TestCase
 ## Names are capped in bytes, and the cap is exercised with multi-byte
 ## characters, so a truncation that cuts through a code point shows up.
 const NAME_CAP: int = 8
+## The host tick the snapshots here are sampled on.
+const TICK: int = 900
 
 
 func _make_intent() -> MoveIntent:
@@ -47,8 +49,8 @@ func _make_state(seat: int, offset: float) -> PlayerState:
 	state.pitch = -0.125 * offset
 	state.on_floor = seat % 2 == 0
 	state.ability = seat % 5
-	state.ability_remaining = 0.5 * float(seat)
-	state.cooldown_remaining = 0.3 * float(seat)
+	state.ability_end_tick = TICK + 30 * seat
+	state.cooldown_end_tick = TICK + 18 * seat
 	state.is_finisher = seat == 1
 	state.is_armed = seat == 1
 	state.health = 3 + seat
@@ -131,87 +133,194 @@ func test_a_command_carrying_nan_reaches_the_host_as_numbers() -> void:
 	assert_true(out[0].view_time == MoveIntent.LIVE_WORLD, "a view time that was not a number is none")
 
 
-func test_a_snapshot_survives_the_round_trip() -> void:
-	var sent: WorldSnapshot = WorldSnapshot.new()
-	sent.tick = 900
-	for seat: int in 3:
-		assert_true(sent.append(_make_state(seat, float(seat) * 3.0)), "seat %d fits" % seat)
+## [param seats] bodies at [constant TICK], snapped to the wire as the host keeps them.
+func _world(seats: int, offset: float = 0.0) -> WorldSnapshot:
+	var world: WorldSnapshot = WorldSnapshot.new()
+	world.tick = TICK
+	world.epoch = 3
+	for seat: int in seats:
+		world.slot(seat).copy_from(_make_state(seat, float(seat) * 3.0 + offset))
+		NetCodec.quantise_state(world.states[seat], TICK)
+	return world
 
-	var packed: PackedByteArray = NetCodec.pack_snapshot(sent)
-	assert_eq_int(
-		packed.size(),
-		NetCodec.SNAPSHOT_HEADER_SIZE + 3 * NetCodec.SNAPSHOT_BODY_SIZE,
-		"three bodies is a header and three records",
-	)
 
+func _pack(world: WorldSnapshot, base: WorldSnapshot, owner_seat: int = -1) -> PackedByteArray:
+	var info: NetCodec.SnapshotInfo = NetCodec.SnapshotInfo.new()
+	info.cmd_ack = 77
+	return NetCodec.pack_snapshot(world, base, owner_seat, [] as Array[NetEvents.Entry], info)
+
+
+func _unpack(payload: PackedByteArray, base: WorldSnapshot, out: WorldSnapshot) -> bool:
+	return NetCodec.unpack_snapshot(payload, base, out, NetCodec.SnapshotInfo.new(), [] as Array[NetEvents.Entry])
+
+
+func test_a_full_snapshot_survives_the_round_trip() -> void:
+	var sent: WorldSnapshot = _world(3)
+	var packed: PackedByteArray = _pack(sent, null)
+	assert_eq_int(NetCodec.snapshot_baseline(packed), -1, "with no baseline it is a full update")
 	var got: WorldSnapshot = WorldSnapshot.new()
-	assert_true(NetCodec.unpack_snapshot(packed, got), "a well-formed snapshot decodes")
-	assert_eq_int(got.tick, 900, "the tick is shared by every body in the packet")
-	assert_eq_int(got.count, 3, "three bodies came back")
+	var info: NetCodec.SnapshotInfo = NetCodec.SnapshotInfo.new()
+	assert_true(NetCodec.unpack_snapshot(packed, null, got, info, [] as Array[NetEvents.Entry]), "it decodes")
+	assert_eq_int(got.tick, TICK, "the tick is shared by every body in the packet")
+	assert_eq_int(info.cmd_ack, 77, "the acknowledgement is in the header")
+	assert_eq_int(got.get_count(), 3, "three bodies came back")
 	for seat: int in 3:
 		var state: PlayerState = got.find_seat(seat)
-		assert_not_null(state, "seat %d is in the snapshot" % seat)
-		if state == null:
+		if not assert_not_null(state, "seat %d is in the snapshot" % seat):
 			continue
 		var expected: PlayerState = _make_state(seat, float(seat) * 3.0)
-		# Half a centimetre: position and velocity are quantised to the
-		# centimetre on the wire, and that is the whole of the error.
-		assert_vec3_almost_eq(state.position, expected.position, 0.006, "seat %d position" % seat)
-		assert_vec3_almost_eq(state.velocity, expected.velocity, 0.006, "seat %d velocity" % seat)
-		assert_almost_eq(state.yaw, expected.yaw, 0.001, "seat %d yaw" % seat)
-		assert_almost_eq(state.pitch, expected.pitch, 0.001, "seat %d pitch" % seat)
-		assert_true(state.on_floor == expected.on_floor, "seat %d on_floor" % seat)
-		assert_eq_int(state.ability, expected.ability, "seat %d ability" % seat)
-		assert_almost_eq(
-			state.ability_remaining,
-			expected.ability_remaining,
-			0.05,
-			"seat %d ability_remaining, quantised to a tenth" % seat,
-		)
-		assert_almost_eq(
-			state.cooldown_remaining,
-			expected.cooldown_remaining,
-			0.05,
-			"seat %d cooldown_remaining, quantised to a tenth" % seat,
-		)
-		assert_true(state.is_finisher == expected.is_finisher, "seat %d is_finisher" % seat)
-		assert_true(state.is_armed == expected.is_armed, "seat %d is_armed" % seat)
-		assert_eq_int(state.health, expected.health, "seat %d health" % seat)
-		assert_eq_int(
-			state.jump_counter, expected.jump_counter, "seat %d jump count, an edge counted" % seat
-		)
-		assert_true(state.sliding == expected.sliding, "seat %d sliding" % seat)
-		assert_true(state.crouching == expected.crouching, "seat %d crouching" % seat)
-		assert_eq_int(state.tick, 900, "seat %d carries the snapshot's tick" % seat)
+		assert_true(state.equals(sent.states[seat]), "seat %d is the host's record, bit for bit" % seat)
+		assert_vec3_almost_eq(state.position, expected.position, 0.006, "seat %d position, to the centimetre" % seat)
+		assert_almost_eq(state.yaw, expected.yaw, 0.0001, "seat %d yaw" % seat)
+		assert_almost_eq(state.ability_remaining(), 0.5 * float(seat), 0.001, "seat %d power timer, exact in ticks" % seat)
+		assert_almost_eq(state.cooldown_remaining(), 0.3 * float(seat), 0.001, "seat %d cooldown" % seat)
+		assert_eq_int(state.jump_counter, expected.jump_counter, "seat %d jump count, an edge counted" % seat)
+	assert_null(got.find_seat(3), "a seat with no body stays empty")
 
 
-func test_a_truncated_snapshot_leaves_nothing_behind() -> void:
-	# The failure this guards is a client drawing three of five bodies and
-	# leaving the other two parked, which reads as two players who stopped
-	# moving rather than as a dropped packet.
-	var sent: WorldSnapshot = WorldSnapshot.new()
-	sent.tick = 5
-	for seat: int in 4:
-		sent.append(_make_state(seat, float(seat)))
-
-	var truncated: PackedByteArray = NetCodec.pack_snapshot(sent)
-	truncated.resize(truncated.size() - NetCodec.SNAPSHOT_BODY_SIZE)
-
+func test_a_delta_carries_only_what_changed() -> void:
+	var base: WorldSnapshot = _world(8)
+	var full: int = _pack(base, null).size()
+	var now: WorldSnapshot = WorldSnapshot.new()
+	now.copy_from(base)
+	now.tick = TICK + 2
+	now.states[5].position += Vector3(0.25, 0.0, 0.0)
+	var delta: PackedByteArray = _pack(now, base)
+	assert_eq_int(NetCodec.snapshot_baseline(delta), TICK, "coded against the acknowledged tick")
+	assert_eq_int(delta.size(), NetCodec.SNAPSHOT_HEADER_SIZE + 2 + 2 + 6, "one body's mask and position")
+	assert_lt(float(delta.size()), float(full), "smaller than the whole world")
 	var got: WorldSnapshot = WorldSnapshot.new()
-	assert_false(NetCodec.unpack_snapshot(truncated, got), "a count that outruns the payload is refused")
-	assert_eq_int(got.count, 0, "the output holds no half-decoded bodies")
+	assert_true(_unpack(delta, base, got), "it decodes on its baseline")
+	for seat: int in 8:
+		assert_true(got.states[seat].equals(now.states[seat]), "seat %d is the host's" % seat)
+	var quiet: WorldSnapshot = WorldSnapshot.new()
+	quiet.copy_from(base)
+	quiet.tick = TICK + 4
+	assert_eq_int(_pack(quiet, base).size(), NetCodec.SNAPSHOT_HEADER_SIZE, "nothing changed costs a header")
 
 
-func test_a_snapshot_claiming_more_bodies_than_a_session_holds_is_refused() -> void:
-	var forged: PackedByteArray = PackedByteArray()
-	forged.resize(NetCodec.SNAPSHOT_HEADER_SIZE)
-	forged.encode_u32(0, 1)
-	# Count sits after the u32 tick and the u32 scene epoch.
-	forged.encode_u8(8, NetTransport.MAX_PLAYERS + 1)
-
+func test_a_body_leaving_and_arriving_is_carried() -> void:
+	var base: WorldSnapshot = _world(3)
+	var now: WorldSnapshot = _world(2)
+	now.tick = TICK + 2
+	now.slot(6).copy_from(_make_state(6, 1.0))
+	NetCodec.quantise_state(now.states[6], now.tick)
 	var got: WorldSnapshot = WorldSnapshot.new()
-	assert_false(NetCodec.unpack_snapshot(forged, got), "more bodies than seats is refused")
-	assert_eq_int(got.count, 0, "and nothing was written")
+	assert_true(_unpack(_pack(now, base), base, got), "it decodes")
+	assert_null(got.find_seat(2), "the body that left is gone")
+	assert_not_null(got.find_seat(6), "the body that arrived is there")
+	assert_true(got.states[6].equals(now.states[6]), "whole, coded against nothing")
+
+
+func test_a_snapshot_on_the_wrong_baseline_is_refused() -> void:
+	var base: WorldSnapshot = _world(3)
+	var now: WorldSnapshot = _world(3, 1.0)
+	now.tick = TICK + 2
+	var delta: PackedByteArray = _pack(now, base)
+	var other: WorldSnapshot = _world(3)
+	other.tick = TICK - 2
+	var got: WorldSnapshot = WorldSnapshot.new()
+	assert_false(_unpack(delta, other, got), "a baseline of another tick is refused")
+	assert_false(_unpack(delta, null, got), "a delta read as a full update is refused")
+	assert_false(_unpack(_pack(now, null), base, got), "a full update read on a baseline is refused")
+
+
+func test_a_malformed_snapshot_is_refused() -> void:
+	var base: WorldSnapshot = _world(4)
+	var now: WorldSnapshot = _world(4, 2.0)
+	now.tick = TICK + 2
+	var good: PackedByteArray = _pack(now, base, 1)
+	var got: WorldSnapshot = WorldSnapshot.new()
+	assert_true(_unpack(good, base, got), "the untouched packet decodes")
+	for length: int in good.size():
+		assert_false(_unpack(good.slice(0, length), base, got), "cut to %d bytes it is refused" % length)
+	assert_false(_unpack(good + PackedByteArray([0]), base, got), "a trailing byte is refused")
+	var flags: PackedByteArray = good.duplicate()
+	flags[15] = flags[15] | 0x80
+	assert_false(_unpack(flags, base, got), "an unknown section bit is refused")
+	var seats: PackedByteArray = good.duplicate()
+	seats[NetCodec.SNAPSHOT_HEADER_SIZE + 1] = 0x80
+	assert_false(_unpack(seats, base, got), "a changed seat that is not present is refused")
+
+
+func test_the_owner_block_is_exact() -> void:
+	var base: WorldSnapshot = _world(2)
+	var now: WorldSnapshot = _world(2)
+	now.tick = TICK + 2
+	for i: int in PredictedState.SIZE:
+		now.owners[1].values[i] = 0.1 * float(i) + 1.0 / 3.0
+	var got: WorldSnapshot = WorldSnapshot.new()
+	assert_true(_unpack(_pack(now, base, 1), base, got), "it decodes")
+	assert_not_null(got.find_owner(1), "the receiving client's seat has its predicted state")
+	assert_null(got.find_owner(0), "and nobody else's")
+	assert_true(got.owners[1].equals(now.owners[1]), "every float is the host's f32, exactly")
+
+
+func test_events_ride_the_snapshot_until_it_is_full() -> void:
+	var world: WorldSnapshot = _world(8)
+	var events: Array[NetEvents.Entry] = []
+	for i: int in 100:
+		var entry: NetEvents.Entry = NetEvents.Entry.new()
+		entry.seq = 65530 + i
+		entry.tick = TICK - (i % 30)
+		entry.type = NetEvents.Type.SHOT
+		entry.payload = NetCodec.pack_shot(0, Vector3(1, 2, 3), Vector3(4, 5, 6), 1.5, 80.0, -9.8)
+		events.append(entry)
+	var info: NetCodec.SnapshotInfo = NetCodec.SnapshotInfo.new()
+	var packed: PackedByteArray = NetCodec.pack_snapshot(world, null, 0, events, info)
+	assert_lt(float(packed.size()), float(NetCodec.MAX_SNAPSHOT_BYTES), "the packet stays under the cap")
+	assert_gt(float(info.event_count), 0.0, "events went")
+	assert_lt(float(info.event_count), 100.0, "but not more than fit")
+	var got: WorldSnapshot = WorldSnapshot.new()
+	var read: NetCodec.SnapshotInfo = NetCodec.SnapshotInfo.new()
+	var out: Array[NetEvents.Entry] = []
+	assert_true(NetCodec.unpack_snapshot(packed, null, got, read, out), "it decodes")
+	assert_eq_int(read.event_count, info.event_count, "every event sent is read")
+	assert_eq_int(out[3].seq, (65533) & 0xFFFF, "the id is its low 16 bits")
+	assert_eq_int(out[3].tick, TICK - 3, "and its tick is the header's less its age")
+	assert_vec3_almost_eq(NetCodec.event_point(out[3].payload, 13), Vector3(4, 5, 6), 1e-6, "the payload, exact")
+
+
+func test_an_expired_long_ago_cooldown_reads_as_none_in_a_full_update() -> void:
+	# Ten minutes ago, sampled now: the u16 of an old end tick would alias into the future.
+	var now: int = TICK + 36000
+	var state: PlayerState = PlayerState.new()
+	state.cooldown_end_tick = TICK
+	state.ability_end_tick = now + 60
+	NetCodec.quantise_state(state, now)
+	assert_eq_int(state.cooldown_end_tick, 0, "an expired end tick is none in the state itself")
+	var world: WorldSnapshot = WorldSnapshot.new()
+	world.tick = now
+	world.slot(0).copy_from(state)
+	var got: WorldSnapshot = WorldSnapshot.new()
+	assert_true(_unpack(_pack(world, null), null, got), "it decodes")
+	assert_almost_eq(got.states[0].cooldown_remaining(), 0.0, 0.0001, "no cooldown")
+	assert_eq_int(got.states[0].ability_end_tick, now + 60, "a live one is resolved to the tick nearest the header")
+
+
+func test_an_end_tick_is_never_read_as_none() -> void:
+	var tick: int = 0x1FFFF - 10
+	var end: int = NetCodec.end_tick(tick, 10.0 / 60.0)
+	assert_true((end & 0xFFFF) != 0, "an end tick whose low 16 bits are 0 moves a tick: 0 is none")
+	assert_eq_int(NetCodec.end_tick(tick, 0.0), 0, "no time left is none")
+	assert_eq_int(NetCodec.end_tick(tick, -1.0), 0, "and so is time past")
+
+
+func test_the_highest_acknowledgement_is_not_none() -> void:
+	var world: WorldSnapshot = _world(1)
+	var info: NetCodec.SnapshotInfo = NetCodec.SnapshotInfo.new()
+	info.cmd_ack = 0xFFFFFFFF
+	var read: NetCodec.SnapshotInfo = NetCodec.SnapshotInfo.new()
+	var packed: PackedByteArray = NetCodec.pack_snapshot(world, null, -1, [] as Array[NetEvents.Entry], info)
+	assert_true(NetCodec.unpack_snapshot(packed, null, WorldSnapshot.new(), read, [] as Array[NetEvents.Entry]), "it decodes")
+	assert_eq_int(read.cmd_ack, 0xFFFFFFFF, "sequence 0xFFFFFFFF is a sequence")
+	info.cmd_ack = -1
+	packed = NetCodec.pack_snapshot(world, null, -1, [] as Array[NetEvents.Entry], info)
+	NetCodec.unpack_snapshot(packed, null, WorldSnapshot.new(), read, [] as Array[NetEvents.Entry])
+	assert_eq_int(read.cmd_ack, -1, "and none is none")
+	var command: PackedByteArray = NetCodec.pack_commands(1, 5, 0xFFFFFFFF, [_make_intent()], 1)
+	assert_eq_int(NetCodec.command_snap_ack(command), 0xFFFFFFFF, "a snap ack of tick 0xFFFFFFFF too")
+	assert_eq_int(NetCodec.command_snap_ack(NetCodec.pack_commands(1, 5, -1, [_make_intent()], 1)), -1, "none")
 
 
 # --- Roster -------------------------------------------------------------------

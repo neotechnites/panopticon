@@ -210,12 +210,13 @@ func test_a_rematch_runs_under_a_new_epoch_and_refuses_the_old_epochs_packets() 
 	# A snapshot of the finished match, newer than anything held, arriving late.
 	var stale: WorldSnapshot = WorldSnapshot.new()
 	stale.tick = client.replicator.get_latest_tick() + 600
-	stale.scene = old
+	stale.epoch = old
 	var held: int = client.replicator.get_latest_tick()
-	client.replicator._receive_snapshot(NetCodec.pack_snapshot(stale))
+	var none: Array[NetEvents.Entry] = []
+	client.replicator._receive_snapshot(NetCodec.pack_snapshot(stale, null, -1, none, NetCodec.SnapshotInfo.new()))
 	assert_eq_int(client.replicator.get_latest_tick(), held, "a snapshot of the finished match is refused")
 	var current: WorldSnapshot = WorldSnapshot.new()
 	current.tick = held + 600
-	current.scene = now
-	client.replicator._receive_snapshot(NetCodec.pack_snapshot(current))
+	current.epoch = now
+	client.replicator._receive_snapshot(NetCodec.pack_snapshot(current, null, -1, none, NetCodec.SnapshotInfo.new()))
 	assert_eq_int(client.replicator.get_latest_tick(), held + 600, "while one of the rematch is taken")

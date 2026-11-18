@@ -2,8 +2,8 @@ extends TestCase
 
 ## A client's own command, run as its prediction and as its replay (DESIGN 3.3, C12): the same
 ## [method PlayerController.run_command] the authority runs, but with no authority it resolves no
-## hit, spawns nothing, changes no participant and pulls no trigger. The replay, under the signal
-## block reconciliation uses, emits nothing either.
+## hit, spawns nothing and changes no participant; its trigger moves the gate and draws the shot
+## once (DESIGN 7). The replay, under the signal block reconciliation uses, draws nothing again.
 
 const SETTLE_TICKS: int = 60
 const REACH_METRES: float = 1.2
@@ -73,21 +73,37 @@ func test_a_predicted_command_changes_no_participant_and_spawns_nothing() -> voi
 	body.net_predicted = false
 
 
-func test_a_predicted_trigger_pull_fires_nothing() -> void:
+func test_a_predicted_trigger_pull_draws_its_shot_once_and_resolves_nothing() -> void:
 	var guard: MatchParticipant = _controller.get_seat_participant()
 	if not assert_not_null(guard, "a guard holds the tower"):
 		return
+	var rifle: Rifle = _controller.rifle
+	var outcomes: Array[String] = []
+	rifle.target_hit.connect(func(_c: Node3D, _p: Vector3, _n: Vector3) -> void: outcomes.append("hit"))
+	rifle.missed.connect(func(_p: Vector3) -> void: outcomes.append("miss"))
+	rifle.projectile_launched.connect(func(_o: Vector3, _d: Vector3, _s: float) -> void: outcomes.append("round"))
 	var body: PlayerController = guard.body
 	body.set_physics_process(false)
 	body.net_predicted = true
+	var before: Dictionary = _participants()
 	var command: MoveIntent = MoveIntent.new()
 	command.buttons = MoveIntent.FIRE
 	command.derive_edges(0)
-	var ready: bool = _controller.rifle.can_fire()
+	assert_true(rifle.can_fire(), "the rifle was ready to fire")
+	var gate: PackedFloat32Array = PackedFloat32Array()
+	gate.resize(Rifle.GATE_STATE_SIZE)
+	rifle.capture_gate(gate)
 	body.run_command(command, SIM_DELTA)
-	assert_true(ready, "the rifle was ready to fire")
-	assert_false("shot" in _resolved, "a predicting machine's trigger fires nothing: the shot is the host's")
-	assert_true(_controller.rifle.can_fire(), "and the rifle is still ready")
+	assert_eq_int(_resolved.count("shot"), 1, "the presser's own shot is drawn on the press")
+	assert_true(rifle.get_state() == Rifle.State.FIRING, "and its gate fires, which the replay must carry forward")
+	assert_eq_string(", ".join(outcomes), "", "a predicting machine resolves no hit, miss or round: those are the host's")
+	assert_eq_int(rifle.get_projectiles_in_flight(), 0, "nothing is in the air")
+	assert_true(_participants() == before, "and no participant changed")
+	# The replay of the same command, as reconciliation runs it: the gate's state restored first.
+	rifle.restore_gate(gate)
+	body.simulate_tick(command, SIM_DELTA)
+	assert_eq_int(_resolved.count("shot"), 1, "the replay draws no second shot")
+	assert_true(rifle.get_state() == Rifle.State.FIRING, "but its gate runs as predicted")
 	body.net_predicted = false
 
 

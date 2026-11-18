@@ -78,11 +78,11 @@ func test_a_presented_armor_lock_refuses_a_second_start() -> void:
 		return
 	var power: RunnerPower = power_of(b_links, A_SEAT)
 	var body: PlayerController = body_of(b_links, A_SEAT)
-	power.present(MatchRules.RunnerAbility.ARMOR_LOCK, 1.0)
+	power.present(MatchRules.RunnerAbility.ARMOR_LOCK, 1.0, 0.0)
 	var started: bool = power.activate(MatchRules.RunnerAbility.ARMOR_LOCK)
 	assert_false(started, "a press under a presented armor lock starts nothing")
 	assert_eq_int(_live_nodes(body, "ArmorShell"), 1, "shells on the body while the lock is drawn")
-	power.present(MatchRules.RunnerAbility.NONE, 0.0)
+	power.present(MatchRules.RunnerAbility.NONE, 0.0, 0.0)
 	assert_eq_int(_live_nodes(body, "ArmorShell"), 0, "shells on the body once the lock is over")
 	assert_false(body.movement_locked, "the body is free once the presented lock is over")
 
@@ -91,13 +91,13 @@ func test_a_presented_shield_refuses_a_second_start() -> void:
 	if not await stand_up():
 		return
 	var power: RunnerPower = power_of(b_links, A_SEAT)
-	power.present(MatchRules.RunnerAbility.BUBBLE_SHIELD, 1.0)
+	power.present(MatchRules.RunnerAbility.BUBBLE_SHIELD, 1.0, 0.0)
 	var started: bool = power.activate(MatchRules.RunnerAbility.BUBBLE_SHIELD)
 	assert_false(started, "a press under a presented shield starts nothing")
 	assert_eq_int(
 		_live_nodes(b.get_parent(), "BubbleShield"), 1, "shields on B while one is drawn"
 	)
-	power.present(MatchRules.RunnerAbility.NONE, 0.0)
+	power.present(MatchRules.RunnerAbility.NONE, 0.0, 0.0)
 	assert_eq_int(
 		_live_nodes(b.get_parent(), "BubbleShield"), 0, "shields on B once the shield is over"
 	)
@@ -111,11 +111,11 @@ func test_a_presented_camo_refuses_a_second_start_and_gives_the_skin_back() -> v
 	if not assert_not_null(mesh, "the fixture body has a mesh for camo to tint"):
 		return
 	var worn: Material = mesh.material_override
-	power.present(MatchRules.RunnerAbility.ACTIVE_CAMO, 1.0)
+	power.present(MatchRules.RunnerAbility.ACTIVE_CAMO, 1.0, 0.0)
 	assert_true(mesh.material_override != worn, "presented camo tints the body")
 	var started: bool = power.activate(MatchRules.RunnerAbility.ACTIVE_CAMO)
 	assert_false(started, "a press under presented camo starts nothing")
-	power.present(MatchRules.RunnerAbility.NONE, 0.0)
+	power.present(MatchRules.RunnerAbility.NONE, 0.0, 0.0)
 	assert_same(mesh.material_override, worn, "the body wears what it wore before the camo")
 
 
@@ -125,21 +125,21 @@ func test_presenting_a_predicted_power_leaves_one_drawing_and_one_flag() -> void
 	var power: RunnerPower = power_of(b_links, A_SEAT)
 	var body: PlayerController = body_of(b_links, A_SEAT)
 	assert_true(power.activate(MatchRules.RunnerAbility.ARMOR_LOCK), "the lock starts on a press")
-	power.present(MatchRules.RunnerAbility.ARMOR_LOCK, 1.0)
+	power.present(MatchRules.RunnerAbility.ARMOR_LOCK, 1.0, 0.0)
 	assert_eq_int(_live_nodes(body, "ArmorShell"), 1, "shells after the host confirmed the lock")
 	assert_eq_int(int(power.get_active()), NONE, "the confirmed lock is the host's, not a prediction")
 	assert_eq_int(int(power.get_shown()), ARMOR, "the confirmed lock is still drawn")
-	power.present(MatchRules.RunnerAbility.NONE, 0.0)
+	power.present(MatchRules.RunnerAbility.NONE, 0.0, 0.0)
 	assert_eq_int(_live_nodes(body, "ArmorShell"), 0, "shells once the host says it is over")
 	assert_eq_int(int(power.get_shown()), NONE, "nothing drawn once the host says it is over")
 	assert_false(body.movement_locked, "the body is free once the host says it is over")
 	assert_true(power.activate(MatchRules.RunnerAbility.BUBBLE_SHIELD), "a shield starts on a press")
-	power.present(MatchRules.RunnerAbility.ACTIVE_CAMO, 1.0)
+	power.present(MatchRules.RunnerAbility.ACTIVE_CAMO, 1.0, 0.0)
 	assert_eq_int(
 		_live_nodes(b.get_parent(), "BubbleShield"), 0,
 		"shields left when the host ran a different power than the one predicted",
 	)
-	power.present(MatchRules.RunnerAbility.NONE, 0.0)
+	power.present(MatchRules.RunnerAbility.NONE, 0.0, 0.0)
 
 
 func test_a_hologram_is_a_decoy_and_not_a_runner_on_every_machine() -> void:
@@ -176,12 +176,17 @@ func test_a_hologram_is_a_decoy_and_not_a_runner_on_every_machine() -> void:
 	assert_eq_int(listed, 0, "decoys anywhere in the runner group")
 
 
-func test_a_late_position_builds_no_hologram_after_it_ended() -> void:
+func test_a_late_snapshot_builds_no_hologram_after_it_ended() -> void:
 	if not await stand_up():
 		return
 	a_keys.tap_slot(HOLOGRAM)
 	var up: bool = await until(func() -> bool: return all_draw(A_SEAT, HOLOGRAM))
 	assert_true(up, "A's hologram ran: %s" % str(drawn(A_SEAT)))
+	# A world the host sent while the hologram stood, to arrive again after it is over.
+	var alive: WorldSnapshot = WorldSnapshot.new()
+	alive.copy_from(host.replicator._newest())
+	if not assert_true(alive.find_seat(A_SEAT).decoy_alive, "the host's world carries the hologram"):
+		return
 	var over: bool = await until(
 		func() -> bool:
 			return (
@@ -191,10 +196,11 @@ func test_a_late_position_builds_no_hologram_after_it_ended() -> void:
 			)
 	)
 	assert_true(over, "A's hologram ended on every machine")
-	for links: Array[PlayerNetLink] in [a_links, b_links]:
-		var power: RunnerPower = power_of(links, A_SEAT)
-		power.present_decoy(Vector3(1.0, 0.0, 1.0), 0.0)
-		assert_null(power.get_decoy(), "a position with no spawn before it built a hologram")
+	var no_events: Array[NetEvents.Entry] = []
+	var late: PackedByteArray = NetCodec.pack_snapshot(alive, null, -1, no_events, NetCodec.SnapshotInfo.new())
+	for machine: NetSession in [a, b]:
+		assert_false(machine.replicator.receive_snapshot(late), "a client takes a world older than the one it holds")
+	await step_ticks(10)
 	assert_eq_int(
 		_decoys_under(a.get_parent()) + _decoys_under(b.get_parent()), 0,
 		"holograms on the clients after the power ended",
@@ -275,9 +281,14 @@ func _repress_the_tick_it_ended(seat: int) -> void:
 		return
 	if not assert_not_null(on_b, "B draws the second hologram 30 ticks after the press"):
 		return
-	var apart: float = on_b.global_position.distance_to(on_host.global_position)
-	print("    second hologram: B is %.3f m from the host's, built %d time(s)" % [apart, built.size()])
-	assert_lt(apart, 0.5, "metres between B's copy of the second hologram and the host's")
+	# B draws the world a buffer late: its hologram stands where the host's stood in the worlds it holds.
+	var apart: float = INF
+	for i: int in host.replicator._ring_count:
+		var state: PlayerState = host.replicator._slot(i).find_seat(seat)
+		if state != null and state.decoy_alive:
+			apart = minf(apart, on_b.global_position.distance_to(state.anchor_position))
+	print("    second hologram: B is %.3f m from the host's at B's drawn time, built %d time(s)" % [apart, built.size()])
+	assert_lt(apart, 0.5, "metres between B's copy of the second hologram and the host's, a buffer late")
 	assert_eq_int(built.size(), 1, "times B built the second hologram")
 
 

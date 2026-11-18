@@ -65,6 +65,8 @@ func _stand_up() -> bool:
 	if not await NetFixtures.join_and_wait(self, _client, _host, port):
 		return false
 	var client_id: int = _client.get_local_peer_id()
+	if not await NetFixtures.stand(self, _host, [_client]):
+		return false
 
 	for seat: int in SEATS:
 		# Seat 0 is the client's; the rest are bots, which is what the wire
@@ -155,11 +157,9 @@ func test_the_wire_cost_of_eight_seats_is_measured_and_within_budget() -> void:
 		"a snapshot fits in one datagram on any path worth playing on",
 	)
 	# The codec's own arithmetic, so a body that grew a field is caught here as
-	# well as in the codec test.
+	# well as in the codec test: the whole world, coded against nothing.
 	assert_le(
-		NetCodec.SNAPSHOT_HEADER_SIZE + SEATS * NetCodec.SNAPSHOT_BODY_SIZE,
-		SNAPSHOT_WIRE_BUDGET,
-		"and so does the payload the codec builds",
+		float(_full_update(1000).size()), float(SNAPSHOT_WIRE_BUDGET), "and so does the full update the codec builds",
 	)
 
 
@@ -175,11 +175,7 @@ func test_compression_is_worth_its_microseconds() -> void:
 		return
 	var plain: float = await _measure_window("uncompressed, for comparison")
 
-	assert_gt(
-		plain,
-		float(NetCodec.SNAPSHOT_HEADER_SIZE + SEATS * NetCodec.SNAPSHOT_BODY_SIZE),
-		"an uncompressed snapshot is at least the payload the codec built",
-	)
+	assert_gt(plain, float(NetCodec.SNAPSHOT_HEADER_SIZE), "an uncompressed snapshot is at least a header")
 	assert_lt(
 		plain, float(SNAPSHOT_WIRE_BUDGET), "and still fits in one datagram without the coder"
 	)
@@ -187,36 +183,47 @@ func test_compression_is_worth_its_microseconds() -> void:
 
 # --- CPU ----------------------------------------------------------------------
 
+## The host's eight bodies at [param tick], as its replicator samples them.
+func _sample(tick: int) -> WorldSnapshot:
+	var world: WorldSnapshot = WorldSnapshot.new()
+	world.tick = tick
+	world.epoch = _host.replicator.get_scene()
+	for link: PlayerNetLink in _host_links:
+		var state: PlayerState = world.slot(link.seat_index)
+		link.sample_state(state, tick)
+		NetCodec.quantise_state(state, tick)
+	_host_links[0].sample_predicted(world.owners[0])
+	world.owner_valid = 1
+	return world
+
+
+## The whole world at [param tick] coded against nothing, for the client in seat 0.
+func _full_update(tick: int) -> PackedByteArray:
+	return NetCodec.pack_snapshot(_sample(tick), null, 0, [] as Array[NetEvents.Entry], NetCodec.SnapshotInfo.new())
+
 func test_the_replicator_costs_microseconds_a_tick_at_eight_seats() -> void:
 	if not await _stand_up():
 		fail("the loopback handshake did not complete")
 		return
 
-	var snapshot: WorldSnapshot = WorldSnapshot.new()
-	for link: PlayerNetLink in _host_links:
-		link.sample_state(snapshot.next_slot())
-		snapshot.commit()
-	snapshot.tick = 1000
-
-	# The host's per-tick work: read eight bodies, pack them.
+	# The host's per-snapshot work: sample eight bodies and the owner's state, code them against the
+	# last world.
+	var previous: WorldSnapshot = _sample(999)
 	var started: int = Time.get_ticks_usec()
-	for _i: int in BENCH_ITERATIONS:
-		snapshot.clear()
-		for link: PlayerNetLink in _host_links:
-			link.sample_state(snapshot.next_slot())
-			snapshot.commit()
-		var _packed: PackedByteArray = NetCodec.pack_snapshot(snapshot)
+	for i: int in BENCH_ITERATIONS:
+		var world: WorldSnapshot = _sample(1000 + i)
+		var _packed: PackedByteArray = NetCodec.pack_snapshot(world, previous, 0, [] as Array[NetEvents.Entry], NetCodec.SnapshotInfo.new())
+		previous = world
 	var host_usec: float = float(Time.get_ticks_usec() - started) / float(BENCH_ITERATIONS)
 
-	# The client's per-snapshot work: unpack eight bodies and take them.
-	var payload: PackedByteArray = NetCodec.pack_snapshot(snapshot)
-	var incoming: WorldSnapshot = WorldSnapshot.new()
-	started = Time.get_ticks_usec()
+	# The client's per-snapshot work: decode eight bodies and take them.
+	var payloads: Array[PackedByteArray] = []
+	var base_tick: int = _client.replicator.get_latest_tick() + 100
 	for i: int in BENCH_ITERATIONS:
-		incoming.clear()
-		assert_true(NetCodec.unpack_snapshot(payload, incoming), "the benchmark payload decodes")
-		incoming.tick = 2000 + i
-		_client.replicator.apply_snapshot(incoming)
+		payloads.append(_full_update(base_tick + i))
+	started = Time.get_ticks_usec()
+	for payload: PackedByteArray in payloads:
+		assert_true(_client.replicator.receive_snapshot(payload), "the benchmark payload is taken")
 	var client_usec: float = float(Time.get_ticks_usec() - started) / float(BENCH_ITERATIONS)
 
 	# And the client's per-DRAWN-FRAME work, which is the one that runs at the

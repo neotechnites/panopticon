@@ -666,15 +666,13 @@ func test_a_client_back_in_the_hub_first_waits_quietly_and_is_let_in_with_four()
 
 # --- PT3-09: the relaunch leaves the hub the frame it stands ----------------------
 
-## A hub that has left the tree for the relaunched match tells a late-binding client nothing.
+## A hub that has left the tree for the relaunched match sends a late-binding client nothing of itself.
 func test_a_hub_that_has_left_the_tree_answers_no_late_client() -> void:
 	if not await _rig.connect_peers(self, 1):
 		fail("the loopback handshake did not complete")
 		return
 	_rig.matches.resize(_rig.peer_count())
 	var hub: Node3D = _bind_hub(HOST)
-	var told: Array[int] = []
-	(hub.get_node("NetMatch") as NetMatch).peer_bound.connect(func(peer: int) -> void: told.append(peer))
 	# The scene change: out of the tree now, freed later.
 	var world: Node = hub.get_parent()
 	world.get_parent().remove_child(world)
@@ -688,6 +686,7 @@ func test_a_hub_that_has_left_the_tree_answers_no_late_client() -> void:
 		return _rig.sessions[HOST].lobby.peer_state(client_id) == NetLobby.PeerState.STANDING)
 	assert_true(acknowledged, "the client's hub acknowledged its scene to the host")
 	await step_ticks(4)
-	assert_eq_int(told.size(), 0, "a hub out of the tree announces no peer to its cats")
+	assert_eq_int(_rig.sessions[HOST].replicator.get_scene(), 0, "a hub out of the tree speaks for no scene")
+	assert_eq_int(_rig.sessions[1].replicator.get_latest_tick(), -1, "so the late client hears no world of it")
 	_rig.matches[HOST] = null
 	world.free()

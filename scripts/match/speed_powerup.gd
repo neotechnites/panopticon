@@ -124,6 +124,9 @@ func is_armed() -> bool:
 
 
 func _networked() -> bool:
+	if not is_inside_tree():
+		# Out of the tree (a parked scene) there is no session to follow.
+		return false
 	var peer: MultiplayerPeer = multiplayer.multiplayer_peer
 	return peer != null and not (peer is OfflineMultiplayerPeer)
 

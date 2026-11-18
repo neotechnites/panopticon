@@ -121,25 +121,10 @@ class PredictedTick extends RefCounted:
 	var position: Vector3 = Vector3.ZERO
 
 
-## A client's own body's source: its device's commands made exactly what the host will run, and
-## numbered for the outbox. The body predicts with what is sent.
-class PredictedSource extends IntentSource:
-	var link: PlayerNetLink = null
-
-	func configure(movement_profile: MovementProfile) -> void:
-		profile = movement_profile
-		if link != null and link.local_source != null:
-			link.local_source.configure(movement_profile)
-
-	func next_command(delta: float) -> MoveIntent:
-		return link._make_command(delta)
-
-
 ## This tick's command, as sent; and its sequence, -1 before the world is heard.
 var _command: MoveIntent = MoveIntent.new()
 var _command_seq: int = -1
 var _command_frame: int = -1
-var _predicted_source: PredictedSource = PredictedSource.new()
 ## This machine's own view: yaw before [member PlayerController.view_base], and pitch.
 var _view: Vector2 = Vector2.ZERO
 
@@ -231,9 +216,6 @@ func _ready() -> void:
 	controller.jumped.connect(func() -> void: _jump_counter += 1)
 	controller.shoved.connect(func() -> void: _shove_counter += 1)
 	_by_body[controller.get_instance_id()] = self
-	_predicted_source.link = self
-	_predicted_source.name = "PredictedInput"
-	add_child(_predicted_source)
 	refresh_role()
 
 
@@ -241,6 +223,8 @@ func _exit_tree() -> void:
 	# A scene change leaves this link detached but alive, and the engine still routes RPCs to it;
 	# out of the tree it has no multiplayer to answer them with, so it simulates nothing.
 	_is_authority = false
+	if local_source != null and local_source.shape == Callable(self, &"_shape_command"):
+		local_source.shape = Callable()
 	if controller != null and _by_body.get(controller.get_instance_id(), null) == self:
 		_by_body.erase(controller.get_instance_id())
 	if replicator != null:
@@ -266,6 +250,8 @@ func refresh_role() -> void:
 	if _owns_locally() and local_source != null and replicator != null:
 		# This machine's commands carry the time it draws the others at: what its shots rewind to.
 		local_source.view_clock = replicator.get_view_time
+		# A client's are the host's to run: its body runs each exactly as the host will.
+		local_source.shape = _shape_command if not _is_authority else Callable()
 	if not _is_authority and not _predicting:
 		# Somebody else's body on a client owns no simulation: the snapshots move it.
 		if not _owns_locally():
@@ -277,8 +263,7 @@ func refresh_role() -> void:
 		# This machine's own body on a client runs exactly the commands it sends.
 		reset_prediction()
 		_take_own_footing()
-		controller.intent_source = _predicted_source
-	elif _owns_locally():
+	if _owns_locally():
 		controller.intent_source = local_source
 	elif replicator != null:
 		controller.intent_source = replicator.stream_for(owner_peer_id)
@@ -299,7 +284,7 @@ func _physics_process(delta: float) -> void:
 		_take_own_footing()
 	if _command_frame != Engine.get_physics_frames():
 		# The body did not run this tick (unplaced, or mirrored): its command is still sent.
-		_make_command(delta)
+		local_source.next_command(delta)
 	if _command_seq >= 0:
 		replicator.send_commands()
 	if _command_seq >= 0 and is_predicting():
@@ -457,9 +442,8 @@ func _weapon() -> Rifle:
 	return match_controller.rifle if match_controller.rifle.shooter_body == controller else null
 
 
-## Put an authoritative record onto a mirrored body. Called by [NetReplicator] on a client, once
-## per drawn frame while interpolating. Transform, velocity, footing and poses: a client runs no
-## physics for it, but its avatar picks clips off them. The power is drawn, never run.
+## A drawn record onto a mirrored body, once per frame: transform, velocity, footing and poses its
+## avatar picks clips off (no physics runs for it); the power drawn, never run.
 func apply_state(state: PlayerState) -> void:
 	if controller == null:
 		return
@@ -574,11 +558,9 @@ func _participant() -> MatchParticipant:
 
 # --- Sending ------------------------------------------------------------------
 
-## This tick's command from the device: the view made absolute (Quake's usercmd: a lost packet
-## costs no aim), quantised as the host decodes it, and numbered. None is numbered before this
-## scene's world has been heard (Quake 3 sends no usercmd before its first snapshot).
-func _make_command(delta: float) -> MoveIntent:
-	var command: MoveIntent = local_source.next_command(delta)
+## The device's [param command] as sent: view absolute, quantised as the host decodes it, numbered
+## (none before this scene's world is heard, as Quake 3 sends no usercmd before its first snapshot).
+func _shape_command(command: MoveIntent) -> MoveIntent:
 	_view = command.view_angles if command.view_absolute else controller.turned_view(_view, command.look_delta)
 	_command.copy_from(command)
 	_command.view_angles = _view
@@ -595,9 +577,8 @@ func _make_command(delta: float) -> MoveIntent:
 
 # --- Prediction ---------------------------------------------------------------
 
-## Take the host's word on this body: its record, its exact predicted state ([param owner], null
-## when none was sent) and the newest of this machine's commands it had run ([param cmd_ack]).
-## Held for the next physics tick: a snapshot lands on an idle frame and a replay runs physics.
+## The host's record, exact predicted state ([param owner]) and newest command run ([param cmd_ack]),
+## held for the next physics tick: a snapshot lands on an idle frame and a replay runs physics.
 func receive_authoritative(state: PlayerState, owner: PredictedState, cmd_ack: int) -> void:
 	if owner == null:
 		return

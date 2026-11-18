@@ -342,24 +342,39 @@ func _bind_match(session: NetSession) -> NetMatch:
 func test_every_per_tick_message_fits_in_one_datagram() -> void:
 	# A fragmented UDP datagram is lost whole when any one of its fragments is,
 	# so the per-tick messages have to fit in the smallest path worth playing on.
+	# The fullest snapshot: a full update of every seat with every field live, the owner block whole.
 	var snapshot: WorldSnapshot = WorldSnapshot.new()
+	snapshot.tick = 100
 	for seat: int in NetTransport.MAX_PLAYERS:
-		var state: PlayerState = PlayerState.new()
-		state.seat_index = seat
+		var state: PlayerState = snapshot.slot(seat)
 		state.position = Vector3(float(seat) * 7.0, 3.0, -float(seat))
 		state.velocity = Vector3(1.0, -2.0, 3.0)
-		snapshot.append(state)
-	var packed: PackedByteArray = NetCodec.pack_snapshot(snapshot)
-	assert_eq_int(
-		packed.size(),
-		NetCodec.SNAPSHOT_HEADER_SIZE + NetTransport.MAX_PLAYERS * NetCodec.SNAPSHOT_BODY_SIZE,
-		"a full snapshot is the size the codec says it is",
-	)
+		state.yaw = 0.3
+		state.pitch = 0.2
+		state.view_base = 0.1
+		state.on_floor = true
+		state.health = 3
+		state.ability = 1
+		state.ability_end_tick = 160
+		state.cooldown_end_tick = 400
+		state.has_anchor = true
+		state.anchor_position = Vector3.ONE
+		state.boost_end_tick = 200
+		state.boost_multiplier = 2.0
+		state.weapon_state = 2
+		state.weapon_end_tick = 150
+		state.weapon_charge = 200
+		NetCodec.quantise_state(state, 100)
+		for i: int in PredictedState.SIZE:
+			snapshot.owners[seat].values[i] = float(i) + 0.5
+	snapshot.match_record.resize(NetCodec.MATCH_HEADER_SIZE + NetTransport.MAX_PLAYERS * NetCodec.MATCH_PARTICIPANT_SIZE)
+	var packed: PackedByteArray = NetCodec.pack_snapshot(snapshot, null, 0, [] as Array[NetEvents.Entry], NetCodec.SnapshotInfo.new())
 	assert_lt(
 		float(packed.size()),
 		float(ENetTransport.SAFE_PAYLOAD_BYTES),
-		"and a full lobby's snapshot is nowhere near a datagram",
+		"a full lobby's fullest snapshot is nowhere near a datagram",
 	)
+	assert_lt(float(packed.size()), float(NetCodec.MAX_SNAPSHOT_BYTES), "and under the codec's own cap before any event")
 
 	var commands: Array[MoveIntent] = []
 	for i: int in NetCodec.MAX_COMMANDS:
@@ -373,11 +388,6 @@ func test_every_per_tick_message_fits_in_one_datagram() -> void:
 		float(NetCodec.pack_commands(1, 99, 100, commands, NetCodec.MAX_COMMANDS).size()),
 		float(ENetTransport.SAFE_PAYLOAD_BYTES),
 		"nor is the fullest command packet this build can send, every field changing",
-	)
-	assert_lt(
-		float(NetCodec.DECOY_MOVE_SIZE),
-		float(ENetTransport.SAFE_PAYLOAD_BYTES),
-		"nor a hologram's transform",
 	)
 
 

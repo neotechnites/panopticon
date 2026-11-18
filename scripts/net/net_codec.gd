@@ -85,7 +85,7 @@ const _OWNER_SHIFT: int = 3
 ## Bytes of an event's header: u16 id, u8 type, u8 age in ticks behind the snapshot.
 const EVENT_HEADER_SIZE: int = 4
 ## Payload bytes per [enum NetEvents.Type], fixed: the size is the version.
-const EVENT_PAYLOAD: PackedInt32Array = [0, 25, 11, 7, 7, 3, 7]
+const EVENT_PAYLOAD: PackedInt32Array = [0, 37, 17, 13, 13, 3, 13]
 
 ## Most bytes a match record or a prop record may be.
 const MAX_RECORD_BYTES: int = 255
@@ -310,9 +310,8 @@ class SnapshotInfo:
 	var event_count: int = 0
 
 
-## [param world] coded against [param base] (null: a full update) for the client in [param owner_seat]
-## (-1: none), with as many of [param events] as fit under [constant MAX_SNAPSHOT_BYTES]; [param info]
-## gives the header's cmd ack and buffer and gets back the event count.
+## [param world] against [param base] (null: full) for the client in [param owner_seat] (-1: none), with
+## the [param events] that fit; [param info] gives cmd ack and buffer, gets back the event count.
 static func pack_snapshot(
 	world: WorldSnapshot, base: WorldSnapshot, owner_seat: int, events: Array[NetEvents.Entry], info: SnapshotInfo
 ) -> PackedByteArray:
@@ -392,9 +391,8 @@ static func snapshot_baseline(payload: PackedByteArray) -> int:
 	return payload.decode_u32(6)
 
 
-## Decode [param payload] onto [param base] (null for a full update; it must be the tick the payload
-## names) into [param out], its header into [param info] and its events into [param events] (entries
-## reused). False for a malformed packet or the wrong baseline, leaving [param out] unspecified.
+## Decode [param payload] onto [param base] (null: full; else the tick it names) into [param out],
+## [param info] and [param events]. False for a malformed packet or wrong baseline.
 static func unpack_snapshot(
 	payload: PackedByteArray, base: WorldSnapshot, out: WorldSnapshot, info: SnapshotInfo, events: Array[NetEvents.Entry]
 ) -> bool:
@@ -433,18 +431,18 @@ static func unpack_snapshot(
 			return false
 		for seat: int in NetTransport.MAX_PLAYERS:
 			var state: PlayerState = out.states[seat]
-			if (out.present & (1 << seat)) == 0:
+			var bit: int = 1 << seat
+			if (out.present & bit) == 0 or (was_present & bit) == 0:
+				# Gone, or new: a new body is coded against the defaults, so it must be in the changed set.
 				state.clear()
-			elif (was_present & (1 << seat)) == 0:
-				state.clear()
+				if (out.present & bit) != 0 and (changed & bit) == 0:
+					return false
 			state.seat_index = seat
 			state.tick = info.tick
-			if (changed & (1 << seat)) != 0:
+			if (changed & bit) != 0:
 				at = _get_body(payload, at, state, info.tick)
 				if at < 0:
 					return false
-			elif (was_present & (1 << seat)) == 0:
-				return false
 	else:
 		for seat: int in NetTransport.MAX_PLAYERS:
 			out.states[seat].tick = info.tick
@@ -647,10 +645,10 @@ static func _get_body(payload: PackedByteArray, at: int, state: PlayerState, tic
 	if at + need > payload.size():
 		return -1
 	if (mask & BODY_POSITION) != 0:
-		state.position = _decode_metres(payload, at)
+		state.position = metres_at(payload, at)
 		at += 6
 	if (mask & BODY_VELOCITY) != 0:
-		state.velocity = _decode_metres(payload, at)
+		state.velocity = metres_at(payload, at)
 		at += 6
 	if (mask & BODY_YAW) != 0:
 		state.yaw = turn_of(payload.decode_u16(at))
@@ -690,7 +688,7 @@ static func _get_body(payload: PackedByteArray, at: int, state: PlayerState, tic
 			state.anchor_position = Vector3.ZERO
 			state.anchor_yaw = 0.0
 	if (mask & BODY_ANCHOR) != 0:
-		state.anchor_position = _decode_metres(payload, at)
+		state.anchor_position = metres_at(payload, at)
 		state.anchor_yaw = turn_of(payload.decode_u16(at + 6))
 		at += 8
 	if (mask & BODY_BOOST) != 0:
@@ -782,7 +780,8 @@ static func _put_metres(buffer: StreamPeerBuffer, value: Vector3) -> void:
 	buffer.put_16(quantise_metres(value.z))
 
 
-static func _decode_metres(payload: PackedByteArray, at: int) -> Vector3:
+## Three i16 centimetres of [param payload] at [param at], as metres.
+static func metres_at(payload: PackedByteArray, at: int) -> Vector3:
 	return Vector3(
 		float(payload.decode_s16(at)) / QUANT_CENTIMETRE,
 		float(payload.decode_s16(at + 2)) / QUANT_CENTIMETRE,
@@ -839,11 +838,12 @@ static func turn_of(steps: int) -> float:
 # --- Events: payloads of the snapshot's event ring -------------------------------
 
 ## A shot: which rifle, its origin and end, then the reload, round speed and gravity it carried.
+## Points are exact f32: a hit is drawn where the host's ray met the body.
 static func pack_shot(which: int, origin: Vector3, end_point: Vector3, reload: float, speed: float, gravity: float) -> PackedByteArray:
 	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
 	buffer.put_u8(which)
-	_put_metres(buffer, origin)
-	_put_metres(buffer, end_point)
+	_put_point(buffer, origin)
+	_put_point(buffer, end_point)
 	buffer.put_float(reload if is_finite(reload) else 0.0)
 	buffer.put_float(speed if is_finite(speed) else -1.0)
 	buffer.put_float(gravity if is_finite(gravity) else -1.0)
@@ -855,7 +855,7 @@ static func pack_hit(which: int, seat: int, at: Vector3, normal: Vector3) -> Pac
 	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
 	buffer.put_u8(which)
 	buffer.put_u8(seat if seat >= 0 and seat < NetTransport.MAX_PLAYERS else 0xFF)
-	_put_metres(buffer, at)
+	_put_point(buffer, at)
 	_put_unit(buffer, normal)
 	return buffer.data_array
 
@@ -864,7 +864,7 @@ static func pack_hit(which: int, seat: int, at: Vector3, normal: Vector3) -> Pac
 static func pack_point(byte: int, at: Vector3) -> PackedByteArray:
 	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
 	buffer.put_u8(byte)
-	_put_metres(buffer, at)
+	_put_point(buffer, at)
 	return buffer.data_array
 
 
@@ -876,7 +876,25 @@ static func pack_kick(forward: Vector3) -> PackedByteArray:
 
 
 static func event_point(payload: PackedByteArray, at: int) -> Vector3:
-	return _decode_metres(payload, at)
+	var point: Vector3 = Vector3(payload.decode_float(at), payload.decode_float(at + 4), payload.decode_float(at + 8))
+	return point if point.is_finite() else Vector3.ZERO
+
+
+## The seat [param entry] is about (the body struck or shoved), or -1.
+static func event_subject(entry: NetEvents.Entry) -> int:
+	match entry.type:
+		NetEvents.Type.HIT:
+			return entry.payload[1]
+		NetEvents.Type.SHOVE_LANDED:
+			return entry.payload[0]
+	return -1
+
+
+static func _put_point(buffer: StreamPeerBuffer, v: Vector3) -> void:
+	var point: Vector3 = v if v.is_finite() else Vector3.ZERO
+	buffer.put_float(point.x)
+	buffer.put_float(point.y)
+	buffer.put_float(point.z)
 
 
 static func event_unit(payload: PackedByteArray, at: int) -> Vector3:

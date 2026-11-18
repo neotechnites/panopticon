@@ -147,7 +147,6 @@ func activate(which: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE, a
 	_active = which
 	_remaining = maxf(rules.ability_duration_seconds, 0.0)
 	if _active == MatchRules.RunnerAbility.ARMOR_LOCK:
-		body.movement_locked = true
 		body.velocity = Vector3.ZERO
 	elif _active == MatchRules.RunnerAbility.CAT_GRENADE:
 		_remaining = CatGrenade.FUSE_SECONDS
@@ -178,9 +177,8 @@ func cancel() -> void:
 	_remaining = 0.0
 
 
-## Draw [param which] on a mirrored body from its record: the shield, shell or tint [method activate]
-## builds, with none of the effect, the shield at [param anchor] and the hologram at its pose while
-## [param decoy_alive]. Called every drawn frame; a no-op unless something changed.
+## Draw [param which] from a record: what [method activate] builds, none of the effect, the anchors
+## at [param anchor]. Called every drawn frame; a no-op unless something changed.
 func present(
 	which: MatchRules.RunnerAbility, remaining: float, cooldown: float, anchor: Vector3 = Vector3.INF,
 	decoy_alive: bool = false, decoy_yaw: float = 0.0,
@@ -248,7 +246,6 @@ func settle_visuals() -> void:
 				_raise_shell()
 			MatchRules.RunnerAbility.ACTIVE_CAMO:
 				_cloak()
-	body.movement_locked = _active == MatchRules.RunnerAbility.ARMOR_LOCK
 
 
 func get_ability() -> MatchRules.RunnerAbility:
@@ -319,7 +316,6 @@ func _end() -> void:
 
 func _teardown(keep_decoy: bool = false) -> void:
 	if body != null and body.replaying:
-		body.movement_locked = false
 		return
 	if _shield != null:
 		_shield.queue_free()
@@ -332,8 +328,6 @@ func _teardown(keep_decoy: bool = false) -> void:
 		_shell.queue_free()
 		_shell = null
 	_presented = MatchRules.RunnerAbility.NONE
-	if body != null:
-		body.movement_locked = false
 	if is_instance_valid(_cat):
 		_cat.exploded.disconnect(_on_cat_exploded)
 		_cat.discard()
@@ -461,12 +455,8 @@ static func shatter(decoy: PlayerController) -> void:
 
 # --- Armor lock ---------------------------------------------------------------
 
-## The armor lock's glowing shell, and the hold that goes with it. A client
-## predicting its own body has to be held too, or it walks away from a lock the
-## authority has it standing still in.
+## The armor lock's glowing shell. The hold is the power's state, read by [method PlayerController._move].
 func _raise_shell() -> void:
-	if body != null:
-		body.movement_locked = true
 	var shell: MeshInstance3D = _build_shell()
 	shell.add_to_group(PlayerNetLink.DRAWN_WITH_BODY)
 	body.add_child(shell)

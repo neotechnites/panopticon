@@ -87,6 +87,14 @@ var _end_point: Vector3 = Vector3.ZERO
 ## resolved. It collides with nothing, so it cannot invent a hit of its own.
 var _cosmetic: bool = false
 
+## A cosmetic round this machine predicted: it stops on the world drawn here (bodies stand at other
+## times), credits nothing, and rests until the authority's word ([method land_at]).
+var _predicted: bool = false
+var _rested: float = 0.0
+
+## Bodies a predicted round's sweep looks through in one segment before it gives up on the world.
+const PREDICTED_SWEEP_BODIES: int = 8
+
 ## Triangles in one bullet: an eight-face head plus the two crossed tail quads.
 const VISUAL_TRIANGLES: int = 12
 
@@ -201,6 +209,8 @@ func configure(
 ## once and false forever after, so a missed frame cannot double-report a hit.
 func advance(delta: float) -> bool:
 	if _resolved or delta <= 0.0:
+		if _resolved and _predicted:
+			_rested += delta
 		return false
 
 	_flight += delta
@@ -253,9 +263,24 @@ func advance(delta: float) -> bool:
 	return false
 
 
-## End a cosmetic round where the authority says its twin landed.
+## Make this cosmetic round a prediction, swept against [param mask]'s world. See [member _predicted].
+func predict_on_world(mask: int) -> void:
+	_predicted = true
+	_mask = mask
+
+
+func is_predicted() -> bool:
+	return _predicted
+
+
+## Seconds a predicted round has rested where it stopped, waiting for the authority's word.
+func get_rest_seconds() -> float:
+	return _rested
+
+
+## End a cosmetic round where the authority says its twin landed; a predicted one moves there.
 func land_at(point: Vector3) -> void:
-	if _resolved:
+	if _resolved and not _predicted:
 		return
 	global_position = point
 	_resolve(point, {})
@@ -307,7 +332,7 @@ func get_flight_seconds() -> float:
 
 ## Raycast the segment just crossed. Resolves the round if it struck anything.
 func _sweep(from: Vector3, to: Vector3) -> void:
-	if _cosmetic:
+	if _cosmetic and not _predicted:
 		return
 	if from.is_equal_approx(to):
 		return
@@ -320,6 +345,9 @@ func _sweep(from: Vector3, to: Vector3) -> void:
 	query.collide_with_bodies = true
 	query.exclude = _exclude
 	var result: Dictionary
+	if _predicted:
+		_sweep_world(space, query)
+		return
 	if lag_ticks > 0 and lag_trace.is_valid():
 		result = lag_trace.call(space, query, lag_ticks)
 	else:
@@ -327,6 +355,21 @@ func _sweep(from: Vector3, to: Vector3) -> void:
 	if result.is_empty():
 		return
 	_resolve(result.get("position", to) as Vector3, result)
+
+
+## A predicted round's sweep: through every body to the world behind; what it meets is not credited.
+func _sweep_world(space: PhysicsDirectSpaceState3D, query: PhysicsRayQueryParameters3D) -> void:
+	query.collide_with_areas = false
+	var exclude: Array[RID] = query.exclude
+	for _body: int in PREDICTED_SWEEP_BODIES:
+		var result: Dictionary = space.intersect_ray(query)
+		if result.is_empty():
+			return
+		if not (result.get("collider") is CharacterBody3D):
+			_resolve(result.get("position", query.to) as Vector3, {})
+			return
+		exclude.append(result.get("rid") as RID)
+		query.exclude = exclude
 
 
 func _resolve(at: Vector3, result: Dictionary) -> void:

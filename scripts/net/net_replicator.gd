@@ -108,8 +108,10 @@ var _event_seen: int = -1
 var _due_events: Array[NetEvents.Entry] = []
 ## Client: the newest snapshot tick whose props have been applied, or -1.
 var _props_tick: int = -1
-## Client: packets refused for a baseline this machine no longer holds. For telemetry and tests.
+## Client: packets refused for a baseline this machine no longer holds, and the baseline tick of the
+## last one taken (-1: a full update). For telemetry and tests.
 var missing_baselines: int = 0
+var last_baseline: int = -1
 
 ## Client playout clock: how far behind the newest snapshot it draws, in authority ticks.
 var _render_lag: float = 0.0
@@ -508,6 +510,7 @@ func receive_snapshot(payload: PackedByteArray) -> bool:
 	if not NetCodec.unpack_snapshot(payload, base, _incoming, _info, _decoded_events):
 		return false
 	_incoming.epoch = _scene
+	last_baseline = baseline
 	var first: bool = _ring_count == 0
 	var previous_match: PackedByteArray = _newest().match_record if not first else PackedByteArray()
 	_push_world(_incoming)
@@ -547,12 +550,19 @@ func _take_events() -> void:
 		if _event_seen >= 0 and not _newer_u16(entry.seq, _event_seen):
 			continue
 		_event_seen = entry.seq
-		if ARRIVAL_EVENTS.has(entry.type) or not _should_interpolate():
+		if ARRIVAL_EVENTS.has(entry.type) or not _should_interpolate() or _predicted_here(NetCodec.event_subject(entry)):
+			# About the body this machine predicts: drawn where that body is now.
 			event_received.emit(entry.type, entry.payload, entry.tick)
 			continue
 		var held: NetEvents.Entry = NetEvents.Entry.new()
 		held.copy_from(entry)
 		_due_events.append(held)
+
+
+## True when [param seat] is the body this machine predicts.
+func _predicted_here(seat: int) -> bool:
+	var link: PlayerNetLink = find_link(seat) if seat >= 0 else null
+	return link != null and link.is_predicting()
 
 
 static func _newer_u16(candidate: int, reference: int) -> bool:

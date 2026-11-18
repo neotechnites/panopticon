@@ -331,6 +331,8 @@ func net_record() -> PackedByteArray:
 func net_apply(record: PackedByteArray) -> void:
 	if record.size() != 9:
 		return
+	# A client's cat is only drawn: a static body takes each teleport now, a kinematic one a step late.
+	freeze_mode = RigidBody3D.FREEZE_MODE_STATIC
 	var state: State = (record[0] & 3) as State
 	if state == State.GONE:
 		if not _gone:
@@ -347,7 +349,7 @@ func net_apply(record: PackedByteArray) -> void:
 		_set_local_held(link != null and link.is_owned_here())
 	if state != State.HELD:
 		global_transform = Transform3D(
-			Basis(Vector3.UP, NetCodec.turn_of(record.decode_u16(7))), NetCodec.event_point(record, 1)
+			Basis(Vector3.UP, NetCodec.turn_of(record.decode_u16(7))), NetCodec.metres_at(record, 1)
 		)
 
 

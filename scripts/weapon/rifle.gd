@@ -370,6 +370,11 @@ func _ready() -> void:
 ## Floats in a captured gate state ([method capture_gate]): what a predicting guard restores.
 const GATE_STATE_SIZE: int = 8
 
+## Seconds a predicted round rests on the world here before it gives up on the host's word.
+const PREDICTED_WORD_SECONDS: float = 1.0
+## Metres apart a predicted round's landing and the host's may be and still be one trail.
+const PREDICTED_SAME_METRES: float = 0.25
+
 
 ## The clock runs on the physics tick, not the render tick. Held, the cycle is its holder's: it
 ## steps with each command the holder runs ([method step_gate]), so a guard's client predicts it.
@@ -496,9 +501,7 @@ func _step_cycle(delta: float) -> void:
 ##
 ## [param view_time] is the tick the shooter was drawing the world at (see
 ## [member MoveIntent.view_time]); the shot is traced against bodies as they stood then.
-##
-## [param predicted] is a guard's client firing ahead of the host: the gate moves and, the first
-## time the command runs, the shot is drawn (Source's IsFirstTimePredicted); nothing is resolved.
+## [param predicted]: a client ahead of the host; the gate moves, a first run draws, nothing resolves.
 func try_fire(view_time: float = MoveIntent.LIVE_WORLD, predicted: bool = false) -> bool:
 	if not can_fire():
 		return false
@@ -532,12 +535,17 @@ func _draw_own_shot(charge: float) -> void:
 	var origin: Vector3 = source.global_position
 	var direction: Vector3 = -source.global_transform.basis.z.normalized()
 	var far_point: Vector3 = origin + direction * profile.get_charged_range(charge)
-	var hit: Dictionary = _cast(origin, far_point)
-	var end_point: Vector3 = hit.get("position", far_point) if not hit.is_empty() else far_point
 	var muzzle_node: Node3D = muzzle if muzzle != null else source
+	var end_point: Vector3 = far_point
 	if is_travelling_shot():
-		_launch_visual(origin, end_point, muzzle_node.global_position, get_shot_speed(charge))
+		# The round the host launches along the same line: it stops on the world here, the host's word lands it.
+		var flying: int = _visual_rounds.size()
+		_launch_visual(origin, far_point, muzzle_node.global_position, get_shot_speed(charge), profile.projectile_gravity)
+		if _visual_rounds.size() > flying:
+			_visual_rounds.back().predict_on_world(profile.hit_mask)
 	else:
+		var hit: Dictionary = _cast(origin, far_point)
+		end_point = hit.get("position", far_point) if not hit.is_empty() else far_point
 		_spawn_tracer(muzzle_node.global_position, end_point)
 	_last_shot_origin = origin
 	_has_shot_origin = true
@@ -545,9 +553,8 @@ func _draw_own_shot(charge: float) -> void:
 	fired.emit(origin, end_point)
 
 
-## One reading of a trigger: down this time, held, let go. A charged weapon charges on the press
-## and fires on the release; any other fires on the press, or on the hold when [member allow_held_fire].
-## [param predicted]: see [method try_fire].
+## One reading of a trigger: a charged weapon charges on the press and fires on the release; any other
+## fires on the press, or the hold when [member allow_held_fire]. [param predicted]: [method try_fire].
 func trigger(
 	pressed: bool, held: bool, released: bool, view_time: float = MoveIntent.LIVE_WORLD, predicted: bool = false
 ) -> void:
@@ -1076,8 +1083,11 @@ func _land_visual(at: Vector3) -> void:
 		var visual: WeaponProjectile = _visual_rounds.pop_front()
 		if not is_instance_valid(visual):
 			continue
+		var drawn: Vector3 = visual.get_end_point() if visual.is_resolved() else Vector3.INF
 		visual.land_at(at)
-		_spawn_tracer(visual.muzzle_origin, at)
+		if drawn.distance_to(at) > PREDICTED_SAME_METRES:
+			# A predicted round already trailed to where it met the world here; another only if the host's differs.
+			_spawn_tracer(visual.muzzle_origin, at)
 		visual.queue_free()
 		return
 
@@ -1227,6 +1237,13 @@ func _step_projectiles(delta: float) -> void:
 		var visual: WeaponProjectile = _visual_rounds[index]
 		if not is_instance_valid(visual):
 			_visual_rounds.remove_at(index)
+		elif visual.is_predicted():
+			if visual.advance(delta):
+				# Stopped on this machine's world: its trail now, the round kept for the host's word.
+				_spawn_tracer(visual.muzzle_origin, visual.get_end_point())
+			elif visual.is_resolved() and visual.get_rest_seconds() > PREDICTED_WORD_SECONDS:
+				_visual_rounds.remove_at(index)
+				visual.queue_free()
 		elif visual.advance(delta):
 			_visual_rounds.remove_at(index)
 			# A cosmetic round's whole outcome is its trail. Never [method

@@ -202,12 +202,12 @@ func test_an_armor_lock_the_host_refuses_is_cancelled_on_the_presser() -> void:
 	a_keys.tap_slot(ARMOR)
 	await step_ticks(2)
 	assert_eq_int(drawn(A_SEAT)[1], ARMOR, "A drew its lock before the host refused it")
-	assert_true(body_of(a_links, A_SEAT).movement_locked, "A's predicted lock held its body")
+	assert_true(body_of(a_links, A_SEAT).is_movement_locked(), "A's predicted lock held its body")
 	await step_ticks(30)
 	assert_eq_int(drawn(A_SEAT)[0], NONE, "the host refused the armor lock")
 	assert_eq_int(drawn(A_SEAT)[1], NONE, "A stopped drawing the refused lock within 30 ticks")
 	assert_false(
-		body_of(a_links, A_SEAT).movement_locked, "A's body is free again after the refusal"
+		body_of(a_links, A_SEAT).is_movement_locked(), "A's body is free again after the refusal"
 	)
 	assert_eq_int(
 		_live_nodes(body_of(a_links, A_SEAT), "ArmorShell"), 0, "shells left on A's own body"

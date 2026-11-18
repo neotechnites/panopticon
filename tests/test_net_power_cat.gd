@@ -306,6 +306,9 @@ func _stand_up_on_wires() -> bool:
 	if not joined or not await NetFixtures.join_and_wait(self, b, host, port):
 		fail("a loopback handshake did not complete")
 		return false
+	if not await NetFixtures.stand(self, host, [a, b]):
+		fail("the clients never stood in the host's epoch")
+		return false
 	var a_id: int = a.get_local_peer_id()
 	host_links = [
 		NetFixtures.add_seat_body(host, HOST_SEAT, 1, profile, true),
