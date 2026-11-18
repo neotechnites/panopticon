@@ -6,6 +6,8 @@ extends RigidBody3D
 
 enum State { REST, HELD, FLYING }
 
+## [member _carrier_peer] while a bot's seat, which no machine owns, carries the cat.
+const CARRIED_BY_A_BOT: int = -1
 ## Where the cat sits relative to the carrier's head: just under and ahead of the face.
 const CARRY_OFFSET: Vector3 = Vector3(0.0, -0.3, -0.55)
 const THROW_SPEED: float = 10.0
@@ -47,7 +49,8 @@ var _prompt_layer: CanvasLayer = null
 var _pet_tween: Tween = null
 var _fuse: int = 0
 var _gone: bool = false
-## The peer carrying this cat, 0 for none; kept on every machine by [method _held_by].
+## The peer carrying this cat, [constant CARRIED_BY_A_BOT] for a bot, 0 for nobody; kept on
+## every machine by [method _held_by].
 var _carrier_peer: int = 0
 var _purr: AudioStreamPlayer3D = null
 var _net: NetMatch = null
@@ -193,7 +196,7 @@ func _announce_held(held: bool) -> void:
 		# The carrier's link sits under NetMatch; with none there is no session and peer 1 is this machine.
 		var link: PlayerNetLink = PlayerNetLink.of(_carrier)
 		if link != null:
-			peer = link.owner_peer_id
+			peer = link.owner_peer_id if link.owner_peer_id != 0 else CARRIED_BY_A_BOT
 	if _networked():
 		_tell(&"_held_by", [peer if held else 0])
 	_held_by(peer if held else 0)
@@ -391,7 +394,11 @@ func _physics_process(_delta: float) -> void:
 		if not is_instance_valid(_carrier) or not _carrier.is_inside_tree():
 			_drop()
 		else:
+			# Carried in the hands the host draws: a remote carrier's, its playout behind (render-only, off every layer).
+			var link: PlayerNetLink = PlayerNetLink.of(_carrier)
 			global_transform = _carry_transform()
+			if link != null:
+				global_position += link.drawn_offset()
 	elif global_position.y < FALL_OUT_Y:
 		_settle(_home)
 		return

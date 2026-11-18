@@ -122,9 +122,9 @@ func step(intent: MoveIntent, delta: float, authority: bool) -> void:
 			_end()
 		return
 	if intent.ability_slot > 0:
-		activate(intent.ability_slot as MatchRules.RunnerAbility)
+		activate(intent.ability_slot as MatchRules.RunnerAbility, authority)
 	elif intent.ability_pressed:
-		activate()
+		activate(MatchRules.RunnerAbility.NONE, authority)
 
 
 ## Give this node the match's rules and reset it for a fresh placement.
@@ -135,9 +135,9 @@ func arm(match_rules: MatchRules, controller: MatchController) -> void:
 	_cooldown = 0.0
 
 
-## Start the selected power. False when none is selected, one is running, or
-## the cooldown has not run out.
-func activate(which: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE) -> bool:
+## Start the selected power, as the deciding machine when [param authority] (it spawns the cat);
+## false when none is selected, one is running, or the cooldown has not run out.
+func activate(which: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE, authority: bool = true) -> bool:
 	if rules == null or body == null or is_active() or _cooldown > 0.0:
 		return false
 	if which == MatchRules.RunnerAbility.NONE:
@@ -151,14 +151,14 @@ func activate(which: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE) -
 			_raise_shield()
 		MatchRules.RunnerAbility.HOLOGRAM:
 			# A predicting client draws its decoy where the authority's one walks.
-			_spawn_decoy(body.net_predicted)
+			_spawn_decoy(not authority)
 		MatchRules.RunnerAbility.ARMOR_LOCK:
 			_lock()
 		MatchRules.RunnerAbility.ACTIVE_CAMO:
 			_cloak()
 		MatchRules.RunnerAbility.CAT_GRENADE:
 			_remaining = CatGrenade.FUSE_SECONDS
-			if not body.net_predicted:
+			if authority:
 				_spawn_cat()
 	return true
 
@@ -447,6 +447,7 @@ func _raise_shell() -> void:
 	if body != null:
 		body.movement_locked = true
 	var shell: MeshInstance3D = _build_shell()
+	shell.add_to_group(PlayerNetLink.DRAWN_WITH_BODY)
 	body.add_child(shell)
 	shell.position = Vector3.UP * 0.9
 	_shell = shell

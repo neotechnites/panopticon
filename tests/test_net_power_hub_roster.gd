@@ -96,6 +96,10 @@ func test_a_client_leaving_with_the_power_cat_in_hand_takes_it_along() -> void:
 			return shown.is_empty() and _live_grenades() == 0
 	)
 	assert_true(cleared, "the leaver's cat is gone from the host and from B's screen")
+	# A press at a held body does nothing (the rebuilt hub holds it until placed), and B sends no
+	# command before it has heard the rebuilt hub's world.
+	await until(func() -> bool:
+		return sessions[B].replicator.get_latest_tick() >= 0 and not body(B, B).held and not body(HOST, B).held)
 	keys[B].tap_slot(SHIELD)
 	var up: bool = await until(
 		func() -> bool:

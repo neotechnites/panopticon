@@ -181,11 +181,14 @@ func test_a_press_the_full_ring_could_not_hold_is_run_when_resent() -> void:
 	_send(stream, 96, commands)
 	assert_eq_int(stream.get_backlog(), CommandStream.RING, "the ring holds 64 ahead and stores nothing past it")
 	var pressed: Array[int] = _run(stream, 40)
-	# Command 70 is not acknowledged, so the client's next packet carries it again.
+	# Command 70 is not acknowledged, so the client's next packets carry it again; 65 they no longer do.
 	_send(stream, 97, commands.slice(1) + [_keys([])])
+	pressed.append_array(_run(stream, 30))
+	assert_eq_int(stream.get_ack(), 64, "the stream ran what it held and waits at the gap past its ring")
+	_send(stream, 98, commands.slice(2) + [_keys([]), _keys([])])
 	pressed.append_array(_run(stream, 80))
 	assert_eq_int(_count(pressed, MoveIntent.COOK), 1, "the cook on command 70 is run once, off the resend")
-	assert_eq_int(stream.get_ack(), 97, "and the stream ran on to the newest")
+	assert_eq_int(stream.get_ack(), 98, "and the next packet resyncs it past the gap, on to the newest")
 
 
 func test_a_press_made_while_the_stream_was_paused_is_run_when_it_comes_back() -> void:

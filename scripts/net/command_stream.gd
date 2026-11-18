@@ -39,8 +39,6 @@ var _held: PackedInt64Array = PackedInt64Array()
 ## The newest sequence run (the acknowledgement), and the newest any packet named; -1 for none.
 var _last_run: int = -1
 var _newest_seen: int = -1
-## The oldest command the newest packet carried: the sender will never resend one before it.
-var _resend_from: int = -1
 ## The last real command run: edges are taken against it, and a released tick keeps its view.
 var _last: MoveIntent = MoveIntent.new()
 var _released: MoveIntent = MoveIntent.new()
@@ -86,8 +84,8 @@ func reset() -> void:
 	_held.fill(-1)
 	_last_run = -1
 	_newest_seen = -1
-	_resend_from = -1
 	_wall_start = -1
+	_wall_last = -1
 	_seen_at = 0
 	_last.clear()
 	_due_real = 0
@@ -131,10 +129,10 @@ func receive(payload: PackedByteArray, now: int) -> int:
 		_wall_start = -1
 	elif oldest > _last_run + 1 and _held[(_last_run + 1) % RING] != _last_run + 1:
 		# The next command is missing and the sender is past its 32-command resend cap: it will
-		# never come. Resync to what it still sends; that backlog is surplus, not jitter.
-		_last_run = oldest - 1
+		# never come. Skip what is missing below its oldest; the backlog left is surplus, not jitter.
+		while _last_run + 1 < oldest and _held[(_last_run + 1) % RING] != _last_run + 1:
+			_last_run += 1
 		_window_count = 0
-	_resend_from = oldest
 	for i: int in count:
 		var seq: int = oldest + i
 		if seq <= _last_run or seq > _last_run + RING:
@@ -152,11 +150,6 @@ func receive(payload: PackedByteArray, now: int) -> int:
 
 ## Decide this tick: 0 commands (priming, or starved and waiting), 1, or 2 while draining.
 func commands_due() -> int:
-	if _last_run + 1 < _resend_from and _held[(_last_run + 1) % RING] != _last_run + 1:
-		# A gap no resend can fill (the ring could not hold it, and the sender has moved past it).
-		while _last_run + 1 < _resend_from and _held[(_last_run + 1) % RING] != _last_run + 1:
-			_last_run += 1
-		_window_count = 0
 	var backlog: int = get_backlog()
 	_due_real = 0
 	if _state == State.PRIMING:

@@ -112,6 +112,8 @@ signal intent_received(peer_id: int, seq: int)
 
 ## Unacknowledged commands the prediction buffer holds: as many as the outbox keeps, a second.
 const PREDICTION_CAPACITY: int = CommandStream.RING
+## Group of a body's child visuals the host's playout draws with its avatar (an armor shell).
+const DRAWN_WITH_BODY: StringName = &"drawn_with_body"
 
 ## Time constants spent inside [member NetSettings.prediction_smoothing_seconds],
 ## so a correction is 95% drawn away by the time that setting names.
@@ -172,6 +174,8 @@ var _power_seq: int = -1
 var _avatar: Node3D = null
 var _avatar_rest: Transform3D = Transform3D.IDENTITY
 var _drawn_at: Vector3 = Vector3.ZERO
+## Body-child visuals drawn with the avatar (Node3D to its transform on the body).
+var _drawn_rest: Dictionary = {}
 
 ## True if this machine simulates. Latched at [method refresh_role] rather than
 ## queried per tick, so a session state change cannot flip the role halfway
@@ -342,8 +346,8 @@ func is_owned_here() -> bool:
 	return owner_peer_id != 0 and session != null and owner_peer_id == session.get_local_peer_id()
 
 
-## Host: draw this body's avatar at [param at] instead of at the body ([param playout]), or give
-## it back to the body. The collider never moves for it.
+## Host: draw this body's avatar and the visuals in [constant DRAWN_WITH_BODY] at [param at]
+## instead of at the body ([param playout]), or give them back. The collider never moves for it.
 func draw_avatar_at(at: Transform3D, playout: bool = true) -> void:
 	if _avatar == null:
 		return
@@ -351,12 +355,33 @@ func draw_avatar_at(at: Transform3D, playout: bool = true) -> void:
 		if _avatar.top_level:
 			_avatar.top_level = false
 			_avatar.transform = _avatar_rest
+		for node: Variant in _drawn_rest.keys():
+			if is_instance_valid(node):
+				(node as Node3D).top_level = false
+				(node as Node3D).transform = _drawn_rest[node]
+		_drawn_rest.clear()
 		return
 	if not _avatar.top_level:
 		_avatar_rest = _avatar.transform
 		_avatar.top_level = true
 	_avatar.global_transform = at * _avatar_rest
 	_drawn_at = at.origin
+	for node: Variant in _drawn_rest.keys():
+		if not is_instance_valid(node):
+			_drawn_rest.erase(node)
+	for child: Node in controller.get_children():
+		var visual: Node3D = child as Node3D
+		if visual == null or not visual.is_in_group(DRAWN_WITH_BODY):
+			continue
+		if not _drawn_rest.has(visual):
+			_drawn_rest[visual] = visual.transform
+			visual.top_level = true
+		visual.global_transform = at * (_drawn_rest[visual] as Transform3D)
+
+
+## How far from the body this machine draws it: the host's playout lag, zero elsewhere.
+func drawn_offset() -> Vector3:
+	return drawn_position() - controller.global_position
 
 
 ## Where this machine draws the body: on the host, where its playout has it; elsewhere, the body.
@@ -559,6 +584,8 @@ func _send_commands(delta: float) -> int:
 	_scratch_intent.view_absolute = true
 	_scratch_intent.look_delta = Vector2.ZERO
 	if replicator.get_latest_tick() < 0:
+		# The host's stream will start at a later command and take its edges against nothing.
+		local_source.rebase_edges()
 		return -1
 	var seq: int = replicator.outbox.push(_scratch_intent)
 	replicator.send_commands()

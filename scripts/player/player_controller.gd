@@ -301,7 +301,8 @@ func run_command(command: MoveIntent, delta: float) -> void:
 	_intent.normalise()
 	if not held:
 		_move(delta)
-	var authority: bool = not net_predicted
+	# The machine that decides: the session's authority (or no session), and never a prediction.
+	var authority: bool = not net_predicted and (multiplayer.multiplayer_peer == null or multiplayer.is_server())
 	var power: RunnerPower = RunnerPower.of(self)
 	if power != null:
 		power.step(_intent, delta, authority)

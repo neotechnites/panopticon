@@ -236,8 +236,8 @@ func bind_scene(scene: int) -> void:
 	for stream: CommandStream in _stream_list:
 		stream.reset()
 	outbox.flush()
-	if not _is_authority:
-		_clear_playback()
+	# The host's own samples feed its playout too: the last scene's are not this one's.
+	_clear_playback()
 
 
 # --- Registry -----------------------------------------------------------------
@@ -697,7 +697,7 @@ func _buffer_snapshot(snapshot: WorldSnapshot) -> void:
 		# The newest tick moved on, so everything behind it is that much further
 		# behind -- the playout clock included.
 		var advanced: int = NetCodec.tick_delta(previous_newest, snapshot.tick)
-		if advanced > 0:
+		if advanced > 0 and not _is_authority:
 			_render_lag += float(advanced)
 			_interval_ticks = (
 				float(advanced) if _interval_ticks <= 0.0

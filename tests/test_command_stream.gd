@@ -188,3 +188,81 @@ func test_a_client_clock_half_a_percent_fast_holds_its_buffer_for_ten_minutes() 
 	print("          CLOCK +0.5%%: target %d, deepest backlog %d over 10 min, %d skipped" % [target, deepest, line.skipped])
 	assert_le(float(deepest), float(target + 1), "the backlog stays within target + 1")
 	assert_eq_int(line.skipped, 0, "and the extra commands are run, not thrown away")
+
+
+func _command() -> MoveIntent:
+	var command: MoveIntent = MoveIntent.new()
+	command.move_direction = Vector2(0.0, 1.0)
+	return command
+
+
+## One host tick at real-time tick [param wall], running what is due; the commands run.
+func _host_tick(stream: CommandStream, wall: int) -> int:
+	var count: int = stream.commands_due()
+	for _i: int in count:
+		stream.next_command(TICK_MS / 1000.0)
+	stream.end_tick(wall)
+	return count
+
+
+func test_a_sender_past_its_resend_cap_is_resynced_to_what_it_still_sends() -> void:
+	var outbox: CommandStream.Outbox = CommandStream.Outbox.new()
+	var stream: CommandStream = CommandStream.new()
+	outbox.push(_command())
+	stream.receive(outbox.pack(1, -1), 0)
+	_host_tick(stream, -1)
+	# The host hears nothing for 100 ticks while the client makes 100 more; it resends only the newest 32.
+	for _i: int in 100:
+		outbox.push(_command())
+		_host_tick(stream, -1)
+	assert_ge(float(stream.receive(outbox.pack(1, -1), 1)), 0.0, "the packet is taken")
+	assert_eq_int(stream.get_ack(), outbox.next_seq() - 1 - NetCodec.MAX_COMMANDS, "the stream resyncs to just before the oldest it was sent")
+	assert_eq_int(stream.get_backlog(), NetCodec.MAX_COMMANDS, "and holds every command it was sent")
+	stream.free()
+
+
+func test_a_sequence_further_ahead_than_real_time_is_refused() -> void:
+	var stream: CommandStream = CommandStream.new()
+	var commands: Array[MoveIntent] = [_command()]
+	stream.receive(NetCodec.pack_commands(1, 0, -1, commands, 1), 0)
+	for tick: int in 10:
+		stream.receive(NetCodec.pack_commands(1, tick + 1, -1, commands, 1), tick)
+		_host_tick(stream, -1)
+	var ack: int = stream.get_ack()
+	assert_eq_int(stream.receive(NetCodec.pack_commands(1, 5000, -1, commands, 1), 10), -1, "a number 5000 ahead after 10 ticks is a forgery")
+	assert_ge(float(stream.receive(NetCodec.pack_commands(1, 11, -1, commands, 1), 10)), 0.0, "and the real next packet is still taken")
+	_host_tick(stream, -1)
+	assert_gt(float(stream.get_ack()), float(ack), "so the seat runs on")
+	stream.free()
+
+
+func test_a_host_stall_counts_as_time_and_its_backlog_drains() -> void:
+	var outbox: CommandStream.Outbox = CommandStream.Outbox.new()
+	var stream: CommandStream = CommandStream.new()
+	var wall: int = 1000
+	for _tick: int in 120:
+		outbox.push(_command())
+		stream.receive(outbox.pack(1, -1), wall)
+		outbox.acknowledge(stream.get_ack())
+		_host_tick(stream, wall)
+		wall += 1
+	var elapsed: int = stream.get_elapsed()
+	# The host stops for half a second; the client goes on and its 30 commands land at once.
+	for _i: int in 30:
+		outbox.push(_command())
+		stream.receive(outbox.pack(1, -1), wall)
+		wall += 1
+	_host_tick(stream, wall)
+	assert_ge(float(stream.get_elapsed() - elapsed), 30.0, "the stall the client lived through is time on the ledger")
+	var settled: int = -1
+	for tick: int in 60:
+		wall += 1
+		outbox.push(_command())
+		stream.receive(outbox.pack(1, -1), wall)
+		outbox.acknowledge(stream.get_ack())
+		_host_tick(stream, wall)
+		if settled < 0 and stream.get_backlog() <= stream.get_target() + 1:
+			settled = tick
+	print("          HOST STALL 30 ticks: backlog back to target+1 %d ticks after" % settled)
+	assert_true(settled >= 0 and settled <= 40, "and the backlog it left drains at once, not a second later")
+	stream.free()

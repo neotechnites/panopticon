@@ -6,7 +6,7 @@ extends TestCase
 ## each axis: the volume's thickness plus the body's own extent must cover cmd_budget commands of
 ## the fastest travel the scene allows there, read from [MovementProfile], the scene's orbs and pads
 ## and the rules' shove; down, the fall from the scene's top, unless ground inside the volume stops
-## the body there. A failing volume is named.
+## the body there. A failing volume is named. (No lap volume exists: laps are tracked along the ring.)
 
 const PLAYER_SCENE: String = "res://characters/player/player.tscn"
 const RULES_PATH: String = "res://match/rules/default_match_rules.tres"

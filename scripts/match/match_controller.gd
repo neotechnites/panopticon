@@ -3178,7 +3178,12 @@ func _step_command(command: MoveIntent, swung: bool, authority: bool, body: Play
 		return
 	if swung:
 		_resolve_shove(participant)
-	if rifle != null and rifle.shooter_body == body and participant.is_human() and not body.held:
+	if rifle == null or rifle.shooter_body != body or not participant.is_human():
+		return
+	if body.held:
+		# Held, the release is consumed with the rest: a charge begun before the hold ends here.
+		rifle.cancel_charge()
+	else:
 		# A person's trigger is their commands'; a bot's [TowerShooter] pulls its own.
 		if rifle.optic != null:
 			rifle.optic.set_zoomed(command.aim_held)

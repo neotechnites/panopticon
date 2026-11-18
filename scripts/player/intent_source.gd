@@ -51,3 +51,8 @@ func next_command(delta: float) -> MoveIntent:
 	_last_buttons = command.buttons
 	command.view_time = view_clock.call() if view_clock.is_valid() else MoveIntent.LIVE_WORLD
 	return command
+
+
+## Take the next command's edges against nothing, as a stream that starts with it will.
+func rebase_edges() -> void:
+	_last_buttons = 0
