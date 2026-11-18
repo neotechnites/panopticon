@@ -1,8 +1,8 @@
 class_name MultiplayerScreen
 extends Control
 
-## Host or join a networked match, then sit in the lobby until the host
-## starts it. Owns /root/NetSession; the match scene finds it there.
+## Host or join a networked match. Owns /root/NetSession, whose [SessionFlow] takes this machine into
+## the hub once it is seated; the lobby panel here is the handshake's few frames.
 
 signal closed()
 
@@ -12,19 +12,7 @@ signal match_launching()
 const SESSION_SCENE_PATH: String = "res://match/net/net_session.tscn"
 const SESSION_NAME: StringName = &"NetSession"
 const RULES_PATH: String = "res://match/rules/default_match_rules.tres"
-const HUB_SCENE_PATH: String = "res://hub/hub.tscn"
 const CUSTOM_ID: int = -1
-
-## Walk into the hub: the host as soon as the session is up, a client once the host has seated it.
-##
-## The hub IS the lobby now: this screen's panel is the host/join dialog and the
-## few frames of handshake behind it, and the seat table it draws is drawn again
-## in the hub off the same [NetLobby]. Off for the headless net harness, which
-## drives this screen's own panel rather than a world.
-@export var enters_hub: bool = true
-
-## A line the next main menu shows on this screen, as a translation key: why a session ended.
-static var arrival_notice: StringName = &""
 
 @onready var _name_edit: LineEdit = %NameEdit
 @onready var _status: Label = %Status
@@ -53,8 +41,6 @@ var _lobby: NetLobby = null
 var _rules: MatchRules = null
 var _syncing: bool = false
 var _launched: bool = false
-## The hub is loading for this machine's seat; asked for once.
-var _entering: bool = false
 ## Why the host turned this machine away, shown until the next try.
 var _refusal: String = ""
 
@@ -108,13 +94,9 @@ func get_session() -> NetSession:
 	return _session
 
 
-## Show why the last session ended, when the scene that ended it left word.
-func show_arrival_notice() -> bool:
-	if arrival_notice.is_empty():
-		return false
-	_status.text = tr(arrival_notice)
-	arrival_notice = &""
-	return true
+## Say why the last session ended, as a translation key.
+func show_notice(reason: StringName) -> void:
+	_status.text = tr(reason)
 
 
 func get_lobby() -> NetLobby:
@@ -209,14 +191,7 @@ func start_match() -> bool:
 	if not can_start():
 		_status.text = _lobby.describe_launch_block() if _lobby != null else tr("MP_STATUS_NOT_HOSTING")  # i18n-skip: launch-block reasons are NetLobby wire text
 		return false
-	var settings: GameSettings = _store.settings
-	_lobby.fill_with_bots(settings.prisoner_count + 1)
-	if _rules.open_with_race:
-		_lobby.clear_roles()
-	else:
-		var wanted: LobbySeat = _lobby.get_seat(_rules.opening_seat_index)
-		_lobby.assign_guard(wanted.index if wanted != null and wanted.is_occupied() else 0)
-	if not _lobby.launch():
+	if not _session.flow.start(_rules, _store.settings.prisoner_count + 1):
 		_status.text = _lobby.describe_launch_block()  # i18n-skip: launch-block reasons are NetLobby wire text
 		return false
 	return true
@@ -295,17 +270,8 @@ func _on_established() -> void:
 	_show_lobby(true)
 	_render_roster()
 	_render_rules()
-	if enters_hub and _session.is_authority():
-		_enter_hub()
-
-
-## Leave for the hub, keeping the session: it lives on the tree root and this
-## scene does not.
-func _enter_hub() -> void:
+	# The settings leave with this screen; [SessionFlow] loads the hub once this machine is seated.
 	_store.save_to_disk()
-	var error: Error = get_tree().change_scene_to_file(HUB_SCENE_PATH)
-	if error != OK:
-		push_error("MultiplayerScreen could not load %s: %s" % [HUB_SCENE_PATH, error_string(error)])
 
 
 func _on_session_ended(failed: bool) -> void:
@@ -333,7 +299,7 @@ func _on_launching() -> void:
 		return
 	_launched = true
 	_store.save_to_disk()
-	# [NetLevel] loads the match.
+	# [SessionFlow] loads the match.
 	match_launching.emit()
 
 
@@ -461,12 +427,6 @@ func _render_roster() -> void:
 	if _lobby == null:
 		return
 	var local: LobbySeat = _lobby.get_local_seat()
-	if enters_hub and local != null and not is_host() and not _entering \
-			and _lobby.get_phase() == NetLobby.Phase.GATHERING:
-		# Seated by the host: only now is there a hub for this machine to stand in.
-		_entering = true
-		_enter_hub()
-		return
 	for child: Node in _player_list.get_children():
 		child.queue_free()
 	for seat: LobbySeat in _lobby.get_occupied_seats():

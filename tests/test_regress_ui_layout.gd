@@ -106,9 +106,6 @@ func _open_multiplayer() -> MainMenu:
 	if audio != null and AudioDirector.instance() != null:
 		audio.free()
 	add_child(menu)
-	var screen: MultiplayerScreen = menu.get_node("%MultiplayerScreen") as MultiplayerScreen
-	# The hub is a scene change; this test stays on the lobby panel the session opens.
-	screen.enters_hub = false
 	menu.open_multiplayer()
 	return menu
 

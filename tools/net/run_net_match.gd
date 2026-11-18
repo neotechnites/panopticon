@@ -71,16 +71,16 @@ func _boot() -> void:
 		_probe.apply_settings()
 	if _use_screen():
 		_screen = (load(SCREEN_SCENE) as PackedScene).instantiate() as MultiplayerScreen
-		# This runner drives the screen's own lobby panel; it has no hub to walk into.
-		_screen.enters_hub = false
 		root.add_child(_screen)
 		current_scene = _screen
 		_session = _screen.ensure_session()
+		# This runner drives the screen's own lobby panel; it has no hub to walk into.
+		_session.flow.hub_scene_path = ""
 	else:
 		_session = (load(SESSION_SCENE) as PackedScene).instantiate() as NetSession
 		_session.name = "NetSession"
 		# This runner adds the match scene itself on launch.
-		_session.level.follows = false
+		_session.flow.follows = false
 		root.add_child(_session)
 	_lobby = _session.lobby
 	_probe.attach(_session)

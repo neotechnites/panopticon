@@ -153,8 +153,9 @@ func _build_phase() -> void:
 	_button(row, "DEBUG_SKIP_PHASE", _act.bind(func() -> void: _controller.debug_skip_phase(settings.debug_tower_seat)))
 	_button(row, "DEBUG_RESTART_ROUND", _act.bind(_controller.debug_restart_round))
 	_button(row, "DEBUG_NEXT_ROUND", _act.bind(_controller.debug_next_round))
-	_button(row, "DEBUG_RESTART_MATCH", _act.bind(_controller.restart))
 	if multiplayer.multiplayer_peer == null or multiplayer.multiplayer_peer is OfflineMultiplayerPeer:
+		# In a session a match restarts only as a relaunch (the host's hub button), never in place.
+		_button(row, "DEBUG_RESTART_MATCH", _act.bind(_controller.restart))
 		_build_bots(_controller)
 	elif multiplayer.is_server():
 		_build_net_bots()
@@ -278,7 +279,7 @@ func _build_net_bots() -> void:
 		HubLobby.relaunch_bot_seats = wanted
 		HubLobby.relaunch_on_arrival = true
 		closed.emit()
-		net.return_all_to_hub())
+		session.flow.everyone_to_hub())
 
 
 ## Write [param count] bots as the prisoner count, clamped, with the shutout pulled under it.

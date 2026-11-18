@@ -25,7 +25,7 @@ func launch_staged(seats: int, guard_seat: int, order: Array[int], gap_ticks: in
 	if not host.lobby.launch():
 		return false
 	for session: NetSession in sessions:
-		if not await wait_for(func() -> bool: return session.lobby.get_phase() == NetLobby.Phase.LAUNCHING):
+		if not await wait_for(func() -> bool: return session.lobby.get_phase() == NetLobby.Phase.IN_MATCH):
 			return false
 	matches.resize(sessions.size())
 	for peer: int in order:
@@ -71,7 +71,7 @@ func bind_hub(peer: int) -> void:
 
 ## The host ends the match and calls everyone to the hub; every lobby is gathering again.
 func call_everyone_to_the_hub() -> bool:
-	net_match(0).return_all_to_hub()
+	sessions[0].flow.everyone_to_hub()
 	for session: NetSession in sessions:
 		if not await wait_for(func() -> bool: return session.lobby.get_phase() == NetLobby.Phase.GATHERING):
 			return false

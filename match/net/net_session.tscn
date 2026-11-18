@@ -5,16 +5,16 @@
 [ext_resource type="Resource" path="res://match/net/default_net_settings.tres" id="3_settings"]
 [ext_resource type="Script" path="res://scripts/net/net_lobby.gd" id="4_lobby"]
 [ext_resource type="Script" path="res://scripts/net/net_replicator.gd" id="5_replicator"]
-[ext_resource type="Script" path="res://scripts/net/net_level.gd" id="6_level"]
+[ext_resource type="Script" path="res://scripts/net/session_flow.gd" id="6_flow"]
 
-[node name="NetSession" type="Node" node_paths=PackedStringArray("transport", "lobby", "replicator", "level")]
+[node name="NetSession" type="Node" node_paths=PackedStringArray("transport", "lobby", "replicator", "flow")]
 editor_description = "The session, with the development backend fitted: a socket, a seat table and a snapshot pump. Drop one of these into a scene that needs networking and call host() or join() on it. Swapping to a Steam backend when one exists is replacing the child node and repointing 'transport' -- nothing above this scene names a transport type. Note that RPCs resolve by node path, so this node must sit at the same path on every peer."
 script = ExtResource("1_session")
 transport = NodePath("ENetTransport")
 settings = ExtResource("3_settings")
 lobby = NodePath("NetLobby")
 replicator = NodePath("NetReplicator")
-level = NodePath("NetLevel")
+flow = NodePath("SessionFlow")
 
 [node name="ENetTransport" type="Node" parent="."]
 editor_description = "Raw UDP. Runs with no Steam client present at all, which is what the headless bot harness and CI depend on."
@@ -30,7 +30,7 @@ editor_description = "One world snapshot down from the authority, at NetSettings
 script = ExtResource("5_replicator")
 session = NodePath("..")
 
-[node name="NetLevel" type="Node" parent="." node_paths=PackedStringArray("session")]
-editor_description = "Every machine loads the scene the host's lobby names, once per new epoch: a launch loads the match, the host's return to the hub brings everybody back."
-script = ExtResource("6_level")
+[node name="SessionFlow" type="Node" parent="." node_paths=PackedStringArray("session")]
+editor_description = "The one owner of this machine's scene changes and session endings: loads each epoch's scene threaded, warms it, acknowledges it."
+script = ExtResource("6_flow")
 session = NodePath("..")

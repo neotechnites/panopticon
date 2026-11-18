@@ -241,7 +241,7 @@ func _do(action: String) -> void:
 			_line("DO rematch")
 		"huball":
 			var net: NetMatch = _find("NetMatch") as NetMatch
-			net.return_all_to_hub()
+			net.get_session().flow.everyone_to_hub()
 			_line("DO huball")
 		"restart_key":
 			var key: InputEventKey = InputEventKey.new()

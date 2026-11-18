@@ -168,8 +168,10 @@ func test_a_lobby_will_not_launch_until_it_can() -> void:
 	assert_true(lobby.can_launch(), "now it can")
 	assert_eq_string(lobby.describe_launch_block(), "", "and has nothing to complain about")
 
+	var epoch: int = lobby.get_epoch()
 	assert_true(lobby.launch(), "it launches")
-	assert_true(lobby.get_phase() == NetLobby.Phase.LAUNCHING, "into LAUNCHING")
+	assert_true(lobby.get_phase() == NetLobby.Phase.IN_MATCH, "straight into the match")
+	assert_eq_int(lobby.get_epoch(), epoch + 1, "under a new epoch, which every machine loads")
 	assert_false(lobby.add_bot() >= 0, "the roster is frozen; no bot may join now")
 
 
@@ -178,11 +180,9 @@ func test_a_match_runs_the_whole_phase_loop() -> void:
 	lobby.open("Ryan")
 	lobby.add_bot()
 	lobby.set_ready(0, true)
-	lobby.launch()
-
-	assert_true(lobby.begin_match(), "the match begins")
+	assert_true(lobby.launch(), "the match launches")
 	assert_true(lobby.get_phase() == NetLobby.Phase.IN_MATCH, "IN_MATCH")
-	assert_false(lobby.begin_match(), "and cannot begin twice")
+	assert_false(lobby.launch(), "and cannot launch twice")
 
 	assert_true(lobby.conclude_match(1), "it concludes")
 	assert_true(lobby.get_phase() == NetLobby.Phase.POST_MATCH, "POST_MATCH")
@@ -311,7 +311,6 @@ func test_a_peer_dropping_mid_match_leaves_its_seat_playable() -> void:
 	host_lobby.set_ready(0, true)
 	host_lobby.set_ready(seat_index, true)
 	assert_true(host_lobby.launch(), "the match launches")
-	assert_true(host_lobby.begin_match(), "and begins")
 
 	_client.leave()
 	var handled: bool = await NetFixtures.poll_until(

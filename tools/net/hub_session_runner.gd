@@ -309,7 +309,7 @@ func _relaunch_due(scene: Node, playing: float) -> bool:
 		settings.skip_opening_race = int(_o["relaunch-tower"]) >= 0
 		settings.tower_seat_index = maxi(int(_o["relaunch-tower"]), 0)
 	_probe.line("RELAUNCH bots=%d" % count)
-	(scene.get_node(^"NetMatch") as NetMatch).return_all_to_hub()
+	_session.flow.everyone_to_hub()
 	return true
 
 

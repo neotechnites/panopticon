@@ -52,6 +52,9 @@ signal session_established()
 ## when it was not this machine's choice.
 signal session_ended(failed: bool)
 
+## This machine's timeout rule let [param peer_id] go, in [param state]. Just before the drop.
+signal timed_out(peer_id: int, state: NetLobby.PeerState)
+
 ## The backend. Assign an [ENetTransport] for development, bot matches and CI;
 ## a [SteamTransport] for shipping, once one exists.
 ##
@@ -72,8 +75,8 @@ signal session_ended(failed: bool)
 ## The per-tick traffic pump. Optional for the same reason as [member lobby].
 @export var replicator: NetReplicator
 
-## Loads the scene the lobby names on each new epoch. Optional for the same reason.
-@export var level: NetLevel
+## Changes scenes and ends sessions for this machine. Required: the session scene always has one.
+@export var flow: SessionFlow
 
 ## Everyone in the session, this machine included, in join order with the
 ## authority first. Rebuilt from transport signals, never from the multiplayer
@@ -89,15 +92,25 @@ var _peers: PackedInt32Array = PackedInt32Array()
 ## compresses simulated time fiftyfold and a socket has not heard about it.
 var _connect_started_ms: int = -1
 
-## Real milliseconds between the keep-alives each end sends the other.
+## Listen-clock milliseconds between the keep-alives each end sends the other.
 const BEAT_MS: int = 500
-## A frame this long was this machine not listening; silence across it proves nothing about a peer.
-const DEAF_FRAME_MS: int = 1000
+## Most of one frame the listen clock counts: a machine that froze does not charge its freeze to its peers.
+const MAX_FRAME_MS: int = 250
+## Seconds a CONNECTED or REFUSED peer may stay so before it is let go.
+const REFUSAL_GRACE_SECONDS: float = 2.0
 
-## When each peer this machine talks to was last heard from, in real milliseconds.
-var _heard_ms: Dictionary[int, int] = {}
+## The listen clock L: real milliseconds this machine has been running its frames, each clamped.
+var _listen_ms: int = 0
+var _frame_wall_ms: int = 0
 var _beat_sent_ms: int = 0
-var _frame_ms: int = 0
+## L of each timed peer's last keep-alive.
+var _heard_ms: Dictionary[int, int] = {}
+## Each timed peer's lifecycle as last seen ([method _state_key]), and the L it was first seen in.
+var _seen_state: Dictionary[int, int] = {}
+var _seen_since_ms: Dictionary[int, int] = {}
+## The lobby epoch this machine last saw, and the L it saw it at.
+var _epoch_seen: int = 0
+var _epoch_seen_ms: int = 0
 
 
 func _ready() -> void:
@@ -115,9 +128,15 @@ func _ready() -> void:
 	transport.peer_connected.connect(_on_peer_connected)
 	transport.peer_disconnected.connect(_on_peer_disconnected)
 	transport.connection_state_changed.connect(_on_connection_state_changed)
+	if lobby != null:
+		lobby.roster_changed.connect(_on_roster_changed)
 
 
 func _process(_delta: float) -> void:
+	var wall_ms: int = Time.get_ticks_msec()
+	if _frame_wall_ms > 0:
+		_listen_ms += mini(wall_ms - _frame_wall_ms, MAX_FRAME_MS)
+	_frame_wall_ms = wall_ms
 	_watch_peers()
 	if _connect_started_ms < 0:
 		return
@@ -134,28 +153,19 @@ func _process(_delta: float) -> void:
 	transport.abort()
 
 
-## Every machine is about to load a scene; see [method NetTransport.expect_load_stall].
-func expect_load_stall() -> void:
-	if transport != null:
-		transport.expect_load_stall()
+## Listen-clock milliseconds since this machine saw the lobby's current epoch.
+func get_epoch_age_ms() -> int:
+	return _listen_ms - _epoch_seen_ms
 
 
-## Keep-alives out, and anyone silent past [member NetSettings.peer_timeout_seconds] dropped: the host
-## drops that client and tells it, a client gives the host up. ENet's own timer lands late.
+## Keep-alives out, and the one timeout rule over the peers this machine times (a client, only the host):
+## silence while STANDING, time in the state otherwise, each against [method _limit_ms].
 func _watch_peers() -> void:
-	var now: int = Time.get_ticks_msec()
-	var frame_gap: int = now - _frame_ms if _frame_ms > 0 else 0
-	_frame_ms = now
 	if not is_established():
 		return
 	var hosting: bool = is_authority()
-	# No snapshot of this client's scene yet: the host may be loading it, or holding the launch for another.
-	var host_loading: bool = not hosting and (replicator == null or replicator.get_latest_tick() < 0)
-	var limit: int = int(get_settings().peer_timeout_seconds * 1000.0)
-	if host_loading:
-		limit = maxi(limit, int(get_settings().load_stall_seconds * 1000.0))
-	if now - _beat_sent_ms >= BEAT_MS:
-		_beat_sent_ms = now
+	if _listen_ms - _beat_sent_ms >= BEAT_MS:
+		_beat_sent_ms = _listen_ms
 		if not hosting:
 			rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_beat")
 		elif _peers.size() > 1:
@@ -164,27 +174,51 @@ func _watch_peers() -> void:
 		var peer_id: int = _peers[index]
 		if peer_id == get_local_peer_id() or (not hosting and peer_id != NetTransport.AUTHORITY_PEER_ID):
 			continue
-		# A peer still loading the scene the lobby names is waited for by the launch, not timed here.
-		var loading: bool = hosting and lobby != null and not lobby.is_scene_standing(peer_id)
-		if frame_gap >= DEAF_FRAME_MS or loading or not _heard_ms.has(peer_id):
-			_heard_ms[peer_id] = now
-		elif now - _heard_ms[peer_id] > limit:
+		var state: NetLobby.PeerState = lobby.peer_state(peer_id) if lobby != null else NetLobby.PeerState.STANDING
+		var key: int = _state_key(state)
+		if int(_seen_state.get(peer_id, -1)) != key:
+			_seen_state[peer_id] = key
+			_seen_since_ms[peer_id] = _listen_ms
+		var since_ms: int = _seen_since_ms[peer_id]
+		if state == NetLobby.PeerState.STANDING or state == NetLobby.PeerState.ASKED:
+			# Silence is timed within the state: none kept while loading is held to this limit.
+			since_ms = maxi(since_ms, int(_heard_ms.get(peer_id, since_ms)))
+		if _listen_ms - since_ms > _limit_ms(state):
+			timed_out.emit(peer_id, state)
 			if not hosting:
 				transport.abort()
 				return
 			kick_peer(peer_id)
 
 
-## The keep-alive. Unreliable: one lost is the next one's problem.
+## A peer's lifecycle as one number: its state, and for LOADING the epoch it is loading.
+func _state_key(state: NetLobby.PeerState) -> int:
+	return int(state) + (lobby.get_epoch() << 4 if state == NetLobby.PeerState.LOADING else 0)
+
+
+## The one limit of [param state], in listen-clock milliseconds: silence while STANDING or ASKED, else time in it.
+func _limit_ms(state: NetLobby.PeerState) -> int:
+	match state:
+		NetLobby.PeerState.CONNECTED, NetLobby.PeerState.REFUSED:
+			return int(REFUSAL_GRACE_SECONDS * 1000.0)
+		NetLobby.PeerState.LOADING:
+			return int(get_settings().load_stall_seconds * 1000.0)
+	# STANDING and ASKED: silence.
+	return int(get_settings().peer_timeout_seconds * 1000.0)
+
+
+func _on_roster_changed() -> void:
+	if lobby.get_epoch() != _epoch_seen:
+		_epoch_seen = lobby.get_epoch()
+		_epoch_seen_ms = _listen_ms
+
+
+## The keep-alive, the only proof of life the timeout reads. Unreliable: one lost is the next one's problem.
 @rpc("any_peer", "unreliable", "call_remote", 0)
 func _beat() -> void:
-	heard_from(multiplayer.get_remote_sender_id())
-
-
-## A packet of any kind came from [param peer_id]: its line is alive now. A client hears only the host.
-func heard_from(peer_id: int) -> void:
-	if _peers.has(peer_id) and (is_authority() or peer_id == NetTransport.AUTHORITY_PEER_ID):
-		_heard_ms[peer_id] = Time.get_ticks_msec()
+	var sender: int = multiplayer.get_remote_sender_id()
+	if _peers.has(sender) and (is_authority() or sender == NetTransport.AUTHORITY_PEER_ID):
+		_heard_ms[sender] = _listen_ms
 
 
 ## Become the listen server. [param port] and [param max_players] default to [member settings];
@@ -218,8 +252,8 @@ func leave() -> void:
 	transport.leave()
 
 
-## Disconnect a peer that is in the session. Authority only, and a no-op anywhere else: a client
-## cannot throw anybody out of somebody else's game. No reason on the wire: the peer sees the host go.
+## Disconnect a peer that is in the session, at once and out of every broadcast. Authority only: a
+## client cannot throw anybody out of somebody else's game.
 func kick_peer(peer_id: int) -> void:
 	if transport == null or not is_authority() or peer_id == NetTransport.AUTHORITY_PEER_ID or not has_peer(peer_id):
 		return
@@ -304,6 +338,8 @@ func _on_peer_disconnected(peer_id: int) -> void:
 		return
 	_peers.remove_at(index)
 	_heard_ms.erase(peer_id)
+	_seen_state.erase(peer_id)
+	_seen_since_ms.erase(peer_id)
 	peer_left.emit(peer_id)
 
 
@@ -313,6 +349,8 @@ func _on_connection_state_changed(state: NetTransport.ConnectionState) -> void:
 		# Every other state is a session beginning or ending; cats are numbered per host.
 		relay.clear()
 	_heard_ms.clear()
+	_seen_state.clear()
+	_seen_since_ms.clear()
 	match state:
 		NetTransport.ConnectionState.HOSTING:
 			# The host is peer 1 and is in its own session from the first

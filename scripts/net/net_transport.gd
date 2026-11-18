@@ -174,16 +174,6 @@ func abort() -> void:
 	_set_state(ConnectionState.FAILED)
 
 
-## Every machine is about to load a scene: allow [member NetSettings.load_stall_seconds] of silence for that long.
-func expect_load_stall() -> void:
-	pass
-
-
-## Seconds of silence this machine tolerates from a peer right now.
-func get_silence_ceiling_seconds() -> float:
-	return get_settings().peer_timeout_seconds
-
-
 ## True when this machine simulates the match.
 ##
 ## Two states qualify. [constant ConnectionState.HOSTING] is the listen server.

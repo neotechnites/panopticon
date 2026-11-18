@@ -53,16 +53,21 @@ func test_a_peer_that_binds_after_the_match_ended_is_caught_up_and_can_rematch()
 	var host: MatchController = _rig.controller(HOST)
 	var lobby: NetLobby = _rig.sessions[HOST].lobby
 	var bound: bool = await _rig.bind_late(2)
-	print("PROOF late after end: host lobby phase=%d (POST_MATCH=%d) late peer started=%s late phase=%s has_launched=%s" % [
+	var epoch: int = lobby.get_epoch()
+	print("PROOF late after end: host lobby phase=%d (POST_MATCH=%d) late peer started=%s late phase=%s standing=%s" % [
 		int(lobby.get_phase()), int(NetLobby.Phase.POST_MATCH), str(bound),
-		_rig.controller(2).get_phase_name(), str(lobby.has_launched(_rig.sessions[2].get_local_peer_id()))])
+		_rig.controller(2).get_phase_name(), str(lobby.is_standing_in(_rig.sessions[2].get_local_peer_id(), epoch))])
 	assert_true(bound, "the late peer learns the match (and that it is over)")
+	assert_true(host.is_match_over(), "which is over")
 	# Everybody presses Rematch.
 	for peer: int in _rig.peer_count():
-		_rig.net_match(peer).request_rematch()
-	var restarted: bool = await _rig.wait_for(func() -> bool: return not host.is_match_over(), 2000)
-	print("PROOF late after end: all three pressed Rematch -> restarted=%s" % str(restarted))
-	assert_true(restarted, "and three presses restart the match")
+		_rig.sessions[peer].flow.rematch()
+	var restarted: bool = await _rig.wait_rematch(epoch)
+	print("PROOF late after end: all three pressed Rematch -> relaunched=%s" % str(restarted))
+	assert_true(restarted, "and three presses relaunch the match")
+	await step_ticks(30)
+	for peer: int in _rig.peer_count():
+		assert_false(_rig.controller(peer).is_match_over(), "peer %d plays the new match" % peer)
 
 
 ## A peer still loading cannot press anything: the humans whose scene stands decide the rematch,
@@ -70,12 +75,13 @@ func test_a_peer_that_binds_after_the_match_ended_is_caught_up_and_can_rematch()
 func test_a_peer_still_loading_does_not_block_the_rematch_and_joins_it() -> void:
 	if not await _late_start(true):
 		return
-	var host: MatchController = _rig.controller(HOST)
-	_rig.net_match(HOST).request_rematch()
-	_rig.net_match(1).request_rematch()
-	var restarted: bool = await _rig.wait_for(func() -> bool: return not host.is_match_over(), 2000)
-	assert_true(restarted, "the two whose scene stands restart the match")
+	var epoch: int = _rig.sessions[HOST].lobby.get_epoch()
+	_rig.sessions[HOST].flow.rematch()
+	_rig.sessions[1].flow.rematch()
+	var restarted: bool = await _rig.wait_rematch(epoch)
+	assert_true(restarted, "the two whose scene stands relaunch the match")
 	assert_true(await _rig.bind_late(2), "the late peer binds into the rematch")
+	var host: MatchController = _rig.controller(HOST)
 	var late: MatchController = _rig.controller(2)
 	var caught_up: bool = await _rig.wait_for(func() -> bool:
 		return late.get_phase() == host.get_phase() and late.get_round_number() == host.get_round_number())

@@ -306,7 +306,7 @@ func _close_settings() -> void:
 ## Host: every peer back to the hub together, the session kept.
 func _take_all_to_hub() -> void:
 	close()
-	net_match.return_all_to_hub()
+	net_match.get_session().flow.everyone_to_hub()
 
 
 ## Tear the match down and go back to the main menu.
@@ -316,8 +316,8 @@ func _take_all_to_hub() -> void:
 ##   1. write the settings file   -- the match is about to stop existing
 ##   2. unpause the tree          -- or the menu loads into a paused tree
 ##   3. release the mouse         -- or the menu loads with no cursor
-##   4. leave the session         -- the others are told now; a host's leaving ends it
-##   5. change scene              -- frees the match at the end of the frame
+##   4. in a session, leave it    -- [SessionFlow] takes this machine to the menu from its end
+##   5. offline, change scene     -- frees the match at the end of the frame
 ## [/codeblock]
 ## The mouse is forced visible rather than restored to
 ## play's wish, because a menu is not a match. [method close] is not reused for
@@ -346,7 +346,8 @@ func return_to_main_menu() -> void:
 	main_menu_requested.emit()
 	var session: NetSession = _session()
 	if session != null and session.get_connection_state() != NetTransport.ConnectionState.OFFLINE:
-		session.leave()
+		session.flow.leave()
+		return
 
 	var error: Error = tree.change_scene_to_file(main_menu_scene_path)
 	if error != OK:

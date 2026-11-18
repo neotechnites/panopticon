@@ -6,29 +6,39 @@ func _lobby_of(machine: int) -> HubLobby:
 	return hubs[machine].get_node("HubLobby") as HubLobby
 
 
+## The menus [param machine]'s session flow asked for, as it would stand them.
+func _menus_wanted(machine: int) -> Array[String]:
+	var wanted: Array[String] = []
+	sessions[machine].flow.scene_wanted.connect(func(path: String) -> void:
+		if path == SessionFlow.MENU_SCENE_PATH:
+			wanted.append(path))
+	return wanted
+
+
 func test_a_client_is_told_when_the_host_leaves_the_hub() -> void:
 	if not await stand_up(0.0, 0, 2):
 		return
-	var lost: Array[int] = count(_lobby_of(A).session_lost)
+	var menus: Array[String] = _menus_wanted(A)
 	sessions[HOST].leave()
-	assert_true(await until(func() -> bool: return lost[0] > 0), "the client's hub hears the host is gone")
-	assert_eq_int(lost[0], 1, "once")
+	assert_true(await until(func() -> bool: return not menus.is_empty()), "the client's flow takes it out of the hub")
+	assert_eq_int(menus.size(), 1, "once")
+	assert_eq_string(String(sessions[A].flow.take_end_reason()), String(SessionFlow.HOST_LOST_REASON), "saying the host is gone")
 
 
-## The host goes while a joiner's hub is still loading: the hub that then stands says so too.
-func test_a_hub_that_loads_after_the_host_was_lost_still_says_so() -> void:
+## The host goes while a joiner's hub is still loading: the joiner goes back to the menu, told why.
+func test_a_joiner_still_loading_its_hub_is_told_the_host_went() -> void:
 	if not await stand_up(0.0, 0, 2):
 		return
 	if not await connect_late(B):
 		return
+	var menus: Array[String] = _menus_wanted(B)
 	sessions[HOST].leave()
 	var failed: bool = await until(
 		func() -> bool: return sessions[B].get_connection_state() == NetTransport.ConnectionState.FAILED
 	)
 	assert_true(failed, "the joiner's session fails while it has no hub yet")
-	_make_hub(B)
-	var lost: Array[int] = count(_lobby_of(B).session_lost)
-	assert_true(await until(func() -> bool: return lost[0] > 0), "its hub, once standing, hears the host is gone")
+	assert_eq_int(menus.size(), 1, "its flow takes it to the menu")
+	assert_eq_string(String(sessions[B].flow.take_end_reason()), String(SessionFlow.HOST_LOST_REASON), "saying the host is gone")
 
 
 func test_leaving_a_session_does_not_rebuild_the_hub_being_left() -> void:

@@ -111,8 +111,8 @@ const ROSTER_HEADER_SIZE: int = 4
 const EPOCH_MODULUS: int = 1 << 16
 
 ## Bytes of the fixed part of a roster seat: u8 index, u8 occupancy, u8 role,
-## u8 flags, u32 peer id, u8 name length. The name follows, that many bytes.
-const ROSTER_SEAT_FIXED_SIZE: int = 9
+## u8 flags, u32 peer id, u16 standing epoch, u8 name length. The name follows, that many bytes.
+const ROSTER_SEAT_FIXED_SIZE: int = 11
 
 const _FLAG_JUMP_PRESSED: int = 1 << 0
 const _FLAG_JUMP_HELD: int = 1 << 1
@@ -531,6 +531,7 @@ static func pack_roster(
 		buffer.put_u8(int(seat.role))
 		buffer.put_u8(_FLAG_SEAT_READY if seat.is_ready else 0)
 		buffer.put_u32(seat.peer_id)
+		buffer.put_u16(seat.standing_epoch % EPOCH_MODULUS)
 		buffer.put_u8(name_bytes.size())
 		buffer.put_data(name_bytes)
 	return buffer.data_array
@@ -566,6 +567,7 @@ static func unpack_roster(
 		var role: int = buffer.get_u8()
 		var flags: int = buffer.get_u8()
 		seat.peer_id = buffer.get_u32()
+		seat.standing_epoch = buffer.get_u16()
 		var name_length: int = buffer.get_u8()
 		if buffer.get_available_bytes() < name_length:
 			return -1

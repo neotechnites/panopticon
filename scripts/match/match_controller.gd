@@ -1035,12 +1035,9 @@ func _hub_spawns() -> Array[Marker3D]:
 	return found
 
 
-## Alias for [method start_match], for callers that read better this way.
+## Alias for [method start_match]. On a mirror it is never called: a session's rematch is a relaunch
+## under a new epoch, and only the host restarts a race nobody won.
 func restart() -> void:
-	if _mirror:
-		# The server restarts a networked match. A client that armed one itself
-		# would wipe its own roster and desync until the next event arrived.
-		return
 	start_match()
 
 
@@ -1850,13 +1847,19 @@ func _flop_shoved(victim: MatchParticipant) -> void:
 		avatar.shove_hit()
 
 
-## A human seat became a bot's mid-match: the body stays, the brain takes over.
+## A human seat became a bot's mid-match: the body stays, the brain takes over. Idempotent.
 func net_seat_to_bot(index: int) -> void:
 	var participant: MatchParticipant = _participant_at(index)
 	if participant == null or not participant.is_human() or participant.body == null:
 		return
 	participant.kind = MatchParticipant.Kind.AI
 	participant.brain = _find_brain(participant.body)
+	_brief_bot(participant)
+
+
+## Point a bot's brain at what its participant is doing now: brawling, hunting the guard, running,
+## chasing as a ghost or holding the tower. The host's; a mirror's brain decides nothing.
+func _brief_bot(participant: MatchParticipant) -> void:
 	if _mirror or participant.brain == null:
 		return
 	if _phase == Phase.BRAWL:
@@ -2936,6 +2939,24 @@ func get_runner_palette() -> RunnerPalette:
 	return _default_palette
 
 
+## A body painted as a runner and as a ghost are painted, for [SceneWarmup]: the tints are built at the
+## start and on the first death, after the scene has stood.
+func warmup_samples() -> Array[Node3D]:
+	var samples: Array[Node3D] = []
+	var source: MeshInstance3D = _body_mesh_of(_net_bodies[0] if not _net_bodies.is_empty() else player)
+	if source == null or source.mesh == null:
+		return samples
+	var base: BaseMaterial3D = _authored_material_of(source, maxi(shirt_surface_of(source), 0))
+	var ghost: Color = get_runner_palette().color_for_index(0)
+	ghost.a = get_runner_palette().ghost_alpha
+	for colour: Color in [get_runner_palette().color_for_index(0), ghost]:
+		var painted: MeshInstance3D = MeshInstance3D.new()
+		painted.mesh = source.mesh
+		_paint(painted, _tinted_from(base, colour))
+		samples.append(painted)
+	return samples
+
+
 ## [param participant]'s own distinct, stable colour for the whole match, worn
 ## on the model's own material. See [method _tinted_material].
 func _runner_material_for(participant: MatchParticipant) -> Material:
@@ -2978,7 +2999,10 @@ static func _authored_material_of(mesh: MeshInstance3D, index: int) -> BaseMater
 ## is what makes a ghost translucent. A body whose mesh ships no material gets
 ## the flat unshaded colour it always had.
 func _tinted_material(participant: MatchParticipant, colour: Color) -> Material:
-	var base: BaseMaterial3D = _base_material_of(participant)
+	return _tinted_from(_base_material_of(participant), colour)
+
+
+func _tinted_from(base: BaseMaterial3D, colour: Color) -> Material:
 	var key: String = "%d|%s" % [0 if base == null else base.get_instance_id(), colour]
 	if _tint_cache.has(key):
 		return _tint_cache[key]
@@ -3023,10 +3047,15 @@ func _tint_body(participant: MatchParticipant, material: Material) -> void:
 	var mesh: MeshInstance3D = _body_mesh_of(participant.body)
 	if mesh == null:
 		return
-	var shirt: int = shirt_surface_of(mesh)
 	if not participant.home_material_read:
 		participant.home_body_material = _painted_material_of(mesh)
 		participant.home_material_read = true
+	_paint(mesh, material)
+
+
+## Wear [param material] on [param mesh]'s shirt, the rest of it lit and faded to match.
+func _paint(mesh: MeshInstance3D, material: Material) -> void:
+	var shirt: int = shirt_surface_of(mesh)
 	if shirt < 0:
 		mesh.material_override = material
 		return

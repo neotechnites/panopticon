@@ -167,7 +167,7 @@ func test_opening_a_lobby_seats_only_peers_that_asked_and_were_not_refused() -> 
 
 
 ## A silent peer is one whose game has stopped while its socket still answers; ENet alone never drops it.
-## With [param host_stands] the client has had a snapshot from the host: the host's scene is up, not loading.
+## The client's scene stands; with [param host_stands] the host's does too, so neither is loading.
 func _silent_pair(host_stands: bool = true) -> Array[NetSession]:
 	var quick: NetSettings = NetFixtures.settings()
 	quick.peer_timeout_seconds = SILENCE_SECONDS
@@ -179,16 +179,18 @@ func _silent_pair(host_stands: bool = true) -> Array[NetSession]:
 	if not await NetFixtures.join_and_wait(self, client, host, _port):
 		fail("the client never connected")
 		return []
-	# The host times a peer only once its scene stands; here the client says its hub does.
 	await _until(func() -> bool: return client.lobby.get_local_seat() != null)
 	client.lobby.acknowledge_scene(client.lobby.get_epoch())
-	if not await _until(func() -> bool: return host.lobby.is_scene_standing(client.get_local_peer_id())):
+	var client_id: int = client.get_local_peer_id()
+	if not await _until(func() -> bool: return host.lobby.peer_state(client_id) == NetLobby.PeerState.STANDING):
 		fail("the host never heard the client's scene stands")
 		return []
 	if host_stands:
-		var snapshot: WorldSnapshot = WorldSnapshot.new()
-		snapshot.tick = 1
-		client.replicator.apply_snapshot(snapshot)
+		host.lobby.acknowledge_scene(host.lobby.get_epoch())
+		if not await _until(func() -> bool:
+				return client.lobby.peer_state(NetTransport.AUTHORITY_PEER_ID) == NetLobby.PeerState.STANDING):
+			fail("the client never heard the host's scene stands")
+			return []
 	return [host, client]
 
 

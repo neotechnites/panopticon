@@ -7,13 +7,6 @@ extends Node
 ## The server started the match, or a client learned that it did.
 signal match_bound(authority: bool)
 
-## The session this match was running on ended under a client -- the host quit,
-## crashed or timed out. Client-only, and there is no host migration: whoever
-## is listening is being told the match is over, not asked to take it over.
-signal host_lost()
-
-## Who has asked for a rematch since the match ended, by display name.
-signal rematch_votes_changed(names: PackedStringArray)
 ## Authority: [param peer_id]'s copy of this scene now stands; what it missed can be sent.
 signal peer_bound(peer_id: int)
 
@@ -50,7 +43,6 @@ var _links: Array[PlayerNetLink] = []
 ## get_occupied_seats() is wrong the moment a seat is emptied mid-match.
 var _slot_of_seat: Dictionary[int, int] = {}
 var _seat_of_slot: PackedInt32Array = PackedInt32Array()
-var _wait_seconds: float = 0.0
 var _started: bool = false
 var _fire_was_held: bool = false
 ## Instance ids of the rifles already subscribed to. A bound Callable is a new
@@ -59,46 +51,35 @@ var _watched_rifles: Dictionary[int, bool] = {}
 var _bound: bool = false
 ## Over the scene until the world has drawn and frame times settle; null once lifted.
 var _cover: LoadingCover = null
-## The lobby epoch this scene was loaded for, or 0 before the lobby has named it.
+## The lobby epoch this scene was loaded for.
 var _epoch: int = 0
-## Authority: peers that have pressed Rematch on this result.
-var _rematch_peers: Dictionary[int, bool] = {}
 ## Reused by [method get_scene_peers], which a carried cat asks every tick.
 var _scene_peers: PackedInt32Array = PackedInt32Array()
 ## Authority: the rules last published from this scene, so a widget that edited none sends none.
 var _rules_said: PackedByteArray = PackedByteArray()
-## Client, hub: the authority has been told this scene stands.
-var _acknowledged: bool = false
 
 
 func _ready() -> void:
 	_session = get_tree().root.get_node_or_null(session_path) as NetSession
-	if _session == null or not _session.is_established() or controller == null:
+	if _session == null or not _session.is_established() or controller == null or _session.lobby == null:
 		set_physics_process(false)
-		if _session != null and _session.get_connection_state() == NetTransport.ConnectionState.FAILED:
-			# The host was lost while this scene loaded: say so once the scene stands.
-			if controller != null and not hub_mode:
-				controller.auto_start = false
-			host_lost.emit.call_deferred()
 		return
 	_lobby = _session.lobby
-	if _lobby == null or (not hub_mode and not _lobby.names_match_scene()):
+	_epoch = _session.flow.epoch_for(hub_mode)
+	if _epoch == 0:
 		set_physics_process(false)
 		return
-	_session.session_ended.connect(_on_session_ended)
 	add_to_group(GROUP)
-	_lobby.scene_bound.connect(_on_scene_bound)
+	_lobby.peer_standing.connect(_on_peer_standing)
+	_lobby.roster_changed.connect(_on_roster_changed)
 	controller.auto_start = false
 	_bound = true
 	# Nothing of this scene is drawn until this machine's body has been placed in it.
 	_cover = LoadingCover.new()
 	add_child(_cover)
 	_show_world(false)
-	_lobby.roster_changed.connect(_bind_epoch)
-	_bind_epoch()
 	if hub_mode:
-		# No opening role, no event subscriptions and no ready handshake: a hub
-		# decides nothing, so there is nothing for a client to wait for.
+		# No opening role, no event subscriptions and no start to wait for: a hub decides nothing.
 		set_physics_process(false)
 		_build_bodies()
 		if _session.is_authority():
@@ -106,8 +87,8 @@ func _ready() -> void:
 			controller.participant_shoved.connect(_on_participant_shoved)
 		controller.start_hub()
 		_started = true
-		_bind_placed()
-		match_bound.emit(_session.is_authority())
+		_on_started()
+		_session.flow.scene_bound(_epoch, get_parent())
 		return
 	# The controller installs the chosen map on the scene's ready, after this node's.
 	if controller.is_armed():
@@ -116,69 +97,56 @@ func _ready() -> void:
 		controller.armed.connect(_bind_match, CONNECT_ONE_SHOT)
 
 
-## Bodies, the opening, and the start or the launch acknowledgement, on a map that stands.
+## Bodies and the opening on a map that stands; the host starts once everyone stands in it.
 func _bind_match() -> void:
 	_build_bodies()
 	_apply_opening()
 	if _session.is_authority():
 		_subscribe_server()
-		_lobby.peer_launched.connect(_on_peer_launched)
-		_lobby.seat_vacated.connect(_on_seat_vacated)
-		if _lobby.get_unlaunched_peers().is_empty():
-			_start_now()
 	else:
 		_lobby.rules_changed.connect(_on_rules_changed)
-		_lobby.acknowledge_launch()
+	_on_roster_changed()
+	_session.flow.scene_bound(_epoch, get_parent())
 
 
 func _exit_tree() -> void:
 	if not _bound:
 		return
 	# A scene on its way out answers for nothing: a late binder is the next scene's to greet.
-	_lobby.scene_bound.disconnect(_on_scene_bound)
+	_lobby.peer_standing.disconnect(_on_peer_standing)
+	_lobby.roster_changed.disconnect(_on_roster_changed)
 	if _lobby.rules_changed.is_connected(_on_rules_changed):
 		_lobby.rules_changed.disconnect(_on_rules_changed)
-	if _lobby.rematch_requested.is_connected(_vote_rematch):
-		_lobby.rematch_requested.disconnect(_vote_rematch)
 	_session.replicator.bind_scene(0)
 	_show_world(true)
 
 
-## Stamp and accept only this scene's epoch, adopted the first time the lobby names this kind of
-## scene and dropped once it moves on: a client at once, the authority once it has placed bodies.
-func _bind_epoch() -> void:
-	if not is_inside_tree():
-		return
-	if _epoch == 0:
-		_epoch = _lobby.get_epoch_for(hub_mode)
-	if hub_mode and _epoch != 0 and not _acknowledged and not _session.is_authority():
-		_acknowledged = true
-		_lobby.acknowledge_scene(_epoch)
-	if _session.is_authority() and not _started:
-		return
-	_session.replicator.bind_scene(_epoch if _is_current() else 0)
-	_hush_stale_links()
+## The roster moved: the replicator speaks for this scene only while the lobby names it, bodies follow
+## their seats, and the host starts once everyone stands.
+func _on_roster_changed() -> void:
+	_bind_replicator()
+	_reconcile_seats()
+	_start_if_ready()
+
+
+## Stamp and accept this scene's epoch while the lobby names it: a client's at once, the host's once it
+## has placed bodies.
+func _bind_replicator() -> void:
+	var speaks: bool = _is_current() and (_started or not _session.is_authority())
+	_session.replicator.bind_scene(_epoch if speaks else 0)
 
 
 ## True while the lobby names this scene: its epoch is the one this scene was loaded for.
 func _is_current() -> bool:
-	return _epoch != 0 and _lobby.get_epoch() == _epoch
+	return _lobby.get_epoch() == _epoch
 
 
-## A client's links speak only for a scene the lobby names; the host has no node to hear any other.
-func _hush_stale_links() -> void:
+## The bodies are placed: what the host sends from now on is this scene's, and its world is drawn.
+func _on_started() -> void:
+	_bind_replicator()
 	if _session.is_authority():
-		return
-	var current: bool = _is_current()
-	for link: PlayerNetLink in _links:
-		link.set_physics_process(current)
-
-
-## The authority has placed every body: what it sends from now on is this scene's.
-func _bind_placed() -> void:
-	if _session.is_authority():
-		_bind_epoch()
 		_show_world(true)
+	match_bound.emit(_session.is_authority())
 
 
 ## Draw the 3D world or not. A client's world comes on with its own body's first placement.
@@ -206,6 +174,11 @@ func has_started() -> bool:
 	return _started
 
 
+## The lobby epoch this scene was loaded for, or 0 when it is bound to none.
+func get_epoch() -> int:
+	return _epoch
+
+
 func get_local_link() -> PlayerNetLink:
 	var seat: LobbySeat = _lobby.get_local_seat() if _lobby != null else null
 	return _link_for_seat(seat.index) if seat != null else null
@@ -226,15 +199,19 @@ func get_session() -> NetSession:
 
 # --- Bodies -------------------------------------------------------------------
 
-## Rebuild the hub's bodies from the seat table as it stands now.
-##
-## The hub outlives joins and leaves -- that is what a lobby is for -- and a
-## body is built per seat at bind time, so a roster that changed needs the set
-## rebuilt rather than patched. It is cheap and it is total: every remote body
-## and every link goes, the controller drops its roster, and the hub is armed
-## again. A seat that is still held keeps the place its body stood in.
+## Rebuild the hub's bodies when the seat-to-peer map changed; a seat still held keeps its place.
+## Interim until Phase 6's per-seat reconcile.
 func rebuild_hub() -> void:
 	if not hub_mode or _lobby == null:
+		return
+	var wanted: Dictionary[int, int] = {}
+	for seat: LobbySeat in _seats_to_build():
+		wanted[seat.index] = seat.peer_id
+	var built: Dictionary[int, int] = {}
+	for link: PlayerNetLink in _links:
+		built[link.seat_index] = link.owner_peer_id
+	if wanted == built:
+		# A ready mark or a machine standing changes the roster, not who is in the hub.
 		return
 	var places: Dictionary[int, Transform3D] = {}
 	var holders: Dictionary[int, int] = {}
@@ -296,12 +273,16 @@ func _build_bodies() -> void:
 			runner_container.add_child(body)
 		bodies.append(body)
 		kinds.append(MatchParticipant.Kind.AI if seat.is_bot() else MatchParticipant.Kind.HUMAN)
-		names.append(seat.display_name if not seat.display_name.is_empty() else "Player %d" % (seat.index + 1))
+		names.append(seat_name(seat))
 		_slot_of_seat[seat.index] = slot
 		_seat_of_slot[slot] = seat.index
 		_add_link(seat, body, seat.index == local_seat)
-	_hush_stale_links()
 	controller.configure_net(bodies, kinds, names, local_slot, not _session.is_authority())
+
+
+## The name a seat's player goes by in a match, on every screen.
+static func seat_name(seat: LobbySeat) -> String:
+	return seat.display_name if not seat.display_name.is_empty() else "Player %d" % (seat.index + 1)
 
 
 func _add_link(seat: LobbySeat, body: PlayerController, is_local: bool) -> void:
@@ -355,9 +336,7 @@ func _apply_opening() -> void:
 # --- Server -------------------------------------------------------------------
 
 func _subscribe_server() -> void:
-	controller.match_started.connect(func(_count: int) -> void:
-		_rematch_peers.clear()
-		_event(&"_ev_match_started"))
+	controller.match_started.connect(func(_count: int) -> void: _event(&"_ev_match_started"))
 	controller.race_started.connect(func() -> void: _event(&"_ev_race_started"))
 	controller.brawl_started.connect(func() -> void: _event(&"_ev_brawl_started"))
 	controller.brawler_out.connect(
@@ -390,8 +369,6 @@ func _subscribe_server() -> void:
 		func(ghost: MatchParticipant, caught: MatchParticipant) -> void:
 			_event(&"_ev_ghost_caught", [ghost.index, caught.index, _is_held(caught)])
 	)
-	_lobby.seat_occupancy_changed.connect(_on_seat_occupancy_changed)
-	_lobby.rematch_requested.connect(_vote_rematch)
 	controller.rules_edited.connect(_publish_rules)
 	_watch_rifle(controller.rifle, TOWER_RIFLE)
 
@@ -429,48 +406,36 @@ func _watch_rifle(weapon: Rifle, which: int) -> void:
 	weapon.missed.connect(func(end_point: Vector3) -> void: _event(&"_ev_rifle_missed", [which, end_point]))
 
 
-func _start_now() -> void:
-	if _started:
+## Authority: start once this machine and every human stand in the scene, or the launch wait after
+## the bump is spent; [member NetSettings.drop_unlaunched_peers] says whether the late are let go then.
+func _start_if_ready() -> void:
+	if _started or hub_mode or _links.is_empty() or not _session.is_authority() or not _is_current():
+		return
+	if _lobby.get_local_seat().standing_epoch != _epoch:
+		return
+	var late: PackedInt32Array = _lobby.get_unstanding_peers()
+	var waited: bool = _session.get_epoch_age_ms() >= int(_session.get_settings().launch_timeout_seconds * 1000.0)
+	if not late.is_empty() and not waited:
 		return
 	_started = true
 	controller.start_match()
-	# A seat that turned bot while LAUNCHING was skipped by the handover; its body gets a brain now.
-	for seat_index: int in _slot_of_seat:
-		var seat: LobbySeat = _lobby.get_seat(seat_index)
-		var link: PlayerNetLink = _link_for_seat(seat_index)
-		if seat != null and seat.is_bot() and link != null and link.owner_peer_id != 0:
-			_on_seat_occupancy_changed(seat_index, LobbySeat.Occupancy.BOT)
-	_bind_placed()
-	_begin_if_launched()
-	match_bound.emit(true)
-
-
-## The lobby's match begins once every peer has launched, so IN_MATCH means
-## nobody is still binding. Until then the lobby stays LAUNCHING, which is the
-## phase a slow client's scene binds in.
-func _begin_if_launched() -> void:
-	if _started and _lobby.get_unlaunched_peers().is_empty():
-		_lobby.begin_match()
-
-
-## The launch deadline passed with clients unheard from: start without them,
-## and drop them if [member NetSettings.drop_unlaunched_peers] says so.
-func _launch_timed_out() -> void:
-	var late: PackedInt32Array = _lobby.get_unlaunched_peers()
-	push_warning("NetMatch: %d client(s) never acknowledged the launch; starting without them." % late.size())
-	_start_now()
+	_reconcile_seats()
+	_on_started()
+	if late.is_empty():
+		return
+	push_warning("NetMatch: %d client(s) not standing at the launch wait; starting without them." % late.size())
 	if _session.get_settings().drop_unlaunched_peers:
 		for peer: int in late:
 			_session.kick_peer(peer)
 
 
-func _physics_process(delta: float) -> void:
+func _physics_process(_delta: float) -> void:
 	if not is_authority():
 		return
 	if not _started:
-		_wait_seconds += delta
-		if _wait_seconds >= _session.get_settings().launch_timeout_seconds:
-			_launch_timed_out()
+		# Acknowledgements start it through the roster; this is only the launch wait running out.
+		if _session.get_epoch_age_ms() >= int(_session.get_settings().launch_timeout_seconds * 1000.0):
+			_start_if_ready()
 		return
 	_drive_remote_trigger()
 
@@ -523,64 +488,6 @@ func _on_round_started() -> void:
 	])
 
 
-## Ask for a rematch on this map; the host restarts once every human in the match has asked.
-func request_rematch() -> void:
-	if not _started or hub_mode:
-		return
-	if is_authority():
-		_vote_rematch(NetTransport.AUTHORITY_PEER_ID)
-	else:
-		_lobby.request_rematch()
-
-
-## Host only: every peer back to the hub together, still connected.
-func return_all_to_hub() -> void:
-	if not is_authority() or hub_mode:
-		return
-	if _lobby.get_phase() != NetLobby.Phase.POST_MATCH:
-		_lobby.conclude_match(-1)
-	_lobby.return_to_lobby()
-
-
-func _vote_rematch(peer: int) -> void:
-	if not controller.is_match_over() or _rematch_peers.has(peer):
-		return
-	_rematch_peers[peer] = true
-	_send_rematch_votes()
-	_tally_rematch()
-
-
-## Restart once every human whose match scene stands has asked. Counted on each vote and
-## again when a human leaves, so the one who had not asked cannot strand the rest by going.
-func _tally_rematch() -> void:
-	if not controller.is_match_over() or _rematch_peers.is_empty():
-		return
-	for seat: LobbySeat in _lobby.seats:
-		if seat.is_human() and _has_scene(seat.peer_id) and not _rematch_peers.has(seat.peer_id):
-			return
-	_rematch_peers.clear()
-	_lobby.resume_match()
-	controller.restart()
-
-
-func _send_rematch_votes() -> void:
-	var names: PackedStringArray = PackedStringArray()
-	var participants: Array[MatchParticipant] = controller.get_participants()
-	for seat: LobbySeat in _lobby.seats:
-		var slot: int = _slot_of_seat.get(seat.index, -1)
-		if seat.is_human() and _rematch_peers.has(seat.peer_id) and slot >= 0 and slot < participants.size():
-			# The name the match has shown for this player all along.
-			names.append(participants[slot].display_name)
-	_event(&"_ev_rematch_votes", [names])
-	rematch_votes_changed.emit(names)
-
-
-@rpc("authority", "reliable", "call_remote", 0)
-func _ev_rematch_votes(names: PackedStringArray) -> void:
-	if _replays():
-		rematch_votes_changed.emit(names)
-
-
 func _on_match_won(participant: MatchParticipant) -> void:
 	_event(&"_ev_match_won", [participant.index, participant.rounds_won])
 	_lobby.conclude_match(_seat_index_of(participant.index))
@@ -596,18 +503,12 @@ func _on_rifle_hit(collider: Node3D, at: Vector3, normal: Vector3, which: int) -
 	_event(&"_ev_rifle_hit", [which, participant.index if participant != null else -1, at, normal])
 
 
-## One reliable one-shot to every peer whose match scene is bound. A peer still
-## binding has no node to receive it; it gets what it missed from
-## [method _catch_up] when it acknowledges the launch.
+## One reliable one-shot to every peer standing in this scene. A peer still loading has no node to
+## receive it; it gets what it missed from [method _catch_up] when it stands.
 func _event(method: StringName, args: Array = []) -> void:
 	for peer: int in _session.get_peer_ids():
-		if peer != NetTransport.AUTHORITY_PEER_ID and _has_scene(peer):
+		if peer != NetTransport.AUTHORITY_PEER_ID and _lobby.is_standing_in(peer, _epoch):
 			callv(&"rpc_id", [peer, method] + args)
-
-
-## Whether [param peer]'s copy of this scene stands: launched for a match, acknowledged for a hub.
-func _has_scene(peer: int) -> bool:
-	return _lobby.has_bound(peer, _epoch) if hub_mode else _lobby.has_launched(peer)
 
 
 ## The other machines whose copy of this scene stands; who a prop in it may send to.
@@ -616,7 +517,7 @@ func get_scene_peers() -> PackedInt32Array:
 	if not _bound or not _session.is_authority():
 		return _scene_peers
 	for peer: int in _session.get_peer_ids():
-		if peer != NetTransport.AUTHORITY_PEER_ID and _has_scene(peer):
+		if peer != NetTransport.AUTHORITY_PEER_ID and _lobby.is_standing_in(peer, _epoch):
 			_scene_peers.append(peer)
 	return _scene_peers
 
@@ -631,9 +532,14 @@ static func of(node: Node) -> NetMatch:
 	return null
 
 
-func _on_scene_bound(peer_id: int, epoch: int) -> void:
-	if hub_mode and epoch == _epoch and _session.is_authority():
-		_announce_bound(peer_id)
+## Authority: [param peer_id] stands in this scene. Once it has started, what was said before it could
+## hear is said again.
+func _on_peer_standing(peer_id: int) -> void:
+	if not _started or peer_id == NetTransport.AUTHORITY_PEER_ID or not _lobby.is_standing_in(peer_id, _epoch):
+		return
+	if not hub_mode:
+		_catch_up(peer_id)
+	_announce_bound(peer_id)
 
 
 ## [param peer_id]'s scene stands: it is told what was said once before it could hear.
@@ -671,18 +577,19 @@ func _on_shove_landed(victim: MatchParticipant) -> void:
 		_event(&"_ev_shove_landed", [_seat_index_of(victim.index), victim.body.global_position])
 
 
-func _on_seat_occupancy_changed(seat_index: int, occupancy: LobbySeat.Occupancy) -> void:
-	if not _started or occupancy != LobbySeat.Occupancy.BOT or not _slot_of_seat.has(seat_index):
-		return
-	var slot: int = _slot_of_seat[seat_index]
-	var link: PlayerNetLink = _link_for_seat(seat_index)
-	if link != null:
-		link.owner_peer_id = 0
-		link.local_source = link.controller.get_node_or_null(^"BotInput") as IntentSource
-		link.refresh_role()
-	controller.net_seat_to_bot(slot)
-	# Deferred: this runs inside the leaving peer's disconnect signal.
-	_event.call_deferred(&"_ev_seat_to_bot", [slot])
+## Every body follows its seat as the roster has it: a seat whose human left is a bot's, its link
+## driven by the bot on the host and its participant briefed. Idempotent; mirrors read the same roster.
+func _reconcile_seats() -> void:
+	for seat_index: int in _slot_of_seat:
+		var seat: LobbySeat = _lobby.get_seat(seat_index)
+		if seat == null or not seat.is_bot():
+			continue
+		var link: PlayerNetLink = _link_for_seat(seat_index)
+		if _session.is_authority() and link != null and link.owner_peer_id != 0:
+			link.owner_peer_id = 0
+			link.local_source = link.controller.get_node_or_null(^"BotInput") as IntentSource
+			link.refresh_role()
+		controller.net_seat_to_bot(_slot_of_seat[seat_index])
 
 
 # --- Wire ---------------------------------------------------------------------
@@ -694,29 +601,6 @@ func _replays() -> bool:
 	return not is_authority()
 
 
-## A client's launch acknowledgement: the last one starts the match, a late one
-## is answered with what it missed.
-func _on_peer_launched(peer_id: int, _seat_index: int) -> void:
-	if _started:
-		_catch_up(peer_id)
-		_announce_bound(peer_id)
-		_begin_if_launched()
-	elif _lobby.get_unlaunched_peers().is_empty():
-		_start_now()
-
-
-## A peer left before launching: the match no longer waits on it. Deferred,
-## because this fires inside the leaving peer's disconnect.
-func _on_seat_vacated(_seat_index: int, peer_id: int) -> void:
-	if _started:
-		_begin_if_launched.call_deferred()
-		if _rematch_peers.erase(peer_id):
-			_send_rematch_votes.call_deferred()
-		_tally_rematch.call_deferred()
-	elif _lobby.get_unlaunched_peers().is_empty():
-		_start_now.call_deferred()
-
-
 ## Send one peer that bound after the start the whole match state (Quake's gamestate); the
 ## events after it ride the same ordered channel. Bodies need nothing: snapshots are absolute.
 func _catch_up(peer_id: int) -> void:
@@ -725,21 +609,12 @@ func _catch_up(peer_id: int) -> void:
 	rpc_id(peer_id, &"_ev_gamestate", NetCodec.pack_gamestate(controller))
 
 
-## The host went away. There is no migration -- see [ENetTransport] -- so this
-## says so and stops, rather than letting a mirror run a match nobody is
-## deciding.
-func _on_session_ended(_failed: bool) -> void:
-	if is_authority():
-		return
-	set_physics_process(false)
-	host_lost.emit()
-
-
 @rpc("authority", "reliable", "call_remote", 0)
 func _ev_match_started() -> void:
 	if not _replays():
 		return
 	controller.net_start_match()
+	_reconcile_seats()
 	if not _started:
 		_started = true
 		match_bound.emit(false)
@@ -947,9 +822,3 @@ func _ev_shoved(forward: Vector3) -> void:
 		return
 	controller.net_shove_felt(forward)
 
-
-@rpc("authority", "reliable", "call_remote", 0)
-func _ev_seat_to_bot(slot: int) -> void:
-	if not _replays():
-		return
-	controller.net_seat_to_bot(slot)

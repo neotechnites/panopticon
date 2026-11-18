@@ -162,6 +162,10 @@ var _fallback_announcements: MatchAnnouncementProfile = null
 ## Mouse mode in force before the screen appeared, restored by Play Again.
 
 
+## The flow this screen listens to, held so it can let go of it.
+var _bound_flow: SessionFlow = null
+
+
 func _ready() -> void:
 	# A won match is a frozen match, not a paused one -- but PauseMenu can still
 	# be opened over this screen, and a screen whose buttons are dead behind a
@@ -181,9 +185,11 @@ func _ready() -> void:
 	# between frames. Everything the screen SAYS is polled in show_result().
 	controller.match_won.connect(_on_match_won)
 	controller.match_started.connect(_on_match_started)
-	if net_match != null:
-		net_match.host_lost.connect(show_host_lost)
-		net_match.rematch_votes_changed.connect(_on_rematch_votes)
+	var flow: SessionFlow = _flow()
+	if flow != null:
+		_bound_flow = flow
+		flow.host_lost.connect(show_host_lost)
+		flow.session.lobby.roster_changed.connect(_draw_rematch_marks)
 	_rematch_button.pressed.connect(request_rematch)
 	_hub_all_button.pressed.connect(_on_hub_all_pressed)
 
@@ -265,32 +271,21 @@ func refresh() -> void:
 
 # --- The two ways out ---------------------------------------------------------
 
-## Start a fresh match in the same scene.
-##
-## [method MatchController.restart] rather than a scene reload, deliberately. The
-## controller's restart is the same call an all-racers-out fall already makes and
-## the same one the [code]R[/code] key makes, so Play Again exercises a path the
-## game exercises anyway rather than a second one written for this button. It
-## puts the turn counts, the rounds won, the winner, the outcome, the round
-## number and the removal counts back to zero, brings every parked and ghosted
-## body back as a living prisoner with its authored collision, takes the rifle
-## out of the winner's hands and arms the opening race again. A scene reload
-## would do all that too -- by throwing away the arena, the audio system, the
-## settings this match booted with and the player's body, and rebuilding them,
-## which is a great deal of work to reach a state one call already reaches. The
-## screen is not hidden here: it comes down on [signal MatchController.match_started],
-## so the one thing that dismisses it is a match actually having begun.
 ## True when this button leaves for the hub instead of restarting in place.
 func returns_to_hub() -> bool:
 	return HubLobby.returns_to_hub and not hub_scene_path.is_empty()
 
 
+## Offline, a fresh match in this scene ([method MatchController.restart]) or back to the hub it came
+## from; in a session the host takes everyone to the hub. The screen comes down on match_started.
 func play_again() -> void:
-	if _follows_host():
+	if _flow() != null:
+		# Where everyone goes next is the host's to say, and it says it for everyone.
+		if net_match.is_authority():
+			_on_hub_all_pressed()
 		return
 	if returns_to_hub():
-		# The match came out of a hub, so it goes back into one: same session,
-		# same seats, and the host free to start the next map from the wedge.
+		# The match came out of an offline hub, so it goes back into one.
 		play_again_requested.emit()
 		hide_result()
 		var tree: SceneTree = get_tree()
@@ -316,36 +311,54 @@ func play_again() -> void:
 	hide_result()
 
 
-## Ask for a rematch on this map; the host restarts it once every player has asked.
+## Ask for a rematch on this map: this seat's mark goes up, and the lobby relaunches once it is agreed.
 func request_rematch() -> void:
-	if net_match == null:
+	var flow: SessionFlow = _flow()
+	if flow == null:
 		return
 	_rematch_button.disabled = true
-	net_match.request_rematch()
+	flow.rematch()
 
 
 func _on_hub_all_pressed() -> void:
-	if net_match != null:
+	var flow: SessionFlow = _flow()
+	if flow != null:
 		hide_result()
 		_restore_mouse()
-		net_match.return_all_to_hub()
+		flow.everyone_to_hub()
 
 
-## True on a client in a session: where everyone goes next is the host's to say.
-func _follows_host() -> bool:
-	return net_match != null and net_match.is_active() and not net_match.is_authority()
+## The session outlives this screen: let go of it as the screen leaves.
+func _exit_tree() -> void:
+	if is_instance_valid(_bound_flow):
+		_bound_flow.host_lost.disconnect(show_host_lost)
+		_bound_flow.session.lobby.roster_changed.disconnect(_draw_rematch_marks)
+	_bound_flow = null
+
+
+## The session this match is played in, through its bound net layer, or null off one.
+func _flow() -> SessionFlow:
+	var session: NetSession = net_match.get_session() if net_match != null and net_match.is_active() else null
+	return session.flow if session != null else null
 
 
 func _show_net_buttons() -> void:
-	var networked: bool = net_match != null and net_match.is_active() and net_match.has_started()
-	_play_again_button.visible = not _follows_host()
+	var networked: bool = _flow() != null and net_match.has_started()
+	_play_again_button.visible = _flow() == null
 	_net_buttons.visible = networked
 	_rematch_button.disabled = false
 	_hub_all_button.visible = networked and net_match.is_authority()
-	_rematch_votes_label.visible = false
+	_draw_rematch_marks()
 
 
-func _on_rematch_votes(names: PackedStringArray) -> void:
+## Who has pressed Rematch, from the seats' ready marks in the finished match.
+func _draw_rematch_marks() -> void:
+	var lobby: NetLobby = _flow().session.lobby if _flow() != null else null
+	var names: PackedStringArray = PackedStringArray()
+	if lobby != null and lobby.get_phase() == NetLobby.Phase.POST_MATCH:
+		for seat: LobbySeat in lobby.seats:
+			if seat.is_human() and seat.is_ready:
+				names.append(NetMatch.seat_name(seat))
 	_rematch_votes_label.visible = not names.is_empty()
 	_rematch_votes_label.text = tr("RESULT_REMATCH_VOTES").format({"names": ", ".join(names)})
 
@@ -599,7 +612,6 @@ func _on_match_started(_participant_count: int) -> void:
 	hide_result()
 	# A rematch restarts under this screen: its claim on the cursor ends with it.
 	_restore_mouse()
-	_rematch_votes_label.visible = false
 	_rematch_button.disabled = false
 
 

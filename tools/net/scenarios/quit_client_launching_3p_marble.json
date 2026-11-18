@@ -23,7 +23,7 @@
  "kill": [
   {
    "peer": 1,
-   "when": "LOBBY phase=LAUNCHING",
+   "when": "LOBBY phase=IN_MATCH",
    "after": 0
   }
  ]

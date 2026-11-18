@@ -326,7 +326,7 @@ def bound_times(peer: Peer, kind: str = "match") -> dict[str, float]:
 
 
 def check_bound(host: Peer, clients: list[Peer], gone: set[int], v: Verdict) -> None:
-    host_launch = [l for l in host.tagged("LOBBY") if "phase=LAUNCHING" in l.rest]
+    host_launch = [l for l in host.tagged("LOBBY") if "phase=IN_MATCH" in l.rest]
     for client in clients:
         mine = bound_times(client)
         for launch in host_launch:
@@ -737,7 +737,7 @@ def check_role_powers(host: Peer, v: Verdict) -> None:
 
 
 def check_roster(host: Peer, v: Verdict) -> None:
-    launches = [l for l in host.tagged("LOBBY") if "phase=LAUNCHING" in l.rest]
+    launches = [l for l in host.tagged("LOBBY") if "phase=IN_MATCH" in l.rest]
     seen: set[str] = set()
     for launch in launches:
         rosters = [l for l in host.tagged("ROSTER") if l.w <= launch.w]

@@ -476,7 +476,7 @@ func test_a_client_standing_on_the_dais_wins_the_vote() -> void:
 		assert_eq_string(String(client_told[0]), "bentham_ring", "on the wedge the client stood on")
 	assert_same(host_lobby.get_vote_winner(), host_wedge, "the host's winner is that wedge")
 	assert_same(client_lobby.get_vote_winner(), client_wedge, "and so is the client's")
-	assert_eq_int(int(_host.lobby.get_phase()), int(NetLobby.Phase.LAUNCHING), "the roster is frozen")
+	assert_eq_int(int(_host.lobby.get_phase()), int(NetLobby.Phase.IN_MATCH), "the roster is frozen")
 
 
 ## Host and client stand in the same hub, one body each, and the client sees the
@@ -528,29 +528,25 @@ func test_two_peers_stand_in_one_hub_and_see_each_other() -> void:
 	)
 
 
-## The host quitting is the end of the session, and a client is told so.
-##
-## There is no host migration -- promoting a client would hand it a world it
-## never simulated -- so the only right answer is to say the match is over.
-## Before this, a client kept running a match scene full of frozen bodies with
-## nothing deciding anything and no way to find out.
+## The host quitting is the end of the session, and a client is told so: there is no host migration,
+## so its flow takes it out of the hub to the menu, saying why.
 func test_a_client_is_told_when_the_host_goes_away() -> void:
 	if not await _connect():
 		fail("the loopback handshake did not complete")
 		return
 	var _host_hub: Node3D = _make_hub(_host.get_parent(), _host)
-	var client_hub: Node3D = _make_hub(_client.get_parent(), _client)
+	var _client_hub: Node3D = _make_hub(_client.get_parent(), _client)
 	await step_ticks(4)
 
-	var client_match: NetMatch = client_hub.get_node("NetMatch") as NetMatch
-	if not assert_not_null(client_match, "the client's hub has a NetMatch"):
-		return
-	var lost: Array[bool] = [false]
-	client_match.host_lost.connect(func() -> void: lost[0] = true)
+	var menus: Array[String] = []
+	_client.flow.scene_wanted.connect(func(path: String) -> void:
+		if path == SessionFlow.MENU_SCENE_PATH:
+			menus.append(path))
 
 	_host.leave()
-	await NetFixtures.poll_until(self, func() -> bool: return lost[0])
-	assert_true(lost[0], "the client heard that the host had gone")
+	await NetFixtures.poll_until(self, func() -> bool: return not menus.is_empty())
+	assert_eq_int(menus.size(), 1, "the client heard that the host had gone, and leaves for the menu")
+	assert_eq_string(String(_client.flow.take_end_reason()), String(SessionFlow.HOST_LOST_REASON), "saying why")
 
 
 ## The host presses interact on the dais and every machine is told to go, with
@@ -590,20 +586,21 @@ func test_the_host_starts_the_map_for_everyone() -> void:
 	# machine, and this is the table it builds them from.
 	var host_seats: NetLobby = _host.lobby
 	assert_eq_int(
-		int(host_seats.get_phase()), int(NetLobby.Phase.LAUNCHING), "the roster is frozen"
+		int(host_seats.get_phase()), int(NetLobby.Phase.IN_MATCH), "the roster is frozen"
 	)
 	assert_ge(float(host_seats.get_occupant_count()), 2.0, "with both people still seated")
 	assert_eq_int(host_seats.get_local_seat_index(), 0, "the host is seat 0")
 	assert_eq_int(_client.lobby.get_local_seat_index(), 1, "and the client has a seat of its own")
 
-	# And the way back: the match ends, the lobby is told, and the hub the
-	# players walk into puts the table back to gathering for the next start.
+	# And the way back: the match ends, the host takes everyone to the hub, and the
+	# table is gathering again for the next start in the hub they walk into.
 	host_seats.conclude_match(0)
-	var back: Node3D = _make_hub(_host.get_parent(), _host)
+	_host.flow.everyone_to_hub()
 	assert_eq_int(
 		int(host_seats.get_phase()), int(NetLobby.Phase.GATHERING),
-		"the hub they come back to reopens the lobby"
+		"the way back reopens the lobby"
 	)
+	var back: Node3D = _make_hub(_host.get_parent(), _host)
 	assert_true(
 		(back.get_node("HubLobby") as HubLobby).is_host(), "and the host can start again"
 	)

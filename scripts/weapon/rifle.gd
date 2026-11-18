@@ -864,6 +864,21 @@ func show_remote_shot(
 	_set_state(State.FIRING)
 
 
+## A tracer and a round in flight, for [SceneWarmup]: both are built only when a shot is fired.
+func warmup_samples() -> Array[Node3D]:
+	var samples: Array[Node3D] = []
+	if profile == null:
+		return samples
+	var tracer: Tracer = Tracer.new()
+	tracer.configure(Vector3.ZERO, Vector3.FORWARD * 2.0, profile)
+	samples.append(tracer)
+	var round_shot: MeshInstance3D = MeshInstance3D.new()
+	round_shot.mesh = WeaponProjectile.visual_mesh_for(profile)
+	round_shot.material_override = WeaponProjectile.visual_material()
+	samples.append(round_shot)
+	return samples
+
+
 ## Cosmetic replay of a hit the authority scored. See [method show_remote_shot].
 func show_remote_hit(collider: Node3D, at: Vector3, normal: Vector3) -> void:
 	var direction: Vector3 = -normal

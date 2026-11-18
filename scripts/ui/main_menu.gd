@@ -103,10 +103,12 @@ func _ready() -> void:
 	_settings_screen.closed.connect(_close_settings)
 
 	_show_main()
-	# A session that ended under the last scene left word: say it where the player would rejoin.
-	if not MultiplayerScreen.arrival_notice.is_empty():
+	# A session that ended under the last scene says why, where the player would rejoin.
+	var session: NetSession = get_tree().root.get_node_or_null(^"NetSession") as NetSession
+	var reason: StringName = session.flow.take_end_reason() if session != null else &""
+	if not reason.is_empty():
 		open_multiplayer()
-		_multiplayer_screen.show_arrival_notice()
+		_multiplayer_screen.show_notice(reason)
 
 
 ## Aims the tower's eye along the mouse ray; back to idle when the mouse leaves.
