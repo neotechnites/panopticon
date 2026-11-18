@@ -162,12 +162,13 @@ var _intent: MoveIntent = MoveIntent.new()
 var _pitch: float = 0.0
 
 ## Yaw the match has turned this body by on top of its owner's absolute view (Quake 3's
-## delta_angles): a spawn or teleport facing survives the view commands already in flight.
+## delta_angles), set by [method place]: a spawn facing survives the view commands already in flight.
 var view_base: float = 0.0
-## Yaw the last absolute view put on the body, or NAN before one; a mismatch is a re-placement.
-var _aimed_yaw: float = NAN
-## Below this, radians, the body is where the last view put it.
-const _REPLACED_EPSILON: float = 0.0001
+## Placements, respawns and teleports so far (Quake 3's EF_TELEPORT_BIT): nobody interpolates across one.
+var placed_counter: int = 0
+## True while a predicting client replays its own commands (Source's not IsFirstTimePredicted):
+## what is drawn or heard once per command is not drawn again.
+var replaying: bool = false
 
 ## Time left in which a jump is still allowed after leaving the ground.
 var _coyote_timer: float = 0.0
@@ -590,14 +591,24 @@ func restore_motion_state(values: PackedFloat32Array) -> void:
 	_apply_stance()
 
 
-## Replay one of this body's own commands: the move and the swing gate, which the motion state
-## restores. Nothing authoritative, and not the power, whose state is not restored. See [PlayerNetLink].
+## Replay one of this body's own commands on a predicting client: [method run_command] silenced and
+## marked [member replaying], on state already restored. See [PlayerNetLink].
 func simulate_tick(intent: MoveIntent, delta: float) -> void:
-	set_intent(intent)
-	_intent.normalise()
-	if not held:
-		_move(delta)
-	_swing(delta)
+	var blocked: bool = is_blocking_signals()
+	set_block_signals(true)
+	replaying = true
+	run_command(intent, delta)
+	replaying = false
+	set_block_signals(blocked)
+
+
+## Put the body at [param at] facing [param yaw] (Quake 3's SetClientViewAngle): the view base takes
+## the turn against the last view its owner sent, and the placement counts, so nobody slides here.
+func place(at: Vector3, yaw: float) -> void:
+	global_position = at
+	rotation = Vector3(0.0, yaw, 0.0)
+	view_base = wrapf(yaw - _intent.view_angles.x, -PI, PI)
+	placed_counter += 1
 
 
 ## Start (or refresh) a timed ground-speed boost -- a race power-up. Ground max
@@ -608,15 +619,11 @@ func apply_speed_boost(multiplier: float, seconds: float) -> void:
 	speed_boost_changed.emit(_speed_boost_timer)
 
 
-## Seconds left on the current speed boost; 0.0 when none is active.
-## The authority's word on this body's boost. A running timer within [param tolerance] of it is kept.
-func set_speed_boost(multiplier: float, seconds: float, tolerance: float = 0.0) -> void:
+## The authority's word on a mirrored body's boost, for what is drawn of it.
+func set_speed_boost(multiplier: float, seconds: float) -> void:
 	var live: bool = seconds > 0.0
-	if (
-		live == (_speed_boost_timer > 0.0)
-		and absf(_speed_boost_timer - seconds) <= tolerance
-		and (not live or absf(_speed_boost_multiplier - multiplier) < 0.06)
-	):
+	if live == (_speed_boost_timer > 0.0) and is_equal_approx(_speed_boost_timer, seconds) \
+			and (not live or is_equal_approx(_speed_boost_multiplier, multiplier)):
 		return
 	_speed_boost_multiplier = multiplier if live else 1.0
 	_speed_boost_timer = maxf(seconds, 0.0)
@@ -681,12 +688,6 @@ func is_emote_alt() -> bool:
 ## The emote this body is in: 0 none, 1, 2 with the alternate object.
 func get_emote_state() -> int:
 	return (2 if is_emote_alt() else 1) if is_emoting() else 0
-
-
-## The authority's word on this body's emote, for a prediction being put right.
-func set_emote_state(emoting: bool, alt: bool) -> void:
-	_emoting = emoting
-	_emote_alt = alt
 
 
 ## The emote key toggles it on the floor; any move, jump, slide, crouch or leaving the floor ends it.
@@ -766,14 +767,7 @@ func get_view_angles() -> Vector2:
 
 ## Face an absolute view: yaw plus [member view_base], pitch clamped to the profile.
 func _aim_at(view: Vector2) -> void:
-	if is_nan(_aimed_yaw):
-		view_base = angle_difference(view.x, rotation.y)
-	else:
-		var moved: float = angle_difference(_aimed_yaw, rotation.y)
-		if absf(moved) > _REPLACED_EPSILON:
-			view_base = wrapf(view_base + moved, -PI, PI)
 	rotation.y = wrapf(view.x + view_base, -PI, PI)
-	_aimed_yaw = rotation.y
 	_set_pitch(view.y)
 
 

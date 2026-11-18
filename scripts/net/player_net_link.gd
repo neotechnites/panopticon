@@ -23,21 +23,11 @@ extends Node
 ##
 ## [b]Prediction[/b]
 ##
-## A client's own body runs the same [PlayerController] physics off the same
-## [MoveIntent] on the tick the key goes down, so movement costs no round trip.
-## Every command is kept -- as run, and the body it produced -- until a
-## snapshot says the authority has run it: see
-## [member PlayerState.cmd_ack]. On a snapshot the body is rewound to
-## the authority's state at the command it acknowledges, every command since is
-## replayed on top, and the difference between the old prediction and the new
-## one is taken out of [member PlayerController.view_offset] over
-## [member NetSettings.prediction_smoothing_seconds] rather than jumped.
-##
-## Anything the client could not have predicted -- a boost pad, a shove, a kill,
-## a respawn -- arrives as a correction larger than
-## [member NetSettings.prediction_snap_metres]. Those are not smoothed: the
-## buffer is dropped and the body takes the authority's state whole, because
-## drawing a launch as a graceful drift would be a lie about where the body is.
+## A client's own body runs each of its commands exactly as the host will decode them, the tick the
+## key goes down, and keeps them until a snapshot's [code]cmd_ack[/code] says the host ran them. On
+## a snapshot the body takes the host's exact [PredictedState] at that command and replays the rest
+## (Quake 3's playerState, Source's local-player table); the difference is drawn away through
+## [member PlayerController.view_offset], or jumped when it is too large to be a prediction's.
 ##
 ## [b]A seat, not a peer[/b]
 ##
@@ -122,27 +112,35 @@ const _SMOOTHING_CONSTANTS: float = 3.0
 ## Below this, in metres, a view offset is finished rather than chased.
 const _SMOOTHING_EPSILON: float = 0.001
 
-## How far a predicted boost timer may sit from the authority's before it is replaced: the wire's tenth.
-const _BOOST_TOLERANCE_SECONDS: float = 0.11
 
 
-## One unacknowledged command: as the body ran it, and the body it produced.
+## One unacknowledged command, as it was run, and where it left the body.
 class PredictedTick extends RefCounted:
 	var seq: int = 0
 	var intent: MoveIntent = MoveIntent.new()
 	var position: Vector3 = Vector3.ZERO
-	var velocity: Vector3 = Vector3.ZERO
-	var yaw: float = 0.0
-	var motion: PackedFloat32Array = PackedFloat32Array()
-	## Whether the body ended this tick held by its armor lock.
-	var locked: bool = false
 
 
-## Reused per tick so the send path does not allocate.
-var _scratch_intent: MoveIntent = MoveIntent.new()
-## The authority's [member PlayerController.view_base] for this body, off its snapshots.
-var _view_base: float = 0.0
-## A client's own view (yaw less [member _view_base], pitch) when it is not predicting.
+## A client's own body's source: its device's commands made exactly what the host will run, and
+## numbered for the outbox. The body predicts with what is sent.
+class PredictedSource extends IntentSource:
+	var link: PlayerNetLink = null
+
+	func configure(movement_profile: MovementProfile) -> void:
+		profile = movement_profile
+		if link != null and link.local_source != null:
+			link.local_source.configure(movement_profile)
+
+	func next_command(delta: float) -> MoveIntent:
+		return link._make_command(delta)
+
+
+## This tick's command, as sent; and its sequence, -1 before the world is heard.
+var _command: MoveIntent = MoveIntent.new()
+var _command_seq: int = -1
+var _command_frame: int = -1
+var _predicted_source: PredictedSource = PredictedSource.new()
+## This machine's own view: yaw before [member PlayerController.view_base], and pitch.
 var _view: Vector2 = Vector2.ZERO
 
 ## True when this machine is a client simulating its own body. Latched with the
@@ -155,19 +153,16 @@ var _predicted: Array[PredictedTick] = []
 var _predicted_start: int = 0
 var _predicted_count: int = 0
 
-## The newest authoritative state for this body, waiting for the next physics
-## tick to be reconciled against. Applied there and not on arrival, because a
-## snapshot lands on an idle frame and a rewind runs physics.
+## The newest snapshot of this body, waiting for the next physics tick to be reconciled against:
+## a snapshot lands on an idle frame and a replay runs physics.
 var _pending_state: PlayerState = PlayerState.new()
+var _pending_owner: PredictedState = PredictedState.new()
+var _pending_ack: int = -1
 var _has_pending_state: bool = false
 
 ## Prediction error still to be drawn away, in world metres. See
 ## [member PlayerController.view_offset].
 var _view_error: Vector3 = Vector3.ZERO
-## The power this client last predicted, and the command it changed on: the
-## authority's word on it waits until that command is acknowledged.
-var _predicted_power: int = 0
-var _power_seq: int = -1
 
 ## The avatar the host draws from its samples instead of at the body, where it sits on it, and
 ## where the body is drawn.
@@ -236,6 +231,9 @@ func _ready() -> void:
 	controller.jumped.connect(func() -> void: _jump_counter += 1)
 	controller.shoved.connect(func() -> void: _shove_counter += 1)
 	_by_body[controller.get_instance_id()] = self
+	_predicted_source.link = self
+	_predicted_source.name = "PredictedInput"
+	add_child(_predicted_source)
 	refresh_role()
 
 
@@ -264,40 +262,30 @@ func refresh_role() -> void:
 		and local_source != null
 		and session.get_settings().predict_local_body
 	)
-
 	controller.net_predicted = _predicting
 	if _owns_locally() and local_source != null and replicator != null:
 		# This machine's commands carry the time it draws the others at: what its shots rewind to.
 		local_source.view_clock = replicator.get_view_time
 	if not _is_authority and not _predicting:
-		# Somebody else's body on a client owns no simulation. Leaving its
-		# physics running would fight every snapshot that arrives. Our own unplaced body keeps its source.
+		# Somebody else's body on a client owns no simulation: the snapshots move it.
 		if not _owns_locally():
 			controller.intent_source = null
 		controller.set_physics_process(false)
 		reset_prediction()
-		_view = controller.get_view_angles()
 		return
-
 	if _predicting:
-		# This machine's own body on a client. It runs the real physics off the
-		# real input, so it reads its own footing rather than the snapshot's.
+		# This machine's own body on a client runs exactly the commands it sends.
 		reset_prediction()
-		# The view sent carries on unbroken: a facing this machine gave the body is the base's, not the player's.
-		_view_base = wrapf(controller.rotation.y - _view.x, -PI, PI)
 		_take_own_footing()
-
-	# The body runs its commands here; whether they move it is the match's (held).
-	controller.set_physics_process(true)
-	if _owns_locally():
+		controller.intent_source = _predicted_source
+	elif _owns_locally():
 		controller.intent_source = local_source
 	elif replicator != null:
 		controller.intent_source = replicator.stream_for(owner_peer_id)
-
+	# The body runs its commands here; whether they move it is the match's (held).
+	controller.set_physics_process(true)
 	if controller.intent_source != null:
-		# PlayerController configures its source once, at its own _ready. A
-		# source swapped in afterwards has to be configured here or it has no
-		# profile and reports nothing.
+		# A source swapped in after the body's ready has to be configured here.
 		controller.intent_source.configure(controller.profile)
 
 
@@ -309,14 +297,14 @@ func _physics_process(delta: float) -> void:
 	if is_predicting() and controller.net_floor >= 0:
 		# Mirrored while it was held. Its own physics answers for it again.
 		_take_own_footing()
-	var seq: int = _send_commands(delta)
-	if seq >= 0 and is_predicting():
-		# The body has already run this command: keep what it did, then take whatever answer
-		# arrived since and put the body right.
-		_record(seq)
-		_note_predicted_power(seq)
+	if _command_frame != Engine.get_physics_frames():
+		# The body did not run this tick (unplaced, or mirrored): its command is still sent.
+		_make_command(delta)
+	if _command_seq >= 0:
+		replicator.send_commands()
+	if _command_seq >= 0 and is_predicting():
+		_record(_command_seq)
 	else:
-		# Unplaced, or held by the match: nothing to predict, and the replicator mirrors it.
 		reset_prediction()
 	if _has_pending_state:
 		_has_pending_state = false
@@ -412,9 +400,9 @@ func reset_prediction() -> void:
 		controller.view_offset = Vector3.ZERO
 
 
-## Read this body's current state into [param out]. Called by [NetReplicator]
-## on the authority, after the physics tick.
-func sample_state(out: PlayerState) -> void:
+## Read this body's record at host tick [param tick] into [param out]. Called by [NetReplicator]
+## on the authority, after the physics tick; the codec snaps it to wire precision.
+func sample_state(out: PlayerState, tick: int) -> void:
 	out.seat_index = seat_index
 	out.position = controller.global_position
 	out.velocity = controller.velocity
@@ -422,41 +410,56 @@ func sample_state(out: PlayerState) -> void:
 	out.pitch = controller.head.rotation.x if controller.head != null else 0.0
 	out.view_base = controller.view_base
 	out.on_floor = controller.is_on_floor()
-	var power: RunnerPower = RunnerPower.of(controller)
-	out.ability = int(power.get_active()) if power != null else 0
-	out.ability_remaining = power.get_remaining() if power != null else 0.0
-	out.cooldown_remaining = power.get_cooldown_remaining() if power != null else 0.0
-	out.is_armed = controller.is_armed
 	out.sliding = controller.is_sliding()
 	out.crouching = controller.is_crouching()
 	out.emoting = controller.is_emoting()
 	out.emote_alt = controller.is_emote_alt()
+	out.is_armed = controller.is_armed
 	out.jump_counter = _jump_counter
 	out.shove_counter = _shove_counter
-	out.boost_remaining = controller.get_speed_boost_remaining()
+	out.placed_counter = controller.placed_counter
+	var power: RunnerPower = RunnerPower.of(controller)
+	if power != null:
+		out.ability = int(power.get_active())
+		out.ability_end_tick = NetCodec.end_tick(tick, power.get_remaining())
+		out.cooldown_end_tick = NetCodec.end_tick(tick, power.get_cooldown_remaining())
+		var decoy: PlayerController = power.get_decoy()
+		var shield: Node3D = power.get_shield()
+		out.decoy_alive = decoy != null
+		out.has_anchor = decoy != null or shield != null
+		if decoy != null:
+			out.anchor_position = decoy.global_position
+			out.anchor_yaw = decoy.rotation.y
+		elif shield != null:
+			out.anchor_position = shield.global_position
 	out.boost_multiplier = controller.get_speed_boost_multiplier()
-	# What the owner of this seat may rewind to: the last command of theirs this body has run,
-	# not merely received. Nothing to say for a bot's seat or the host's own.
-	out.cmd_ack = (
-		replicator.stream_for(owner_peer_id).get_ack()
-		if replicator != null and owner_peer_id != 0 and not _owns_locally() else -1
-	)
+	out.boost_end_tick = NetCodec.end_tick(tick, controller.get_speed_boost_remaining())
+	var weapon: Rifle = _weapon()
+	if weapon != null:
+		out.weapon_state = int(weapon.get_state())
+		out.weapon_scoped = weapon.optic != null and weapon.optic.is_zoom_requested()
+		out.weapon_end_tick = NetCodec.end_tick(tick, weapon.get_time_to_ready())
+		out.weapon_charge = roundi(weapon.get_charge() * 255.0)
 	var participant: MatchParticipant = _participant()
 	out.is_finisher = participant.is_finisher if participant != null else false
 	out.health = participant.health if participant != null else 0
 
 
-## Put an authoritative state onto the body. Called by [NetReplicator] on a
-## client, once per drawn frame while interpolating and once per snapshot when
-## not.
-##
-## Transform, velocity and floor state. A client never integrates the velocity
-## -- its physics is off -- but [PrisonerAvatar] reads speed and footing to pick
-## a clip, and a body reporting neither is drawn standing still or dead forever.
-##
-## The runner power comes down the same way and is DRAWN, not run: the effect
-## belongs to the authority, and this machine's own body is mirrored like any
-## other, so a client sees its own shield here or nowhere.
+## This body's exact predicted state, for the owner block its client restores. Authority-only.
+func sample_predicted(out: PredictedState) -> void:
+	out.capture(controller, _weapon())
+
+
+## The rifle this body holds, or null.
+func _weapon() -> Rifle:
+	if match_controller == null or match_controller.rifle == null:
+		return null
+	return match_controller.rifle if match_controller.rifle.shooter_body == controller else null
+
+
+## Put an authoritative record onto a mirrored body. Called by [NetReplicator] on a client, once
+## per drawn frame while interpolating. Transform, velocity, footing and poses: a client runs no
+## physics for it, but its avatar picks clips off them. The power is drawn, never run.
 func apply_state(state: PlayerState) -> void:
 	if controller == null:
 		return
@@ -464,12 +467,12 @@ func apply_state(state: PlayerState) -> void:
 	controller.global_position = state.position
 	controller.rotation.y = state.yaw
 	controller.velocity = state.velocity
-	_view_base = state.view_base
+	controller.view_base = state.view_base
 	controller.net_floor = 1 if state.on_floor else 0
 	controller.net_slide = 1 if state.sliding else 0
 	controller.net_crouch = 1 if state.crouching else 0
 	controller.net_emote = (2 if state.emote_alt else 1) if state.emoting else 0
-	controller.set_speed_boost(state.boost_multiplier, state.boost_remaining)
+	controller.set_speed_boost(state.boost_multiplier, state.boost_remaining())
 	if controller.head != null:
 		controller.head.rotation.x = state.pitch
 	_present_events(state)
@@ -479,24 +482,30 @@ func apply_state(state: PlayerState) -> void:
 		placed.emit()
 
 
-## The half of a state that is drawn rather than simulated: the power, the
-## rifle and the participant's own facts. A predicted body takes this and moves
-## itself; a mirrored one takes this and the transform with it.
+## What the host's record says of this predicting body that it does not predict itself: where its
+## power stands in the world. Called at the playout clock, as for any remote entity.
+func apply_anchor(state: PlayerState) -> void:
+	var power: RunnerPower = RunnerPower.of(controller)
+	if power != null:
+		power.present_anchor(
+			state.ability as MatchRules.RunnerAbility, state.anchor_position if state.has_anchor else Vector3.INF,
+			state.decoy_alive, state.anchor_yaw,
+		)
+
+
+## The half of a record that is drawn rather than simulated: the power, the rifle and the
+## participant's own facts. A predicting body restores its power from the owner block instead.
 func _apply_presentation(state: PlayerState, predicted: bool = false) -> void:
 	var power: RunnerPower = RunnerPower.of(controller)
 	if power != null and not predicted:
 		power.present(
-			state.ability as MatchRules.RunnerAbility,
-			state.ability_remaining,
-			state.cooldown_remaining,
-		)
-	elif power != null and not _power_unacknowledged(state.cmd_ack):
-		power.reconcile(
-			state.ability as MatchRules.RunnerAbility,
-			state.ability_remaining,
-			state.cooldown_remaining,
+			state.ability as MatchRules.RunnerAbility, state.ability_remaining(), state.cooldown_remaining(),
+			state.anchor_position if state.has_anchor else Vector3.INF, state.decoy_alive, state.anchor_yaw,
 		)
 	controller.is_armed = state.is_armed
+	var weapon: Rifle = _weapon()
+	if weapon != null and not predicted:
+		weapon.present_record(state.weapon_state as Rifle.State, state.seconds_to(state.weapon_end_tick), float(state.weapon_charge) / 255.0)
 	var participant: MatchParticipant = _participant()
 	if participant != null:
 		participant.is_finisher = state.is_finisher
@@ -565,170 +574,82 @@ func _participant() -> MatchParticipant:
 
 # --- Sending ------------------------------------------------------------------
 
-## Number this tick's command and send every one the host has not run. A predicting body has
-## already run it; an unplaced one has not, so its device is read here. Returns the sequence, or
-## -1 before this scene's world has been heard: a command is input to the host's world (Quake 3
-## sends none before its first snapshot), so one made before the host runs the scene is not sent.
-func _send_commands(delta: float) -> int:
-	var command: MoveIntent
-	if controller.is_physics_processing():
-		command = controller.get_intent()
-		var view: Vector2 = controller.get_view_angles()
-		_view = Vector2(wrapf(view.x - _view_base, -PI, PI), view.y)
-	else:
-		command = local_source.next_command(delta)
-		_view = controller.turned_view(_view, command.look_delta)
-	_scratch_intent.copy_from(command)
-	# The view goes as absolute angles, Quake's usercmd: a lost packet costs no aim.
-	_scratch_intent.view_angles = _view
-	_scratch_intent.view_absolute = true
-	_scratch_intent.look_delta = Vector2.ZERO
+## This tick's command from the device: the view made absolute (Quake's usercmd: a lost packet
+## costs no aim), quantised as the host decodes it, and numbered. None is numbered before this
+## scene's world has been heard (Quake 3 sends no usercmd before its first snapshot).
+func _make_command(delta: float) -> MoveIntent:
+	var command: MoveIntent = local_source.next_command(delta)
+	_view = command.view_angles if command.view_absolute else controller.turned_view(_view, command.look_delta)
+	_command.copy_from(command)
+	_command.view_angles = _view
+	NetCodec.quantise_command(_command)
+	_command_frame = Engine.get_physics_frames()
 	if replicator.get_latest_tick() < 0:
 		# The host's stream will start at a later command and take its edges against nothing.
 		local_source.rebase_edges()
-		return -1
-	var seq: int = replicator.outbox.push(_scratch_intent)
-	replicator.send_commands()
-	return seq
+		_command_seq = -1
+	else:
+		_command_seq = replicator.outbox.push(_command)
+	return _command
 
 
 # --- Prediction ---------------------------------------------------------------
 
-## Take the authority's state for this body. Called by [NetReplicator] on a
-## client in place of [method apply_state] while this link is predicting.
-##
-## Held rather than applied: a snapshot lands on an idle frame and putting the
-## body right runs physics, so it waits for the next physics tick.
-func receive_authoritative(state: PlayerState) -> void:
+## Take the host's word on this body: its record, its exact predicted state ([param owner], null
+## when none was sent) and the newest of this machine's commands it had run ([param cmd_ack]).
+## Held for the next physics tick: a snapshot lands on an idle frame and a replay runs physics.
+func receive_authoritative(state: PlayerState, owner: PredictedState, cmd_ack: int) -> void:
+	if owner == null:
+		return
 	_pending_state.copy_from(state)
+	_pending_owner.copy_from(owner)
+	_pending_ack = cmd_ack
 	_has_pending_state = true
 
 
-## Mark the command this client's own power started or stopped on, if it did.
-func _note_predicted_power(seq: int) -> void:
-	var power: RunnerPower = RunnerPower.of(controller)
-	var active: int = int(power.get_active()) if power != null else 0
-	if active != _predicted_power:
-		_predicted_power = active
-		_power_seq = seq
-
-
-## True while the authority has not yet run the command that changed this power.
-func _power_unacknowledged(acked: int) -> bool:
-	return _power_seq >= 0 and (acked < 0 or NetCodec.is_newer_tick(_power_seq, acked))
-
-
-## Keep command [param seq]: as the body ran it, and where it ended up.
+## Keep command [param seq] as the body ran it, and where it left the body.
 func _record(seq: int) -> void:
 	if _predicted.is_empty():
 		_predicted.resize(PREDICTION_CAPACITY)
 		for i: int in PREDICTION_CAPACITY:
 			_predicted[i] = PredictedTick.new()
 	if _predicted_count >= PREDICTION_CAPACITY:
-		# Nothing has been acknowledged for a second. The oldest goes, not the
-		# newest: it is the one the authority has most likely passed already.
+		# Nothing acknowledged for a second: the oldest goes, the one the host has most likely passed.
 		_predicted_start = (_predicted_start + 1) % PREDICTION_CAPACITY
 		_predicted_count -= 1
 	var entry: PredictedTick = _slot(_predicted_count)
 	_predicted_count += 1
 	entry.seq = seq
-	entry.intent.copy_from(controller.get_intent())
-	_write_result(entry)
-
-
-## Where the body is now, into [param entry].
-func _write_result(entry: PredictedTick) -> void:
+	entry.intent.copy_from(_command)
 	entry.position = controller.global_position
-	entry.velocity = controller.velocity
-	entry.yaw = controller.rotation.y
-	controller.capture_motion_state(entry.motion)
-	entry.locked = controller.movement_locked
 
 
-## Rewind to the authority's state, replay what it has not seen, and hand the
-## difference to the view.
-##
-## The POSITION rewound to is the authority's; the AIM is this machine's own,
-## the view it sends, turned by whatever facing the match has set since.
+## Restore the host's exact state at its acknowledgement and replay every command after it (DESIGN
+## 7); the difference from what was predicted is drawn away, or jumped when it is too large.
 func _reconcile(delta: float) -> void:
 	_apply_presentation(_pending_state, true)
 	_pass_own_events(_pending_state)
-	var rebase: float = angle_difference(_view_base, _pending_state.view_base)
-	if rebase != 0.0:
-		_view_base = _pending_state.view_base
-		controller.rotation.y = wrapf(controller.rotation.y + rebase, -PI, PI)
-		# Every yaw held was turned in the old base; one acknowledged later must not undo the turn.
-		for i: int in _predicted_count:
-			var held: PredictedTick = _slot(i)
-			held.yaw = wrapf(held.yaw + rebase, -PI, PI)
-	var acked: int = _pending_state.cmd_ack
-	if acked < 0:
-		# The authority has run none of this client's input yet. There is
-		# nothing to rewind to and nothing to replay.
-		_snap_to(_pending_state)
-		prediction_corrected.emit(0.0, true)
-		return
-
-	var first: int = _first_unacknowledged(acked)
-	if first == 0:
-		# Every tick held is newer than the acknowledgement: the wake of a
-		# buffer that was thrown away -- a respawn, or one of the two hard snaps
-		# above -- while the authority is still answering for input from before
-		# it. Nothing here maps onto anything kept, so it is left alone and
-		# reconciliation resumes once the acknowledgements catch the buffer up.
-		return
-	var index: int = first - 1
-	var predicted: PredictedTick = _slot(index)
-	if predicted.seq != acked:
-		# A tick was acknowledged that this buffer straddles but does not hold.
-		_snap_to(_pending_state)
-		prediction_corrected.emit(0.0, true)
-		return
-
-	var missed: float = _pending_state.position.distance_to(predicted.position)
+	var acked: int = _pending_ack
+	var first: int = _first_unacknowledged(acked) if acked >= 0 else 0
+	var missed: float = 0.0
+	if first > 0 and _slot(first - 1).seq == acked:
+		missed = _pending_owner.get_position().distance_to(_slot(first - 1).position)
 	var snapped: bool = missed > session.get_settings().prediction_snap_metres
-	prediction_corrected.emit(missed, snapped)
-
+	if first > 0:
+		prediction_corrected.emit(missed, snapped)
 	var before: Vector3 = controller.global_position
-	controller.global_position = _pending_state.position
-	controller.velocity = _pending_state.velocity
-	controller.rotation.y = predicted.yaw
-	controller.restore_motion_state(predicted.motion)
-	# What no input of this machine's decides is the authority's as of that tick: whether the
-	# emote is up and the boost it handed out. The replay below carries both forward.
-	controller.set_emote_state(_pending_state.emoting, _pending_state.emote_alt)
-	controller.set_speed_boost(
-		_pending_state.boost_multiplier, _pending_state.boost_remaining, _BOOST_TOLERANCE_SECONDS
-	)
-	# An armor lock that began or ended inside the window is replayed tick by tick as it was
-	# predicted; one the authority has answered for holds, or not, across the whole window.
-	var locked_now: bool = controller.movement_locked
-	var replay_lock: bool = _power_unacknowledged(acked)
-	if replay_lock:
-		controller.movement_locked = predicted.locked
-	# The replayed ticks are this body's own past. Their signals were heard when
-	# they happened; heard again they would fire the last hundred milliseconds
-	# of footsteps, jumps and landings a second time.
-	controller.set_block_signals(true)
-	for i: int in range(index + 1, _predicted_count):
-		var entry: PredictedTick = _slot(i)
-		controller.simulate_tick(entry.intent, delta)
-		if replay_lock:
-			if entry.locked and not controller.movement_locked:
-				controller.velocity = Vector3.ZERO
-			controller.movement_locked = entry.locked
-		_write_result(entry)
-	controller.movement_locked = locked_now
-	controller.set_block_signals(false)
-
-	_drop_through(index)
+	var weapon: Rifle = _weapon()
+	_pending_owner.restore(controller, weapon)
+	for i: int in range(first, _predicted_count):
+		controller.simulate_tick(_slot(i).intent, delta)
+		_slot(i).position = controller.global_position
+	var power: RunnerPower = RunnerPower.of(controller)
+	if power != null:
+		power.settle_visuals()
+	if first > 0:
+		_drop_through(first - 1)
 	if snapped:
-		# An event the client could not have predicted -- a launch, a shove, a
-		# kill, a respawn. The BODY still replays: the player's last round trip
-		# of running and turning is theirs and throwing it away is a worse lie
-		# than any pop. What a snap changes is the VIEW, which goes with the
-		# body at once instead of drifting onto it, because drawing a launch as
-		# a graceful slide is a lie about where the body is.
+		# Something no prediction could know -- a launch, a shove, a respawn: the view goes with the body.
 		_view_error = Vector3.ZERO
 		controller.view_offset = Vector3.ZERO
 		return
@@ -742,17 +663,6 @@ func _first_unacknowledged(acked: int) -> int:
 		if NetCodec.is_newer_tick(_slot(i).seq, acked):
 			return i
 	return _predicted_count
-
-
-## Take the authority's state whole, for a correction no replay can be based on:
-## a body the authority has run no input for yet, or an acknowledgement this
-## buffer straddles but does not hold. A correction that is merely LARGE is not
-## one of these -- see [method _reconcile].
-func _snap_to(state: PlayerState) -> void:
-	# The view stays the player's own, already turned by any facing the match set.
-	reset_prediction()
-	controller.global_position = state.position
-	controller.velocity = state.velocity
 
 
 ## Add to the error the view still owes, capped so a snap-sized mistake that

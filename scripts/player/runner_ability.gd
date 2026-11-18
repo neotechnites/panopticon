@@ -6,9 +6,15 @@ extends Node
 
 const DECOY_GROUP: StringName = &"hologram_decoys"
 const SHIELD_RADIUS: float = 4.0
+## How far above a body's origin its shield is centred.
+const SHIELD_RISE: float = 0.9
 ## A layer inside the rifle's hit mask that no body's collision mask includes,
 ## so shots stop on the shell and runners walk out of it.
 const SHIELD_LAYER: int = 1 << 19
+## The powers whose effect this body draws itself (a hologram and a cat are host entities).
+const _DRAWN_POWERS: Array[MatchRules.RunnerAbility] = [
+	MatchRules.RunnerAbility.BUBBLE_SHIELD, MatchRules.RunnerAbility.ARMOR_LOCK, MatchRules.RunnerAbility.ACTIVE_CAMO,
+]
 ## The decoy body: hit by the rifle, ignored by every body mask.
 const DECOY_LAYER: int = 1 << 18
 const DECOY_LEAD_METRES: float = 2.0
@@ -26,12 +32,6 @@ var _active: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE
 var _remaining: float = 0.0
 var _cooldown: float = 0.0
 var _shield: StaticBody3D = null
-## Where the authority's shield stands, once it has said: a mirror's body is drawn a snapshot
-## behind, so its own spot is not where shots are stopped. Said ahead of the shield it is for,
-## and good for [constant SHIELD_SAID_TICKS]: later it is about a shield already gone.
-var _shield_at: Vector3 = Vector3.INF
-var _shield_said_tick: int = 0
-const SHIELD_SAID_TICKS: int = 60
 var _decoy: PlayerController = null
 var _shell: MeshInstance3D = null
 var _camo_mesh: MeshInstance3D = null
@@ -146,18 +146,25 @@ func activate(which: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE, a
 		return false
 	_active = which
 	_remaining = maxf(rules.ability_duration_seconds, 0.0)
+	if _active == MatchRules.RunnerAbility.ARMOR_LOCK:
+		body.movement_locked = true
+		body.velocity = Vector3.ZERO
+	elif _active == MatchRules.RunnerAbility.CAT_GRENADE:
+		_remaining = CatGrenade.FUSE_SECONDS
+	if body.replaying:
+		# A replayed command changes the state; what is drawn of it was drawn the first time.
+		return true
 	match _active:
 		MatchRules.RunnerAbility.BUBBLE_SHIELD:
 			_raise_shield()
 		MatchRules.RunnerAbility.HOLOGRAM:
-			# A predicting client draws its decoy where the authority's one walks.
+			# A predicting client draws its decoy where the authority's will walk; the snapshot moves it.
 			_spawn_decoy(not authority)
 		MatchRules.RunnerAbility.ARMOR_LOCK:
-			_lock()
+			_raise_shell()
 		MatchRules.RunnerAbility.ACTIVE_CAMO:
 			_cloak()
 		MatchRules.RunnerAbility.CAT_GRENADE:
-			_remaining = CatGrenade.FUSE_SECONDS
 			if authority:
 				_spawn_cat()
 	return true
@@ -171,53 +178,77 @@ func cancel() -> void:
 	_remaining = 0.0
 
 
-## Draw [param which] on a mirrored body: the same shield, shell and tint
-## [method activate] builds, with none of the effect. The client's whole view of
-## somebody else's power, and of its own -- a client simulates neither.
-##
-## Called every frame from [PlayerNetLink] with the replicated state, so it is a
-## no-op unless the power changed.
+## Draw [param which] on a mirrored body from its record: the shield, shell or tint [method activate]
+## builds, with none of the effect, the shield at [param anchor] and the hologram at its pose while
+## [param decoy_alive]. Called every drawn frame; a no-op unless something changed.
 func present(
-	which: MatchRules.RunnerAbility, remaining: float, cooldown: float = 0.0
+	which: MatchRules.RunnerAbility, remaining: float, cooldown: float, anchor: Vector3 = Vector3.INF,
+	decoy_alive: bool = false, decoy_yaw: float = 0.0,
 ) -> void:
 	_remaining = maxf(remaining, 0.0)
-	# The client's own HUD reads this; nothing on a mirror counts it down.
 	_cooldown = maxf(cooldown, 0.0)
 	if _active != MatchRules.RunnerAbility.NONE:
-		# A power this machine predicted is the authority's to describe now: what it drew is
-		# kept when they agree and dropped when they do not, and one flag is left standing.
+		# A power this machine predicted is the record's to describe now: what it drew is kept when
+		# they agree and dropped when they do not.
 		if _active == which:
 			_presented = which
 		else:
 			_teardown()
 		_active = MatchRules.RunnerAbility.NONE
-	if which == _presented:
-		return
-	# The hologram is not this call's: its own stream spawns, moves and ends the mirrored one.
-	_teardown(true)
-	_presented = which
-	match which:
-		MatchRules.RunnerAbility.BUBBLE_SHIELD:
-			_raise_shield()
-		MatchRules.RunnerAbility.ARMOR_LOCK:
-			_raise_shell()
-		MatchRules.RunnerAbility.ACTIVE_CAMO:
-			_cloak()
+	if which != _presented:
+		_teardown(true)
+		_presented = which
+		match which:
+			MatchRules.RunnerAbility.BUBBLE_SHIELD:
+				_raise_shield()
+			MatchRules.RunnerAbility.ARMOR_LOCK:
+				_raise_shell()
+			MatchRules.RunnerAbility.ACTIVE_CAMO:
+				_cloak()
+	present_anchor(which, anchor, decoy_alive, decoy_yaw)
 
 
-## [method present] for a client's own predicted power, once the authority has
-## run the press: it confirms the prediction, or ends it and draws its own.
-func reconcile(
-	which: MatchRules.RunnerAbility, remaining: float, cooldown: float = 0.0
-) -> void:
-	if _active == MatchRules.RunnerAbility.NONE:
-		present(which, remaining, cooldown)
-		return
-	if which == _active:
-		_remaining = maxf(remaining, 0.0)
-		return
-	cancel()
-	present(which, remaining, cooldown)
+## The host's word on where this body's power stands: its shield's centre, and its hologram's pose
+## while one is out. For a predicting body too, whose own guess at both is drawn until this lands.
+func present_anchor(which: MatchRules.RunnerAbility, anchor: Vector3, decoy_alive: bool, decoy_yaw: float) -> void:
+	if _shield != null and which == MatchRules.RunnerAbility.BUBBLE_SHIELD and anchor.is_finite():
+		_shield.global_position = anchor
+	if decoy_alive and anchor.is_finite():
+		present_decoy(anchor, decoy_yaw)
+	elif which == MatchRules.RunnerAbility.HOLOGRAM or _active != MatchRules.RunnerAbility.HOLOGRAM:
+		# Out on the host and gone there (shot), or a mirror's power that has none: no hologram.
+		clear_decoy()
+
+
+## Take the host's exact predicted state of this power (DESIGN 7): its data only, as a replay starts.
+func restore_predicted(which: int, remaining: float, cooldown: float) -> void:
+	_active = which as MatchRules.RunnerAbility
+	_remaining = remaining
+	_cooldown = cooldown
+
+
+## After a replay: what this power draws follows the state it was left in.
+func settle_visuals() -> void:
+	if _active != MatchRules.RunnerAbility.HOLOGRAM:
+		clear_decoy()
+	var drawn: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE
+	if _shield != null:
+		drawn = MatchRules.RunnerAbility.BUBBLE_SHIELD
+	elif _shell != null:
+		drawn = MatchRules.RunnerAbility.ARMOR_LOCK
+	elif _camo_mesh != null:
+		drawn = MatchRules.RunnerAbility.ACTIVE_CAMO
+	var wanted: MatchRules.RunnerAbility = _active if _active in _DRAWN_POWERS else MatchRules.RunnerAbility.NONE
+	if drawn != wanted:
+		_teardown(true)
+		match wanted:
+			MatchRules.RunnerAbility.BUBBLE_SHIELD:
+				_raise_shield()
+			MatchRules.RunnerAbility.ARMOR_LOCK:
+				_raise_shell()
+			MatchRules.RunnerAbility.ACTIVE_CAMO:
+				_cloak()
+	body.movement_locked = _active == MatchRules.RunnerAbility.ARMOR_LOCK
 
 
 func get_ability() -> MatchRules.RunnerAbility:
@@ -241,6 +272,11 @@ func get_shown() -> MatchRules.RunnerAbility:
 
 func get_remaining() -> float:
 	return _remaining if is_active() else 0.0
+
+
+## The power's own clock, as prediction restores it.
+func get_predicted_remaining() -> float:
+	return _remaining
 
 
 func get_cooldown_remaining() -> float:
@@ -282,6 +318,9 @@ func _end() -> void:
 
 
 func _teardown(keep_decoy: bool = false) -> void:
+	if body != null and body.replaying:
+		body.movement_locked = false
+		return
 	if _shield != null:
 		_shield.queue_free()
 		_shield = null
@@ -329,19 +368,8 @@ func _raise_shield() -> void:
 	shield.add_child(shape)
 	shield.add_child(_build_shield_mesh())
 	body.get_parent().add_child(shield)
-	var said: bool = _shield_at.is_finite() and Engine.get_physics_frames() - _shield_said_tick <= SHIELD_SAID_TICKS
-	shield.global_position = _shield_at if said else body.global_position + Vector3.UP * 0.9
-	_shield_at = Vector3.INF
+	shield.global_position = body.global_position + Vector3.UP * SHIELD_RISE
 	_shield = shield
-
-
-## The authority's word on where this body's shield stands, heard before or after it is drawn here.
-func place_shield(at: Vector3) -> void:
-	if _shield != null:
-		_shield.global_position = at
-		return
-	_shield_at = at
-	_shield_said_tick = Engine.get_physics_frames()
 
 
 # --- Hologram -----------------------------------------------------------------
@@ -388,16 +416,15 @@ func _spawn_decoy(mirrored: bool = false) -> void:
 	_decoy = decoy
 
 
-## Put the mirrored hologram where the authority says it is. Only [param spawn], the
-## authority's reliable word that one exists, may build it: a late position cannot.
-func present_decoy(position: Vector3, yaw: float, spawn: bool = false) -> void:
+## Put the mirrored hologram where the host's record has it, building it the first time.
+func present_decoy(position: Vector3, yaw: float) -> void:
 	if get_decoy() == null:
 		_decoy = null
-		if not spawn:
-			return
 		_spawn_decoy(true)
 		_decoy_seen_msec = 0
 	if _decoy == null:
+		return
+	if _decoy.global_position.is_equal_approx(position) and is_equal_approx(_decoy.rotation.y, yaw):
 		return
 	# Its avatar animates off velocity and floor, which a mirrored decoy never simulates.
 	var now: int = Time.get_ticks_msec()
@@ -433,12 +460,6 @@ static func shatter(decoy: PlayerController) -> void:
 
 
 # --- Armor lock ---------------------------------------------------------------
-
-func _lock() -> void:
-	body.movement_locked = true
-	body.velocity = Vector3.ZERO
-	_raise_shell()
-
 
 ## The armor lock's glowing shell, and the hold that goes with it. A client
 ## predicting its own body has to be held too, or it walks away from a lock the

@@ -137,9 +137,8 @@ func _ready() -> void:
 func configure(spawn_point: Vector3, initial_yaw: float = 0.0) -> void:
 	if controller == null or input == null or rifle == null or profile == null:
 		return
-	controller.global_position = spawn_point
+	controller.place(spawn_point, initial_yaw)
 	controller.velocity = Vector3.ZERO
-	controller.rotation = Vector3(0.0, initial_yaw, 0.0)
 	_target = null
 	_state = State.SCANNING
 	_clock = 0.0

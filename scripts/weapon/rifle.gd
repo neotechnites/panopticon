@@ -367,11 +367,19 @@ func _ready() -> void:
 	reload_seconds = _reload_seconds if _reload_seconds > 0.0 else get_base_reload_seconds()
 
 
-## The clock runs on the physics tick, not the render tick, so the reload is the
-## same length in a 300 fps play session and in a headless sweep with rendering
-## switched off. A weapon whose cycle drifts with framerate cannot be swept.
+## Floats in a captured gate state ([method capture_gate]): what a predicting guard restores.
+const GATE_STATE_SIZE: int = 8
+
+
+## The clock runs on the physics tick, not the render tick. Held, the cycle is its holder's: it
+## steps with each command the holder runs ([method step_gate]), so a guard's client predicts it.
 func _physics_process(delta: float) -> void:
-	tick(delta)
+	if profile == null:
+		return
+	_step_motion(delta)
+	_step_projectiles(delta)
+	if shooter_body == null:
+		step_gate(delta)
 
 
 ## Advance the weapon's clock by [param delta] seconds.
@@ -389,8 +397,62 @@ func tick(delta: float) -> void:
 	# cycle goes last so a shot taken this tick is not also advanced by it.
 	_step_motion(delta)
 	_step_projectiles(delta)
+	step_gate(delta)
+
+
+## One command's worth of the gate: the charge, then the shot-to-ready cycle.
+func step_gate(delta: float) -> void:
+	if profile == null:
+		return
 	_step_charge(delta)
 	_step_cycle(delta)
+
+
+## The gate as floats into [param out]: state, its elapsed, settled time, charge, charging, penalty,
+## wind-up announced, reload. Prediction state ([PredictedState]).
+func capture_gate(out: PackedFloat32Array) -> void:
+	out[0] = float(_state)
+	out[1] = _state_elapsed
+	out[2] = _ready_elapsed
+	out[3] = _charge
+	out[4] = 1.0 if _charging else 0.0
+	out[5] = _reload_penalty_seconds
+	out[6] = 1.0 if _windup_announced else 0.0
+	out[7] = _reload_seconds
+
+
+## Put a [method capture_gate] state back, the host's at the acknowledged command, signalling nothing.
+func restore_gate(values: PackedFloat32Array) -> void:
+	_state = clampi(int(values[0]), 0, State.size() - 1) as State
+	_state_elapsed = values[1]
+	_ready_elapsed = values[2]
+	_charge = values[3]
+	_charging = values[4] > 0.5
+	_reload_penalty_seconds = values[5]
+	_windup_announced = values[6] > 0.5
+	if values[7] > 0.0:
+		_reload_seconds = values[7]
+
+
+## A mirrored rifle drawn from its holder's record: [param state], [param seconds] until ready and
+## the hold, with the transitions' own signals so its sounds play. Nothing is simulated.
+func present_record(state: State, seconds: float, charge: float) -> void:
+	if profile == null:
+		return
+	if state != _state:
+		match state:
+			State.READY:
+				_finish_reload()
+			State.RELOADING:
+				_begin_reload()
+			_:
+				_set_state(state)
+	match state:
+		State.FIRING:
+			_state_elapsed = maxf(profile.shot_duration + get_cycle_reload_seconds() - seconds, 0.0)
+		State.RELOADING:
+			_state_elapsed = maxf(get_cycle_reload_seconds() - seconds, 0.0)
+	_set_charge(charge)
 
 
 ## The shot-to-ready state machine, unchanged since before the weapon had
@@ -434,7 +496,10 @@ func _step_cycle(delta: float) -> void:
 ##
 ## [param view_time] is the tick the shooter was drawing the world at (see
 ## [member MoveIntent.view_time]); the shot is traced against bodies as they stood then.
-func try_fire(view_time: float = MoveIntent.LIVE_WORLD) -> bool:
+##
+## [param predicted] is a guard's client firing ahead of the host: the gate moves and, the first
+## time the command runs, the shot is drawn (Source's IsFirstTimePredicted); nothing is resolved.
+func try_fire(view_time: float = MoveIntent.LIVE_WORLD, predicted: bool = false) -> bool:
 	if not can_fire():
 		return false
 	var charge: float = get_charge()
@@ -445,22 +510,54 @@ func try_fire(view_time: float = MoveIntent.LIVE_WORLD) -> bool:
 		return false
 	_lag_ticks = int(lag_back.call(view_time)) if is_finite(view_time) and lag_back.is_valid() else 0
 	_end_charge(charge)
-	_resolve_shot(charge)
+	if not predicted:
+		_resolve_shot(charge)
+	elif not _replaying():
+		_draw_own_shot(charge)
 	_set_state(State.FIRING)
 	_lag_ticks = 0
 	return true
 
 
+## True while the holder replays its own commands: their shots were drawn the first time.
+func _replaying() -> bool:
+	var holder: PlayerController = shooter_body as PlayerController
+	return holder != null and holder.replaying
+
+
+## A predicted shot on the shooter's own screen: its tracer or its round, to where the line meets
+## the world here, and [signal fired] for the recoil and report. The host's hit or miss lands it.
+func _draw_own_shot(charge: float) -> void:
+	var source: Node3D = aim_source if aim_source != null else self
+	var origin: Vector3 = source.global_position
+	var direction: Vector3 = -source.global_transform.basis.z.normalized()
+	var far_point: Vector3 = origin + direction * profile.get_charged_range(charge)
+	var hit: Dictionary = _cast(origin, far_point)
+	var end_point: Vector3 = hit.get("position", far_point) if not hit.is_empty() else far_point
+	var muzzle_node: Node3D = muzzle if muzzle != null else source
+	if is_travelling_shot():
+		_launch_visual(origin, end_point, muzzle_node.global_position, get_shot_speed(charge))
+	else:
+		_spawn_tracer(muzzle_node.global_position, end_point)
+	_last_shot_origin = origin
+	_has_shot_origin = true
+	_note_shot(origin, end_point)
+	fired.emit(origin, end_point)
+
+
 ## One reading of a trigger: down this time, held, let go. A charged weapon charges on the press
 ## and fires on the release; any other fires on the press, or on the hold when [member allow_held_fire].
-func trigger(pressed: bool, held: bool, released: bool, view_time: float = MoveIntent.LIVE_WORLD) -> void:
+## [param predicted]: see [method try_fire].
+func trigger(
+	pressed: bool, held: bool, released: bool, view_time: float = MoveIntent.LIVE_WORLD, predicted: bool = false
+) -> void:
 	if profile != null and profile.charge_enabled:
 		if pressed:
 			begin_charge()
 		elif released:
-			release_charge(view_time)
+			release_charge(view_time, predicted)
 	elif pressed or (held and allow_held_fire):
-		try_fire(view_time)
+		try_fire(view_time, predicted)
 
 
 ## Ticks back the shot being resolved is traced; 0 between shots.
@@ -650,13 +747,13 @@ func begin_charge() -> bool:
 ## [member WeaponProfile.charge_min_fraction_to_fire] -- spends the hold anyway.
 ## A released trigger is released; letting it silently keep charging would make
 ## the tell a runner reads off the tower a lie.
-func release_charge(view_time: float = MoveIntent.LIVE_WORLD) -> bool:
+func release_charge(view_time: float = MoveIntent.LIVE_WORLD, predicted: bool = false) -> bool:
 	if profile == null or not profile.charge_enabled:
-		return try_fire(view_time)
+		return try_fire(view_time, predicted)
 	if not _charging:
 		return false
 	var held: float = _charge
-	var took_shot: bool = try_fire(view_time)
+	var took_shot: bool = try_fire(view_time, predicted)
 	if not took_shot:
 		_end_charge(held)
 	return took_shot
@@ -870,16 +967,8 @@ func _resolve_shot(charge: float) -> void:
 		missed.emit(end_point)
 
 
-## Cosmetic replay of a shot the authority took: tracer, [signal fired] and the
-## reload cycle, with no ray and no hit. For clients in a networked match.
-##
-## Under a travelling shot the instant streak is replaced by a cosmetic round
-## flown between the two ends the host already sent, at [method get_shot_speed],
-## and the tracer waits for it to arrive. The wire is untouched -- the same
-## origin, end point and reload it always carried -- because both ends of the
-## line and the speed are enough to rebuild the flight locally. The round
-## resolves into a trail and nothing else: the hit and the miss are the host's
-## and arrive on their own messages.
+## Cosmetic replay of a shot the authority took: tracer (or a round flown between the two ends)
+## and [signal fired], with no ray and no hit; the gate is its holder's record's.
 func show_remote_shot(
 	origin: Vector3, end_point: Vector3, reload: float, speed: float = -1.0, gravity: float = -1.0
 ) -> void:
@@ -896,7 +985,6 @@ func show_remote_shot(
 		_spawn_tracer(muzzle_node.global_position, end_point)
 	_note_shot(origin, end_point)
 	fired.emit(origin, end_point)
-	_set_state(State.FIRING)
 
 
 ## A tracer and a round in flight, for [SceneWarmup]: both are built only when a shot is fired.

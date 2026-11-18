@@ -7,9 +7,6 @@ extends Node
 ## The server started the match, or a client learned that it did.
 signal match_bound(authority: bool)
 
-## Authority: [param peer_id]'s copy of this scene now stands; what it missed can be sent.
-signal peer_bound(peer_id: int)
-
 ## Every NetMatch in the tree: how a scene prop finds the one on its own machine.
 const GROUP: StringName = &"net_match"
 
@@ -18,6 +15,14 @@ const LINK_SCENE_PATH: String = "res://match/net/player_net_link.tscn"
 
 ## Which rifle a shot event belongs to: the tower's is the only one.
 const TOWER_RIFLE: int = 0
+
+## The match's transitions, by their index on the wire. Reliable and stamped (see [method _event]);
+## Phase 5 turns them into the match record's state.
+const _EVENTS: Array[StringName] = [
+	&"_ev_match_started", &"_ev_race_started", &"_ev_round_started", &"_ev_removed", &"_ev_ghost_fell",
+	&"_ev_round_resolved", &"_ev_match_won", &"_ev_ghost_respawned", &"_ev_ghost_caught",
+	&"_ev_finisher_armed", &"_ev_kill_beat", &"_ev_brawl_started", &"_ev_brawl_out",
+]
 
 @export var controller: MatchController
 @export var player: PlayerController
@@ -52,8 +57,12 @@ var _bound: bool = false
 var _cover: LoadingCover = null
 ## The lobby epoch this scene was loaded for.
 var _epoch: int = 0
-## Reused by [method get_scene_peers], which a carried cat asks every tick.
+## Reused by [method get_scene_peers].
 var _scene_peers: PackedInt32Array = PackedInt32Array()
+## Client: the tick of the match record this mirror converged on, -1 before; and the stamped
+## transitions that arrived before it, to be taken or dropped against it.
+var _converged_tick: int = -1
+var _early: Array[Array] = []
 ## Authority: the rules last published from this scene, so a widget that edited none sends none.
 var _rules_said: PackedByteArray = PackedByteArray()
 
@@ -69,8 +78,10 @@ func _ready() -> void:
 		set_physics_process(false)
 		return
 	add_to_group(GROUP)
-	_lobby.peer_standing.connect(_on_peer_standing)
 	_lobby.roster_changed.connect(_on_roster_changed)
+	if not _session.is_authority():
+		_session.replicator.event_received.connect(_on_event)
+		_session.replicator.match_record_received.connect(_on_match_record)
 	controller.auto_start = false
 	_bound = true
 	# Nothing of this scene is drawn until this machine's body has been placed in it.
@@ -86,6 +97,7 @@ func _ready() -> void:
 			controller.participant_shoved.connect(_on_participant_shoved)
 		controller.start_hub()
 		_started = true
+		_session.replicator.bind_props(_scene_props())
 		_on_started()
 		_session.flow.scene_bound(_epoch, get_parent())
 		return
@@ -100,20 +112,36 @@ func _ready() -> void:
 func _bind_match() -> void:
 	_build_bodies()
 	_apply_opening()
+	_session.replicator.bind_props(_scene_props())
 	if _session.is_authority():
 		_subscribe_server()
+		_session.replicator.match_source = func() -> PackedByteArray: return NetCodec.pack_match(controller, _started)
 	else:
 		_lobby.rules_changed.connect(_on_rules_changed)
 	_on_roster_changed()
 	_session.flow.scene_bound(_epoch, get_parent())
 
 
+## The scene's props: what the snapshot carries besides bodies (DESIGN 3.4 PROPS).
+func _scene_props() -> Array[Node]:
+	var props: Array[Node] = []
+	var root: Node = get_parent()
+	for prop: Node in get_tree().get_nodes_in_group(NetProp.GROUP):
+		if root.is_ancestor_of(prop):
+			props.append(prop)
+	return props
+
+
 func _exit_tree() -> void:
 	if not _bound:
 		return
-	# A scene on its way out answers for nothing: a late binder is the next scene's to greet.
-	_lobby.peer_standing.disconnect(_on_peer_standing)
+	# A scene on its way out answers for nothing.
 	_lobby.roster_changed.disconnect(_on_roster_changed)
+	if _session.replicator.event_received.is_connected(_on_event):
+		_session.replicator.event_received.disconnect(_on_event)
+		_session.replicator.match_record_received.disconnect(_on_match_record)
+	_session.replicator.match_source = Callable()
+	_session.replicator.bind_props([])
 	if _lobby.rules_changed.is_connected(_on_rules_changed):
 		_lobby.rules_changed.disconnect(_on_rules_changed)
 	_session.replicator.bind_scene(0)
@@ -236,7 +264,8 @@ func rebuild_hub() -> void:
 	controller.start_hub()
 	for link: PlayerNetLink in _links:
 		if holders.get(link.seat_index, -1) == link.owner_peer_id:
-			link.controller.global_transform = places[link.seat_index]
+			var place: Transform3D = places[link.seat_index]
+			link.controller.place(place.origin, place.basis.get_euler().y)
 
 
 ## The seats bodies are built for: every occupant in a match, and only the
@@ -403,7 +432,10 @@ func _watch_rifle(weapon: Rifle, which: int) -> void:
 	weapon.lag_trace = _session.replicator.trace
 	weapon.fired.connect(_on_rifle_fired.bind(weapon, which))
 	weapon.target_hit.connect(_on_rifle_hit.bind(which))
-	weapon.missed.connect(func(end_point: Vector3) -> void: _event(&"_ev_rifle_missed", [which, end_point]))
+	weapon.missed.connect(
+		func(end_point: Vector3) -> void:
+			_session.replicator.send_event(NetEvents.Type.MISS, NetCodec.pack_point(which, end_point))
+	)
 
 
 ## Authority: start once this machine and every human stand in the scene, or the launch wait after
@@ -449,22 +481,90 @@ func _on_match_won(participant: MatchParticipant) -> void:
 	_lobby.conclude_match(_seat_index_of(participant.index))
 
 
+## A shot, to everyone but a client that fired it: that one drew its own when it predicted it.
 func _on_rifle_fired(origin: Vector3, end_point: Vector3, weapon: Rifle, which: int) -> void:
 	var gravity: float = weapon.profile.projectile_gravity if weapon.profile != null else -1.0
-	_event(&"_ev_rifle_fired", [which, origin, end_point, weapon.reload_seconds, weapon.get_last_launch_speed(), gravity])
+	var shooter: PlayerNetLink = PlayerNetLink.of(weapon.shooter_body)
+	var peer: int = shooter.owner_peer_id if shooter != null and not shooter.is_owned_here() else 0
+	_session.replicator.send_event(
+		NetEvents.Type.SHOT,
+		NetCodec.pack_shot(which, origin, end_point, weapon.reload_seconds, weapon.get_last_launch_speed(), gravity),
+		NetEvents.Target.ALL_BUT if peer != 0 else NetEvents.Target.ALL, peer,
+	)
 
 
 func _on_rifle_hit(collider: Node3D, at: Vector3, normal: Vector3, which: int) -> void:
 	var participant: MatchParticipant = controller.resolve_participant(collider)
-	_event(&"_ev_rifle_hit", [which, participant.index if participant != null else -1, at, normal])
+	var seat: int = _seat_index_of(participant.index) if participant != null else -1
+	_session.replicator.send_event(NetEvents.Type.HIT, NetCodec.pack_hit(which, seat, at, normal))
 
 
-## One reliable one-shot to every peer standing in this scene. A peer still loading has no node to
-## receive it; it gets what it missed from [method _catch_up] when it stands.
+## One match transition, reliable, to every peer standing in this scene, stamped with the first host
+## tick whose world includes it. A mirror takes those its first world does not (Quake 3's gamestate
+## and serverCommandSequence), so a peer standing late needs no catch-up message.
 func _event(method: StringName, args: Array = []) -> void:
+	var stamp: int = (_session.replicator.get_tick() + 1) % NetCodec.TICK_MODULUS
+	var index: int = _EVENTS.find(method)
+	if index < 0:
+		push_error("NetMatch: %s is not a match transition." % method)
+		return
 	for peer: int in _session.get_peer_ids():
 		if peer != NetTransport.AUTHORITY_PEER_ID and _lobby.is_standing_in(peer, _epoch):
-			callv(&"rpc_id", [peer, method] + args)
+			rpc_id(peer, &"_ev", stamp, index, args)
+
+
+@rpc("authority", "reliable", "call_remote", 0)
+func _ev(stamp: int, index: int, args: Array) -> void:
+	if not _replays() or index < 0 or index >= _EVENTS.size():
+		return
+	if _converged_tick < 0:
+		_early.append([stamp, index, args])
+	elif NetCodec.is_newer_tick(stamp, _converged_tick):
+		callv(_EVENTS[index], args)
+
+
+## A client's match record: the scene's first one is converged on, and every transition stamped
+## after it is then taken in order. Later records are Phase 5's.
+func _on_match_record(record: PackedByteArray, tick: int, first: bool) -> void:
+	if not first or hub_mode:
+		return
+	if not record.is_empty():
+		_converge(record)
+	_converged_tick = tick
+	for early: Array in _early:
+		if NetCodec.is_newer_tick(int(early[0]), tick):
+			callv(_EVENTS[int(early[1])], early[2])
+	_early.clear()
+
+
+## A presented event of the snapshot's ring: shots, hits, misses, shoves and hub cat blasts.
+func _on_event(type: NetEvents.Type, payload: PackedByteArray, _tick: int) -> void:
+	match type:
+		NetEvents.Type.SHOT:
+			var weapon: Rifle = _weapon_of(payload[0])
+			if weapon != null:
+				weapon.show_remote_shot(
+					NetCodec.event_point(payload, 1), NetCodec.event_point(payload, 7),
+					payload.decode_float(13), payload.decode_float(17), payload.decode_float(21),
+				)
+		NetEvents.Type.HIT:
+			var weapon: Rifle = _weapon_of(payload[0])
+			var link: PlayerNetLink = _link_for_seat(payload[1])
+			if weapon != null:
+				weapon.show_remote_hit(
+					link.controller if link != null else null, NetCodec.event_point(payload, 2),
+					NetCodec.event_unit(payload, 8),
+				)
+		NetEvents.Type.MISS:
+			var weapon: Rifle = _weapon_of(payload[0])
+			if weapon != null:
+				weapon.show_remote_miss(NetCodec.event_point(payload, 1))
+		NetEvents.Type.SHOVE_LANDED:
+			controller.net_shove_landed(_slot_of_seat.get(payload[0], -1), NetCodec.event_point(payload, 1))
+		NetEvents.Type.SHOVE_KICK:
+			controller.net_shove_felt(NetCodec.event_unit(payload, 0))
+		NetEvents.Type.CAT_BLAST:
+			HubCat.blast_in(get_parent(), NetCodec.event_point(payload, 1))
 
 
 ## The other machines whose copy of this scene stands; who a prop in it may send to.
@@ -488,22 +588,6 @@ static func of(node: Node) -> NetMatch:
 	return null
 
 
-## Authority: [param peer_id] stands in this scene. Once it has started, what was said before it could
-## hear is said again.
-func _on_peer_standing(peer_id: int) -> void:
-	if not _started or peer_id == NetTransport.AUTHORITY_PEER_ID or not _lobby.is_standing_in(peer_id, _epoch):
-		return
-	if not hub_mode:
-		_catch_up(peer_id)
-	_announce_bound(peer_id)
-
-
-## [param peer_id]'s scene stands: it is told what was said once before it could hear.
-func _announce_bound(peer_id: int) -> void:
-	_session.replicator.send_placed_to(peer_id)
-	peer_bound.emit(peer_id)
-
-
 ## The finisher is in the tower; every peer is told who, for the role.
 func _on_finisher_armed(_weapon: Rifle) -> void:
 	var who: MatchParticipant = controller.get_finisher()
@@ -524,13 +608,15 @@ func _on_participant_shoved(shover: MatchParticipant, victim: MatchParticipant) 
 		return
 	var forward: Vector3 = -shover.body.global_transform.basis.z
 	forward.y = 0.0
-	rpc_id(peer, &"_ev_shoved", forward.normalized())
+	_session.replicator.send_event(NetEvents.Type.SHOVE_KICK, NetCodec.pack_kick(forward), NetEvents.Target.ONE, peer)
 
 
 ## The victim's cue, to everyone: the launch rides the snapshot, the sound does not.
 func _on_shove_landed(victim: MatchParticipant) -> void:
 	if victim != null and victim.body != null:
-		_event(&"_ev_shove_landed", [_seat_index_of(victim.index), victim.body.global_position])
+		_session.replicator.send_event(
+			NetEvents.Type.SHOVE_LANDED, NetCodec.pack_point(_seat_index_of(victim.index), victim.body.global_position)
+		)
 
 
 ## Every body follows its seat as the roster has it: a seat whose human left is a bot's, its link
@@ -557,15 +643,6 @@ func _replays() -> bool:
 	return not is_authority()
 
 
-## Send one peer that bound after the start the whole match state (Quake's gamestate); the
-## events after it ride the same ordered channel. Bodies need nothing: snapshots are absolute.
-func _catch_up(peer_id: int) -> void:
-	if peer_id <= 0 or peer_id == NetTransport.AUTHORITY_PEER_ID:
-		return
-	rpc_id(peer_id, &"_ev_gamestate", NetCodec.pack_gamestate(controller))
-
-
-@rpc("authority", "reliable", "call_remote", 0)
 func _ev_match_started() -> void:
 	if not _replays():
 		return
@@ -576,49 +653,45 @@ func _ev_match_started() -> void:
 		match_bound.emit(false)
 
 
-## Converge a freshly bound match on the server's state through the same transitions the events run.
-@rpc("authority", "reliable", "call_remote", 0)
-func _ev_gamestate(state: PackedInt32Array) -> void:
-	if not _replays():
-		return
+## Converge a freshly bound match on the host's record through the same transitions the events run.
+func _converge(record: PackedByteArray) -> void:
 	_ev_match_started()
-	if not NetCodec.is_gamestate(state, controller.get_participants().size()):
+	if not NetCodec.is_match_record(record, controller.get_participants().size()):
 		return
-	var phase: MatchController.Phase = state[0] as MatchController.Phase
+	var phase: MatchController.Phase = record[0] as MatchController.Phase
+	var seat: int = NetCodec.match_slot(record, 2)
 	if phase == MatchController.Phase.RACE:
 		controller.net_start_race()
 	elif phase == MatchController.Phase.BRAWL:
 		controller.net_start_brawl()
-	elif state[2] >= 0:
-		controller.net_start_round(state[2], state[1])
-	if state[3] >= 0:
-		controller.net_arm_finisher(state[3])
+	elif seat >= 0:
+		controller.net_start_round(seat, record[1])
+	if NetCodec.match_slot(record, 3) >= 0:
+		controller.net_arm_finisher(NetCodec.match_slot(record, 3))
 	var participants: Array[MatchParticipant] = controller.get_participants()
 	for i: int in participants.size():
-		var flags: int = state[NetCodec.GAMESTATE_HEADER + i * NetCodec.GAMESTATE_PARTICIPANT]
-		if flags & (NetCodec.GAMESTATE_RUNNING | NetCodec.GAMESTATE_SHOOTER) == 0 and participants[i].is_running:
+		var flags: int = record[NetCodec.MATCH_HEADER_SIZE + i * NetCodec.MATCH_PARTICIPANT_SIZE]
+		if flags & (NetCodec.MATCH_RUNNING | NetCodec.MATCH_SHOOTER) == 0 and participants[i].is_running:
 			_ev_removed(i, int(MatchParticipant.DeathCause.SHOT), true)
-		if flags & NetCodec.GAMESTATE_GHOST != 0 and flags & NetCodec.GAMESTATE_HELD == 0:
+		if flags & NetCodec.MATCH_GHOST != 0 and flags & NetCodec.MATCH_HELD == 0:
 			# Its respawn landed before this machine was listening.
 			controller.net_ghost_respawn(i)
 	for i: int in participants.size():
-		var at: int = NetCodec.GAMESTATE_HEADER + i * NetCodec.GAMESTATE_PARTICIPANT
-		participants[i].rounds_won = state[at + 1]
-		participants[i].turns_in_tower = state[at + 2]
-	if state[4] != int(MatchController.Outcome.IN_PROGRESS):
-		controller.net_resolve(state[4] as MatchController.Outcome)
-	if phase == MatchController.Phase.MATCH_OVER and state[5] >= 0:
-		controller.net_win(state[5])
+		var at: int = NetCodec.MATCH_HEADER_SIZE + i * NetCodec.MATCH_PARTICIPANT_SIZE
+		participants[i].rounds_won = record[at + 1]
+		participants[i].turns_in_tower = record[at + 2]
+	if record[4] != int(MatchController.Outcome.IN_PROGRESS):
+		controller.net_resolve(record[4] as MatchController.Outcome)
+	if phase == MatchController.Phase.MATCH_OVER and NetCodec.match_slot(record, 5) >= 0:
+		controller.net_win(NetCodec.match_slot(record, 5))
 
 
-@rpc("authority", "reliable", "call_remote", 0)
 func _ev_race_started() -> void:
 	if not _replays():
 		return
 	controller.net_start_race()
 
 
-@rpc("authority", "reliable", "call_remote", 0)
 func _ev_round_started(seat_index: int, round_number: int, rounds_won: int) -> void:
 	if not _replays():
 		return
@@ -634,7 +707,6 @@ func _take_rounds_won(index: int, rounds_won: int) -> void:
 		participants[index].rounds_won = maxi(rounds_won, 0)
 
 
-@rpc("authority", "reliable", "call_remote", 0)
 func _ev_removed(index: int, cause: int, held: bool) -> void:
 	if not _replays():
 		return
@@ -656,7 +728,6 @@ func _made_ghost(index: int, held: bool) -> void:
 		controller.net_ghost_respawn(index)
 
 
-@rpc("authority", "reliable", "call_remote", 0)
 func _ev_ghost_fell(index: int, cause: int) -> void:
 	if not _replays():
 		return
@@ -670,14 +741,12 @@ func _cause_of(cause: int) -> MatchParticipant.DeathCause:
 	return cause as MatchParticipant.DeathCause
 
 
-@rpc("authority", "reliable", "call_remote", 0)
 func _ev_round_resolved(outcome: int) -> void:
 	if not _replays():
 		return
 	controller.net_resolve(outcome as MatchController.Outcome)
 
 
-@rpc("authority", "reliable", "call_remote", 0)
 func _ev_match_won(index: int, rounds_won: int) -> void:
 	if not _replays():
 		return
@@ -685,14 +754,12 @@ func _ev_match_won(index: int, rounds_won: int) -> void:
 	controller.net_win(index)
 
 
-@rpc("authority", "reliable", "call_remote", 0)
 func _ev_ghost_respawned(index: int) -> void:
 	if not _replays():
 		return
 	controller.net_ghost_respawn(index)
 
 
-@rpc("authority", "reliable", "call_remote", 0)
 func _ev_ghost_caught(ghost_index: int, caught_index: int, held: bool) -> void:
 	if not _replays():
 		return
@@ -700,81 +767,29 @@ func _ev_ghost_caught(ghost_index: int, caught_index: int, held: bool) -> void:
 	_made_ghost(caught_index, held)
 
 
-@rpc("authority", "reliable", "call_remote", 0)
-func _ev_rifle_fired(
-	which: int, origin: Vector3, end_point: Vector3, reload: float, speed: float, gravity: float
-) -> void:
-	if not _replays():
-		return
-	var weapon: Rifle = _weapon_of(which)
-	if weapon != null:
-		weapon.show_remote_shot(origin, end_point, reload, speed, gravity)
-
-
-@rpc("authority", "reliable", "call_remote", 0)
-func _ev_rifle_hit(which: int, index: int, at: Vector3, normal: Vector3) -> void:
-	if not _replays():
-		return
-	var weapon: Rifle = _weapon_of(which)
-	if weapon == null:
-		return
-	var participants: Array[MatchParticipant] = controller.get_participants()
-	var participant: MatchParticipant = participants[index] if index >= 0 and index < participants.size() else null
-	var body: Node3D = participant.body if participant != null else null
-	weapon.show_remote_hit(body, at, normal)
-
-
-@rpc("authority", "reliable", "call_remote", 0)
-func _ev_rifle_missed(which: int, end_point: Vector3) -> void:
-	if not _replays():
-		return
-	var weapon: Rifle = _weapon_of(which)
-	if weapon != null:
-		weapon.show_remote_miss(end_point)
-
-
-@rpc("authority", "reliable", "call_remote", 0)
 func _ev_finisher_armed(index: int) -> void:
 	if not _replays():
 		return
 	controller.net_arm_finisher(index)
 
 
-@rpc("authority", "reliable", "call_remote", 0)
 func _ev_kill_beat(guard_index: int, throw: Vector3) -> void:
 	if not _replays() or not throw.is_finite():
 		return
 	controller.net_kill_beat(guard_index, throw)
 
 
-@rpc("authority", "reliable", "call_remote", 0)
 func _ev_brawl_started() -> void:
 	if _replays():
 		controller.net_start_brawl()
 
 
-@rpc("authority", "reliable", "call_remote", 0)
 func _ev_brawl_out(index: int, throw: Vector3) -> void:
 	if _replays() and throw.is_finite():
 		controller.net_brawl_out(index, throw)
-
-
-@rpc("authority", "reliable", "call_remote", 0)
-func _ev_shove_landed(seat_index: int, at: Vector3) -> void:
-	if not _replays() or not at.is_finite():
-		return
-	controller.net_shove_landed(_slot_of_seat.get(seat_index, -1), at)
 
 
 ## Which gun an event names, or null for one this build has not got. Callers have
 ## already refused the authority; see [method _replays].
 func _weapon_of(which: int) -> Rifle:
 	return controller.rifle if which == TOWER_RIFLE else null
-
-
-@rpc("authority", "reliable", "call_remote", 0)
-func _ev_shoved(forward: Vector3) -> void:
-	if not _replays() or not forward.is_finite():
-		return
-	controller.net_shove_felt(forward)
-

@@ -970,7 +970,7 @@ func _catch_hub_fallers() -> void:
 		if spawns.is_empty():
 			return
 		var marker: Marker3D = spawns[index % spawns.size()]
-		body.global_position = marker.global_position
+		body.place(marker.global_position, body.rotation.y)
 		body.velocity = Vector3.ZERO
 
 
@@ -1009,8 +1009,7 @@ func _place_in_hub(participant: MatchParticipant, index: int, spawns: Array[Mark
 	_hold_body(participant)
 	if not spawns.is_empty():
 		var marker: Marker3D = spawns[index % spawns.size()]
-		body.global_position = marker.global_position
-		body.rotation = Vector3(0.0, marker.global_rotation.y, 0.0)
+		body.place(marker.global_position, marker.global_rotation.y)
 	body.velocity = Vector3.ZERO
 	if participant.tracker != null:
 		participant.tracker.stop()
@@ -1126,10 +1125,9 @@ func _place_in_brawl(participant: MatchParticipant, index: int, count: int) -> v
 	# A body and a half apart round the ring, kept a body clear of the edge.
 	var ring: float = clampf(float(count) * 1.2 / TAU, BRAWL_RING_METRES, maxf(_brawl_floor_radius - 0.8, BRAWL_RING_METRES))
 	var offset: Vector3 = Vector3(cos(angle), 0.0, sin(angle)) * ring
-	body.global_position = _tower_point + offset
-	body.velocity = Vector3.ZERO
 	# Facing out, so nobody starts with a shove lined up.
-	body.rotation = Vector3(0.0, _heading_of(offset), 0.0)
+	body.place(_tower_point + offset, _heading_of(offset))
+	body.velocity = Vector3.ZERO
 	body.add_to_group(RUNNER_GROUP)
 
 
@@ -2316,8 +2314,7 @@ func handle_fall(participant: MatchParticipant, from_pit: bool = false) -> bool:
 		# Dev: lava is ignored; the pit puts you back on the start line.
 		if from_pit:
 			var place: Vector3 = _start_place_for(participant.index, _participants.size())
-			participant.body.global_position = place
-			participant.body.rotation = Vector3(0.0, _heading_of(_track_tangent(_angle_of(place))), 0.0)
+			participant.body.place(place, _heading_of(_track_tangent(_angle_of(place))))
 			participant.body.launch(Vector3.ZERO)
 		return false
 	participant.death_cause = (
@@ -2753,11 +2750,10 @@ func _finish_respawn(participant: MatchParticipant) -> void:
 	# already cleared.
 	_hold_body(participant)
 	var place: Vector3 = _start_place_for(participant.index, _participants.size())
-	body.global_position = place
 	# Facing down the track, exactly as a prisoner placed on the line is. A human
 	# ghost dropped facing the wall would spend its first second turning round,
 	# and a ghost's first second is the one in which the field is still nearby.
-	body.rotation = Vector3(0.0, _heading_of(_track_tangent(_angle_of(place))), 0.0)
+	body.place(place, _heading_of(_track_tangent(_angle_of(place))))
 	participant.ghost_settle_frames = SETTLE_PHYSICS_FRAMES
 	if participant.is_ghost:
 		_tint_body(participant, _ghost_material_for(participant))
@@ -3168,29 +3164,35 @@ func _swing_cost(body: PlayerController) -> float:
 	return maxf(get_rules().shove_cooldown_seconds, 0.0)
 
 
-## The match's half of one command of [param body]'s, on the machine that decides it: the hit of
-## a swing the gate opened, then the trigger of the rifle it holds.
+## The match's half of one command of [param body]'s: on the machine that decides it, the hit of a
+## swing the gate opened; and the rifle it holds, which a guard's own client predicts.
 func _step_command(command: MoveIntent, swung: bool, authority: bool, body: PlayerController) -> void:
-	if not authority or _refuses_local_decision():
-		return
 	var participant: MatchParticipant = _participant_by_body_id.get(body.get_instance_id(), null)
 	if participant == null:
 		return
-	if swung:
+	var decides: bool = authority and not _refuses_local_decision()
+	if decides and swung:
 		_resolve_shove(participant)
-	if rifle == null or rifle.shooter_body != body or not participant.is_human():
-		return
-	if body.held:
-		# Held, the release is consumed with the rest: a charge begun before the hold ends here.
-		rifle.cancel_charge()
-	else:
-		# A person's trigger is their commands'; a bot's [TowerShooter] pulls its own.
-		if rifle.optic != null:
-			rifle.optic.set_zoomed(command.aim_held)
-		rifle.trigger(
-			command.fire_pressed, command.fire_held,
-			(command.released & MoveIntent.FIRE) != 0, command.view_time,
-		)
+	if rifle != null and rifle.shooter_body == body and (decides or body.net_predicted):
+		_step_rifle(command, participant, not decides)
+
+
+## One command of the rifle's holder: a person's trigger is their commands' (a bot's [TowerShooter]
+## pulls its own), then the gate steps on the holder's clock. [param predicted]: see [method Rifle.try_fire].
+func _step_rifle(command: MoveIntent, participant: MatchParticipant, predicted: bool) -> void:
+	var body: PlayerController = participant.body
+	if participant.is_human():
+		if body.held:
+			# Held, the release is consumed with the rest: a charge begun before the hold ends here.
+			rifle.cancel_charge()
+		else:
+			if rifle.optic != null and not body.replaying:
+				rifle.optic.set_zoomed(command.aim_held)
+			rifle.trigger(
+				command.fire_pressed, command.fire_held,
+				(command.released & MoveIntent.FIRE) != 0, command.view_time, predicted,
+			)
+	rifle.step_gate(body.get_physics_process_delta_time())
 
 
 ## One seat's participant from the net roster: a human wears no brain, a bot keeps its own.
@@ -3478,14 +3480,11 @@ func _place_on_track(participant: MatchParticipant, start_point: Vector3) -> voi
 		participant.brain.rules = active
 		participant.brain.configure(_centre, start_point, _end_point, _route)
 	else:
-		body.global_position = start_point
-		body.velocity = Vector3.ZERO
 		# Face down the track. A human teleported to the start line facing the
 		# outer wall would spend their first second turning round, and that
 		# second is part of the race.
-		body.rotation = Vector3(
-			0.0, _heading_of(_track_tangent(_angle_of(start_point))), 0.0
-		)
+		body.place(start_point, _heading_of(_track_tangent(_angle_of(start_point))))
+		body.velocity = Vector3.ZERO
 
 	body.add_to_group(RUNNER_GROUP)
 	participant.tracker.begin(body, _centre, _route, active.lap_arrival_tolerance)
@@ -3510,13 +3509,11 @@ func _place_in_tower(participant: MatchParticipant) -> void:
 	# The guard keeps the shirt colour they wore as a runner.
 	_tint_body(participant, _runner_material_for(participant))
 	_hold_body(participant)
-	body.global_position = _tower_point
 	body.velocity = Vector3.ZERO
 	# Look at the ring start from the seat, so the first frame shows the runners.
 	var to_start: Vector3 = _start_point - _tower_point
 	to_start.y = 0.0
-	if to_start.length() > 0.01:
-		body.rotation = Vector3(0.0, _heading_of(to_start), 0.0)
+	body.place(_tower_point, _heading_of(to_start) if to_start.length() > 0.01 else body.rotation.y)
 	# Out of the target group, which is the whole of "the tower cannot be shot":
 	# an AI shooter's candidate list IS this group, so a seat holder left in it
 	# would be a legitimate target for the next occupant -- and, but for
@@ -3590,8 +3587,7 @@ func _respawn_at_start(participant: MatchParticipant) -> void:
 		return
 	_hold_body(participant)
 	var place: Vector3 = _start_place_for(participant.index, _participants.size())
-	body.global_position = place
-	body.rotation = Vector3(0.0, _heading_of(_track_tangent(_angle_of(place))), 0.0)
+	body.place(place, _heading_of(_track_tangent(_angle_of(place))))
 	participant.ghost_settle_frames = SETTLE_PHYSICS_FRAMES
 	# The lap starts again with the body: left counting, the tracker books the move as arc
 	# and the brain steers for whatever it was doing on the far side of the ring.
@@ -3694,7 +3690,7 @@ func _park_body(participant: MatchParticipant) -> void:
 	body.visible = false
 	body.collision_layer = 0
 	body.collision_mask = 0
-	body.global_position = _pen_point(participant.index)
+	body.place(_pen_point(participant.index), body.rotation.y)
 
 
 ## Where body number [param index] is put when it is out of the world. Distinct
@@ -4125,8 +4121,7 @@ func _place_finisher_in_tower(participant: MatchParticipant) -> void:
 		aside = Vector3.BACK
 	var place: Vector3 = _tower_point + aside.normalized() * FINISHER_TOWER_OFFSET
 	_hold_body(participant)
-	body.global_position = place
-	body.rotation = Vector3(0.0, _heading_of(_tower_point - place), 0.0)
+	body.place(place, _heading_of(_tower_point - place))
 	participant.ghost_settle_frames = SETTLE_PHYSICS_FRAMES
 
 

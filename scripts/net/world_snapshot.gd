@@ -1,95 +1,110 @@
 class_name WorldSnapshot
 extends RefCounted
 
-## Every body's state at one authority tick: one packet, one moment, the whole
-## world a client has to draw.
+## The whole lasting world at one host tick (DESIGN 3.4): every body's record, every seat's predicted
+## state, the match record and the props. One moment, so a client's frame is consistent; one baseline,
+## so a snapshot is coded as its difference from the last one the client acknowledged.
 ##
-## [b]Why one packet and not one per body[/b]
-##
-## The obvious shape is for each body to send its own state, and it is wrong in
-## two ways that only show up later. It multiplies the per-packet overhead by
-## the player count -- an RPC's node path and header cost more than the 34
-## bytes of state they carry -- and, worse, it lets a client draw a frame
-## assembled from bodies sampled at different ticks. A prisoner squeezing past
-## the tower would be drawn against a wall that had moved on. One packet per
-## tick makes a client's world internally consistent by construction, which is
-## the property interpolation needs and the property a hit marker will need
-## when hits are replicated.
-##
-## [b]Fixed storage[/b]
-##
-## Holds [constant NetTransport.MAX_PLAYERS] [PlayerState] objects for its whole
-## life and reports [member count] of them as live. Decoding writes into those
-## objects rather than allocating new ones, so the receive path at 30 Hz
-## allocates only the [PackedByteArray] the engine hands it.
+## Fixed storage: eight records and eight predicted states for life, indexed by seat.
 
-## The authority's physics tick every state here was sampled on. Shared, which
-## is the point: see the class docs.
+## The host tick every record here was sampled on.
 var tick: int = 0
-
-## The authority's scene these states belong to (see [method NetReplicator.bind_scene]); 0 is none.
-var scene: int = 0
-
-## How many of [member states] are meaningful this snapshot.
-var count: int = 0
-
-## Fixed pool, never resized. Read [member count] entries and ignore the rest.
+## The lobby epoch these bodies belong to ([method NetLobby.get_epoch]); 0 is none.
+var epoch: int = 0
+## Which seats have a body this tick, one bit each.
+var present: int = 0
 var states: Array[PlayerState] = []
+## Each seat's exact predicted state; only a remote owner's seat is sampled, and a client keeps its own.
+var owners: Array[PredictedState] = []
+## Which seats' [member owners] hold a state that was sent, one bit each.
+var owner_valid: int = 0
+## The match's record ([method NetCodec.pack_match]), empty when there is no match.
+var match_record: PackedByteArray = PackedByteArray()
+## Each scene prop's record by id, ids ascending.
+var prop_ids: PackedInt32Array = PackedInt32Array()
+var prop_records: Array[PackedByteArray] = []
 
 
 func _init() -> void:
 	states.resize(NetTransport.MAX_PLAYERS)
+	owners.resize(NetTransport.MAX_PLAYERS)
 	for i: int in NetTransport.MAX_PLAYERS:
 		states[i] = PlayerState.new()
+		states[i].seat_index = i
+		owners[i] = PredictedState.new()
 
 
-## Drop every body without dropping the storage.
+## Drop every body, record and prop without dropping the storage.
 func clear() -> void:
 	tick = 0
-	scene = 0
-	count = 0
+	epoch = 0
+	present = 0
+	owner_valid = 0
+	for i: int in NetTransport.MAX_PLAYERS:
+		states[i].clear()
+		states[i].seat_index = i
+		owners[i].clear()
+	match_record = PackedByteArray()
+	prop_ids.clear()
+	prop_records.clear()
 
 
-## Add one body's state, copied in. Returns false when the snapshot is already
-## full, which can only happen if a peer claims more bodies than the session
-## can hold -- so the caller drops the packet rather than growing to fit it.
-func append(state: PlayerState) -> bool:
-	if count >= states.size():
-		return false
-	states[count].copy_from(state)
-	count += 1
-	return true
+## How many seats have a body.
+func get_count() -> int:
+	var count: int = 0
+	for i: int in NetTransport.MAX_PLAYERS:
+		count += (present >> i) & 1
+	return count
 
 
-## The next free slot, for a caller that would rather fill it in place than
-## build a state and copy it. Advance [member count] yourself with
-## [method commit] once it is filled.
-func next_slot() -> PlayerState:
-	if count >= states.size():
-		return null
-	return states[count]
+func has_seat(seat_index: int) -> bool:
+	return seat_index >= 0 and seat_index < NetTransport.MAX_PLAYERS and (present & (1 << seat_index)) != 0
 
 
-## Accept the slot [method next_slot] handed out.
-func commit() -> void:
-	count = mini(count + 1, states.size())
-
-
-## The state for [param seat_index], or null when this snapshot does not
-## describe that seat.
-##
-## Linear, over at most eight entries. A dictionary would be faster in theory
-## and slower in practice at this size, and it would allocate.
+## The record for [param seat_index], or null when this snapshot has no body there.
 func find_seat(seat_index: int) -> PlayerState:
-	for i: int in count:
-		if states[i].seat_index == seat_index:
-			return states[i]
-	return null
+	return states[seat_index] if has_seat(seat_index) else null
+
+
+## [param seat_index]'s record, marked present, for the caller to fill; null outside the seats.
+func slot(seat_index: int) -> PlayerState:
+	if seat_index < 0 or seat_index >= NetTransport.MAX_PLAYERS:
+		return null
+	present |= 1 << seat_index
+	states[seat_index].seat_index = seat_index
+	states[seat_index].tick = tick
+	return states[seat_index]
+
+
+## [param seat_index]'s predicted state, or null when none was sent.
+func find_owner(seat_index: int) -> PredictedState:
+	return owners[seat_index] if has_seat(seat_index) and (owner_valid & (1 << seat_index)) != 0 else null
+
+
+## [param id]'s prop record, or an empty array.
+func find_prop(id: int) -> PackedByteArray:
+	var at: int = prop_ids.bsearch(id)
+	return prop_records[at] if at < prop_ids.size() and prop_ids[at] == id else PackedByteArray()
+
+
+## Set [param id]'s record, keeping ids ascending.
+func set_prop(id: int, record: PackedByteArray) -> void:
+	var at: int = prop_ids.bsearch(id)
+	if at < prop_ids.size() and prop_ids[at] == id:
+		prop_records[at] = record
+		return
+	prop_ids.insert(at, id)
+	prop_records.insert(at, record)
 
 
 func copy_from(other: WorldSnapshot) -> void:
 	tick = other.tick
-	scene = other.scene
-	count = other.count
-	for i: int in count:
+	epoch = other.epoch
+	present = other.present
+	owner_valid = other.owner_valid
+	for i: int in NetTransport.MAX_PLAYERS:
 		states[i].copy_from(other.states[i])
+		owners[i].copy_from(other.owners[i])
+	match_record = other.match_record
+	prop_ids = other.prop_ids.duplicate()
+	prop_records = other.prop_records.duplicate()

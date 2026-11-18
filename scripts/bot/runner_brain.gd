@@ -146,9 +146,8 @@ func configure(arena_centre: Vector3, start_point: Vector3, end_point: Vector3, 
 	if controller == null or input == null or profile == null:
 		return
 	var start_angle: float = atan2(start_point.z - arena_centre.z, start_point.x - arena_centre.x)
-	controller.global_position = start_point
+	controller.place(start_point, _heading_of(_tangent(start_angle)))
 	controller.velocity = Vector3.ZERO
-	controller.rotation = Vector3(0.0, _heading_of(_tangent(start_angle)), 0.0)
 	_arm(arena_centre, start_point, end_point, 0.0, start_angle, route, 0)
 
 

@@ -1,196 +1,166 @@
 class_name PlayerState
 extends RefCounted
 
-## One body's authoritative state at one tick: what the listen server decided,
-## on its way to every other machine.
-##
-## The counterpart of [MoveIntent]. Intent travels client to authority; state
-## travels authority to everyone, batched into a [WorldSnapshot]. Between them
-## they are the entire wire format of the game today, and both are deliberately
-## small enough to read in full.
-##
-## Reused rather than reallocated per packet -- see [NetCodec].
+## One body's record at one host tick, at wire precision (DESIGN 3.4 BODIES): what every machine
+## draws of it. Held quantised, so a decoded record equals the host's bit for bit and can be a baseline.
+## Timers are end ticks (0 = none), resolved on [member tick]. Reused rather than reallocated.
 
-## Which SEAT this describes, not which peer.
-##
-## This was a peer id once and it was wrong. Bots fill seats -- that is how this
-## game gets tested at all -- and a bot has no peer to be named by, so a body
-## keyed on a peer id is a body that cannot be replicated when a bot is driving
-## it. See [LobbySeat].
+## Which seat this describes, not which peer: a bot's seat has no peer.
 var seat_index: int = 0
-
-## The authority's physics tick this was sampled on. Wraps at 2^32, which at 60
-## Hz is a little over two years of continuous play.
-##
-## Consumed for two things: discarding a snapshot that UDP delivered out of
-## order, and dating the two snapshots [PlayerNetLink] interpolates between.
+## The host tick this was sampled on: the snapshot's.
 var tick: int = 0
 
-## The newest command sequence of this seat's owner the authority had run when it sampled this,
-## or -1 for none: what a predicting client rewinds to and replays its later commands on.
-var cmd_ack: int = -1
-
 var position: Vector3 = Vector3.ZERO
-
-## Carried even though the client does not integrate it. Without velocity there
-## is nothing to extrapolate from, and extrapolation is what covers a snapshot
-## that never arrives.
 var velocity: Vector3 = Vector3.ZERO
-
-## Body yaw in radians. The whole body yaws in [PlayerController], so this is
-## also the direction the player is facing.
+## Body yaw and head pitch, radians.
 var yaw: float = 0.0
-
-## Head pitch in radians. Cosmetic for a remote body -- it aims nothing on this
-## machine, because hit detection is the authority's -- but a body that does
-## not look where it shoots reads as broken.
 var pitch: float = 0.0
-
-## [member PlayerController.view_base]: yaw the match turned this body by on top of its
-## owner's view. Its owner adds it to the view it predicts, as Quake 3's delta_angles.
+## [member PlayerController.view_base]: the yaw the match turned this body by (Quake 3's delta_angles).
 var view_base: float = 0.0
 
-## Whether the authority had this body on the floor. Drives footsteps and
-## landing effects on remote machines, which otherwise have to guess from a
-## position delta and guess wrong on ramps.
 var on_floor: bool = false
-
-## The power running on this body, a [enum MatchRules.RunnerAbility] value.
-## Replicated so a client can draw the shield, shell or tint the authority
-## built; the effect itself is never simulated twice.
-var ability: int = 0
-
-## Seconds left on that power, quantised to a tenth on the wire.
-var ability_remaining: float = 0.0
-
-## Seconds left before that power may be used again, quantised to a tenth.
-## Drawn by the client's own HUD, which has no cooldown clock of its own.
-var cooldown_remaining: float = 0.0
-
-## Whether the authority had armed this body as the finisher, and whether it is
-## holding a rifle. Both are drawn on a mirror and simulated on neither.
-var is_finisher: bool = false
-var is_armed: bool = false
-
-## Hit points left, 0-255 on the wire. The finisher's, and the guard's.
-var health: int = 0
-
-## How many times this body has jumped, wrapping at
-## [constant NetCodec.JUMP_COUNTER_MODULUS]. An EDGE turned into a COUNT: a
-## mirror fires [signal PlayerController.jumped] once per increment it sees.
-##
-## A flag would have been smaller and wrong. The snapshot channel is unreliable
-## and runs at half the simulation rate, so a flag loses the jump whose snapshot
-## was dropped and merges two hops that landed in one interval; a count survives
-## both, and rides in bits the flag byte already had spare.
-var jump_counter: int = 0
-
-## Whether the authority had this body sliding or crouched. A client runs no
-## physics, so the poses have nowhere else to come from.
 var sliding: bool = false
 var crouching: bool = false
-## Whether the authority had this body in its emote, and in the alternate object's.
 var emoting: bool = false
 var emote_alt: bool = false
-
-## Shove swings this body has made, modulo [constant NetCodec.SHOVE_COUNTER_MODULUS]: an edge, so a counter.
+var is_armed: bool = false
+var is_finisher: bool = false
+## Edges as counters, so a dropped snapshot loses none: jumps, shove swings, and placements (Quake 3's
+## EF_TELEPORT_BIT: a body is never interpolated across a change of it).
+var jump_counter: int = 0
 var shove_counter: int = 0
+var placed_counter: int = 0
 
-## The timed speed boost on this body: seconds left and the multiplier (1.0 when none).
-var boost_remaining: float = 0.0
+## Hit points, 0-255.
+var health: int = 0
+
+## The power: which [enum MatchRules.RunnerAbility], whether its hologram is out, and its two end ticks.
+var ability: int = 0
+var decoy_alive: bool = false
+var ability_end_tick: int = 0
+var cooldown_end_tick: int = 0
+## Where the power stands in the world while it has a place: the shield's centre, the hologram's pose.
+var has_anchor: bool = false
+var anchor_position: Vector3 = Vector3.ZERO
+var anchor_yaw: float = 0.0
+
+## The timed speed boost: multiplier in tenths and its end tick.
 var boost_multiplier: float = 1.0
+var boost_end_tick: int = 0
+
+## The rifle this body holds: its [enum Rifle.State], scoped, when the state ends, and the charge (0-255).
+var weapon_state: int = 0
+var weapon_scoped: bool = false
+var weapon_end_tick: int = 0
+var weapon_charge: int = 0
 
 
 func clear() -> void:
 	seat_index = 0
 	tick = 0
-	cmd_ack = -1
 	position = Vector3.ZERO
 	velocity = Vector3.ZERO
 	yaw = 0.0
 	pitch = 0.0
 	view_base = 0.0
 	on_floor = false
-	ability = 0
-	ability_remaining = 0.0
-	cooldown_remaining = 0.0
-	is_finisher = false
-	is_armed = false
-	health = 0
-	jump_counter = 0
 	sliding = false
 	crouching = false
 	emoting = false
 	emote_alt = false
+	is_armed = false
+	is_finisher = false
+	jump_counter = 0
 	shove_counter = 0
-	boost_remaining = 0.0
+	placed_counter = 0
+	health = 0
+	ability = 0
+	decoy_alive = false
+	ability_end_tick = 0
+	cooldown_end_tick = 0
+	has_anchor = false
+	anchor_position = Vector3.ZERO
+	anchor_yaw = 0.0
 	boost_multiplier = 1.0
+	boost_end_tick = 0
+	weapon_state = 0
+	weapon_scoped = false
+	weapon_end_tick = 0
+	weapon_charge = 0
 
 
 func copy_from(other: PlayerState) -> void:
 	seat_index = other.seat_index
 	tick = other.tick
-	cmd_ack = other.cmd_ack
 	position = other.position
 	velocity = other.velocity
 	yaw = other.yaw
 	pitch = other.pitch
 	view_base = other.view_base
 	on_floor = other.on_floor
-	ability = other.ability
-	ability_remaining = other.ability_remaining
-	cooldown_remaining = other.cooldown_remaining
-	is_finisher = other.is_finisher
-	is_armed = other.is_armed
-	health = other.health
-	jump_counter = other.jump_counter
 	sliding = other.sliding
 	crouching = other.crouching
 	emoting = other.emoting
 	emote_alt = other.emote_alt
+	is_armed = other.is_armed
+	is_finisher = other.is_finisher
+	jump_counter = other.jump_counter
 	shove_counter = other.shove_counter
-	boost_remaining = other.boost_remaining
+	placed_counter = other.placed_counter
+	health = other.health
+	ability = other.ability
+	decoy_alive = other.decoy_alive
+	ability_end_tick = other.ability_end_tick
+	cooldown_end_tick = other.cooldown_end_tick
+	has_anchor = other.has_anchor
+	anchor_position = other.anchor_position
+	anchor_yaw = other.anchor_yaw
 	boost_multiplier = other.boost_multiplier
+	boost_end_tick = other.boost_end_tick
+	weapon_state = other.weapon_state
+	weapon_scoped = other.weapon_scoped
+	weapon_end_tick = other.weapon_end_tick
+	weapon_charge = other.weapon_charge
 
 
-## Blend towards [param other] by [param weight], writing into this state.
-##
-## Position and velocity lerp; the two angles take the short way round, because
-## a body crossing north with a plain lerp between 3.1 and -3.1 radians spins
-## the long way and reads as a body doing a pirouette every lap.
-##
-## [member on_floor] and [member tick] are taken from whichever end the weight
-## is nearer: they are facts about a moment, and half a fact is not one.
+## Seconds from [member tick] to [param end_tick], never negative; 0 for none.
+func seconds_to(end_tick: int) -> float:
+	if end_tick == 0:
+		return 0.0
+	return maxf(float(NetCodec.tick_delta(tick, end_tick)), 0.0) / float(NetCodec.TICK_RATE)
+
+
+func ability_remaining() -> float:
+	return seconds_to(ability_end_tick)
+
+
+func cooldown_remaining() -> float:
+	return seconds_to(cooldown_end_tick)
+
+
+func boost_remaining() -> float:
+	return seconds_to(boost_end_tick)
+
+
+## Blend towards [param to] by [param weight] into this record: motion and the anchor slide, angles
+## the short way round, every fact from the nearer end; across a placement nothing slides.
 func interpolate_from(from: PlayerState, to: PlayerState, weight: float) -> void:
 	var t: float = clampf(weight, 0.0, 1.0)
-	seat_index = to.seat_index
-	# The power is taken from the newer end whatever the weight: a shield that
-	# is up is up, and half of one is not a thing to draw.
-	ability = to.ability
-	ability_remaining = to.ability_remaining
-	# Every other fact below is taken from the newer end for the same reason:
-	# a rifle half-drawn and half of a jump are not things to draw.
-	cooldown_remaining = to.cooldown_remaining
-	cmd_ack = to.cmd_ack
-	is_finisher = to.is_finisher
-	is_armed = to.is_armed
-	health = to.health
-	jump_counter = to.jump_counter
-	sliding = to.sliding
-	crouching = to.crouching
-	emoting = to.emoting
-	emote_alt = to.emote_alt
-	shove_counter = to.shove_counter
-	boost_remaining = to.boost_remaining
-	boost_multiplier = to.boost_multiplier
-	view_base = to.view_base
+	if from.placed_counter != to.placed_counter:
+		t = 1.0
+	copy_from(to)
 	position = from.position.lerp(to.position, t)
 	velocity = from.velocity.lerp(to.velocity, t)
 	yaw = lerp_angle(from.yaw, to.yaw, t)
 	pitch = lerp_angle(from.pitch, to.pitch, t)
+	if from.has_anchor and to.has_anchor and from.ability == to.ability:
+		anchor_position = from.anchor_position.lerp(to.anchor_position, t)
+		anchor_yaw = lerp_angle(from.anchor_yaw, to.anchor_yaw, t)
 	if t < 0.5:
 		tick = from.tick
 		on_floor = from.on_floor
-	else:
-		tick = to.tick
-		on_floor = to.on_floor
+
+
+## Whether every field equals [param other]'s: records are held quantised, so this is the wire's equality.
+func equals(other: PlayerState) -> bool:
+	return NetCodec.body_changes(self, other) == 0 and seat_index == other.seat_index

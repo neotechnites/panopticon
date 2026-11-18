@@ -1,13 +1,10 @@
 class_name HubCat
 extends RigidBody3D
 
-## A hub cat: shove facing it to pick it up, shove again to huck it. Host-decided;
-## clients follow its pose. Hooked from [method MatchController.apply_shove].
+## A hub cat: shove facing it to pick it up, shove again to huck it. Host-decided; a client
+## takes it from its record in the snapshot ([NetProp]). Hooked from [method MatchController.apply_shove].
 
-enum State { REST, HELD, FLYING }
-
-## [member _carrier_peer] while a bot's seat, which no machine owns, carries the cat.
-const CARRIED_BY_A_BOT: int = -1
+enum State { REST, HELD, FLYING, GONE }
 ## Where the cat sits relative to the carrier's head: just under and ahead of the face.
 const CARRY_OFFSET: Vector3 = Vector3(0.0, -0.3, -0.55)
 const THROW_SPEED: float = 10.0
@@ -49,11 +46,9 @@ var _prompt_layer: CanvasLayer = null
 var _pet_tween: Tween = null
 var _fuse: int = 0
 var _gone: bool = false
-## The peer carrying this cat, [constant CARRIED_BY_A_BOT] for a bot, 0 for nobody; kept on
-## every machine by [method _held_by].
-var _carrier_peer: int = 0
+## The seat carrying this cat, -1 for nobody: the host's word on every machine.
+var _carrier_seat: int = -1
 var _purr: AudioStreamPlayer3D = null
-var _net: NetMatch = null
 
 
 func _ready() -> void:
@@ -65,8 +60,7 @@ func _ready() -> void:
 	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
 	freeze = true
 	_all.append(self)
-	# Once the scene stands: the match layer beside this cat says who may be told about it.
-	_net_match.call_deferred()
+	add_to_group(NetProp.GROUP)
 
 
 func _exit_tree() -> void:
@@ -190,26 +184,12 @@ static func make_pet_prompt() -> CanvasLayer:
 	return layer
 
 
+## The host's carrier changed: every machine reads the seat from the record; this one's prompt now.
 func _announce_held(held: bool) -> void:
-	var peer: int = 1
-	if held and is_instance_valid(_carrier):
-		# The carrier's link sits under NetMatch; with none there is no session and peer 1 is this machine.
-		var link: PlayerNetLink = PlayerNetLink.of(_carrier)
-		if link != null:
-			peer = link.owner_peer_id if link.owner_peer_id != 0 else CARRIED_BY_A_BOT
-	if _networked():
-		_tell(&"_held_by", [peer if held else 0])
-	_held_by(peer if held else 0)
-
-
-## Authority to everyone: which peer carries the cat now, 0 for none.
-@rpc("authority", "reliable", "call_remote", 1)
-func _held_by(peer: int) -> void:
-	_carrier_peer = peer
-	var mine: int = 1
-	if _networked():
-		mine = multiplayer.get_unique_id()
-	_set_local_held(peer != 0 and peer == mine)
+	var link: PlayerNetLink = PlayerNetLink.of(_carrier) if held and is_instance_valid(_carrier) else null
+	_carrier_seat = link.seat_index if link != null else (0 if held else -1)
+	# With no link there is no session, and whoever carries the cat is this machine's player.
+	_set_local_held(held and (link == null or link.is_owned_here()))
 
 
 ## Spend [param body]'s shove on a cat: throw the one it carries, else lift one in reach.
@@ -240,7 +220,7 @@ static func _free_in_reach(body: PlayerController, forward: Vector3, reach: floa
 	var best_distance: float = 0.0
 	var here: Vector3 = body.global_position
 	for cat: HubCat in _all:
-		if cat._carrier_peer != 0 or cat._gone or cat.multiplayer != body.multiplayer:
+		if cat._carrier_seat >= 0 or cat._gone or cat.multiplayer != body.multiplayer:
 			continue
 		var offset: Vector3 = cat.global_position - here
 		if absf(offset.y) > REACH_HEIGHT:
@@ -255,12 +235,11 @@ static func _free_in_reach(body: PlayerController, forward: Vector3, reach: floa
 	return best
 
 
-## True while [param body] holds a cat: on the host its carrier, elsewhere the peer it was told.
+## True while [param body] holds a cat: on the host its carrier, elsewhere the seat its record names.
 static func is_carrying(body: PlayerController) -> bool:
 	var link: PlayerNetLink = PlayerNetLink.of(body)
-	var peer: int = link.owner_peer_id if link != null else 1
 	for cat: HubCat in _all:
-		if cat._carrier == body or (not cat._is_authority() and cat._carrier_peer != 0 and cat._carrier_peer == peer):
+		if cat._carrier == body or (link != null and cat._carrier_seat == link.seat_index):
 			return true
 	return false
 
@@ -301,43 +280,81 @@ func _explode(fuse: int) -> void:
 	freeze = true
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
-	if _networked():
-		_tell(&"_exploded", [at, true])
-	_exploded(at, true)
-	get_tree().create_timer(RESPAWN_SECONDS).timeout.connect(_respawn)
+	var net: NetMatch = NetMatch.of(self) if _networked() else null
+	if net != null:
+		net.get_session().replicator.send_event(NetEvents.Type.CAT_BLAST, NetCodec.pack_point(0, at))
+	_go()
+	_show_blast(at)
+	get_tree().create_timer(RESPAWN_SECONDS).timeout.connect(_returned)
 
 
-func _respawn() -> void:
-	if _networked():
-		_tell(&"_returned", [])
-	_returned()
-
-
-## Authority to everyone: the cat went off at [param at], and is hidden at home until it returns.
-## [param loud] is false for a machine that arrived after the blast.
-@rpc("authority", "reliable", "call_remote", 0)
-func _exploded(at: Vector3, loud: bool) -> void:
-	if not at.is_finite():
-		return
+## The cat went off: hidden at home until it returns.
+func _go() -> void:
 	_gone = true
+	_carrier_seat = -1
 	_become_neutral()
 	_set_local_held(false)
-	if loud:
-		_show_blast(at)
 	visible = false
 	collision_layer = 0
 	collision_mask = 0
 	global_transform = _home
 
 
-## Authority to everyone: the cat is back on its spot.
-@rpc("authority", "reliable", "call_remote", 0)
+## The cat is back on its spot.
 func _returned() -> void:
 	_gone = false
 	visible = true
 	collision_layer = CAT_LAYER
 	collision_mask = 1
 	global_transform = _home
+
+
+## A cat blast heard from the host's event ring, drawn by the first hub cat under [param root].
+static func blast_in(root: Node, at: Vector3) -> void:
+	for cat: HubCat in _all:
+		if is_instance_valid(cat) and root.is_ancestor_of(cat):
+			cat._show_blast(at)
+			return
+
+
+## [NetProp]: state and carrying seat (u8: state, seat + 1 above it), position and yaw.
+func net_record() -> PackedByteArray:
+	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
+	buffer.put_u8((State.GONE if _gone else _state) | ((_carrier_seat + 1) << 2))
+	buffer.put_16(NetCodec.quantise_metres(global_position.x))
+	buffer.put_16(NetCodec.quantise_metres(global_position.y))
+	buffer.put_16(NetCodec.quantise_metres(global_position.z))
+	buffer.put_u16(NetCodec.quantise_turn(rotation.y))
+	return buffer.data_array
+
+
+func net_apply(record: PackedByteArray) -> void:
+	if record.size() != 9:
+		return
+	var state: State = (record[0] & 3) as State
+	if state == State.GONE:
+		if not _gone:
+			_go()
+		return
+	if _gone:
+		_returned()
+	_state = state
+	var seat: int = (record[0] >> 2) - 1
+	if seat != _carrier_seat:
+		_carrier_seat = seat
+		var link: PlayerNetLink = _link_of_seat(seat)
+		_carrier = link.controller if link != null and state == State.HELD else null
+		_set_local_held(link != null and link.is_owned_here())
+	if state != State.HELD:
+		global_transform = Transform3D(
+			Basis(Vector3.UP, NetCodec.turn_of(record.decode_u16(7))), NetCodec.event_point(record, 1)
+		)
+
+
+## The link of [param seat] on this machine, or null.
+func _link_of_seat(seat: int) -> PlayerNetLink:
+	var net: NetMatch = NetMatch.of(self)
+	return net.get_session().replicator.find_link(seat) if net != null and seat >= 0 else null
 
 
 func _show_blast(at: Vector3) -> void:
@@ -388,7 +405,12 @@ func _carry_transform() -> Transform3D:
 
 
 func _physics_process(_delta: float) -> void:
-	if _state == State.REST or not _is_authority():
+	if not _is_authority():
+		# Carried in the hands this machine draws.
+		if _state == State.HELD and is_instance_valid(_carrier) and not _gone:
+			global_transform = _carry_transform()
+		return
+	if _state == State.REST:
 		return
 	if _state == State.HELD:
 		if not is_instance_valid(_carrier) or not _carrier.is_inside_tree():
@@ -401,12 +423,8 @@ func _physics_process(_delta: float) -> void:
 				global_position += link.drawn_offset()
 	elif global_position.y < FALL_OUT_Y:
 		_settle(_home)
-		return
 	elif sleeping:
 		_settle(Transform3D(Basis(Vector3.UP, rotation.y), global_position))
-		return
-	if _networked():
-		_tell_pose()
 
 
 func _drop() -> void:
@@ -426,41 +444,6 @@ func _settle(where: Transform3D) -> void:
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	global_transform = where
-	if _networked():
-		_tell(&"_rest", [where.origin, where.basis.get_euler().y])
-
-
-## Send [param method] to every machine whose hub stands; one still loading has no cat to hear it.
-func _tell(method: StringName, args: Array) -> void:
-	var net: NetMatch = _net_match()
-	if net == null:
-		return
-	for peer: int in net.get_scene_peers():
-		callv(&"rpc_id", [peer, method] + args)
-
-
-func _tell_pose() -> void:
-	var net: NetMatch = _net_match()
-	if net == null:
-		return
-	for peer: int in net.get_scene_peers():
-		rpc_id(peer, &"_pose", global_position, rotation.y)
-
-
-func _net_match() -> NetMatch:
-	if not is_instance_valid(_net):
-		_net = NetMatch.of(self)
-		if _net != null and multiplayer.is_server():
-			_net.peer_bound.connect(_on_peer_bound)
-	return _net
-
-
-## A machine whose hub has just stood up is told where this cat is.
-func _on_peer_bound(peer: int) -> void:
-	if _gone:
-		rpc_id(peer, &"_exploded", global_position, false)
-	else:
-		rpc_id(peer, &"_rest", global_position, rotation.y)
 
 
 ## True on the machine that moves the cat: the host, or a game with no session. A session that
@@ -472,17 +455,3 @@ func _is_authority() -> bool:
 func _networked() -> bool:
 	var peer: MultiplayerPeer = multiplayer.multiplayer_peer
 	return peer != null and not (peer is OfflineMultiplayerPeer)
-
-
-## Authority to everyone, every tick the cat is carried or flying.
-@rpc("authority", "unreliable_ordered", "call_remote", 3)
-func _pose(at: Vector3, yaw: float) -> void:
-	if multiplayer.is_server() or _gone or not at.is_finite() or not is_finite(yaw):
-		return
-	global_transform = Transform3D(Basis(Vector3.UP, yaw), at)
-
-
-## Authority to everyone, once, where the cat came to rest.
-@rpc("authority", "reliable", "call_remote", 0)
-func _rest(at: Vector3, yaw: float) -> void:
-	_pose(at, yaw)

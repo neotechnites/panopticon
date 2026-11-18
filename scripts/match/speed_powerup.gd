@@ -46,6 +46,7 @@ var _armed: bool = true
 
 
 func _ready() -> void:
+	add_to_group(NetProp.GROUP)
 	_build_shape()
 	_controller = _resolve_controller()
 	if _controller != null:
@@ -87,8 +88,8 @@ func _find_shape_holder() -> CollisionShape3D:
 # --- Contact --------------------------------------------------------------
 
 
-## The authority alone awards it: the boost reaches its body's owner in the snapshot, and
-## every machine is told the orb is gone.
+## The authority alone awards it: the boost reaches its body's owner in the snapshot, and the orb
+## going is this prop's record (DESIGN 3.4 PROPS).
 func _on_body_entered(body: Node3D) -> void:
 	if not _armed or not multiplayer.is_server():
 		return
@@ -98,39 +99,24 @@ func _on_body_entered(body: Node3D) -> void:
 	if player == null:
 		return
 	player.apply_speed_boost(speed_multiplier, duration_seconds)
-	_tell_taken()
-	_taken()
+	_set_armed(false)
 
 
-## Tell the machines whose map stands; with no match layer beside this node, every machine.
-func _tell_taken() -> void:
-	if not _networked():
-		return
-	var net: NetMatch = NetMatch.of(self)
-	if net == null:
-		rpc(&"_taken")
-		return
-	if not net.peer_bound.is_connected(_on_peer_bound):
-		net.peer_bound.connect(_on_peer_bound)
-	for peer: int in net.get_scene_peers():
-		rpc_id(peer, &"_taken")
+## [NetProp]: one byte, whether the orb is there to take.
+func net_record() -> PackedByteArray:
+	return PackedByteArray([1 if _armed else 0])
 
 
-## A machine that stood its map up after the orb went is told it is gone.
-func _on_peer_bound(peer: int) -> void:
-	if not _armed:
-		rpc_id(peer, &"_taken")
+func net_apply(record: PackedByteArray) -> void:
+	_set_armed(record[0] != 0)
 
 
-## Authority to everyone: somebody took the orb.
-@rpc("authority", "reliable", "call_remote", 0)
-func _taken() -> void:
-	_armed = false
+func _set_armed(armed: bool) -> void:
+	_armed = armed
 	if orb != null:
-		orb.visible = false
-	# Deferred: Area3D refuses to change monitoring from inside its own
-	# body_entered dispatch.
-	set_deferred(&"monitoring", false)
+		orb.visible = armed
+	# Deferred: Area3D refuses to change monitoring from inside its own body_entered dispatch.
+	set_deferred(&"monitoring", armed)
 
 
 func is_armed() -> bool:
@@ -142,21 +128,21 @@ func _networked() -> bool:
 	return peer != null and not (peer is OfflineMultiplayerPeer)
 
 
-## Re-arm when a new race starts, exactly as [PhaseGate] re-presents its
-## content on the same signal.
+## Re-arm when a new race starts, exactly as [PhaseGate] re-presents its content on the same signal.
+## The host's: a client's orb is its record.
 func _on_race_started() -> void:
-	_armed = true
-	if orb != null:
-		orb.visible = true
-	monitoring = true
+	if not _follows_host():
+		_set_armed(true)
 
 
 ## Race-only: gone for the rounds.
 func _on_round_started() -> void:
-	_armed = false
-	if orb != null:
-		orb.visible = false
-	set_deferred(&"monitoring", false)
+	if not _follows_host():
+		_set_armed(false)
+
+
+func _follows_host() -> bool:
+	return _networked() and not multiplayer.is_server()
 
 
 # --- Finding the match, exactly as scripts/match/phase_gate.gd does -----------

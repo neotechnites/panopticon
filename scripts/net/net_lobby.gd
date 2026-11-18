@@ -659,9 +659,9 @@ static func wire_fingerprint() -> int:
 	if _fingerprint != 0:
 		return _fingerprint
 	var parts: PackedStringArray = PackedStringArray([
-		str(NetCodec.COMMAND_HEADER_SIZE), str(NetCodec.MAX_COMMANDS), str(NetCodec.SNAPSHOT_HEADER_SIZE), str(NetCodec.SNAPSHOT_BODY_SIZE),
+		str(NetCodec.COMMAND_HEADER_SIZE), str(NetCodec.MAX_COMMANDS), str(NetCodec.SNAPSHOT_HEADER_SIZE), str(NetCodec.SNAPSHOT_VERSION),
 		str(NetCodec.ROSTER_HEADER_SIZE), str(NetCodec.ROSTER_SEAT_FIXED_SIZE),
-		str(NetCodec.GAMESTATE_HEADER), str(NetCodec.GAMESTATE_PARTICIPANT), str(NetCodec.DECOY_VERSION),
+		str(NetCodec.MATCH_HEADER_SIZE), str(NetCodec.MATCH_PARTICIPANT_SIZE), str(NetCodec.EVENT_PAYLOAD),
 		str(MoveIntent.BUTTON_MASK),
 	])
 	parts.append_array(NetCodec.rules_field_names(MatchRules.new()))
