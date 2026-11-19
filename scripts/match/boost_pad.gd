@@ -137,11 +137,19 @@ const CHEVRON_WIDTH_FRACTIONS: PackedFloat32Array = [0.75, 0.5, 0.25]
 
 
 static var _live: Array[BoostPad] = []
+var _box: CollisionShape3D = null
+var _reach: float = 0.0
 
 
 func _ready() -> void:
 	_build_shape()
 	_size_the_plate()
+	var holder: CollisionShape3D = _find_shape_holder()
+	if holder != null and holder.shape is BoxShape3D:
+		_box = holder
+		var scale: Vector3 = holder.global_basis.get_scale()
+		_reach = (holder.global_position - global_position).length() \
+			+ (holder.shape as BoxShape3D).size.length() * 0.5 * maxf(scale.x, maxf(scale.y, scale.z))
 
 
 func _enter_tree() -> void:
@@ -159,8 +167,12 @@ static func live() -> Array[BoostPad]:
 
 ## The box that launches, and where it stands in the world; null before ready.
 func get_detection_shape() -> CollisionShape3D:
-	var holder: CollisionShape3D = _find_shape_holder()
-	return holder if holder != null and holder.shape != null else null
+	return _box
+
+
+## Metres from this node's origin to the far corner of its box: nothing farther can touch it.
+func get_reach() -> float:
+	return _reach
 
 
 # --- Geometry -----------------------------------------------------------------

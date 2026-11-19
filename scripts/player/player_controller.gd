@@ -200,8 +200,8 @@ var _speed_boost_multiplier: float = 1.0
 const TURBO_MULTIPLIER: float = 3.0
 ## The least a floor-contact probe reaches down, metres: a restored body standing on a floor touches it.
 const FLOOR_PROBE_METRES: float = 0.05
-## Ternary-search steps for a capsule's distance to a pad's box: (2/3)^40 of the capsule, far under a mm.
-const PAD_SEARCH_STEPS: int = 40
+## Ternary-search steps for a capsule's distance to a pad's box: (2/3)^24 of the capsule, under 0.1 mm.
+const PAD_SEARCH_STEPS: int = 24
 const EMOTE_KEYS: int = MoveIntent.EMOTE | MoveIntent.EMOTE_ALT
 ## The presses [method _move] answers, which a movement lock swallows.
 const LOCKED_KEYS: int = EMOTE_KEYS | MoveIntent.JUMP
@@ -458,17 +458,25 @@ func _pad_under() -> BoostPad:
 	var capsule: CapsuleShape3D = collision.shape as CapsuleShape3D if collision != null else null
 	if capsule == null or not is_inside_tree():
 		return null
-	var axis: Transform3D = collision.global_transform
+	var here: Vector3 = global_position
 	var reach: float = maxf(capsule.height * 0.5 - capsule.radius, 0.0)
-	var top: Vector3 = axis * Vector3(0.0, reach, 0.0)
-	var bottom: Vector3 = axis * Vector3(0.0, -reach, 0.0)
+	var axis: Transform3D = Transform3D()
+	var measured: bool = false
 	for pad: BoostPad in BoostPad.live():
-		var box: CollisionShape3D = pad.get_detection_shape()
-		var extents: BoxShape3D = box.shape as BoxShape3D if box != null else null
-		if extents == null or (pad.collision_mask & collision_layer) == 0 or pad.get_world_3d() != get_world_3d():
+		# Far from the box (its corner's reach and the whole capsule's), nothing more is needed.
+		var near: float = pad.get_reach() + capsule.height
+		if here.distance_squared_to(pad.global_position) > near * near or (pad.collision_mask & collision_layer) == 0:
 			continue
+		var box: CollisionShape3D = pad.get_detection_shape()
+		if box == null:
+			continue
+		if not measured:
+			axis = collision.global_transform
+			measured = true
 		var to_box: Transform3D = box.global_transform.affine_inverse()
-		if _segment_to_box(to_box * bottom, to_box * top, extents.size * 0.5) <= capsule.radius:
+		var low: Vector3 = to_box * (axis * Vector3(0.0, -reach, 0.0))
+		var high: Vector3 = to_box * (axis * Vector3(0.0, reach, 0.0))
+		if _segment_to_box(low, high, (box.shape as BoxShape3D).size * 0.5) <= capsule.radius:
 			return pad
 	return null
 
