@@ -481,7 +481,7 @@ func _watch_rulings(body: PlayerController) -> void:
 			line("RULE seat=%s %s pressed=%d ruling=%s ability=%d" % [_seat_of_body(body), _command_of(body),
 				buttons & PRESS_BUTTONS, ruling, int(running.get_active()) if running != null else 0]))
 	body.launched.connect(func(velocity_vector: Vector3) -> void:
-		line("KNOCK seat=%s frame=%d speed=%.1f" % [_seat_of_body(body), Engine.get_physics_frames(), velocity_vector.length()]))
+		line("KNOCK seat=%s %s speed=%.1f" % [_seat_of_body(body), _command_of(body), velocity_vector.length()]))
 	body.held_changed.connect(func(hold: bool) -> void:
 		line("HOLD seat=%s frame=%d on=%d" % [_seat_of_body(body), Engine.get_physics_frames(), int(hold)]))
 	var power: RunnerPower = RunnerPower.of(body)
@@ -570,6 +570,10 @@ func _watch_bodies() -> void:
 	var link: PlayerNetLink = net_match.get_local_link()
 	if not session.is_authority() and link != null and not link.command_sent.is_connected(_on_command_sent):
 		link.command_sent.connect(_on_command_sent)
+		# This machine's own launches, after the command last sent: set beside the host's to see a prediction part.
+		link.controller.launched.connect(func(velocity_vector: Vector3) -> void:
+			line("KNOCK seat=%s local=1 after=%d frame=%d speed=%.1f" % [_seat_of_body(link.controller),
+				session.replicator.outbox.next_seq() - 1, Engine.get_physics_frames(), velocity_vector.length()]))
 	if not session.is_authority():
 		var relay: CatGrenadeRelay = CatGrenadeRelay.of(session)
 		cats = relay._shown.size() if relay != null else 0
