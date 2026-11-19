@@ -17,7 +17,7 @@ extends TestCase
 ## [method PlayerController.launch] does not write velocity where it is called:
 ## it parks the vector and the controller applies it on the next physics tick,
 ## after that tick's floor zeroing, exactly as a jump is applied. So the
-## velocity inside the [signal Area3D.body_entered] dispatch is still the
+## velocity at [signal PlayerController.launched] is still the
 ## arrival velocity. [method _launch] therefore steps one tick past the signal
 ## and undoes the single tick of gravity that same tick adds, which is the only
 ## thing that touches the launch on the way out (air friction is 0 in the
@@ -25,8 +25,8 @@ extends TestCase
 
 const PAD_SCENE_PATH: String = "res://props/boost_pad.tscn"
 
-## Physics ticks a test allows for the Area3D to notice the body and fire
-## [signal Area3D.body_entered]. Capture happens the instant it does; this is
+## Physics ticks a test allows for the body's move to find the pad and fire
+## [signal PlayerController.launched]. Capture happens the instant it does; this is
 ## just the budget before a test gives up and reports whatever the box still
 ## holds (the zero it started with, which reads as an obvious failure).
 const CONTACT_TICKS: int = 10
@@ -193,10 +193,7 @@ func _launch(
 	entry_velocity: Vector3 = Vector3.ZERO,
 ) -> Vector3:
 	var seen: Array = [false]
-	pad.body_entered.connect(func(entered: Node3D) -> void:
-		if entered == body:
-			seen[0] = true
-	)
+	body.launched.connect(func(_velocity: Vector3) -> void: seen[0] = true)
 
 	add_child(body)
 	body.global_position = on_pad_at
@@ -208,7 +205,7 @@ func _launch(
 			break
 
 	if not seen[0]:
-		fail("the pad never fired body_entered for the body placed on it")
+		fail("the pad never launched the body placed on it")
 		return Vector3.ZERO
 
 	# The tick that applies the parked launch also applies one tick of gravity.

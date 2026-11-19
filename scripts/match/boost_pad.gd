@@ -136,10 +136,31 @@ const CHEVRON_DEPTH_METRES: float = 0.18
 const CHEVRON_WIDTH_FRACTIONS: PackedFloat32Array = [0.75, 0.5, 0.25]
 
 
+static var _live: Array[BoostPad] = []
+
+
 func _ready() -> void:
 	_build_shape()
 	_size_the_plate()
-	body_entered.connect(_on_body_entered)
+
+
+func _enter_tree() -> void:
+	_live.append(self)
+
+
+func _exit_tree() -> void:
+	_live.erase(self)
+
+
+## Every pad in a tree now, for the bodies that test themselves against them.
+static func live() -> Array[BoostPad]:
+	return _live
+
+
+## The box that launches, and where it stands in the world; null before ready.
+func get_detection_shape() -> CollisionShape3D:
+	var holder: CollisionShape3D = _find_shape_holder()
+	return holder if holder != null and holder.shape != null else null
 
 
 # --- Geometry -----------------------------------------------------------------
@@ -229,13 +250,8 @@ func _find_chevrons() -> Array[CSGBox3D]:
 # --- Launch ---------------------------------------------------------------
 
 
-func _on_body_entered(body: Node3D) -> void:
-	var player: PlayerController = body as PlayerController
-	if player == null:
-		# Something that is not a player touched it. This node has no opinion
-		# on what that is or what should happen to it -- see the class doc.
-		return
-	player.launch(_launch_direction() * launch_speed)
+# A body launches itself on the step onto a pad: [method PlayerController._touch_pads], part of its
+# move, so a client's replay of that move throws it again.
 
 
 ## The unit vector a body leaves along: this node's own forward, tilted

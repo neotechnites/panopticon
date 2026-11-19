@@ -14,7 +14,9 @@ const POWER_REMAINING: int = 10
 const POWER_COOLDOWN: int = 11
 const MOTION: int = 12
 const WEAPON: int = MOTION + PlayerController.MOTION_STATE_SIZE
-const SIZE: int = WEAPON + Rifle.GATE_STATE_SIZE
+## The engine's floor contact after the tick: what the next move's snap and floor test read.
+const ON_FLOOR: int = WEAPON + Rifle.GATE_STATE_SIZE
+const SIZE: int = ON_FLOOR + 1
 
 var values: PackedFloat32Array = PackedFloat32Array()
 var _motion: PackedFloat32Array = PackedFloat32Array()
@@ -64,6 +66,7 @@ func capture(body: PlayerController, weapon: Rifle) -> void:
 		_gate.fill(0.0)
 	for i: int in _gate.size():
 		values[WEAPON + i] = _gate[i]
+	values[ON_FLOOR] = 1.0 if body.is_on_floor() else 0.0
 
 
 ## Put this state on [param body], its power and [param weapon] (when it holds one).
@@ -75,6 +78,7 @@ func restore(body: PlayerController, weapon: Rifle) -> void:
 	for i: int in _motion.size():
 		_motion[i] = values[MOTION + i]
 	body.restore_motion_state(_motion)
+	body.restore_floor_contact(values[ON_FLOOR] > 0.5)
 	var power: RunnerPower = RunnerPower.of(body)
 	if power != null:
 		power.restore_predicted(int(values[POWER_ACTIVE]), values[POWER_REMAINING], values[POWER_COOLDOWN])

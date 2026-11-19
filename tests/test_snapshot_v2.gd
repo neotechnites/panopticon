@@ -166,3 +166,63 @@ func test_a_client_with_no_body_of_its_own_still_acknowledges() -> void:
 	await step_ticks(40)
 	assert_eq_int(_client.replicator.get_last_command_packet().size(), 0, "it sent no commands")
 	assert_gt(float(_client.replicator.last_baseline), -1.0, "yet its snapshots are deltas against what it acknowledged")
+
+
+## The client's own body is thrown on the host only (a shove, a blast): [param throw], for 90 ticks.
+## The first correction is the throw itself, unknowable to the client; the rest are measured.
+func _host_throws_the_client(throw: Vector3) -> Array:
+	var link: PlayerNetLink = _client_links[0]
+	var errors: PackedFloat32Array = PackedFloat32Array()
+	link.prediction_corrected.connect(func(metres: float, _snapped: bool) -> void: errors.append(metres))
+	await until(func() -> bool: return link.is_predicting())
+	await step_ticks(30)
+	errors.clear()
+	_host_links[0].controller.launch(throw, 0.4)
+	await step_ticks(90)
+	var worst: float = 0.0
+	for i: int in range(1, errors.size()):
+		worst = maxf(worst, errors[i])
+	return [worst, errors.size()]
+
+
+func test_a_body_the_host_throws_is_predicted_in_the_air() -> void:
+	if not assert_true(await _stand_up(), "the sessions stand"):
+		return
+	var measured: Array = await _host_throws_the_client(Vector3(3.0, 9.0, 4.0))
+	print("          thrown: worst %.6f m over %d corrections" % [measured[0], measured[1]])
+	assert_gt(float(measured[1]), 8.0, "the client was corrected through the flight")
+	assert_lt(float(measured[0]), 1e-4, "and after the host's word on the launch it flies exactly the host's arc")
+
+
+func test_a_boost_pad_launch_is_replayed_as_it_was_run() -> void:
+	if not assert_true(await _stand_up(), "the sessions stand"):
+		return
+	# One pad on each machine, in the client's path; the machines share a physics world, so each pad
+	# sees only its own machine's copy of the body.
+	var machines: Array[NetSession] = [_host, _client]
+	var links: Array = [_host_links, _client_links]
+	for index: int in 2:
+		var layer: int = 1 << (2 + index)
+		(links[index][0] as PlayerNetLink).controller.collision_layer = layer
+		var pad: BoostPad = (load("res://props/boost_pad.tscn") as PackedScene).instantiate() as BoostPad
+		pad.collision_mask = layer
+		machines[index].get_parent().add_child(pad)
+		pad.global_position = Vector3(0.0, 0.0, -4.0)
+	var link: PlayerNetLink = _client_links[0]
+	var errors: PackedFloat32Array = PackedFloat32Array()
+	link.prediction_corrected.connect(func(metres: float, _snapped: bool) -> void: errors.append(metres))
+	var launches: Array[int] = [0, 0]
+	_host_links[0].controller.launched.connect(func(_v: Vector3) -> void: launches[0] += 1)
+	link.controller.launched.connect(func(_v: Vector3) -> void: launches[1] += 1)
+	await until(func() -> bool: return link.is_predicting())
+	await step_ticks(20)
+	errors.clear()
+	(link.local_source as BotIntentSource).command.move_direction = Vector2(0.0, 1.0)
+	await step_ticks(120)
+	var worst: float = 0.0
+	for metres: float in errors:
+		worst = maxf(worst, metres)
+	print("          pad: host launched %d, client %d; worst %.6f m over %d corrections" % [launches[0], launches[1], worst, errors.size()])
+	assert_eq_int(launches[0], 1, "the host's body crossed the pad and was launched")
+	assert_gt(float(errors.size()), 10.0, "the client was corrected through the flight")
+	assert_lt(worst, 1e-4, "and every replay across the pad threw the body as its first run did")
