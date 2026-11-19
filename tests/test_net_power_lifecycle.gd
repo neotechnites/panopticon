@@ -344,3 +344,15 @@ func test_the_owners_own_hologram_is_built_once_and_goes_once() -> void:
 	assert_false(built.is_empty(), "A drew its own hologram")
 	# Its end is the owner block's before the record at the playout clock says so: never rebuilt between.
 	assert_eq_int(built.size(), 1, "times A built its own hologram")
+
+
+func test_a_power_presented_while_held_gives_way_to_the_owner_block() -> void:
+	if not await stand_up():
+		return
+	var power: RunnerPower = power_of(a_links, A_SEAT)
+	# Held between rounds, A's own body was drawn from an older record whose cat was still out.
+	power.present(CAT, 0.7, 0.0)
+	assert_eq_int(int(power.get_shown()), CAT, "the record's cat is drawn while the body is mirrored")
+	power.restore_predicted(NONE, 0.0, 0.0)
+	power.settle_visuals()
+	assert_eq_int(int(power.get_shown()), NONE, "once it predicts again, the host's exact state is what it shows")

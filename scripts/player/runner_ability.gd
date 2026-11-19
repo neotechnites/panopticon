@@ -219,7 +219,9 @@ func present_anchor(
 
 
 ## Take the host's exact predicted state of this power (DESIGN 7): its data only, as a replay starts.
+## What a record presented while the body was mirrored (held) is the owner block's to say now.
 func restore_predicted(which: int, remaining: float, cooldown: float) -> void:
+	_presented = MatchRules.RunnerAbility.NONE
 	_active = which as MatchRules.RunnerAbility
 	_remaining = remaining
 	_cooldown = cooldown
