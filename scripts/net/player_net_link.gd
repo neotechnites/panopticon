@@ -470,7 +470,7 @@ func apply_anchor(state: PlayerState) -> void:
 	if power != null:
 		power.present_anchor(
 			state.ability as MatchRules.RunnerAbility, state.anchor_position if state.has_anchor else Vector3.INF,
-			state.decoy_alive, state.anchor_yaw,
+			state.decoy_alive, state.anchor_yaw, state.anchor_velocity,
 		)
 
 
@@ -482,6 +482,7 @@ func _apply_presentation(state: PlayerState, predicted: bool = false) -> void:
 		power.present(
 			state.ability as MatchRules.RunnerAbility, state.ability_remaining(), state.cooldown_remaining(),
 			state.anchor_position if state.has_anchor else Vector3.INF, state.decoy_alive, state.anchor_yaw,
+			state.anchor_velocity,
 		)
 	controller.is_armed = state.is_armed
 	var weapon: Rifle = _weapon()

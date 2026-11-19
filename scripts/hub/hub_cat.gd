@@ -342,7 +342,7 @@ func net_apply(record: PackedByteArray) -> void:
 		_returned()
 	_state = state
 	var seat: int = (record[0] >> 2) - 1
-	if seat != _carrier_seat or (state == State.HELD and not is_instance_valid(_carrier)):
+	if seat != _carrier_seat:
 		_carrier_seat = seat
 		var link: PlayerNetLink = _link_of_seat(seat)
 		_carrier = link.controller if link != null and state == State.HELD else null
@@ -408,7 +408,10 @@ func _carry_transform() -> Transform3D:
 
 func _physics_process(_delta: float) -> void:
 	if not _is_authority():
-		# Carried in the hands this machine draws.
+		# Carried in the hands this machine draws, whichever body draws that seat now.
+		if _state == State.HELD and not _gone and not is_instance_valid(_carrier):
+			var link: PlayerNetLink = _link_of_seat(_carrier_seat)
+			_carrier = link.controller if link != null else null
 		if _state == State.HELD and is_instance_valid(_carrier) and not _gone:
 			global_transform = _carry_transform()
 		return

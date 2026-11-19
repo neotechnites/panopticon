@@ -40,9 +40,6 @@ var _cat: CatGrenade = null
 ## What a client is DRAWING, off the snapshot. Never set on the authority, where
 ## [member _active] is the truth.
 var _presented: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE
-## When a mirrored decoy was last placed, for its drawn velocity; 0 when not moving.
-var _decoy_seen_msec: int = 0
-const DECOY_STILL_MSEC: int = 300
 
 
 ## A decoy's intent: straight ahead at run speed, nothing else.
@@ -181,7 +178,7 @@ func cancel() -> void:
 ## at [param anchor]. Called every drawn frame; a no-op unless something changed.
 func present(
 	which: MatchRules.RunnerAbility, remaining: float, cooldown: float, anchor: Vector3 = Vector3.INF,
-	decoy_alive: bool = false, decoy_yaw: float = 0.0,
+	decoy_alive: bool = false, decoy_yaw: float = 0.0, decoy_velocity: Vector3 = Vector3.ZERO,
 ) -> void:
 	_remaining = maxf(remaining, 0.0)
 	_cooldown = maxf(cooldown, 0.0)
@@ -203,16 +200,19 @@ func present(
 				_raise_shell()
 			MatchRules.RunnerAbility.ACTIVE_CAMO:
 				_cloak()
-	present_anchor(which, anchor, decoy_alive, decoy_yaw)
+	present_anchor(which, anchor, decoy_alive, decoy_yaw, decoy_velocity)
 
 
 ## The host's word on where this body's power stands: its shield's centre, and its hologram's pose
 ## while one is out. For a predicting body too, whose own guess at both is drawn until this lands.
-func present_anchor(which: MatchRules.RunnerAbility, anchor: Vector3, decoy_alive: bool, decoy_yaw: float) -> void:
+func present_anchor(
+	which: MatchRules.RunnerAbility, anchor: Vector3, decoy_alive: bool, decoy_yaw: float,
+	decoy_velocity: Vector3 = Vector3.ZERO,
+) -> void:
 	if _shield != null and which == MatchRules.RunnerAbility.BUBBLE_SHIELD and anchor.is_finite():
 		_shield.global_position = anchor
 	if decoy_alive and anchor.is_finite():
-		present_decoy(anchor, decoy_yaw)
+		present_decoy(anchor, decoy_yaw, decoy_velocity)
 	elif which == MatchRules.RunnerAbility.HOLOGRAM or _active != MatchRules.RunnerAbility.HOLOGRAM:
 		# Out on the host and gone there (shot), or a mirror's power that has none: no hologram.
 		clear_decoy()
@@ -409,33 +409,18 @@ func _spawn_decoy(mirrored: bool = false) -> void:
 	_decoy = decoy
 
 
-## Put the mirrored hologram where the host's record has it, building it the first time.
-func present_decoy(position: Vector3, yaw: float) -> void:
+## Put the mirrored hologram where the host's record has it, moving at [param velocity] (its avatar
+## animates off velocity and floor, which a mirrored decoy never simulates), building it the first time.
+func present_decoy(position: Vector3, yaw: float, velocity: Vector3 = Vector3.ZERO) -> void:
 	if get_decoy() == null:
 		_decoy = null
 		_spawn_decoy(true)
-		_decoy_seen_msec = 0
 	if _decoy == null:
 		return
-	if _decoy.global_position.is_equal_approx(position) and is_equal_approx(_decoy.rotation.y, yaw):
-		return
-	# Its avatar animates off velocity and floor, which a mirrored decoy never simulates.
-	var now: int = Time.get_ticks_msec()
-	if _decoy_seen_msec > 0 and now > _decoy_seen_msec:
-		var moved: Vector3 = position - _decoy.global_position
-		_decoy.velocity = moved / (float(now - _decoy_seen_msec) / 1000.0)
-	_decoy_seen_msec = now
+	_decoy.velocity = velocity
 	_decoy.net_floor = 1
 	_decoy.global_position = position
 	_decoy.rotation.y = yaw
-
-
-func _process(_delta: float) -> void:
-	# A mirrored decoy that stopped being moved has stopped.
-	if _decoy_seen_msec > 0 and Time.get_ticks_msec() - _decoy_seen_msec > DECOY_STILL_MSEC:
-		_decoy_seen_msec = 0
-		if is_instance_valid(_decoy):
-			_decoy.velocity = Vector3.ZERO
 
 
 ## Drop the mirrored hologram: the authority's expiry, or a shot that shattered

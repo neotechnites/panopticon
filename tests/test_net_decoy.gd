@@ -111,13 +111,15 @@ func test_a_clients_hologram_stands_where_the_hosts_does_and_dies_with_it() -> v
 		var gap: float = INF
 		var ring: NetReplicator = _host.replicator
 		var seat: int = PlayerNetLink.of(host_power.body).seat_index
-		for i: int in range(1, ring._ring_count):
-			var from_state: PlayerState = ring._slot(i - 1).find_seat(seat)
+		for i: int in ring._ring_count:
 			var to_state: PlayerState = ring._slot(i).find_seat(seat)
-			if from_state == null or to_state == null or not from_state.decoy_alive or not to_state.decoy_alive:
+			if to_state == null or not to_state.decoy_alive:
 				continue
+			# A segment from the world before, or the one point of the hologram's first world.
+			var from_state: PlayerState = ring._slot(i - 1).find_seat(seat) if i > 0 else null
+			var from: Vector3 = from_state.anchor_position if from_state != null and from_state.decoy_alive else to_state.anchor_position
 			var on_path: Vector3 = Geometry3D.get_closest_point_to_segment(
-				mirror.global_position, from_state.anchor_position, to_state.anchor_position)
+				mirror.global_position, from, to_state.anchor_position)
 			var distance: float = mirror.global_position.distance_to(on_path)
 			if distance < gap:
 				gap = distance

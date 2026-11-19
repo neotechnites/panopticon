@@ -717,11 +717,20 @@ func _draw(lag: float) -> void:
 ## Draw [param snapshot] carried [param seconds] forward along each body's own velocity.
 func _draw_extrapolated(snapshot: WorldSnapshot, seconds: float) -> void:
 	_apply_props(snapshot)
+	var before: WorldSnapshot = null
+	for i: int in range(1, _ring_count):
+		if _slot(i) == snapshot:
+			before = _slot(i - 1)
 	for link: PlayerNetLink in _links:
 		var state: PlayerState = snapshot.find_seat(link.seat_index)
 		if state == null:
 			continue
-		_blend.copy_from(state)
+		var earlier: PlayerState = before.find_seat(link.seat_index) if before != null else null
+		if earlier != null:
+			# At this world, with the anchor's speed into it from the one before.
+			_blend.interpolate_from(earlier, state, 1.0)
+		else:
+			_blend.copy_from(state)
 		_blend.position += state.velocity * maxf(seconds, 0.0)
 		if link.is_predicting():
 			link.apply_anchor(_blend)

@@ -43,6 +43,8 @@ var cooldown_end_tick: int = 0
 var has_anchor: bool = false
 var anchor_position: Vector3 = Vector3.ZERO
 var anchor_yaw: float = 0.0
+## The anchor's speed between the two worlds a blend drew it from, m/s; never on the wire.
+var anchor_velocity: Vector3 = Vector3.ZERO
 
 ## The timed speed boost: multiplier in tenths and its end tick.
 var boost_multiplier: float = 1.0
@@ -81,6 +83,7 @@ func clear() -> void:
 	has_anchor = false
 	anchor_position = Vector3.ZERO
 	anchor_yaw = 0.0
+	anchor_velocity = Vector3.ZERO
 	boost_multiplier = 1.0
 	boost_end_tick = 0
 	weapon_state = 0
@@ -115,6 +118,7 @@ func copy_from(other: PlayerState) -> void:
 	has_anchor = other.has_anchor
 	anchor_position = other.anchor_position
 	anchor_yaw = other.anchor_yaw
+	anchor_velocity = other.anchor_velocity
 	boost_multiplier = other.boost_multiplier
 	boost_end_tick = other.boost_end_tick
 	weapon_state = other.weapon_state
@@ -153,9 +157,13 @@ func interpolate_from(from: PlayerState, to: PlayerState, weight: float) -> void
 	velocity = from.velocity.lerp(to.velocity, t)
 	yaw = lerp_angle(from.yaw, to.yaw, t)
 	pitch = lerp_angle(from.pitch, to.pitch, t)
+	anchor_velocity = Vector3.ZERO
 	if from.has_anchor and to.has_anchor and from.ability == to.ability:
 		anchor_position = from.anchor_position.lerp(to.anchor_position, t)
 		anchor_yaw = lerp_angle(from.anchor_yaw, to.anchor_yaw, t)
+		var ticks: int = NetCodec.tick_delta(from.tick, to.tick)
+		if ticks > 0 and from.placed_counter == to.placed_counter:
+			anchor_velocity = (to.anchor_position - from.anchor_position) * float(NetCodec.TICK_RATE) / float(ticks)
 	if t < 0.5:
 		tick = from.tick
 		on_floor = from.on_floor
