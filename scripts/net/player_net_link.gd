@@ -62,6 +62,9 @@ signal placed()
 ## Authority-only: the seam for telemetry and input logging.
 signal intent_received(peer_id: int, seq: int)
 
+## This client numbered [param command] [param seq] and sent it; only a command with an edge in it.
+signal command_sent(seq: int, command: MoveIntent)
+
 ## The session this link belongs to. Supplies the authority test and the local
 ## peer id; the link never touches a [NetTransport] itself.
 @export var session: NetSession
@@ -570,6 +573,8 @@ func _shape_command(command: MoveIntent) -> MoveIntent:
 		_command_seq = -1
 	else:
 		_command_seq = replicator.outbox.push(_command)
+		if _command.pressed | _command.released != 0:
+			command_sent.emit(_command_seq, _command)
 	return _command
 
 

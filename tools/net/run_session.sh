@@ -32,7 +32,24 @@ while [ $# -gt 0 ]; do
 done
 
 command -v "$GODOT" >/dev/null 2>&1 || { echo "run_session: no godot binary ($GODOT)" >&2; exit 2; }
-PORT="$(python3 -c 'import socket; s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')" || exit 2
+# The host's port, held for this session by a lock no other session can take (mkdir is atomic), from
+# below every OS's ephemeral range so no bind to port 0 can be handed it either. Probing a free port and
+# letting it go raced: another session was given it before Godot bound it.
+PORT_LOCKS="${TMPDIR:-/tmp}/panopticon-net/ports"
+mkdir -p "$PORT_LOCKS" || exit 2
+find "$PORT_LOCKS" -mindepth 1 -maxdepth 1 -type d -mmin +1440 -exec rmdir {} + 2>/dev/null
+PORT=""
+for _ in $(seq 1 200); do
+  candidate=$((20000 + RANDOM % 12000))
+  mkdir "$PORT_LOCKS/$candidate" 2>/dev/null || continue
+  # Held by us now; refused only if something outside the harness has it.
+  if python3 -c 'import socket, sys; socket.socket(socket.AF_INET, socket.SOCK_DGRAM).bind(("", int(sys.argv[1])))' "$candidate" 2>/dev/null; then
+    PORT="$candidate"; break
+  fi
+  rmdir "$PORT_LOCKS/$candidate"
+done
+[ -n "$PORT" ] || { echo "run_session: no free port in 20000-31999" >&2; exit 2; }
+trap 'rmdir "$PORT_LOCKS/$PORT" 2>/dev/null' EXIT
 
 if [ -n "$SCENARIO" ]; then
   EXPANDED="$(python3 "$HERE/scenario_args.py" "$SCENARIO" "$PORT")" || exit 2

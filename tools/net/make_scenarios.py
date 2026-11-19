@@ -238,6 +238,23 @@ for who, index in (("client", "1"), ("host", "0")):
         {"maps": "bentham_ring", "matches": 1, "win": 15, "hub-wait": 14},
         host={"prisoners": 3}, peer={index: {"freeze": "hub@5+3000"}}, expect={"matches": 1})
 
+# --- F3. Jumps: every peer jumping all match, its brain's own ledge and pad jumps around them -----
+# Hell's route has jump links and boost pads, marble's has neither. The tower is a human who never fires,
+# so both jumpers stay on the track all match.
+JUMP_WIRES = {
+    "clean": {},
+    "loss10": {"loss": 0.1},
+    "delay50": {"delay-ms": 50},
+    "jitter20n": WIRE_MODES["jitter20n"],
+}
+for map_name, map_id in MAPS.items():
+    for wire, flags in JUMP_WIRES.items():
+        common = {"map": map_id, "seats": 4, "tower": 2}
+        common.update(flags)
+        match(f"jump_{wire}_3p_{map_name}", 3, 60, ["jump", "fault"] if flags else ["jump"], common,
+              host={"keys": "j@5/1.7"}, peer={"1": {"keys": "j@6/1.5"}, "2": SILENT},
+              expect={"valid_presses": {"0": 10, "1": 10}})
+
 # --- G. Leavers ----------------------------------------------------------------
 for map_name, map_id in MAPS.items():
     match(f"quit_client_leave_round_3p_{map_name}", 3, 60, ["leave"], {"map": map_id, "seats": 4, "tower": 3},

@@ -1,0 +1,37 @@
+{
+ "name": "jump_loss10_3p_marble",
+ "runner": "match",
+ "peers": 3,
+ "limit": 105,
+ "tags": [
+  "jump",
+  "fault"
+ ],
+ "common": {
+  "seconds": 60,
+  "map": "marble",
+  "seats": 4,
+  "tower": 2,
+  "loss": 0.1
+ },
+ "host": {
+  "keys": "j@5/1.7"
+ },
+ "peer": {
+  "1": {
+   "keys": "j@6/1.5"
+  },
+  "2": {
+   "aim": false,
+   "fire-every": 0,
+   "press-fire": 0,
+   "keys": ""
+  }
+ },
+ "expect": {
+  "valid_presses": {
+   "0": 10,
+   "1": 10
+  }
+ }
+}
