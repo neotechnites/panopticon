@@ -389,11 +389,17 @@ def check_events(host: Peer, clients: list[Peer], v: Verdict, slack: float) -> N
             kept = [(k, l) for k, l in mine if l.w > start + 0.05]
             keys = [k for k, _ in kept]
             host_keys = [k for k, _ in theirs]
+            # What follows the burst follows the host event the burst ended on: a replayed event seen again is a repeat.
+            burst = [(k, l) for k, l in mine if l.w <= start + 0.05]
+            first = 0
+            if burst:
+                last_key, last_line = burst[-1]
+                first = 1 + max((i for i, (k, l) in enumerate(theirs) if k == last_key and l.w <= last_line.w), default=-1)
             scene_end = next((l.w for l in client.lines if l.tag in ("SCENE", "END", "QUIT") and l.w > start), client.last_w)
             scene_end = min(scene_end, sent_until)
             required = {i for i, (_, l) in enumerate(theirs) if start + slack < l.w < scene_end - slack}
             ok = False
-            for offset in range(0, len(host_keys) - len(keys) + 1):
+            for offset in range(first, len(host_keys) - len(keys) + 1):
                 if host_keys[offset:offset + len(keys)] == keys and required <= set(range(offset, offset + len(keys))):
                     ok = True
                     break
