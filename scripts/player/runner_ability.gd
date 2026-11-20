@@ -178,7 +178,7 @@ func step(intent: MoveIntent, _delta: float, authority: bool) -> void:
 	_rule(asked, &"busy")
 	if authority:
 		# The shield's collider is part of what is drawn: the host's stands from the tick it is raised.
-		sync_visuals(state)
+		_sync_effect(state)
 
 
 ## Tell the body what this command made of the keys in [param buttons]; nothing when none went down.
@@ -225,7 +225,7 @@ func activate(which: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE, a
 	state.pose_velocity = Vector3.ZERO
 	if authority:
 		_spawn_entity()
-		sync_visuals(state)
+		_sync_effect(state)
 	return true
 
 
@@ -504,6 +504,13 @@ func _current_view() -> PowerState:
 func sync_visuals(view: PowerState) -> void:
 	if body == null:
 		return
+	_sync_effect(view)
+	_draw_hologram(view)
+	_draw_cat(view)
+
+
+## The shield, shell or tint [param view] shows; the host entities' views are drawn per frame only.
+func _sync_effect(view: PowerState) -> void:
 	_forget_freed_visuals()
 	var effect: int = view.running() if DEFS[view.which][&"entity"] == Entity.NONE else 0
 	var drawn_effect: int = _drawn.running() if DEFS[_drawn.which][&"entity"] == Entity.NONE else 0
@@ -518,8 +525,6 @@ func sync_visuals(view: PowerState) -> void:
 				_cloak()
 	if _shield != null and _shield.global_position != view.place_position:
 		_shield.global_position = view.place_position
-	_draw_hologram(view)
-	_draw_cat(view)
 	_drawn.copy_from(view)
 
 

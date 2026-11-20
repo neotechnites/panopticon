@@ -224,7 +224,7 @@ func _a_guards_shot_lands_where_the_guard_drew_it(
 	shots.resize(_rig.peer_count())
 	var seen: Dictionary[int, Array] = {}
 	var host_rifle: Rifle = host.rifle
-	var lag: PackedInt32Array = PackedInt32Array()
+	var lag: PackedFloat32Array = PackedFloat32Array()
 	var replicator: NetReplicator = _rig.sessions[HOST].replicator
 	var fired_on: PackedInt32Array = PackedInt32Array()
 	for peer: int in _rig.peer_count():
@@ -316,8 +316,8 @@ func _a_guards_shot_lands_where_the_guard_drew_it(
 			host_eye, host_eye + ((hits[0][1] as Vector3) - host_eye) * 1.5, host_rifle.profile.hit_mask
 		)
 		again.exclude = [_rig.body(HOST, guard_slot).get_rid()]
-		var back: int = lag[0] + replicator.get_tick() - fired_on[0]
-		if assert_lt(float(back), float(NetReplicator.HISTORY_TICKS), "the tick it was shot on is still in the history"):
+		var back: float = lag[0] + float(replicator.get_tick() - fired_on[0])
+		if assert_lt(back, float(NetReplicator.HISTORY_TICKS), "the tick it was shot on is still in the history"):
 			var found: Dictionary = replicator.trace(real.get_world_3d().direct_space_state, again, back)
 			assert_true(found.get("collider") != real, "a body shot dead is not shot again where it stood alive")
 	await step_ticks(_cross)

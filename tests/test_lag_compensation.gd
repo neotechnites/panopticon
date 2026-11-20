@@ -338,3 +338,149 @@ func test_a_lagged_round_fired_as_the_body_leaves_hits_it_where_the_shooter_saw_
 	_target.global_position = near + Vector3.RIGHT * 6.0
 	await step_ticks(2)
 	assert_same(await _fire(_rifle_aimed_at(near, true), LAG), _target, "the round meets the body the shooter was shown")
+
+
+func test_a_sub_tick_view_time_meets_the_body_between_the_ticks_kept() -> void:
+	var port: int = await NetFixtures.host_and_wait(self, _host)
+	if port < 0 or not await NetFixtures.join_and_wait(self, _client, _host, port):
+		fail("the loopback handshake did not complete")
+		return
+	_shooter = _stand(SHOOTER_SEAT, EYE - CHEST)
+	_target = _stand(TARGET_SEAT, THEN)
+	# Two metres a tick, so a whole-tick rewind would be up to a metre off.
+	var walked: int = 30
+	for step: int in walked:
+		_target.global_position = THEN + Vector3.RIGHT * 2.0 * float(step)
+		await step_ticks(1)
+	var radius: float = (_target.collision.shape as CapsuleShape3D).radius
+	for back: float in [1.25, 5.5, 10.75, 20.5]:
+		# The tick a client drew the body at: between two ticks the host kept.
+		var view_time: float = float(_replicator.get_tick()) - back
+		var drawn: float = THEN.x + 2.0 * (float(walked - 1) - back)
+		var along: PhysicsRayQueryParameters3D = _ray(
+			Vector3(drawn + 5.0, THEN.y + CHEST.y, THEN.z), Vector3(drawn - 5.0, THEN.y + CHEST.y, THEN.z)
+		)
+		var hit: Dictionary = _replicator.trace(_space(), along, _replicator.rewind_ticks(view_time))
+		if not assert_same(hit.get("collider"), _target, "%.2f ticks back the ray meets the body" % back):
+			return
+		var off: float = absf((hit["position"] as Vector3).x - (drawn - radius))
+		assert_lt(off, 0.01, "%.2f ticks back it is within 1 cm of where it was drawn (%.3f m)" % [back, off])
+
+
+func test_a_view_time_past_the_history_is_clamped_to_it() -> void:
+	if not await _a_target_that_has_moved():
+		return
+	var tick: float = float(_replicator.get_tick())
+	assert_almost_eq(_replicator.rewind_ticks(tick + 3.5), 0.0, 0.0, "a view ahead of the host is its present")
+	assert_almost_eq(
+		_replicator.rewind_ticks(tick - 500.0), float(NetReplicator.HISTORY_TICKS - 1), 0.0, "and the oldest kept, never older"
+	)
+
+
+## Put [param body] in the crouched stance or out of it, as a restored state does.
+func _crouch(body: PlayerController, crouched: bool) -> void:
+	var motion: PackedFloat32Array = PackedFloat32Array()
+	body.capture_motion_state(motion)
+	motion[10] = 1.0 if crouched else 0.0
+	body.restore_motion_state(motion)
+
+
+## A level ray across where a body standing at [param feet] has its crown, and a crouched one has not.
+func _over_the_crouch(body: PlayerController, feet: Vector3) -> PhysicsRayQueryParameters3D:
+	var standing: float = body.stance_capsule_transform(false).origin.y + body.stance_capsule_height(false) * 0.5
+	var crouched: float = body.stance_capsule_transform(true).origin.y + body.stance_capsule_height(true) * 0.5
+	var y: float = feet.y + (standing + crouched) * 0.5
+	return _ray(Vector3(feet.x, y, feet.z - 5.0), Vector3(feet.x, y, feet.z + 5.0))
+
+
+func test_a_body_crouched_then_is_traced_crouched() -> void:
+	if not await _a_target_that_moves_in_a_stance(true):
+		return
+	assert_true(_replicator.trace(_space(), _over_the_crouch(_target, THEN), LAG).is_empty(), "over its crouch, nothing")
+	assert_same(_replicator.trace(_space(), _ray(_through(THEN)), LAG).get("collider"), _target, "its chest is hit")
+
+
+func test_a_body_standing_then_is_traced_standing() -> void:
+	if not await _a_target_that_moves_in_a_stance(false):
+		return
+	assert_same(
+		_replicator.trace(_space(), _over_the_crouch(_target, THEN), LAG).get("collider"), _target,
+		"its head is hit where it stood, crouched as it is now",
+	)
+
+
+## [method _a_target_that_has_moved], [param crouched] at THEN and in the other stance at NOW.
+func _a_target_that_moves_in_a_stance(crouched: bool) -> bool:
+	var port: int = await NetFixtures.host_and_wait(self, _host)
+	if port < 0 or not await NetFixtures.join_and_wait(self, _client, _host, port):
+		fail("the loopback handshake did not complete")
+		return false
+	_shooter = _stand(SHOOTER_SEAT, EYE - CHEST)
+	_target = _stand(TARGET_SEAT, THEN)
+	if not assert_gt(_target.stance_capsule_height(false) - _target.stance_capsule_height(true), 0.2, "the crouch is lower"):
+		return false
+	_crouch(_target, crouched)
+	await step_ticks(LAG)
+	_target.global_position = NOW
+	_crouch(_target, not crouched)
+	await step_ticks(MOVED_AGO)
+	return true
+
+
+## [param body]'s shield, raised over it now, on the host.
+func _raise_shield(body: PlayerController) -> RunnerPower:
+	var power: RunnerPower = RunnerPower.of(body)
+	power.arm(TestFixtures.match_rules(), null)
+	assert_true(power.activate(MatchRules.RunnerAbility.BUBBLE_SHIELD), "the shield goes up")
+	assert_true(power.get_shield() != null, "and stands")
+	return power
+
+
+func _shielded_ray() -> PhysicsRayQueryParameters3D:
+	var query: PhysicsRayQueryParameters3D = _ray(_through(THEN))
+	query.collision_mask = 1 | RunnerPower.SHIELD_LAYER
+	return query
+
+
+func test_a_shield_raised_after_the_moment_the_shooter_saw_follows_the_ruling() -> void:
+	var port: int = await NetFixtures.host_and_wait(self, _host)
+	if port < 0 or not await NetFixtures.join_and_wait(self, _client, _host, port):
+		fail("the loopback handshake did not complete")
+		return
+	_shooter = _stand(SHOOTER_SEAT, EYE - CHEST)
+	_target = _stand(TARGET_SEAT, THEN)
+	await step_ticks(LAG)
+	var power: RunnerPower = _raise_shield(_target)
+	await step_ticks(MOVED_AGO)
+	var hit: Dictionary = _replicator.trace(_space(), _shielded_ray(), LAG)
+	if NetReplicator.REWIND_SHIELDS:
+		assert_same(hit.get("collider"), _target, "the shooter saw no shield: the body is hit")
+	else:
+		assert_same(hit.get("collider"), power.get_shield(), "shields always block: the live one takes it")
+	assert_same(
+		_replicator.trace(_space(), _shielded_ray(), 2).get("collider"), power.get_shield(),
+		"a shot from after the raise meets the shield",
+	)
+
+
+func test_a_shield_up_at_the_moment_the_shooter_saw_follows_the_ruling() -> void:
+	var port: int = await NetFixtures.host_and_wait(self, _host)
+	if port < 0 or not await NetFixtures.join_and_wait(self, _client, _host, port):
+		fail("the loopback handshake did not complete")
+		return
+	_shooter = _stand(SHOOTER_SEAT, EYE - CHEST)
+	_target = _stand(TARGET_SEAT, THEN)
+	var power: RunnerPower = _raise_shield(_target)
+	var centre: Vector3 = power.get_shield().global_position
+	await step_ticks(LAG)
+	power.cancel()
+	power.sync_visuals(power.state)
+	await step_ticks(MOVED_AGO)
+	var hit: Dictionary = _replicator.trace(_space(), _shielded_ray(), LAG)
+	if NetReplicator.REWIND_SHIELDS:
+		if assert_false(hit.is_empty(), "the shield the shooter saw stops the shot"):
+			assert_null(hit.get("collider"), "it is gone: nothing is credited")
+			var at: float = (hit["position"] as Vector3).distance_to(centre)
+			assert_lt(absf(at - RunnerPower.SHIELD_RADIUS), 0.01, "on its surface")
+	else:
+		assert_same(hit.get("collider"), _target, "shields always block, and none stands now")
