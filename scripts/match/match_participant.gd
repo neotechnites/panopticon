@@ -198,6 +198,9 @@ enum DeathCause { SHOT, LAVA, FELL }
 
 var death_cause: DeathCause = DeathCause.SHOT
 
+## Bumped on every respawn (u8): a mirror sees a death and respawn inside one snapshot interval by it.
+var life: int = 0
+
 
 func is_human() -> bool:
 	return kind == Kind.HUMAN

@@ -12,7 +12,7 @@ extends Node3D
 ## and put straight back when the phase returns.
 ##
 ## [b]Finds the match by shape, not by name.[/b] Anything in the running scene
-## with [signal race_started], [signal round_started] and [method get_phase]
+## with [signal MatchController.structure_changed] and [method get_phase]
 ## counts as the controller -- a climb from the scene root, no [NodePath] to
 ## wire. With none found (the editor, a bare test scene) every child stays
 ## present and nothing is ever removed.
@@ -41,22 +41,17 @@ func _ready() -> void:
 	_controller = _resolve_controller()
 	if _controller == null:
 		return
-	_controller.connect(&"race_started", _on_race_started)
-	_controller.connect(&"round_started", _on_round_started)
+	_controller.connect(&"structure_changed", _on_structure_changed)
 	_apply(_wants_present(_controller.call(&"get_phase")))
 
 
-func _on_race_started() -> void:
-	_apply(_wants_present(MatchController.Phase.RACE))
+## The world's structure follows the phase: the host's transitions, a mirror's record on arrival.
+func _on_structure_changed(current_phase: int) -> void:
+	_apply(_wants_present(current_phase))
 
 
-func _on_round_started() -> void:
-	_apply(_wants_present(MatchController.Phase.ROUND))
-
-
-## Whether this gate's content belongs in [param current_phase]. IDLE reads as
-## the race side and MATCH_OVER as the round side: a match only ever reaches
-## either by way of one of the two signals this gate already listens to.
+## Whether this gate's content belongs in [param current_phase]. IDLE and BRAWL read as
+## the race side, MATCH_OVER as the round side.
 func _wants_present(current_phase: int) -> bool:
 	var round_side: bool = current_phase == MatchController.Phase.ROUND \
 		or current_phase == MatchController.Phase.MATCH_OVER
@@ -112,5 +107,4 @@ func _find_controller(node: Node) -> Node:
 
 
 func _looks_like_controller(node: Node) -> bool:
-	return node != self and node.has_signal(&"race_started") \
-		and node.has_signal(&"round_started") and node.has_method(&"get_phase")
+	return node != self and node.has_signal(&"structure_changed") and node.has_method(&"get_phase")

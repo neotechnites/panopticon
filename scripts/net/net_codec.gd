@@ -50,7 +50,7 @@ const _VIEW_TIME_NONE: int = -32768
 ## u8 flags, u8 event count (DESIGN 3.4).
 const SNAPSHOT_HEADER_SIZE: int = 17
 ## Bumped whenever the snapshot layout changes: two builds must agree on it (the fingerprint).
-const SNAPSHOT_VERSION: int = 2
+const SNAPSHOT_VERSION: int = 3
 ## No snapshot reaches this, inside ENet's and SDR's MTU: a fragment lost is the whole packet lost.
 const MAX_SNAPSHOT_BYTES: int = 1200
 ## Host ticks a second: the unit of every tick and end tick on the wire.
@@ -85,7 +85,7 @@ const _OWNER_SHIFT: int = 3
 ## Bytes of an event's header: u16 id, u8 type, u8 age in ticks behind the snapshot.
 const EVENT_HEADER_SIZE: int = 4
 ## Payload bytes per [enum NetEvents.Type], fixed: the size is the version.
-const EVENT_PAYLOAD: PackedInt32Array = [0, 37, 17, 13, 13, 3, 13]
+const EVENT_PAYLOAD: PackedInt32Array = [0, 37, 17, 13, 13, 3, 13, 16, 7]
 
 ## Most bytes a match record or a prop record may be.
 const MAX_RECORD_BYTES: int = 255
@@ -1019,58 +1019,139 @@ static func roster_epoch(payload: PackedByteArray) -> int:
 
 # --- Match record: the MATCH section --------------------------------------------
 
-## The match record's header: phase, round, guard, finisher, outcome, winner (slots, 0xFF none), started.
-const MATCH_HEADER_SIZE: int = 7
-## Bytes per participant: flags (running, ghost, shooter, held), rounds won, turns in the tower.
-const MATCH_PARTICIPANT_SIZE: int = 3
-const MATCH_RUNNING: int = 1
-const MATCH_GHOST: int = 2
-const MATCH_SHOOTER: int = 4
-## A ghost still held where it died; clear on a ghost, its respawn has already landed.
-const MATCH_HELD: int = 8
+## Bytes of the match record's header: phase, round, guard, finisher, outcome, winner (slots, 0xFF none),
+## count, match serial, resolve count, last outcome, u32 hold end, kill beat serial and guard, throw i16 cm/s x3,
+## u32 brawl end, brawl winner.
+const MATCH_HEADER_SIZE: int = 27
+## Bytes per participant: flags, life counter, rounds won, turns, lives, u32 respawn end, u32 grace end, cause.
+const MATCH_PARTICIPANT_SIZE: int = 15
+const _MATCH_RUNNING: int = 1
+const _MATCH_GHOST: int = 2
+const _MATCH_SHOOTER: int = 4
+const _MATCH_HELD: int = 8
+const _MATCH_FINISHER: int = 16
 
 
-## The match as a late binder converges on it (Quake's gamestate), or empty before it has started.
-static func pack_match(controller: MatchController, started: bool) -> PackedByteArray:
-	var participants: Array[MatchParticipant] = controller.get_participants()
+## [param state] as the MATCH section's record, or empty before the match has started.
+static func pack_match_state(state: MatchState) -> PackedByteArray:
 	var out: PackedByteArray = PackedByteArray()
-	if not started or participants.size() > NetTransport.MAX_PLAYERS:
+	var count: int = state.participants.size()
+	if not state.started or count > NetTransport.MAX_PLAYERS:
 		return out
-	out.resize(MATCH_HEADER_SIZE + participants.size() * MATCH_PARTICIPANT_SIZE)
-	out[0] = int(controller.get_phase())
-	out[1] = clampi(controller.get_round_number(), 0, 255)
-	out[2] = _slot_byte(controller.get_seat_participant())
-	out[3] = _slot_byte(controller.get_finisher())
-	out[4] = int(controller.get_outcome())
-	out[5] = _slot_byte(controller.get_match_winner())
-	out[6] = participants.size()
-	for i: int in participants.size():
-		var p: MatchParticipant = participants[i]
+	out.resize(MATCH_HEADER_SIZE + count * MATCH_PARTICIPANT_SIZE)
+	out[0] = state.phase
+	out[1] = clampi(state.round_number, 0, 255)
+	out[2] = _slot_byte(state.guard)
+	out[3] = _slot_byte(state.finisher)
+	out[4] = state.outcome
+	out[5] = _slot_byte(state.winner)
+	out[6] = count
+	out[7] = state.match_serial & 0xFF
+	out[8] = state.resolve_count & 0xFF
+	out[9] = state.last_outcome
+	out.encode_u32(10, state.hold_end_tick % TICK_MODULUS)
+	out[14] = state.kill_beat_serial & 0xFF
+	out[15] = _slot_byte(state.kill_beat_guard)
+	for axis: int in 3:
+		out.encode_s16(16 + axis * 2, clampi(roundi(state.kill_beat_throw[axis] * QUANT_CENTIMETRE), -32768, 32767))
+	out.encode_u32(22, state.brawl_end_tick % TICK_MODULUS)
+	out[26] = _slot_byte(state.brawl_winner)
+	for i: int in count:
+		var p: MatchState.Entry = state.participants[i]
 		var at: int = MATCH_HEADER_SIZE + i * MATCH_PARTICIPANT_SIZE
 		out[at] = (
-			(MATCH_RUNNING if p.is_running else 0) | (MATCH_GHOST if p.is_ghost else 0)
-			| (MATCH_SHOOTER if p.is_shooter else 0) | (MATCH_HELD if p.respawn_hold_remaining > 0.0 else 0)
+			(_MATCH_RUNNING if p.running else 0) | (_MATCH_GHOST if p.ghost else 0) | (_MATCH_SHOOTER if p.shooter else 0)
+			| (_MATCH_HELD if p.held else 0) | (_MATCH_FINISHER if p.finisher else 0)
 		)
-		out[at + 1] = clampi(p.rounds_won, 0, 255)
-		out[at + 2] = clampi(p.turns_in_tower, 0, 255)
+		out[at + 1] = p.life & 0xFF
+		out[at + 2] = clampi(p.rounds_won, 0, 255)
+		out[at + 3] = clampi(p.turns_in_tower, 0, 255)
+		out[at + 4] = clampi(p.lives, 0, 255)
+		out.encode_u32(at + 5, p.respawn_end_tick % TICK_MODULUS)
+		out.encode_u32(at + 9, p.grace_end_tick % TICK_MODULUS)
+		out[at + 13] = clampi(p.death_cause, 0, 255)
+		out[at + 14] = 0
 	return out
 
 
-## True when [param record] is a whole match record for [param participant_count] participants.
-static func is_match_record(record: PackedByteArray, participant_count: int) -> bool:
-	return (
-		record.size() == MATCH_HEADER_SIZE + participant_count * MATCH_PARTICIPANT_SIZE
-		and record[6] == participant_count
-	)
+## Decode a MATCH record taken at [param tick] into [param out]. False, with [param out] not started, for an
+## empty or malformed one.
+static func unpack_match_state(record: PackedByteArray, tick: int, out: MatchState) -> bool:
+	out.started = false
+	out.tick = tick
+	if record.size() < MATCH_HEADER_SIZE:
+		return false
+	var count: int = record[6]
+	if count > NetTransport.MAX_PLAYERS or record.size() != MATCH_HEADER_SIZE + count * MATCH_PARTICIPANT_SIZE:
+		return false
+	out.phase = record[0]
+	out.round_number = record[1]
+	out.guard = _slot_of(record[2])
+	out.finisher = _slot_of(record[3])
+	out.outcome = record[4]
+	out.winner = _slot_of(record[5])
+	out.match_serial = record[7]
+	out.resolve_count = record[8]
+	out.last_outcome = record[9]
+	out.hold_end_tick = record.decode_u32(10)
+	out.kill_beat_serial = record[14]
+	out.kill_beat_guard = _slot_of(record[15])
+	out.kill_beat_throw = Vector3(record.decode_s16(16), record.decode_s16(18), record.decode_s16(20)) / QUANT_CENTIMETRE
+	out.brawl_end_tick = record.decode_u32(22)
+	out.brawl_winner = _slot_of(record[26])
+	out.resize(count)
+	for i: int in count:
+		var p: MatchState.Entry = out.participants[i]
+		var at: int = MATCH_HEADER_SIZE + i * MATCH_PARTICIPANT_SIZE
+		var flags: int = record[at]
+		p.running = (flags & _MATCH_RUNNING) != 0
+		p.ghost = (flags & _MATCH_GHOST) != 0
+		p.shooter = (flags & _MATCH_SHOOTER) != 0
+		p.held = (flags & _MATCH_HELD) != 0
+		p.finisher = (flags & _MATCH_FINISHER) != 0
+		p.life = record[at + 1]
+		p.rounds_won = record[at + 2]
+		p.turns_in_tower = record[at + 3]
+		p.lives = record[at + 4]
+		p.respawn_end_tick = record.decode_u32(at + 5)
+		p.grace_end_tick = record.decode_u32(at + 9)
+		p.death_cause = record[at + 13]
+	out.started = true
+	return true
 
 
-## A slot byte read back: -1 for none.
-static func match_slot(record: PackedByteArray, at: int) -> int:
-	return -1 if record[at] == 0xFF else record[at]
+static func _slot_byte(slot: int) -> int:
+	return clampi(slot, 0, 254) if slot >= 0 else 0xFF
 
 
-static func _slot_byte(p: MatchParticipant) -> int:
-	return clampi(p.index, 0, 254) if p != null else 0xFF
+static func _slot_of(byte: int) -> int:
+	return -1 if byte == 0xFF else byte
+
+
+# --- Events: payloads of the snapshot's ring -------------------------------------
+
+## A rifle kill's ragdoll start: the seat, the hit point and the shot's direction (DESIGN 6 DEATH).
+static func pack_death(seat: int, at: Vector3, direction: Vector3) -> PackedByteArray:
+	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
+	buffer.put_u8(seat if seat >= 0 and seat < NetTransport.MAX_PLAYERS else 0xFF)
+	_put_point(buffer, at)
+	_put_unit(buffer, direction)
+	return buffer.data_array
+
+
+## A brawler thrown out: the seat and the throw, i16 cm/s x3.
+static func pack_throw(seat: int, throw: Vector3) -> PackedByteArray:
+	var out: PackedByteArray = PackedByteArray()
+	out.resize(7)
+	out[0] = seat if seat >= 0 and seat < NetTransport.MAX_PLAYERS else 0xFF
+	for axis: int in 3:
+		var v: float = throw[axis] if is_finite(throw[axis]) else 0.0
+		out.encode_s16(1 + axis * 2, clampi(roundi(v * QUANT_CENTIMETRE), -32768, 32767))
+	return out
+
+
+static func event_throw(payload: PackedByteArray, at: int) -> Vector3:
+	return Vector3(payload.decode_s16(at), payload.decode_s16(at + 2), payload.decode_s16(at + 4)) / QUANT_CENTIMETRE
 
 
 ## A display name fit to store, draw and send on: no control characters, no

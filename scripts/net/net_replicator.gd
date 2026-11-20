@@ -10,8 +10,12 @@ signal snapshot_sent(tick: int, body_count: int)
 ## A client decoded a snapshot. Client-only, on arrival.
 signal snapshot_received(tick: int, body_count: int)
 
-## A client's match record, on the scene's first snapshot ([param first]) and whenever it changes.
-signal match_record_received(record: PackedByteArray, tick: int, first: bool)
+## A client's newest match record, on arrival when it changed: what its own prediction reads (DESIGN 5).
+signal match_arrived(record: PackedByteArray)
+
+## A client's match records, each once and in order, as the playout clock reaches it; [param first] for
+## the scene's first.
+signal match_due(record: PackedByteArray, tick: int, first: bool)
 
 ## A client presents a transient event: on arrival when it is about this machine's own body, else
 ## when the playout clock reaches [param tick].
@@ -98,8 +102,10 @@ var _decoded_events: Array[NetEvents.Entry] = []
 ## Client: the newest event sequence (u16) taken, or -1; events waiting for the playout clock.
 var _event_seen: int = -1
 var _due_events: Array[NetEvents.Entry] = []
-## Client: the newest snapshot tick whose props have been applied, or -1.
+## Client: the newest snapshot tick whose props have been applied, or -1; the same for the match record.
 var _props_tick: int = -1
+var _match_tick: int = -1
+var _match_record: PackedByteArray = PackedByteArray()
 ## Client: packets refused for a baseline this machine no longer holds, and the baseline tick of the
 ## last one taken (-1: a full update). For telemetry and tests.
 var missing_baselines: int = 0
@@ -536,10 +542,11 @@ func _take(first: bool, previous_match: PackedByteArray) -> void:
 	_measure_arrival(first)
 	_deliver_predictions(newest, _info.cmd_ack)
 	if first or newest.match_record != previous_match:
-		match_record_received.emit(newest.match_record, newest.tick, first)
+		match_arrived.emit(newest.match_record)
 	_take_events()
 	if not _should_interpolate():
 		_draw_at_newest()
+		_apply_match(float(newest.tick))
 	snapshot_received.emit(newest.tick, newest.get_count())
 
 
@@ -634,7 +641,9 @@ func play_back(_delta: float) -> void:
 	var lag: float = maxf(_render_lag - Engine.get_physics_interpolation_fraction(), -_extrapolation_ticks())
 	_drawn_time = float(_newest().tick) - lag
 	_draw(lag)
+	# Events first: a death's DEATH is in hand when the record that shows it is converged.
 	_present_due(_drawn_time)
+	_apply_match(_drawn_time)
 
 
 ## Host: draw every body but its own at tick [param time], from the worlds it sent. Render-only:
@@ -751,6 +760,21 @@ func _present_due(time: float) -> void:
 		event_received.emit(entry.type, entry.payload, entry.tick)
 
 
+## Each match record the playout clock has reached at [param time], once and oldest first, when it changed.
+func _apply_match(time: float) -> void:
+	for i: int in _ring_count:
+		var world: WorldSnapshot = _slot(i)
+		if float(world.tick) > time:
+			return
+		if _match_tick >= 0 and not NetCodec.is_newer_tick(world.tick, _match_tick):
+			continue
+		var first: bool = _match_tick < 0
+		_match_tick = world.tick
+		if first or world.match_record != _match_record:
+			_match_record = world.match_record
+			match_due.emit(_match_record, world.tick, first)
+
+
 ## Each prop whose record [param snapshot] changes, once, when the playout clock reaches it.
 func _apply_props(snapshot: WorldSnapshot) -> void:
 	if _props_tick >= 0 and not NetCodec.is_newer_tick(snapshot.tick, _props_tick):
@@ -809,6 +833,8 @@ func _clear_worlds() -> void:
 	_due_events.clear()
 	_event_seen = -1
 	_props_tick = -1
+	_match_tick = -1
+	_match_record = PackedByteArray()
 	_have_clock = false
 	_render_lag = 0.0
 	_last_arrival_seconds = -1.0

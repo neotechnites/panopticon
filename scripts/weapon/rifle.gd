@@ -1070,6 +1070,11 @@ static func recent_hit_direction(slot: int) -> Vector3:
 	return _hit_directions[slot]
 
 
+## The direction of the newest hit this machine noted: the shot whose [signal target_hit] is being handled.
+static func newest_hit_direction() -> Vector3:
+	return _hit_directions[(_hit_next + RECENT_HITS - 1) % RECENT_HITS]
+
+
 ## Cosmetic replay of a miss the authority resolved. The twin of
 ## [method show_remote_hit]: a miss is just as loud.
 func show_remote_miss(end_point: Vector3) -> void:
