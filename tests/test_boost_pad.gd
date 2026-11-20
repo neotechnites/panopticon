@@ -24,6 +24,9 @@ extends TestCase
 ## shipped profile and a bot with no wish direction air-accelerates by nothing).
 
 const PAD_SCENE_PATH: String = "res://props/boost_pad.tscn"
+const STAGE_LIB := preload("res://tools/capture/stages/lib.gd")
+## A hell crack in S3, where no lava kills a body standing on it.
+const CRACK_PATH: NodePath = ^"Sections/S3_Minefield/LavaCrack_r00_c0_147deg"
 
 ## Physics ticks a test allows for the body's move to find the pad and fire
 ## [signal PlayerController.launched]. Capture happens the instant it does; this is
@@ -158,6 +161,88 @@ func test_the_pad_overwrites_whatever_velocity_the_body_arrived_with() -> void:
 	)
 
 
+# --- Switches, scale and worlds -------------------------------------------------
+
+
+## The capture tools' off switch holds: a body standing on a disarmed pad is not launched.
+func test_a_pad_the_capture_tools_disarm_launches_nobody() -> void:
+	var pad: BoostPad = _make_pad()
+	add_child(pad)
+	assert_eq_int(STAGE_LIB.disarm_pads(pad), 1, "the capture tools find the pad")
+	var body: PlayerController = _make_bot()
+	var launches: Array[int] = _count_launches(body)
+	add_child(body)
+	body.global_position = Vector3(0.0, 0.5, 0.0)
+	await step_ticks(CONTACT_TICKS)
+	assert_eq_int(launches[0], 0, "a disarmed pad throws nobody")
+
+
+## A scaled pad's box is its scaled footprint in world metres: a capsule clear of it by more than its
+## radius stays, one inside it leaves.
+func test_a_scaled_pad_reaches_its_scaled_box_and_no_farther() -> void:
+	var pad: BoostPad = _make_pad()
+	pad.scale = Vector3(2.0, 1.0, 2.0)
+	add_child(pad)
+	# The box's world half-width is 3 m; the capsule's radius is 0.4 m.
+	var clear: PlayerController = _make_bot()
+	var inside: PlayerController = _make_bot()
+	var clear_launches: Array[int] = _count_launches(clear)
+	var inside_launches: Array[int] = _count_launches(inside)
+	add_child(clear)
+	add_child(inside)
+	clear.global_position = Vector3(3.6, 0.5, 0.0)
+	inside.global_position = Vector3(-3.2, 0.5, 0.0)
+	await step_ticks(CONTACT_TICKS)
+	assert_eq_int(clear_launches[0], 0, "0.6 m clear of the scaled box is not a touch")
+	assert_eq_int(inside_launches[0], 1, "0.2 m outside its edge, within the radius, is")
+
+
+## A pad acts only in its own world: a body of another world standing in the same place stays.
+func test_a_pad_launches_only_the_bodies_of_its_own_world() -> void:
+	var viewport: SubViewport = SubViewport.new()
+	viewport.own_world_3d = true
+	add_child(viewport)
+	viewport.add_child(_make_pad())
+	var body: PlayerController = _make_bot()
+	var launches: Array[int] = _count_launches(body)
+	add_child(body)
+	body.global_position = Vector3(0.0, 0.5, 0.0)
+	await step_ticks(CONTACT_TICKS)
+	assert_eq_int(launches[0], 0, "a pad in another world throws nobody here")
+
+
+## The harness counts a pad launch per launch of a body's own move: a locked body standing on a crack
+## is none, and the step it takes once free is one.
+func test_the_harness_counts_each_launch_and_not_a_body_standing_on_a_pad() -> void:
+	var world: BotMatchWorld = BotMatchWorld.new()
+	add_child(world)
+	world.build(TestFixtures.match_rules(), 1)
+	var controller: MatchController = world.get_controller()
+	var telemetry: BotMatchTelemetry = BotMatchTelemetry.new()
+	add_child(telemetry)
+	telemetry.install(controller, world.get_rifle())
+	controller.start_match()
+	BotMatchWorld.silence_local_input(world.get_runner_container())
+	await step_ticks(5)
+	var crack: BoostPad = controller.arena.get_node_or_null(CRACK_PATH) as BoostPad
+	if not assert_not_null(crack, "hell has the S3 crack"):
+		return
+	var runner: MatchParticipant = controller.get_live_participants()[0]
+	TestFixtures.pin_the_field(controller, runner)
+	runner.brain.set_physics_process(false)
+	var body: PlayerController = runner.body
+	var launches: Array[int] = _count_launches(body)
+	body.movement_locked = true
+	body.place(crack.global_position + Vector3.UP * 0.05, 0.0)
+	await step_ticks(CONTACT_TICKS)
+	assert_eq_int(launches[0], 0, "a locked body is not launched")
+	assert_eq_int(_pad_launches(telemetry, runner.index), 0, "and the harness counts no launch for it")
+	body.movement_locked = false
+	await step_ticks(CONTACT_TICKS)
+	assert_eq_int(launches[0], 1, "freed, its step onto the crack launches it once")
+	assert_eq_int(_pad_launches(telemetry, runner.index), 1, "and the harness counts that one launch")
+
+
 # --- Helpers --------------------------------------------------------------------
 
 
@@ -211,3 +296,16 @@ func _launch(
 	# The tick that applies the parked launch also applies one tick of gravity.
 	await step_ticks(1)
 	return body.velocity + Vector3.UP * _profile.get_effective_gravity() * SIM_DELTA
+
+
+func _count_launches(body: PlayerController) -> Array[int]:
+	var launches: Array[int] = [0]
+	body.launched.connect(func(_velocity: Vector3) -> void: launches[0] += 1)
+	return launches
+
+
+func _pad_launches(telemetry: BotMatchTelemetry, index: int) -> int:
+	for entry: Dictionary in telemetry.to_dictionary(SIM_HZ)["participants"]:
+		if int(entry["index"]) == index:
+			return int(entry["pad_launches"])
+	return -1

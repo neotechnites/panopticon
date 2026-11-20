@@ -735,14 +735,8 @@ func _make_a_ghost(runner: RunnerBrain) -> void:
 ## Stop the lava under [param section] killing the staged body mid-leap; [param only]
 ## names one trap to disarm, or every one when empty.
 func _disarm_traps(section: NodePath, only: String = "") -> void:
-	var node: Node = _controller.arena.get_node_or_null(section) if _controller.arena != null else null
-	if node == null:
+	if _controller.arena == null or STAGE_LIB.disarm_traps(_controller.arena, section, only) == 0:
 		printerr("No %s under the arena; nothing disarmed." % section)
-		return
-	for child: Node in node.get_children():
-		var area: Area3D = child as Area3D
-		if area != null and (only.is_empty() or child.name == only):
-			area.monitoring = false
 
 
 ## The first node called [param wanted] anywhere under [param from].

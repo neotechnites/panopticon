@@ -16,6 +16,7 @@ albedo_color = Color(0.95, 0.95, 0.3, 1.0)
 editor_description = "A reusable prop -- the Halo-style 45 degree boost pad. Drop this scene into a map, at floor height, facing the way it should launch (rotate the node; do not need to offset it vertically, it lifts its own geometry to sit on the floor -- see scripts/match/boost_pad.gd). It is not wired to MatchController and never will be: this is a movement toy, not a hazard, and it is placed in no map by the change that added it.\n\nmask 1048577 = bit 0 (the layer a living player body stands on) + bit 20 (MatchController.GHOST_HAZARD_LAYER, the layer a ghost's body stands on), so both are launched -- this is baked into the prop itself rather than left for each map to rewire, because nothing places this scene automatically the way TrapVolume's arena wiring does."
 collision_layer = 0
 collision_mask = 1048577
+monitoring = false
 monitorable = false
 script = ExtResource("1_boost_pad")
 footprint_metres = Vector3(3.0, 1.0, 3.0)

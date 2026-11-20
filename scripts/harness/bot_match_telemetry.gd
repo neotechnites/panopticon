@@ -202,8 +202,6 @@ func _connect_hazards(node: Node) -> void:
 		(node as Area3D).body_entered.connect(_on_hazard_entered.bind(true))
 	elif node is KillVolume:
 		(node as Area3D).body_entered.connect(_on_hazard_entered.bind(false))
-	elif node is BoostPad:
-		(node as Area3D).body_entered.connect(_on_pad_entered)
 	for child: Node in node.get_children():
 		_connect_hazards(child)
 
@@ -233,9 +231,9 @@ func _on_hazard_entered(body: Node3D, lava: bool) -> void:
 			entry[key] = int(entry[key]) + 1
 
 
-func _on_pad_entered(body: Node3D) -> void:
-	var participant: MatchParticipant = _controller.resolve_participant(body)
-	var tally: BotParticipantTally = _tallies.get(participant.index, null) if participant != null else null
+## A body's own move launched it off a pad: counted once per launch, on the machine that ran it.
+func _on_pad_launched(_pad: BoostPad, body: PlayerController, index: int) -> void:
+	var tally: BotParticipantTally = _tallies.get(index, null)
 	if tally == null:
 		return
 	tally.pad_launches += 1
@@ -704,6 +702,8 @@ func _on_match_started(participant_count: int) -> void:
 		tally.kind = "HUMAN" if participant.is_human() else "AI"
 		_tallies[participant.index] = tally
 		_order.append(participant.index)
+		if participant.body != null:
+			participant.body.pad_launched.connect(_on_pad_launched.bind(participant.body, participant.index))
 
 
 func _on_race_started() -> void:
