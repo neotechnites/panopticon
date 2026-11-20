@@ -111,6 +111,8 @@ var _playout_offset: float = 0.0
 var _have_clock: bool = false
 ## The offset's error at the last snapshot set, in ticks, not yet slewed out.
 var _clock_error: float = 0.0
+## Ticks the drawing runs behind the clock because a hit stop slowed the world; slewed out after it.
+var _stop_debt: float = 0.0
 ## Real time, in ticks, of the last frame drawn, of the poll it drew after, and of the newest poll;
 ## snapshots taken since the last frame, waiting for the next.
 var _frame_ticks: float = -1.0
@@ -125,7 +127,8 @@ const _JITTER_ALPHA: float = 0.1
 ## Share of the clock error slewed out per tick, and the most playback may speed up or slow down for it.
 const _CLOCK_GAIN: float = 0.1
 const _MAX_DILATION: float = 0.2
-## Clock error past which the drift is jumped rather than dilated away: the connection changed.
+## Clock error past which the clock is jumped forward rather than dilated: the line came back from a gap.
+## Behind is always slewed; the starvation hold bounds how far ahead the clock can get.
 const _CLOCK_SNAP_TICKS: float = 20.0
 ## Polls further apart than this many snapshot intervals took their packets at unknown times: not timed.
 const _UNTIMED_FRAME_INTERVALS: float = 2.0
@@ -625,7 +628,7 @@ func _take_arrivals(now_ticks: float, window_ticks: float) -> void:
 	var target: float = float(_newest().tick) - _delay_ticks - 0.5 * _interval_ticks
 	var error: float = target - (now_ticks + _playout_offset)
 	_clock_error = error
-	if not _have_clock or absf(error) > _CLOCK_SNAP_TICKS:
+	if not _have_clock or error > _CLOCK_SNAP_TICKS:
 		_slew_clock(INF)
 		_have_clock = true
 
@@ -655,13 +658,15 @@ func play_back(now_ticks: float, looked_ticks: float = -1.0) -> void:
 		draw_host_at(float(_tick) - HOST_PLAYOUT_TICKS + Engine.get_physics_interpolation_fraction())
 		return
 	var looked: float = now_ticks if looked_ticks < 0.0 else minf(looked_ticks, now_ticks)
-	var elapsed: float = now_ticks - _frame_ticks if _frame_ticks >= 0.0 else 0.0
-	var window: float = looked - _polled_ticks if _polled_ticks >= 0.0 else 0.0
+	# Time only runs forward, whoever hands it in.
+	var elapsed: float = maxf(now_ticks - _frame_ticks, 0.0) if _frame_ticks >= 0.0 else 0.0
+	var window: float = maxf(looked - _polled_ticks, 0.0) if _polled_ticks >= 0.0 else 0.0
 	_frame_ticks = now_ticks
 	_polled_ticks = looked
 	if _ring_count == 0 or not _should_interpolate():
 		return
 	_slew_clock(elapsed)
+	_owe_stop(elapsed)
 	if _fresh > 0:
 		_take_arrivals(looked, window)
 	var newest: float = float(_newest().tick)
@@ -669,9 +674,22 @@ func play_back(now_ticks: float, looked_ticks: float = -1.0) -> void:
 	# When the worlds run out the clock waits, then catches up; only for time it looked and found none,
 	# so a stall after the poll is not taken for starvation. A buffer still filling draws its oldest.
 	_playout_offset = minf(_playout_offset, edge - looked)
-	_drawn_time = clampf(now_ticks + _playout_offset, float(_slot(0).tick), edge)
+	var drawn: float = clampf(now_ticks + _playout_offset - _stop_debt, float(_slot(0).tick), edge)
+	# Never earlier than the last frame (ioq3 CL_SetCGameTime's oldServerTime guard).
+	_drawn_time = maxf(drawn, _drawn_time)
 	_draw(newest - _drawn_time)
 	_present_due(_drawn_time)
+
+
+## A hit stop slows the drawing with the local world while the clock stays on real time; afterwards
+## the drawing catches up at the clock's most dilation. Run under the test runner, physics is already slowed.
+func _owe_stop(elapsed: float) -> void:
+	var rate: float = 1.0 if ticks_from_physics else minf(Engine.time_scale, 1.0)
+	if rate < 1.0:
+		# A frame past the untimed window was this machine stalling, not the world slowed.
+		_stop_debt += minf(elapsed, _interval_ticks * _UNTIMED_FRAME_INTERVALS) * (1.0 - rate)
+	else:
+		_stop_debt = maxf(_stop_debt - elapsed * _MAX_DILATION, 0.0)
 
 
 ## Host: draw every body but its own at tick [param time], from the worlds it sent. Render-only:
@@ -849,6 +867,7 @@ func _clear_worlds() -> void:
 	_have_clock = false
 	_playout_offset = 0.0
 	_clock_error = 0.0
+	_stop_debt = 0.0
 	_fresh = 0
 	_last_arrival_ticks = -1.0
 	_jitter_ticks = 0.0

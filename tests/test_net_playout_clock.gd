@@ -25,6 +25,13 @@ var _real_seconds: float = 0.0
 var _owed_seconds: float = 0.0
 var _base_tick: int = 0
 var _sent_tick: int = -1
+## The host's own time, which stops while it stalls; the most a snapshot is held up on the line.
+var _host_seconds: float = 0.0
+var _host_stalled: bool = false
+var _jitter_max_seconds: float = 0.0
+var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
+## Snapshots on the line: [arrival seconds, tick].
+var _line: Array[Array] = []
 
 
 func before_each() -> void:
@@ -55,15 +62,17 @@ func _stand_up() -> bool:
 	return true
 
 
-## The host's present tick: it ran every tick of real time.
+## The host's present tick: it ran every tick of its own time.
 func _host_tick() -> int:
-	return _base_tick + floori(_real_seconds / SIM_DELTA)
+	return _base_tick + floori(_host_seconds / SIM_DELTA)
 
 
 ## One client frame of [param seconds], in Godot's order: capped physics steps, poll, idle; the idle
 ## frame may itself stall for [param stall_after_poll] seconds before drawing.
 func _frame(seconds: float, stall_after_poll: float = 0.0) -> void:
 	_real_seconds += seconds
+	if not _host_stalled:
+		_host_seconds += seconds
 	_owed_seconds += seconds
 	var steps: int = mini(floori(_owed_seconds / SIM_DELTA), Engine.max_physics_steps_per_frame)
 	# Godot drops what the cap did not run.
@@ -73,11 +82,18 @@ func _frame(seconds: float, stall_after_poll: float = 0.0) -> void:
 	var newest: int = _host_tick() - _host_tick() % SNAPSHOT_EVERY
 	var tick: int = _sent_tick + SNAPSHOT_EVERY if _sent_tick >= 0 else newest
 	while tick <= newest:
-		assert_true(_client.replicator.receive_snapshot(_snapshot(tick)), "the snapshot for tick %d is taken" % tick)
+		_line.append([_real_seconds + _rng.randf() * _jitter_max_seconds, tick])
 		_sent_tick = tick
 		tick += SNAPSHOT_EVERY
+	_line.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
+	while not _line.is_empty() and float(_line[0][0]) <= _real_seconds:
+		var packet: Array = _line.pop_front()
+		var taken: bool = _client.replicator.receive_snapshot(_snapshot(int(packet[1])))
+		# Overtaken on a jittery line, an older snapshot is refused; on a clean one every one is taken.
+		assert_true(taken or _jitter_max_seconds > 0.0, "the snapshot for tick %d is taken" % int(packet[1]))
 	var polled: float = _real_seconds * SIM_HZ
 	_real_seconds += stall_after_poll
+	_host_seconds += stall_after_poll
 	_owed_seconds += stall_after_poll
 	_client.replicator.play_back(_real_seconds * SIM_HZ, polled)
 
@@ -147,3 +163,48 @@ func test_a_client_draws_behind_its_newest_snapshot_from_the_first() -> void:
 		nearest = minf(nearest, float(_client.replicator.get_latest_tick()) - _client.replicator.get_view_time())
 	assert_ge(nearest, 0.0, "a buffer still filling never draws past the newest snapshot it holds")
 	assert_between(_behind(), 2.0, 4.0, "and the clock kept its delay while it filled")
+
+
+## A jittery line deepens the buffer; the host then stalls, so the clock waits at the edge of what it holds.
+## When the host comes back the clock is far ahead of its target, and must slow, never step back.
+func test_the_drawn_tick_never_steps_back_after_a_starve() -> void:
+	if not await _stand_up():
+		fail("the loopback handshake did not complete")
+		return
+	_rng.seed = 7940
+	_jitter_max_seconds = 0.25
+	var last: float = -INF
+	var rewound: float = 0.0
+	for i: int in 1200:
+		_host_stalled = i % 400 >= 340
+		_frame(SIM_DELTA)
+		var view: float = _client.replicator.get_view_time()
+		rewound = maxf(rewound, last - view)
+		last = maxf(last, view)
+	print("          worst step back of the drawn tick: %.2f ticks" % rewound)
+	assert_le(rewound, 0.0, "the drawn tick never goes backwards")
+
+
+func test_a_hit_stop_slows_remote_bodies_with_the_world_then_catches_up() -> void:
+	if not await _stand_up():
+		fail("the loopback handshake did not complete")
+		return
+	for i: int in SETTLE_FRAMES:
+		_frame(SIM_DELTA)
+	var before: float = _behind()
+	var base: float = Engine.time_scale
+	var was_physics: bool = NetReplicator.ticks_from_physics
+	# Wall-clock mode, as shipped: the runner otherwise has physics carry the slow-down.
+	NetReplicator.ticks_from_physics = false
+	Engine.time_scale = 0.12
+	for i: int in 6:
+		_frame(SIM_DELTA)
+	var during: float = _behind()
+	Engine.time_scale = base
+	for i: int in 60:
+		_frame(SIM_DELTA)
+	NetReplicator.ticks_from_physics = was_physics
+	print("          hit stop: %.1f ticks behind before, %.1f at its end, %.1f a second later" % [before, during, _behind()])
+	assert_gt(during - before, 4.0, "the remote world slows with the local one")
+	assert_le(absf(_behind() - before), 0.5, "and is back on time a second later")
+
