@@ -187,3 +187,28 @@ func test_a_mirrors_ragdoll_starts_where_the_body_died() -> void:
 	var off: float = mirror_body.global_position.distance_to(died_at)
 	print("PROOF ragdoll start: %.4f m from the host's death spot" % off)
 	assert_lt(off, DEATH_SPOT_METRES, "the ragdoll starts %.3f m from where the host's body died" % off)
+
+
+## The match ends while a ghost waits on its respawn: the host holds every body, and no mirror respawns it.
+func test_a_ghost_waiting_when_the_match_ends_is_not_respawned_on_a_mirror() -> void:
+	if not await _start_round(1, 3):
+		return
+	var host: MatchController = _rig.controller(HOST)
+	var mirror: MatchController = _rig.controller(CLIENT)
+	var slot: int = 2
+	host.get_ghost_profile().respawn_delay_seconds = 600.0
+	TestFixtures.pin_the_field(host, null)
+	var respawns: Array[int] = [0]
+	mirror.ghost_respawned.connect(func(_p: MatchParticipant) -> void: respawns[0] += 1)
+	_shoot(slot)
+	var mine: MatchParticipant = _rig.participant(CLIENT, slot)
+	if not await _rig.wait_for(func() -> bool: return mine.is_ghost and mirror.is_awaiting_respawn(mine)):
+		fail("the mirror never held the dead runner")
+		return
+	host.call(&"_resolve", MatchController.Outcome.WIN)
+	host.call(&"_win_match", host.get_seat_participant())
+	var over: bool = await _rig.wait_for(func() -> bool: return mirror.is_match_over())
+	assert_true(over, "the mirror sees the match end")
+	await step_ticks(CROSS_TICKS)
+	assert_eq_int(respawns[0], 0, "no ghost was put back on the start line by the end of the match")
+	assert_true(_rig.ragdoll(CLIENT, slot).is_active(), "the corpse still lies where it fell")

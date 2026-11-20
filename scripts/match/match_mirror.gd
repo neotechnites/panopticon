@@ -52,7 +52,7 @@ func converge(cur: MatchState, first: bool) -> bool:
 	var rearmed: bool = starts or _rearmed(prev, cur)
 	if not starts:
 		if not rearmed:
-			_take_lives(prev, cur)
+			_take_lives(prev, cur, true)
 		# A round resolved before anything re-armed it: the host said so first.
 		if cur.resolve_count != prev.resolve_count and not controller.is_resolved():
 			controller.net_resolve(cur.last_outcome as MatchController.Outcome)
@@ -61,7 +61,7 @@ func converge(cur: MatchState, first: bool) -> bool:
 			controller.get_participants_ref()[i].rounds_won = cur.participants[i].rounds_won
 		_arm(cur)
 		_read_armed(cur)
-		_take_lives(_armed, cur)
+		_take_lives(_armed, cur, false)
 	if cur.finisher >= 0 and MatchController.slot_of(controller.get_finisher()) != cur.finisher:
 		controller.net_arm_finisher(cur.finisher)
 	if cur.kill_beat_guard >= 0 and (prev == null or prev.kill_beat_serial != cur.kill_beat_serial):
@@ -121,9 +121,9 @@ func _read_armed(cur: MatchState) -> void:
 		entry.life = cur.participants[i].life
 
 
-## Each participant's lives from [param base] to [param cur]: catches, then deaths, then each ghost's
-## falls and respawns, the life counter showing the ones that began and ended between the two.
-func _take_lives(base: MatchState, cur: MatchState) -> void:
+## Each participant's lives from [param base] to [param cur]: catches, deaths, then each ghost's falls and
+## respawns. Between two records the life counter says a respawn landed; from an arming, a ghost not held has.
+func _take_lives(base: MatchState, cur: MatchState, from_record: bool) -> void:
 	var count: int = cur.participants.size()
 	_used.resize(count)
 	_used.fill(0)
@@ -143,16 +143,21 @@ func _take_lives(base: MatchState, cur: MatchState) -> void:
 		if not now.ghost:
 			continue
 		var held: bool = was.held if was.ghost else true
-		var respawned: bool = now.life != was.life
+		var respawned: bool = now.life != was.life if from_record else not now.held and not _frozen(cur)
 		var cause: MatchParticipant.DeathCause = MatchController.cause_of(now.death_cause)
 		if not held and (now.held or respawned):
 			controller.net_ghost_fall(i, cause)
 			held = true
-		if held and (respawned or not now.held):
+		if held and respawned:
 			controller.net_ghost_respawn(i)
 			held = false
 		if now.held and not held:
 			controller.net_ghost_fall(i, cause)
+
+
+## A match that is over holds every body where it stands: no hold on it means no respawn.
+static func _frozen(cur: MatchState) -> bool:
+	return cur.phase == int(MatchController.Phase.MATCH_OVER)
 
 
 ## Slot [param i] left the running set between ticks [param since] and [param until].
