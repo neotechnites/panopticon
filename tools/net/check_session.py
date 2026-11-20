@@ -378,21 +378,22 @@ def dropped_at(host: Peer, client: Peer) -> float:
 
 
 def converged_through(record: list[tuple[tuple, Line]], theirs: list[tuple[tuple, Line]]) -> int | None:
-    """The host index of the last transition a client replayed from its match record, -1 with none, None when
-    the replay is not the host's history in order: each one the latest such host event before the client had it."""
-    at = len(theirs)
-    last = -1
-    for n, (key, line) in enumerate(reversed(record)):
-        at = next((i for i in range(at - 1, -1, -1) if theirs[i][0] == key and theirs[i][1].w <= line.w), None)
+    """The host index of the last transition a client replayed from its match record, -1 with none, None when the
+    replay is not the host's history in order. By sequence alone (keys name the round), so no two clocks meet."""
+    placed: list[int] = []
+    for key, _ in reversed(record):
+        before = placed[-1] if placed else len(theirs)
+        at = next((i for i in range(before - 1, -1, -1) if theirs[i][0] == key), None)
         if at is None:
             return None
-        last = at if n == 0 else last
-    return last
+        placed.append(at)
+    return placed[0] if placed else -1
 
 
 def check_events(host: Peer, clients: list[Peer], v: Verdict, slack: float) -> None:
     """A client's transitions are the ones its match record replays, then every host transition after the
-    last of them, in order and none twice, until its scene ends or the host stops sending to it."""
+    last of them, in order and none twice, until its scene ends or the host stops sending to it. A log from
+    before the probe tagged record= cannot be checked and fails."""
     host_events = events_of(host)
     for client in clients:
         bound = bound_times(client)

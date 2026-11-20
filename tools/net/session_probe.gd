@@ -20,6 +20,8 @@ const OPTIONS: Dictionary = {
 const MATCH_SCENE: String = "res://match/match.tscn"
 const HUB_SCENE: String = "res://hub/hub.tscn"
 const HITCH_MS: int = 100
+## The match transitions tools/net/check_session.py checks in order (its EVENT_KINDS).
+const TRANSITIONS: PackedStringArray = ["match_started", "race_started", "brawl_started", "round_started", "round_resolved", "match_won"]
 const ISOLATION_ENV: String = "PANOPTICON_NET_ISOLATED"
 ## The wire probe's packets: magic, u32 destination peer id, u32 sequence per destination, f64 send time (unix ms).
 const PROBE_MAGIC: int = 0x5750
@@ -69,6 +71,8 @@ var _result_showing: bool = false
 var _quit_done: bool = false
 var _cats_seen: Dictionary[int, Array] = {}
 var _broke: bool = false
+var _ev_tampered: bool = false
+var _ev_held: String = ""
 var _hubs_bound: int = 0
 ## Freezes still to come: [scene kind ("match", "hub" or "any"), nth bind, seconds, ms].
 var _freezes: Array[Array] = []
@@ -398,9 +402,19 @@ func _hook_controller() -> void:
 
 
 ## record=1: a transition a client replays while it converges on its first match record, not one it was sent.
+## --break=event-drop / event-reorder: the first sent transition after the break is left out / logged after the next.
 func _ev(text: String) -> void:
-	var record: bool = not session.is_authority() and not net_match.hub_mode and net_match._converged_tick < 0
-	line("EV %s kind=%s epoch=%d record=%d" % [text, _scene_kind, lobby.get_epoch(), int(record)])
+	var record: bool = net_match.is_converging()
+	var entry: String = "EV %s kind=%s epoch=%d record=%d" % [text, _scene_kind, lobby.get_epoch(), int(record)]
+	var tampers: bool = _broke and not _ev_tampered and not record and text.get_slice(" ", 0) in TRANSITIONS
+	if tampers and String(o["break"]) in ["event-drop", "event-reorder"]:
+		_ev_tampered = true
+		_ev_held = entry if String(o["break"]) == "event-reorder" else ""
+		return
+	line(entry)
+	if not _ev_held.is_empty() and text.get_slice(" ", 0) in TRANSITIONS:
+		line(_ev_held)
+		_ev_held = ""
 
 
 ## The lobby seat a participant plays, "s<seat>", the one name every machine agrees on.
