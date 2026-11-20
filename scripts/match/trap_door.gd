@@ -4,8 +4,8 @@ extends Node3D
 
 ## A hinged trapdoor across the walkway with its target: a shove beside the target, or a
 ## rifle hit on its plate, drops every leaf into the spiked pit under them.
-## The whole cycle is a pure function of the seconds since the pull, so the host
-## sends one reliable (cycle, seconds) per pull and every peer animates the same.
+## The whole cycle is a pure function of the ticks since the pull, so its record ([NetProp]) is the
+## pull's count and age, and every peer animates the same.
 
 enum Phase { ARMED, WARN, DROP, OPEN, CLOSE, COOLDOWN }
 
@@ -53,14 +53,16 @@ const PLATE_THROW_SECONDS: float = 0.12
 const PLATE_RETURN_SECONDS: float = 1.0
 ## How far before the hole, along the lap, a rival counts as about to cross it.
 const BOT_LEAD_METRES: float = 3.0
-const SESSION_PATH: NodePath = ^"/root/NetSession"
+## The age a record gives a door with no cycle running: "pulled long ago".
+const AGE_AT_REST: int = 0xFFFF
 const RNG_SEED: int = 20261008
 
 ## Every live door, for [RingBake] and the bots' target hook. Never iterated in the editor.
 static var live: Array[TrapDoor] = []
 
 var _cycle: int = 0
-var _since_pull: float = INF
+## Physics ticks since the pull, -1 while no cycle runs.
+var _age: int = -1
 var _phase: Phase = Phase.ARMED
 var _leaves: Array[Node3D] = []
 var _leaf_rest: Array[Transform3D] = []
@@ -72,7 +74,6 @@ var _hitbox: StaticBody3D = null
 var _reach: Area3D = null
 var _reachers: Array[PlayerController] = []
 var _reach_calls: Array[Callable] = []
-var _session: NetSession = null
 var _hit_since_msec: int = 0
 var _bots_may_pull: bool = false
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
@@ -84,11 +85,11 @@ func _ready() -> void:
 		set_physics_process(false)
 		return
 	_rng.seed = RNG_SEED + int(absf(global_position.x) * 100.0) + int(absf(global_position.z) * 10.0)
-	_session = get_tree().root.get_node_or_null(SESSION_PATH) as NetSession
+	NetProp.register(self)
 	_find_parts()
 	_roll_bots()
 	_hit_since_msec = Time.get_ticks_msec()
-	_pose(0.0)
+	_pose(-1)
 
 
 func _enter_tree() -> void:
@@ -100,14 +101,10 @@ func _exit_tree() -> void:
 	live.erase(self)
 
 
-func _physics_process(delta: float) -> void:
-	if _since_pull < INF:
-		_since_pull += delta
-	var phase: Phase = _phase_at(_since_pull)
-	if phase != _phase:
-		_enter(phase)
-	_pose(_since_pull)
-	if _phase == Phase.ARMED and _hitbox != null and _decides():
+func _physics_process(_delta: float) -> void:
+	if _age >= 0:
+		_advance(_age + 1)
+	if _phase == Phase.ARMED and _hitbox != null and NetProp.is_authority(self):
 		var slot: int = Rifle.recent_hit_on(_hitbox, _hit_since_msec)
 		if slot >= 0:
 			pull()
@@ -115,12 +112,12 @@ func _physics_process(delta: float) -> void:
 
 # --- The trigger --------------------------------------------------------------
 
-## Trip the target. Only the host decides; a mirror waits for [method _net_pulled].
+## Trip the target. Only the host decides; a mirror takes the cycle from the record.
 func pull() -> bool:
-	if _phase != Phase.ARMED or not _decides():
+	if _phase != Phase.ARMED or not NetProp.is_authority(self):
 		return false
-	_start_cycle(_cycle + 1, 0.0)
-	_broadcast()
+	_cycle = (_cycle + 1) & 0xFFFF
+	_advance(0)
 	return true
 
 
@@ -216,34 +213,40 @@ func _at_level(walker: PlayerController) -> bool:
 
 # --- The network ---------------------------------------------------------------
 
-## The host decides: no session, an unestablished one, or the authority.
-func _decides() -> bool:
-	return _session == null or not _session.is_established() or _session.is_authority()
+## [NetProp]: the pull's count and its age in ticks (u16 each; at rest the age reads [constant AGE_AT_REST]).
+func net_record(_tick: int) -> PackedByteArray:
+	var record: PackedByteArray = PackedByteArray()
+	record.resize(4)
+	record.encode_u16(0, _cycle)
+	record.encode_u16(2, AGE_AT_REST if _age < 0 else mini(_age, AGE_AT_REST - 1))
+	return record
 
 
-## The pull, to every machine standing in this scene; one still loading has no door to hear it.
-func _broadcast() -> void:
-	var net: NetMatch = NetMatch.of(self)
-	if net == null or not net.is_authority():
+func net_apply(record: PackedByteArray, _tick: int) -> void:
+	if record.size() != 4:
 		return
-	for peer: int in net.get_scene_peers():
-		rpc_id(peer, &"_net_pulled", _cycle, _since_pull)
-
-
-@rpc("authority", "reliable", "call_remote", 0)
-func _net_pulled(cycle: int, seconds: float) -> void:
-	if cycle <= _cycle:
-		return
-	_start_cycle(cycle, seconds)
+	_cycle = record.decode_u16(0)
+	var age: int = record.decode_u16(2)
+	_advance(-1 if age == AGE_AT_REST else age)
 
 
 # --- The clock -----------------------------------------------------------------
 
-func _start_cycle(cycle: int, seconds: float) -> void:
-	_cycle = cycle
-	_since_pull = seconds
-	_enter(_phase_at(_since_pull))
-	_pose(_since_pull)
+## The door at [param age] ticks since the pull (-1: no cycle), entering its phase if that changed.
+func _advance(age: int) -> void:
+	_age = age
+	var phase: Phase = _phase_at_age(age)
+	if phase != _phase:
+		_enter(phase)
+	_pose(_age)
+
+
+func _phase_at_age(age: int) -> Phase:
+	return Phase.ARMED if age < 0 else _phase_at(_seconds(age))
+
+
+func _seconds(age: int) -> float:
+	return float(age) * get_physics_process_delta_time()
 
 
 func _phase_at(seconds: float) -> Phase:
@@ -271,7 +274,7 @@ func _enter(phase: Phase) -> void:
 		Phase.COOLDOWN:
 			AudioDirector.post_event_at(AudioEvents.HAZARD_TRAPDOOR_SHUT, global_position)
 		Phase.ARMED:
-			_since_pull = INF
+			_age = -1
 			_hit_since_msec = Time.get_ticks_msec()
 			_roll_bots()
 	# Dropping or hanging leaves hold nobody: a body falls between them, however close the beams.
@@ -286,8 +289,9 @@ func _roll_bots() -> void:
 
 # --- The pose ------------------------------------------------------------------
 
-## Leaves and plate at [param seconds] since the pull.
-func _pose(seconds: float) -> void:
+## Leaves and plate at [param age] ticks since the pull (-1: at rest).
+func _pose(age: int) -> void:
+	var seconds: float = INF if age < 0 else _seconds(age)
 	var leaf: float = _leaf_angle(seconds)
 	for index: int in _leaves.size():
 		var pose: Transform3D = _leaf_rest[index] * Transform3D(Basis(Vector3.RIGHT, leaf), Vector3.ZERO)

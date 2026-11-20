@@ -8,12 +8,12 @@ func _agree(clients: Array[int], what: String) -> void:
 	for machine: int in clients:
 		var mine: HubCat = cat(machine, HUB_CAT)
 		print("PROOF %s: machine %d cat at %s visible=%s gone=%s | host at %s visible=%s gone=%s state=%d" % [
-			what, machine, str(mine.global_position.snapped(Vector3.ONE * 0.01)), str(mine.visible), str(mine.get("_gone")),
-			str(truth.global_position.snapped(Vector3.ONE * 0.01)), str(truth.visible), str(truth.get("_gone")), int(truth.get("_state")),
+			what, machine, str(mine.global_position.snapped(Vector3.ONE * 0.01)), str(mine.visible), str(mine.is_gone()),
+			str(truth.global_position.snapped(Vector3.ONE * 0.01)), str(truth.visible), str(truth.is_gone()), int(truth.get("_state")),
 		])
 		assert_le(mine.global_position.distance_to(truth.global_position), 0.6, "%s: machine %d draws the cat where the host has it" % [what, machine])
 		assert_true(mine.visible == truth.visible, "%s: machine %d agrees on whether it is drawn" % [what, machine])
-		assert_true(bool(mine.get("_gone")) == bool(truth.get("_gone")), "%s: machine %d agrees on gone" % [what, machine])
+		assert_true(mine.is_gone() == truth.is_gone(), "%s: machine %d agrees on gone" % [what, machine])
 
 
 func test_s1_a_joiner_arriving_while_the_host_carries_a_hub_cat_sees_it_carried_then_thrown() -> void:
@@ -30,11 +30,11 @@ func test_s1_a_joiner_arriving_while_the_host_carries_a_hub_cat_sees_it_carried_
 	assert_false(holds_locally(B), "B is not offered the pet")
 	if int(truth.get("_state")) == HubCat.State.HELD:
 		keys[HOST].tap(&"shove_pressed")
-		var gone: bool = await until(func() -> bool: return bool(truth.get("_gone")))
+		var gone: bool = await until(func() -> bool: return truth.is_gone())
 		assert_true(gone, "the host's throw went off")
 		await step_ticks(20)
 		_agree([A, B], "s1 after blast")
-		var back: bool = await until(func() -> bool: return not bool(truth.get("_gone")))
+		var back: bool = await until(func() -> bool: return not truth.is_gone())
 		assert_true(back, "it came back")
 		await step_ticks(20)
 		_agree([A, B], "s1 after return")
@@ -47,14 +47,13 @@ func test_s2_a_joiner_whose_hub_stands_while_the_cat_is_gone_sees_it_return() ->
 		return
 	if not await connect_late(B):
 		return
-	# The roster change rebuilt the host: A's body was freed and the cat dropped. Lift and throw again.
+	# B's seat is built beside A's: A still has the cat in hand, and throws it.
 	var truth: HubCat = cat(HOST, HUB_CAT)
-	await until(func() -> bool: return int(truth.get("_state")) == HubCat.State.REST)
-	await until(func() -> bool: return net(A).get_local_link() != null and net(A).get_local_link().is_predicting())
-	if not await lift_hub_cat(A):
+	await step_ticks(20)
+	if not assert_true(HubCat.is_carrying(body(HOST, A)), "A still carries the cat after B's seat was built"):
 		return
 	keys[A].tap(&"shove_pressed")
-	var gone: bool = await until(func() -> bool: return bool(truth.get("_gone")))
+	var gone: bool = await until(func() -> bool: return truth.is_gone())
 	if not assert_true(gone, "A's throw went off on the host"):
 		return
 	# B's hub stands inside the 4 s the cat sits out.
@@ -62,7 +61,7 @@ func test_s2_a_joiner_whose_hub_stands_while_the_cat_is_gone_sees_it_return() ->
 		return
 	await step_ticks(10)
 	_agree([A, B], "s2 while gone")
-	var back: bool = await until(func() -> bool: return not bool(truth.get("_gone")))
+	var back: bool = await until(func() -> bool: return not truth.is_gone())
 	assert_true(back, "it came back on the host")
 	await step_ticks(20)
 	_agree([A, B], "s2 after return")

@@ -298,8 +298,8 @@ func _stand_up_with_pickups(loss: float = 0.0, delay_ms: int = 0) -> bool:
 		sessions[machine].get_parent().add_child(pickup)
 		pickup.global_position = spots[machine]
 		pickups.append(pickup)
-		# Bound as a scene prop, as NetMatch binds a loaded scene's.
-		var props: Array[Node] = [pickup]
+		# Bound as a scene prop under one id on every machine, as NetMatch binds a loaded scene's.
+		var props: Dictionary[int, Node] = {NetProp.id_of(^"SpeedPowerup"): pickup}
 		sessions[machine].replicator.bind_props(props)
 	await step_ticks(2)
 	return true

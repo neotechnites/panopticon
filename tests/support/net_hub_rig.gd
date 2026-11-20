@@ -29,6 +29,8 @@ var host_wire: LossyPeer
 ## is wrapped from its handshake, so it can also be frozen ([method freeze]).
 var wire_conditions: Dictionary[int, NetConditions] = {}
 var wires: NetWires = NetWires.new()
+## Called with (machine, hub) on each hub before it enters the tree, when set.
+var prepare_hub: Callable = Callable()
 
 var _port: int = -1
 var _wired: bool = false
@@ -49,11 +51,15 @@ func before_each() -> void:
 		sessions[machine] = NetFixtures.make_peer(self, BRANCHES[machine], NetFixtures.settings())
 
 
-## Every machine reads its socket once a tick, whatever the frame rate.
+## Every machine reads its socket once a tick, whatever the frame rate, and every body a hub seats
+## comes off the shared world's body layer before it wakes.
 func _physics_process(_delta: float) -> void:
 	for session: NetSession in sessions:
 		if session != null and session.multiplayer.has_multiplayer_peer():
 			session.multiplayer.poll()
+	for hub: Node3D in hubs:
+		if is_instance_valid(hub) and hub.is_inside_tree():
+			_untangle(hub.get_node("MatchController") as MatchController)
 
 
 func after_each() -> void:
@@ -89,7 +95,7 @@ func stand_up(loss: float = 0.0, delay_ms: int = 0, machines: int = 3) -> bool:
 	return await settle(machines)
 
 
-## B arrives while the others already stand in the hub: every machine rebuilds its bodies.
+## B arrives while the others already stand in the hub: every machine builds a body for B's seat.
 ## B's own hub comes up [param load_ticks] later, as a scene that takes time to load does.
 func join_late(machine: int = B, load_ticks: int = 0) -> bool:
 	if not await connect_late(machine):
@@ -402,6 +408,8 @@ func _make_hub(machine: int) -> void:
 	var controller: MatchController = hub.get_node("MatchController") as MatchController
 	controller.match_started.connect(func(_count: int) -> void: _untangle(controller))
 	hubs[machine] = hub
+	if prepare_hub.is_valid():
+		prepare_hub.call(machine, hub)
 	session.get_parent().add_child(hub)
 
 

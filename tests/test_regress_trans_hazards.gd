@@ -257,15 +257,11 @@ func test_hell_four_machines_a_hopping_client_dies_on_the_lava_and_its_ghost_sur
 	await _a_hopping_client_dies_on_the_lava(3)
 
 
-## Every machine's copy of the door at [param path], each told which session is its own.
+## Every machine's copy of the door at [param path].
 func _doors(path: NodePath) -> Array[TrapDoor]:
 	var doors: Array[TrapDoor] = []
 	for peer: int in _rig.peer_count():
-		var door: TrapDoor = _rig.controller(peer).arena.get_node_or_null(path) as TrapDoor
-		if door != null:
-			# The shipped door looks for /root/NetSession; a machine in this process keeps its own elsewhere.
-			door.set(&"_session", _rig.sessions[peer])
-		doors.append(door)
+		doors.append(_rig.controller(peer).arena.get_node_or_null(path) as TrapDoor)
 	return doors
 
 

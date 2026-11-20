@@ -91,6 +91,8 @@ var _carry: Array[NetEvents.Entry] = []
 var match_source: Callable
 var _props: Array[Node] = []
 var _prop_ids: PackedInt32Array = PackedInt32Array()
+## Client: the record each prop last took, by id; a prop out of the tree takes its record on return.
+var _prop_taken: Dictionary[int, PackedByteArray] = {}
 
 ## Client: the packet being decoded, and the events it carried.
 var _incoming: WorldSnapshot = WorldSnapshot.new()
@@ -181,23 +183,18 @@ func bind_scene(scene: int) -> void:
 	_clear_worlds()
 
 
-## The scene's props ([NetProp]), named by id; a collision is refused and leaves the scene none.
-func bind_props(props: Array[Node]) -> void:
+## The scene's props ([NetProp]) by id, as [NetMatch] registered them.
+func bind_props(props: Dictionary[int, Node]) -> void:
 	_props.clear()
 	_prop_ids.clear()
-	var by_id: Dictionary[int, Node] = {}
-	for prop: Node in props:
-		var id: int = NetProp.id_of(prop)
-		if by_id.has(id):
-			push_error("NetReplicator: props %s and %s share id %d; this scene's props are not replicated." % [
-				by_id[id].get_path(), prop.get_path(), id])
-			return
-		by_id[id] = prop
-	var ids: Array[int] = by_id.keys()
+	var ids: Array[int] = props.keys()
 	ids.sort()
 	for id: int in ids:
 		_prop_ids.append(id)
-		_props.append(by_id[id])
+		_props.append(props[id])
+	for id: int in _prop_taken.keys():
+		if not props.has(id):
+			_prop_taken.erase(id)
 
 
 # --- Registry -----------------------------------------------------------------
@@ -395,7 +392,7 @@ func _sample_world() -> void:
 		_world.match_record = match_source.call()
 	for i: int in _props.size():
 		if is_instance_valid(_props[i]):
-			_world.set_prop(_prop_ids[i], _props[i].call(&"net_record"))
+			_world.set_prop(_prop_ids[i], _props[i].call(&"net_record", _tick))
 
 
 ## [param links]' bodies into a cleared [param world] at [param tick] in [param epoch], quantised, with
@@ -751,19 +748,19 @@ func _present_due(time: float) -> void:
 		event_received.emit(entry.type, entry.payload, entry.tick)
 
 
-## Each prop whose record [param snapshot] changes, once, when the playout clock reaches it.
+## Each prop in the tree whose record [param snapshot] changes, once, when the playout clock reaches it.
 func _apply_props(snapshot: WorldSnapshot) -> void:
 	if _props_tick >= 0 and not NetCodec.is_newer_tick(snapshot.tick, _props_tick):
 		return
-	var before: WorldSnapshot = _find_world(_props_tick) if _props_tick >= 0 else null
 	_props_tick = snapshot.tick
 	for i: int in _prop_ids.size():
 		var record: PackedByteArray = snapshot.find_prop(_prop_ids[i])
-		if record.is_empty() or not is_instance_valid(_props[i]):
+		if record.is_empty() or not is_instance_valid(_props[i]) or not _props[i].is_inside_tree():
 			continue
-		if before != null and before.find_prop(_prop_ids[i]) == record:
+		if _prop_taken.get(_prop_ids[i], PackedByteArray()) == record:
 			continue
-		_props[i].call(&"net_apply", record)
+		_prop_taken[_prop_ids[i]] = record
+		_props[i].call(&"net_apply", record, snapshot.tick)
 
 
 # --- Rings --------------------------------------------------------------------
@@ -809,6 +806,7 @@ func _clear_worlds() -> void:
 	_due_events.clear()
 	_event_seen = -1
 	_props_tick = -1
+	_prop_taken.clear()
 	_have_clock = false
 	_render_lag = 0.0
 	_last_arrival_seconds = -1.0

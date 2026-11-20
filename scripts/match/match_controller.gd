@@ -724,6 +724,8 @@ func _physics_process(delta: float) -> void:
 			_settle_frames -= 1
 			if _settle_frames == 0:
 				_wake_bodies()
+		# A body seated into a standing hub settles on its own clock (see [method hub_seat]).
+		_wake_settled_ghosts()
 		if not _mirror:
 			_catch_hub_fallers()
 		return
@@ -955,6 +957,50 @@ func start_hub() -> void:
 		_place_in_hub(_participants[index], index, spawns)
 	_hub_bottom = _lowest_geometry(arena)
 	match_started.emit(_participants.size())
+
+
+## Seat a person's [param body] in the standing hub at [param slot], on that slot's spawn, and
+## nobody else moves: the one-seat form of [method start_hub] (DESIGN 4.5).
+func hub_seat(body: PlayerController, display_name: String, slot: int) -> void:
+	if not hub_mode or _phase != Phase.HUB or body == null or _participant_by_body_id.has(body.get_instance_id()):
+		return
+	slot = clampi(slot, 0, _participants.size())
+	_net_bodies.insert(slot, body)
+	_net_kinds.insert(slot, MatchParticipant.Kind.HUMAN)
+	_net_names.insert(slot, display_name)
+	body.set_held(true)
+	var participant: MatchParticipant = _make_net_participant(slot)
+	_participants.insert(slot, participant)
+	_participant_by_body_id[body.get_instance_id()] = participant
+	_take_commands(body)
+	_index_hub_roster(slot)
+	if _air_control_profile != null:
+		body.set_profile(_air_control_profile)
+	body.crouch_enabled = get_rules().crouch_enabled
+	body.slide_enabled = get_rules().slide_enabled
+	_place_in_hub(participant, slot, _hub_spawns())
+	participant.ghost_settle_frames = SETTLE_PHYSICS_FRAMES
+
+
+## Take [param body] out of the standing hub; the others keep their places.
+func hub_unseat(body: PlayerController) -> void:
+	var participant: MatchParticipant = _participant_by_body_id.get(body.get_instance_id(), null) if body != null else null
+	if not hub_mode or participant == null:
+		return
+	var slot: int = _participants.find(participant)
+	_participants.remove_at(slot)
+	_net_bodies.remove_at(slot)
+	_net_kinds.remove_at(slot)
+	_net_names.remove_at(slot)
+	_participant_by_body_id.erase(body.get_instance_id())
+	_index_hub_roster(slot)
+
+
+## Number the hub's participants from [param from] on, each in its slot's colour, as a fresh roster would be.
+func _index_hub_roster(from: int) -> void:
+	for index: int in range(from, _participants.size()):
+		_participants[index].index = index
+		_assign_runner_color(_participants[index])
 
 
 ## Whoever has dropped under everything the hub is made of goes back on their spawn: a lobby has
@@ -1663,28 +1709,6 @@ func configure_net(
 		# into the shared rules would edit the player's own setting every time
 		# somebody walked into the lobby.
 		get_rules().prisoner_count = maxi(bodies.size() - 1, 1)
-
-
-## Forget the roster so the next arming builds a fresh one.
-##
-## For the hub, where the seat table changes while the world stands: a peer
-## leaving and another arriving is two different bodies behind one unchanged
-## count, and [method _build_participants] would keep the old ones. The bodies
-## themselves belong to [NetMatch], which frees them; this only drops the
-## controller's hold on them.
-func release_roster() -> void:
-	# The caller frees these bodies next; the rifle must not go with one.
-	_stow_rifle()
-	# A body still held by an arming leaves with its authored collision, or the next roster reads 0 as home.
-	for participant: MatchParticipant in _participants:
-		if participant.body != null:
-			participant.body.collision_layer = participant.home_collision_layer
-			participant.body.collision_mask = participant.home_collision_mask
-	_participants.clear()
-	_participant_by_body_id.clear()
-	_net_bodies.clear()
-	_net_kinds.clear()
-	_net_names.clear()
 
 
 func is_networked() -> bool:
