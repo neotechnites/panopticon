@@ -81,13 +81,6 @@ func _end_converge() -> void:
 	_converging = false
 
 
-## Forget the records taken: the next one is converged on as a scene's first.
-func reset() -> void:
-	_prev.started = false
-	_deaths.clear()
-	_throws.clear()
-
-
 ## A new phase or round was armed between the two records.
 func _rearmed(prev: MatchState, cur: MatchState) -> bool:
 	if cur.phase == int(MatchController.Phase.MATCH_OVER) or cur.phase == int(MatchController.Phase.IDLE):

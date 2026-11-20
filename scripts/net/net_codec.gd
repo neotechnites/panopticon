@@ -1019,9 +1019,8 @@ static func roster_epoch(payload: PackedByteArray) -> int:
 
 # --- Match record: the MATCH section --------------------------------------------
 
-## Bytes of the match record's header: phase, round, guard, finisher, outcome, winner (slots, 0xFF none),
-## count, match serial, resolve count, last outcome, u32 hold end, kill beat serial and guard, throw i16 cm/s x3,
-## u32 brawl end, brawl winner.
+## Bytes of the match record's header: phase, round, guard, finisher, outcome, winner, count, match serial, resolve
+## count, last outcome, u32 hold end, kill beat serial, guard, throw i16 cm/s x3, u32 brawl end, brawl winner.
 const MATCH_HEADER_SIZE: int = 27
 ## Bytes per participant: flags, life counter, rounds won, turns, lives, u32 respawn end, u32 grace end, cause.
 const MATCH_PARTICIPANT_SIZE: int = 15

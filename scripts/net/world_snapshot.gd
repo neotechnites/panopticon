@@ -15,7 +15,7 @@ var states: Array[PlayerState] = []
 var owners: Array[PredictedState] = []
 ## Which seats' [member owners] hold a state that was sent, one bit each.
 var owner_valid: int = 0
-## The match's record ([method NetCodec.pack_match]), empty when there is no match.
+## The match's record ([method NetCodec.pack_match_state]), empty when there is no match.
 var match_record: PackedByteArray = PackedByteArray()
 ## Each scene prop's record by id, ids ascending.
 var prop_ids: PackedInt32Array = PackedInt32Array()

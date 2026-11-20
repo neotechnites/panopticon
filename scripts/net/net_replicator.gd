@@ -91,7 +91,7 @@ var _recipients: Dictionary[int, Recipient] = {}
 var events: NetEvents = NetEvents.new()
 var _info: NetCodec.SnapshotInfo = NetCodec.SnapshotInfo.new()
 var _carry: Array[NetEvents.Entry] = []
-## Host: the scene's match record ([method NetCodec.pack_match]), set by [NetMatch]; and its props.
+## Host: the scene's match record ([method NetCodec.pack_match_state]), set by [NetMatch]; and its props.
 var match_source: Callable
 var _props: Array[Node] = []
 var _prop_ids: PackedInt32Array = PackedInt32Array()

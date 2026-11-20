@@ -648,7 +648,7 @@ var _local_index: int = 0
 ## True on a client: nothing here decides; net_* methods apply what the server decided.
 var _mirror: bool = false
 var _applying: bool = false
-## False while a mirror lands silently in the record it converged on: no banner, no sting.
+## False while a mirror lands silently in the record it converged on: no round card.
 var _presenting: bool = true
 ## The phase the world's collision was last built for (see [method apply_structure]).
 var _structure_phase: Phase = Phase.IDLE

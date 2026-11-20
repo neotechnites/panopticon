@@ -21,9 +21,8 @@ const TOWER_RIFLE: int = 0
 @export var runner_scene: PackedScene
 @export var runner_container: Node3D
 
-## Bind the hub lobby instead of a match: one body per seated human, the same
-## links and the same snapshots, and none of the match events -- there are no
-## rounds to replay. See [method MatchController.start_hub].
+## Bind the hub lobby instead of a match: one body per seated human, the same links and
+## snapshots, and no match record. See [method MatchController.start_hub].
 @export var hub_mode: bool = false
 
 ## Where the session lives. The shipped answer is [constant SESSION_PATH]; a
