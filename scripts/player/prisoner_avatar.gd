@@ -1136,7 +1136,8 @@ func _on_body_shoved() -> void:
 ## The viewed body hides itself; every other one is drawn whole. Public so a
 ## test or a harness may step it without waiting on a frame.
 func tick_first_person() -> void:
-	var want: bool = _head_hider != null and is_viewed_first_person()
+	# A limp body simulates on full-size bones, whoever looks out of it.
+	var want: bool = _head_hider != null and is_viewed_first_person() and not (_ragdoll != null and _ragdoll.is_active())
 	if want != _first_person:
 		_first_person = want
 		_head_hider.set_hidden(want)

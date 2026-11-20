@@ -38,6 +38,10 @@ func _start_round(map: StringName, clients: int) -> bool:
 		return false
 	_rig.settings().rounds_to_win_match = 5
 	_rig.settings().map_id = map
+	# A socket's timeout is wall time: a stall of seconds has to be seconds of play too. Set before any
+	# command stream starts, since a stream reads real time in ticks of the rate in force.
+	Engine.physics_ticks_per_second = int(SIM_HZ)
+	Engine.time_scale = 1.0
 	if not await _rig.launch(clients + 2, HOST):
 		fail("the match never started on every peer")
 		return false
@@ -47,9 +51,6 @@ func _start_round(map: StringName, clients: int) -> bool:
 			fail("peer %d never reached the round" % peer)
 			return false
 	_rig.body(HOST, clients + 1).movement_locked = true
-	# A socket's timeout is wall time: a stall of seconds has to be seconds of play too.
-	Engine.physics_ticks_per_second = int(SIM_HZ)
-	Engine.time_scale = 1.0
 	await step_ticks(CROSS_TICKS)
 	return true
 
