@@ -42,6 +42,9 @@ enum Kind {
 ## finish deterministic rather than a draw.
 var index: int = 0
 
+## The lobby seat whose body this is, -1 off a session. A seat keeps its name, so it keeps its colour.
+var seat: int = -1
+
 ## What the HUD calls this participant.
 var display_name: String = ""
 
@@ -197,6 +200,11 @@ var death_facing: Vector3 = Vector3.FORWARD
 enum DeathCause { SHOT, LAVA, FELL }
 
 var death_cause: DeathCause = DeathCause.SHOT
+
+
+## Which runner colour this participant wears: its seat's in a session, else its slot's.
+func colour_index() -> int:
+	return seat if seat >= 0 else index
 
 
 func is_human() -> bool:

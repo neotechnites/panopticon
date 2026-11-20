@@ -409,7 +409,7 @@ func _reach_direction(ghost: MatchParticipant, caught: MatchParticipant) -> Vect
 func _color_of(participant: MatchParticipant) -> Color:
 	if participant == null or controller == null:
 		return Color.WHITE
-	return controller.get_runner_palette().color_for_index(participant.index)
+	return controller.get_runner_palette().color_for_index(participant.colour_index())
 
 
 ## Walk up from the participant's body looking for this component's own. Mirrors

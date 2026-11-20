@@ -634,9 +634,10 @@ var _armed: bool = false
 var _net_bodies: Array[PlayerController] = []
 var _net_kinds: Array[MatchParticipant.Kind] = []
 var _net_names: PackedStringArray = PackedStringArray()
+var _net_seats: PackedInt32Array = PackedInt32Array()
 
-## Index of this machine's own participant. 0 solo and on the host.
-var _local_index: int = 0
+## This machine's own body in a session; null solo, where the human is the first human participant.
+var _local_body: PlayerController = null
 
 ## True on a client: nothing here decides; net_* methods apply what the server decided.
 var _mirror: bool = false
@@ -959,21 +960,23 @@ func start_hub() -> void:
 	match_started.emit(_participants.size())
 
 
-## Seat a person's [param body] in the standing hub at [param slot], on that slot's spawn, and
-## nobody else moves: the one-seat form of [method start_hub] (DESIGN 4.5).
-func hub_seat(body: PlayerController, display_name: String, slot: int) -> void:
+## Seat [param seat]'s person in the standing hub as [param body] at [param slot], on that slot's spawn,
+## and nobody else moves: the one-seat form of [method start_hub] (DESIGN 4.5).
+func hub_seat(body: PlayerController, display_name: String, slot: int, seat: int) -> void:
 	if not hub_mode or _phase != Phase.HUB or body == null or _participant_by_body_id.has(body.get_instance_id()):
 		return
 	slot = clampi(slot, 0, _participants.size())
 	_net_bodies.insert(slot, body)
 	_net_kinds.insert(slot, MatchParticipant.Kind.HUMAN)
 	_net_names.insert(slot, display_name)
+	_net_seats.insert(slot, seat)
 	body.set_held(true)
 	var participant: MatchParticipant = _make_net_participant(slot)
 	_participants.insert(slot, participant)
 	_participant_by_body_id[body.get_instance_id()] = participant
 	_take_commands(body)
 	_index_hub_roster(slot)
+	_assign_runner_color(participant)
 	if _air_control_profile != null:
 		body.set_profile(_air_control_profile)
 	body.crouch_enabled = get_rules().crouch_enabled
@@ -992,15 +995,15 @@ func hub_unseat(body: PlayerController) -> void:
 	_net_bodies.remove_at(slot)
 	_net_kinds.remove_at(slot)
 	_net_names.remove_at(slot)
+	_net_seats.remove_at(slot)
 	_participant_by_body_id.erase(body.get_instance_id())
 	_index_hub_roster(slot)
 
 
-## Number the hub's participants from [param from] on, each in its slot's colour, as a fresh roster would be.
+## Number the hub's participants from [param from] on, as a fresh roster would; colours follow seats.
 func _index_hub_roster(from: int) -> void:
 	for index: int in range(from, _participants.size()):
 		_participants[index].index = index
-		_assign_runner_color(_participants[index])
 
 
 ## Whoever has dropped under everything the hub is made of goes back on their spawn: a lobby has
@@ -1666,10 +1669,9 @@ enum Spectating {
 ## that is an implementation detail of the start line and not a promise; this
 ## asks.
 func get_human_participant() -> MatchParticipant:
-	if _local_index >= 0 and _local_index < _participants.size():
-		var local: MatchParticipant = _participants[_local_index]
-		if local.is_human():
-			return local
+	var local: MatchParticipant = _participant_by_body_id.get(_local_body.get_instance_id(), null) if is_instance_valid(_local_body) else null
+	if local != null and local.is_human():
+		return local
 	for participant: MatchParticipant in _participants:
 		if participant.is_human():
 			return participant
@@ -1695,11 +1697,13 @@ func configure_net(
 	names: PackedStringArray,
 	local_index: int,
 	mirror: bool,
+	seats: PackedInt32Array = PackedInt32Array(),
 ) -> void:
 	_net_bodies = bodies.duplicate()
 	_net_kinds = kinds.duplicate()
 	_net_names = names.duplicate()
-	_local_index = local_index
+	_net_seats = seats.duplicate()
+	_local_body = bodies[local_index] if local_index >= 0 and local_index < bodies.size() else null
 	_mirror = mirror
 	# Built stacked at the scene default: a body moves nothing until its first placement wakes it.
 	for body: PlayerController in bodies:
@@ -2937,7 +2941,7 @@ func warmup_samples() -> Array[Node3D]:
 ## [param participant]'s own distinct, stable colour for the whole match, worn
 ## on the model's own material. See [method _tinted_material].
 func _runner_material_for(participant: MatchParticipant) -> Material:
-	return _tinted_material(participant, get_runner_palette().color_for_index(participant.index))
+	return _tinted_material(participant, get_runner_palette().color_for_index(participant.colour_index()))
 
 
 ## [param participant]'s SAME colour, translucent -- a ghost reads as who it is
@@ -2946,7 +2950,7 @@ func _runner_material_for(participant: MatchParticipant) -> Material:
 ## translucent": alpha comes off the colour; the colour itself never does.
 func _ghost_material_for(participant: MatchParticipant) -> Material:
 	var runner_palette: RunnerPalette = get_runner_palette()
-	var runner_color: Color = runner_palette.color_for_index(participant.index)
+	var runner_color: Color = runner_palette.color_for_index(participant.colour_index())
 	runner_color.a = runner_palette.ghost_alpha
 	return _tinted_material(participant, runner_color)
 
@@ -3225,6 +3229,7 @@ func _make_net_participant(slot: int) -> MatchParticipant:
 	var participant: MatchParticipant = MatchParticipant.new()
 	participant.kind = _net_kinds[slot]
 	participant.display_name = _net_names[slot]
+	participant.seat = _net_seats[slot] if slot < _net_seats.size() else -1
 	participant.body = body
 	participant.home_collision_layer = body.collision_layer
 	participant.home_collision_mask = body.collision_mask
@@ -4022,7 +4027,7 @@ func _attach_rifle(participant: MatchParticipant) -> void:
 		sway.aim_node = camera
 	rifle.optic = body.get_node_or_null(^"Optic") as WeaponOptic
 
-	var local_holder: bool = participant.is_human() and participant.index == _local_index
+	var local_holder: bool = participant.is_human() and participant == get_human_participant()
 	# The holder's commands pull the trigger (see [method _step_command]), not the device. The
 	# vignette is presentation, so it follows the holder, not the authority.
 	_silence_trigger(rifle)

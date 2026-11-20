@@ -93,6 +93,10 @@ var _props: Array[Node] = []
 var _prop_ids: PackedInt32Array = PackedInt32Array()
 ## Client: the record each prop last took, by id; a prop out of the tree takes its record on return.
 var _prop_taken: Dictionary[int, PackedByteArray] = {}
+## Per bound prop: true when it is world collision the prediction reads, taken on arrival ([code]net_arrive[/code]).
+var _prop_arrives: Array[bool] = []
+## Client: the command acknowledgement the newest snapshot carried, or -1.
+var _newest_cmd_ack: int = -1
 
 ## Client: the packet being decoded, and the events it carried.
 var _incoming: WorldSnapshot = WorldSnapshot.new()
@@ -187,11 +191,13 @@ func bind_scene(scene: int) -> void:
 func bind_props(props: Dictionary[int, Node]) -> void:
 	_props.clear()
 	_prop_ids.clear()
+	_prop_arrives.clear()
 	var ids: Array[int] = props.keys()
 	ids.sort()
 	for id: int in ids:
 		_prop_ids.append(id)
 		_props.append(props[id])
+		_prop_arrives.append(props[id].has_method(&"net_arrive"))
 	for id: int in _prop_taken.keys():
 		if not props.has(id):
 			_prop_taken.erase(id)
@@ -300,6 +306,17 @@ func get_tick() -> int:
 ## The authority tick of the newest snapshot a client has decoded in this scene, or -1.
 func get_latest_tick() -> int:
 	return _newest().tick if _ring_count > 0 and not _is_authority else -1
+
+
+## The host tick the command this machine simulates now runs at: the authority's own tick; on a client
+## the newest snapshot's plus the commands sent past its acknowledgement (DESIGN 7), -1 before one.
+func get_predicted_tick() -> int:
+	if _is_authority:
+		return _tick
+	if _ring_count == 0:
+		return -1
+	var ahead: int = outbox.next_seq() - 1 - _newest_cmd_ack if _newest_cmd_ack >= 0 else 0
+	return _newest().tick + maxi(ahead, 0)
 
 
 ## How far behind the newest snapshot this client is drawing, in ticks, or -1 before the clock starts.
@@ -529,7 +546,9 @@ func receive_snapshot(payload: PackedByteArray) -> bool:
 ## match record, and the events.
 func _take(first: bool, previous_match: PackedByteArray) -> void:
 	var newest: WorldSnapshot = _newest()
+	_newest_cmd_ack = _info.cmd_ack
 	outbox.acknowledge(_info.cmd_ack)
+	_take_props(newest, true)
 	_measure_arrival(first)
 	_deliver_predictions(newest, _info.cmd_ack)
 	if first or newest.match_record != previous_match:
@@ -753,14 +772,21 @@ func _apply_props(snapshot: WorldSnapshot) -> void:
 	if _props_tick >= 0 and not NetCodec.is_newer_tick(snapshot.tick, _props_tick):
 		return
 	_props_tick = snapshot.tick
+	_take_props(snapshot, false)
+
+
+## The changed records of the props taken on arrival ([param arriving]) or at the playout clock.
+func _take_props(snapshot: WorldSnapshot, arriving: bool) -> void:
 	for i: int in _prop_ids.size():
+		if _prop_arrives[i] != arriving:
+			continue
 		var record: PackedByteArray = snapshot.find_prop(_prop_ids[i])
 		if record.is_empty() or not is_instance_valid(_props[i]) or not _props[i].is_inside_tree():
 			continue
 		if _prop_taken.get(_prop_ids[i], PackedByteArray()) == record:
 			continue
 		_prop_taken[_prop_ids[i]] = record
-		_props[i].call(&"net_apply", record, snapshot.tick)
+		_props[i].call(&"net_arrive" if arriving else &"net_apply", record, snapshot.tick)
 
 
 # --- Rings --------------------------------------------------------------------
@@ -807,6 +833,7 @@ func _clear_worlds() -> void:
 	_event_seen = -1
 	_props_tick = -1
 	_prop_taken.clear()
+	_newest_cmd_ack = -1
 	_have_clock = false
 	_render_lag = 0.0
 	_last_arrival_seconds = -1.0

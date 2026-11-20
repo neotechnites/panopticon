@@ -302,7 +302,7 @@ func _seat(seat: LobbySeat, slot: int) -> void:
 	body.name = "Seat%d" % seat.index
 	runner_container.add_child(body)
 	_add_link(seat, body, false)
-	controller.hub_seat(body, seat_name(seat), slot)
+	controller.hub_seat(body, seat_name(seat), slot, seat.index)
 
 
 ## Take [param link]'s body out of the hub and free both. Out of the tree before the free: a queued
@@ -367,7 +367,7 @@ func _build_bodies() -> void:
 		_slot_of_seat[seat.index] = slot
 		_seat_of_slot[slot] = seat.index
 		_add_link(seat, body, seat.index == local_seat)
-	controller.configure_net(bodies, kinds, names, local_slot, not _session.is_authority())
+	controller.configure_net(bodies, kinds, names, local_slot, not _session.is_authority(), _seat_of_slot)
 
 
 ## The name a seat's player goes by in a match, on every screen.

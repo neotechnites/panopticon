@@ -45,6 +45,31 @@ func test_a_join_in_the_hub_moves_nobody_else() -> void:
 	)
 
 
+func test_a_leave_in_the_hub_recolours_nobody_and_each_machine_keeps_its_own_player() -> void:
+	if not await stand_up():
+		return
+	await step_ticks(10)
+	var before: Array[String] = [_shirt(HOST, HOST), _shirt(HOST, B), _shirt(B, HOST), _shirt(B, B)]
+	leave(A)
+	var freed: bool = await until(func() -> bool:
+		return ctrl(HOST).get_participants().size() == 2 and ctrl(B).get_participants().size() == 2)
+	if not assert_true(freed, "the host and B freed A's seat"):
+		return
+	await step_ticks(10)
+	var after: Array[String] = [_shirt(HOST, HOST), _shirt(HOST, B), _shirt(B, HOST), _shirt(B, B)]
+	assert_eq_string(str(after), str(before), "nobody's shirt changed colour when A left")
+	assert_same(ctrl(B).get_human_participant().body, body(B, B), "B's own player is still B's body")
+	assert_same(ctrl(HOST).get_human_participant().body, body(HOST, HOST), "and the host's is the host's")
+
+
+## The colour [param machine] paints [param seat]'s shirt.
+func _shirt(machine: int, seat: int) -> String:
+	for participant: MatchParticipant in ctrl(machine).get_participants():
+		if participant.body == body(machine, seat):
+			return str(participant.home_body_material.get(&"albedo_color")) if participant.home_body_material != null else "none"
+	return "missing"
+
+
 func test_a_prop_behind_a_removed_phase_gate_keeps_its_id_on_a_late_binder() -> void:
 	prepare_hub = _gate_an_orb
 	if not await stand_up(0.0, 0, 2):
