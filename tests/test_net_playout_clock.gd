@@ -208,3 +208,25 @@ func test_a_hit_stop_slows_remote_bodies_with_the_world_then_catches_up() -> voi
 	assert_gt(during - before, 4.0, "the remote world slows with the local one")
 	assert_le(absf(_behind() - before), 0.5, "and is back on time a second later")
 
+
+func test_chained_hit_stops_owe_no_more_than_the_clock_may_fall_behind() -> void:
+	if not await _stand_up():
+		fail("the loopback handshake did not complete")
+		return
+	for i: int in SETTLE_FRAMES:
+		_frame(SIM_DELTA)
+	var before: float = _behind()
+	var base: float = Engine.time_scale
+	var was_physics: bool = NetReplicator.ticks_from_physics
+	NetReplicator.ticks_from_physics = false
+	var worst: float = 0.0
+	# Hit after hit for five seconds: each stop restarts before the last one is paid back.
+	for i: int in 300:
+		Engine.time_scale = 0.12 if i % 10 < 6 else base
+		_frame(SIM_DELTA)
+		worst = maxf(worst, _behind() - before)
+	Engine.time_scale = base
+	NetReplicator.ticks_from_physics = was_physics
+	print("          chained hit stops: at most %.1f ticks later than before" % worst)
+	assert_le(worst, 20.5, "the drawing never falls further behind than the clock's own snap bound")
+

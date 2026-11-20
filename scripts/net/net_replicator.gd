@@ -688,6 +688,8 @@ func _owe_stop(elapsed: float) -> void:
 	if rate < 1.0:
 		# A frame past the untimed window was this machine stalling, not the world slowed.
 		_stop_debt += minf(elapsed, _interval_ticks * _UNTIMED_FRAME_INTERVALS) * (1.0 - rate)
+		# Chained stops owe no more than the clock lets itself fall behind.
+		_stop_debt = minf(_stop_debt, _CLOCK_SNAP_TICKS)
 	else:
 		_stop_debt = maxf(_stop_debt - elapsed * _MAX_DILATION, 0.0)
 
