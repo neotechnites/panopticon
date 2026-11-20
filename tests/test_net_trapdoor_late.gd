@@ -134,6 +134,15 @@ func test_a_replay_across_a_door_boundary_meets_the_leaves_as_the_host_did() -> 
 	var at_host: Dictionary[int, int] = {}
 	var replayed: Array[Array] = []
 	var pending: Array[Array] = []
+	var host_tick: Dictionary[int, int] = {}
+	var host_runs: Array[int] = []
+	var host_body: PlayerController = _rig.body(HOST, slot)
+	var host_step: Callable = host_body.match_step
+	host_body.match_step = func(intent: MoveIntent, swung: bool, authority: bool) -> void:
+		host_runs.append(host_leaf.collision_layer)
+		host_step.call(intent, swung, authority)
+	var ran_on: Dictionary[int, int] = {}
+	var last_ack: Array[int] = [-1]
 	## The host tick of the pull: a replay counts once this machine holds a snapshot that has it.
 	var pulled_at: Array[int] = [1 << 40]
 	var own_step: Callable = own.match_step
@@ -142,12 +151,21 @@ func test_a_replay_across_a_door_boundary_meets_the_leaves_as_the_host_did() -> 
 			pending.append([_rig.sessions[1].replicator.get_latest_tick(), leaf.collision_layer])
 		own_step.call(intent, swung, authority)
 	var sample: Callable = func() -> void:
-		at_host[stream.get_ack()] = host_leaf.collision_layer
+		# Every command the host ran last tick, as its run met the leaves, the tick, and how many that tick ran.
+		var ack: int = stream.get_ack()
+		var tick: int = host_link.replicator.get_tick()
+		if last_ack[0] >= 0 and host_runs.size() == ack - last_ack[0]:
+			ran_on[tick] = host_runs.size()
+			for i: int in host_runs.size():
+				at_host[last_ack[0] + 1 + i] = host_runs[i]
+				host_tick[last_ack[0] + 1 + i] = tick
+		host_runs.clear()
+		last_ack[0] = ack
 		# A replay runs every slot still unacknowledged, in order, and drops the rest: what is left is it.
 		if pending.size() == int(own_link.get(&"_predicted_count")):
 			for i: int in pending.size():
 				if pending[i][0] >= pulled_at[0]:
-					replayed.append([int((own_link.call(&"_slot", i) as RefCounted).get(&"seq")), pending[i][1]])
+					replayed.append([int((own_link.call(&"_slot", i) as RefCounted).get(&"seq")), pending[i][1], pending[i][0]])
 		pending.clear()
 	get_tree().physics_frame.connect(sample)
 	assert_true(host.pull(), "the host trips the door")
@@ -156,24 +174,26 @@ func test_a_replay_across_a_door_boundary_meets_the_leaves_as_the_host_did() -> 
 	await step_ticks(60)
 	get_tree().physics_frame.disconnect(sample)
 	own.match_step = own_step
+	host_body.match_step = host_step
 	assert_true(done, "the cycle ran out on both")
-	# A host draining a backlog runs up to two commands a tick, so a command beside a boundary may be
-	# placed a tick off it; a replay that disagrees with the host anywhere else is wrong.
+	# The client places a command one host tick per command after the snapshot it replays from. Exempt is
+	# only a command behind a host tick in that span that ran none or two; every other must match exactly.
 	var wrong: Array[Array] = []
 	var seen: Dictionary[int, bool] = {}
 	for run: Array in replayed:
 		if at_host.has(run[0]):
 			seen[run[1]] = true
-			if at_host[run[0]] != run[1] and not _beside_a_boundary(at_host, run[0], run[1]):
+			if at_host[run[0]] != run[1] and _one_a_tick(ran_on, run[2], host_tick[run[0]]):
 				wrong.append([run[0], run[1], at_host[run[0]]])
 	assert_true(seen.has(0) and seen.has(1), "replays ran with the leaves open and shut: %s (%d replayed, %d host runs, e.g. %s / %s)" % [
 		str(seen.keys()), replayed.size(), at_host.size(), str(replayed.slice(0, 3)), str(at_host.keys().slice(0, 3))])
 	assert_eq_int(wrong.size(), 0, "every replayed command met the leaves as the host's run did: %s" % str(wrong.slice(0, 12)))
 
 
-## True when the host ran a command within two of [param seq] meeting the leaves as [param layer].
-func _beside_a_boundary(at_host: Dictionary[int, int], seq: int, layer: int) -> bool:
-	for near: int in [seq - 2, seq - 1, seq + 1, seq + 2]:
-		if at_host.get(near, -1) == layer:
-			return true
-	return false
+
+## True when the host ran exactly one command on every tick after [param from] up to [param to].
+func _one_a_tick(ran_on: Dictionary[int, int], from: int, to: int) -> bool:
+	for tick: int in range(from + 1, to + 1):
+		if ran_on.get(tick, 1) != 1:
+			return false
+	return true
