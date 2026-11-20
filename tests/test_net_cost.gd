@@ -230,7 +230,7 @@ func test_the_replicator_costs_microseconds_a_tick_at_eight_seats() -> void:
 	# frame rate rather than the snapshot rate.
 	started = Time.get_ticks_usec()
 	for _i: int in BENCH_ITERATIONS:
-		_client.replicator.play_back(SIM_DELTA)
+		_client.replicator.play_back(NetReplicator.real_ticks())
 	var playback_usec: float = float(Time.get_ticks_usec() - started) / float(BENCH_ITERATIONS)
 
 	print("          CPU host %.1f us/snapshot, client %.1f us/snapshot, playback %.1f us/frame, at %d seats" % [

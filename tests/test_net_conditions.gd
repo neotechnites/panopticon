@@ -141,6 +141,8 @@ func _stand_up() -> bool:
 	_host_mirror.controller.global_position = START_MIRROR
 	_client_mirror.controller.global_position = START_MIRROR
 	_client_own.prediction_corrected.connect(_on_corrected)
+	# This file draws the client's frames itself, one a tick, on its own tick clock.
+	_client.replicator.set_process(false)
 
 	await step_ticks(1)
 	_running = true
@@ -212,7 +214,7 @@ func _physics_process(_delta: float) -> void:
 	# One drawn frame per tick: the runner's idle frames are far rarer than its
 	# compressed physics ticks, so playback is driven here instead of being left
 	# to _process, which would sample the clock a hundred ticks at a time.
-	_client.replicator.play_back(SIM_DELTA)
+	_client.replicator.play_back(float(_tick))
 	_note_mirror_step()
 	_note_applied_intent()
 
