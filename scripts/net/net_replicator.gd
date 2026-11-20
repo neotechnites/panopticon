@@ -330,9 +330,15 @@ func get_jitter_seconds() -> float:
 	return _jitter_ticks * _tick_seconds()
 
 
+## Set by the test runner, whose machines share one time-compressed main loop: their real time is its physics.
+static var ticks_from_physics: bool = false
+
+
 ## Real time in authority ticks: the clock remote worlds are played out on. Not the frame delta,
 ## which drops what a stalled frame's capped physics steps did not run.
 static func real_ticks() -> float:
+	if ticks_from_physics:
+		return float(Engine.get_physics_frames()) + Engine.get_physics_interpolation_fraction()
 	return float(Time.get_ticks_usec()) * float(Engine.physics_ticks_per_second) / 1000000.0
 
 
@@ -661,8 +667,8 @@ func play_back(now_ticks: float, looked_ticks: float = -1.0) -> void:
 	var newest: float = float(_newest().tick)
 	var edge: float = newest + _extrapolation_ticks()
 	# When the worlds run out the clock waits, then catches up; only for time it looked and found none,
-	# so a stall after the poll is not taken for starvation.
-	_playout_offset = clampf(_playout_offset, float(_slot(0).tick) - now_ticks, edge - looked)
+	# so a stall after the poll is not taken for starvation. A buffer still filling draws its oldest.
+	_playout_offset = minf(_playout_offset, edge - looked)
 	_drawn_time = clampf(now_ticks + _playout_offset, float(_slot(0).tick), edge)
 	_draw(newest - _drawn_time)
 	_present_due(_drawn_time)

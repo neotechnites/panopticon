@@ -135,3 +135,15 @@ func _ride_out_a_long_frame(after_poll: bool) -> void:
 	var drawn_x: float = _mirror.controller.global_position.x
 	var host_x: float = SPEED * (float(_host_tick() - _base_tick) - settled) * SIM_DELTA
 	assert_le(absf(drawn_x - host_x), SPEED * RECOVERED_TICKS * SIM_DELTA, "and the body is drawn where that time puts it")
+
+
+func test_a_client_draws_behind_its_newest_snapshot_from_the_first() -> void:
+	if not await _stand_up():
+		fail("the loopback handshake did not complete")
+		return
+	var nearest: float = INF
+	for i: int in 60:
+		_frame(SIM_DELTA)
+		nearest = minf(nearest, float(_client.replicator.get_latest_tick()) - _client.replicator.get_view_time())
+	assert_ge(nearest, 0.0, "a buffer still filling never draws past the newest snapshot it holds")
+	assert_between(_behind(), 2.0, 4.0, "and the clock kept its delay while it filled")
