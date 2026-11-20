@@ -285,11 +285,11 @@ var _charging: bool = false
 var _projectiles: Array[WeaponProjectile] = []
 
 ## Lag compensation, set by the session: [member lag_back] turns the tick a shooter saw (a shot's
-## view time) into ticks back, and [member lag_trace] casts a ray (space, query, ticks back) there.
+## view time) into ticks back (fractional), and [member lag_trace] casts a ray (space, query, back) there.
 var lag_back: Callable
 var lag_trace: Callable
-## Ticks back the shot being resolved is traced; a round keeps its own for its flight.
-var _lag_ticks: int = 0
+## Ticks back the last shot was traced, for telemetry; each shot carries its own as an argument.
+var _last_back: float = 0.0
 
 ## When true, holding the trigger fires again the moment the rifle is ready.
 ##
@@ -511,14 +511,14 @@ func try_fire(view_time: float = MoveIntent.LIVE_WORLD, predicted: bool = false)
 	# [member WeaponProfile.charge_min_fraction_to_fire].
 	if profile.charge_enabled and charge < profile.charge_min_fraction_to_fire:
 		return false
-	_lag_ticks = int(lag_back.call(view_time)) if is_finite(view_time) and lag_back.is_valid() else 0
+	var back: float = float(lag_back.call(view_time)) if is_finite(view_time) and lag_back.is_valid() else 0.0
+	_last_back = back
 	_end_charge(charge)
 	if not predicted:
-		_resolve_shot(charge)
+		_resolve_shot(charge, back)
 	elif not _replaying():
 		_draw_own_shot(charge)
 	_set_state(State.FIRING)
-	_lag_ticks = 0
 	return true
 
 
@@ -567,9 +567,9 @@ func trigger(
 		try_fire(view_time, predicted)
 
 
-## Ticks back the shot being resolved is traced; 0 between shots.
-func get_shot_lag_ticks() -> int:
-	return _lag_ticks
+## Ticks back the last shot was traced.
+func get_shot_lag_ticks() -> float:
+	return _last_back
 
 
 ## True when a call to [method try_fire] would succeed.
@@ -919,7 +919,7 @@ static func read_rules_profile(source: MatchRules) -> WeaponProfile:
 ##
 ## Under a travelling shot only the first half happens here; the outcome and the
 ## tracer both wait for the round -- see [method _report].
-func _resolve_shot(charge: float) -> void:
+func _resolve_shot(charge: float, back: float) -> void:
 	var source: Node3D = aim_source if aim_source != null else self
 	var origin: Vector3 = source.global_position
 	# -Z is forward for every Node3D in Godot, cameras included, so this reads
@@ -929,7 +929,7 @@ func _resolve_shot(charge: float) -> void:
 	# Returns `aim` itself, untouched, for a profile with no spread -- so the
 	# shipped weapon's shot line is the aim line and not a zero-width draw off
 	# an RNG that was never constructed.
-	var direction: Vector3 = _scatter(origin, aim, travel_range, charge)
+	var direction: Vector3 = _scatter(origin, aim, travel_range, charge, back)
 	var far_point: Vector3 = origin + direction * travel_range
 	# The tracer starts at the barrel, not the eye, so it looks like it left the
 	# weapon -- but it ends where the shot truly ended, so back-projecting it
@@ -949,12 +949,12 @@ func _resolve_shot(charge: float) -> void:
 		# dodge the flight the model exists to create. The barrel at THIS
 		# instant rides along on the round so the trail that lands later still
 		# starts where the shot left, not where the tower has since walked to.
-		_launch(origin, direction, travel_range, charge, muzzle_node.global_position)
+		_launch(origin, direction, travel_range, charge, muzzle_node.global_position, back)
 		_note_shot(origin, far_point)
 		fired.emit(origin, far_point)
 		return
 
-	var hit: Dictionary = _cast(origin, far_point)
+	var hit: Dictionary = _cast(origin, far_point, back)
 	var end_point: Vector3 = far_point
 	var collider: Node3D = null
 	var normal: Vector3 = -direction
@@ -1092,7 +1092,7 @@ func _land_visual(at: Vector3) -> void:
 		return
 
 
-func _cast(from: Vector3, to: Vector3) -> Dictionary:
+func _cast(from: Vector3, to: Vector3, back: float = 0.0) -> Dictionary:
 	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
 	if space == null:
 		return {}
@@ -1102,8 +1102,8 @@ func _cast(from: Vector3, to: Vector3) -> Dictionary:
 	query.collide_with_bodies = true
 	if shooter_body != null:
 		query.exclude = [shooter_body.get_rid()]
-	if _lag_ticks > 0 and lag_trace.is_valid():
-		return lag_trace.call(space, query, _lag_ticks)
+	if back > 0.0 and lag_trace.is_valid():
+		return lag_trace.call(space, query, back)
 	return space.intersect_ray(query)
 
 
@@ -1292,7 +1292,8 @@ func _launch(
 	direction: Vector3,
 	travel_range: float,
 	charge: float,
-	muzzle_position: Vector3
+	muzzle_position: Vector3,
+	back: float,
 ) -> void:
 	var parent: Node = _world_parent()
 	var exclude: Array[RID] = []
@@ -1305,7 +1306,7 @@ func _launch(
 		parent, origin, direction, speed, travel_range, profile, exclude
 	)
 	round_shot.muzzle_origin = muzzle_position
-	round_shot.lag_ticks = _lag_ticks
+	round_shot.lag_ticks = back
 	round_shot.lag_trace = lag_trace
 	_last_launch_speed = speed
 	_projectiles.append(round_shot)
@@ -1377,12 +1378,12 @@ func _end_charge(held: float) -> void:
 ## draw would still be a floating-point round trip through a normalisation, and
 ## the shipped weapon's contract is that the shot line and the aim line are the
 ## same vector.
-func _scatter(origin: Vector3, aim: Vector3, travel_range: float, charge: float) -> Vector3:
+func _scatter(origin: Vector3, aim: Vector3, travel_range: float, charge: float, back: float) -> Vector3:
 	var cone: float = get_hip_spread_degrees()
 	if profile.has_spread():
 		var distance: float = -1.0
 		if profile.needs_range_probe():
-			distance = _probe_distance(origin, aim, travel_range)
+			distance = _probe_distance(origin, aim, travel_range, back)
 		cone += profile.get_spread_degrees(_motion_speed, _ready_elapsed, distance, charge)
 	if cone <= 0.0:
 		return aim
@@ -1414,8 +1415,8 @@ func _deflect(aim: Vector3, half_angle: float) -> Vector3:
 ## [member WeaponProfile.spread_growth_per_100m]. The full range when the line
 ## is pointing at nothing, because a shot into the sky is the longest shot
 ## there is.
-func _probe_distance(origin: Vector3, aim: Vector3, travel_range: float) -> float:
-	var probe: Dictionary = _cast(origin, origin + aim * travel_range)
+func _probe_distance(origin: Vector3, aim: Vector3, travel_range: float, back: float = 0.0) -> float:
+	var probe: Dictionary = _cast(origin, origin + aim * travel_range, back)
 	if probe.is_empty():
 		return travel_range
 	return origin.distance_to(probe.get("position", origin) as Vector3)

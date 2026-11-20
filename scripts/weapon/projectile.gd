@@ -52,8 +52,8 @@ var muzzle_origin: Vector3 = Vector3.ZERO:
 		muzzle_origin = value
 		_muzzle_offset = value - _origin
 
-## Ticks behind the authority this round's rays are cast, and what casts them; see [method Rifle.try_fire].
-var lag_ticks: int = 0
+## Ticks (fractional) behind the authority this round's rays are cast, and what casts them ([method Rifle.try_fire]).
+var lag_ticks: float = 0.0
 var lag_trace: Callable
 
 ## Metres per second, direction included. Gravity bends it in flight.
@@ -348,7 +348,7 @@ func _sweep(from: Vector3, to: Vector3) -> void:
 	if _predicted:
 		_sweep_world(space, query)
 		return
-	if lag_ticks > 0 and lag_trace.is_valid():
+	if lag_ticks > 0.0 and lag_trace.is_valid():
 		result = lag_trace.call(space, query, lag_ticks)
 	else:
 		result = space.intersect_ray(query)

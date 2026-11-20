@@ -104,9 +104,9 @@ func reset() -> void:
 	_window_count = WINDOW_TICKS
 
 
-## Take one command packet that arrived at host tick [param now]. Returns its newest sequence,
-## or -1 when it is malformed or older than one already taken (the receiver's stale discard).
-func receive(payload: PackedByteArray, now: int) -> int:
+## Take one command packet that arrived at host tick [param now], no view older than [param earliest_view].
+## Returns its newest sequence, or -1 when malformed or older than one already taken (the stale discard).
+func receive(payload: PackedByteArray, now: int, earliest_view: float = -INF) -> int:
 	var newest: int = NetCodec.command_newest(payload)
 	if newest < 0 or (_newest_seen >= 0 and not NetCodec.is_newer_tick(newest, _newest_seen)):
 		return -1
@@ -118,6 +118,10 @@ func receive(payload: PackedByteArray, now: int) -> int:
 	var count: int = NetCodec.unpack_commands(payload, _decoded, snap_tick)
 	if count == 0:
 		return -1
+	for i: int in count:
+		# A view older than the sender can have seen is a claim, not a measurement: held to the oldest it could.
+		if is_finite(_decoded[i].view_time):
+			_decoded[i].view_time = maxf(_decoded[i].view_time, earliest_view)
 	var first: bool = _newest_seen < 0
 	_newest_seen = newest
 	_seen_at = _elapsed

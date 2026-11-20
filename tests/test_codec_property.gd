@@ -204,7 +204,7 @@ func _snapshots(
 				counts["events_in"] += 1
 			up.push(1, false, _ack(at_tick), now)
 		for packet: PackedByteArray in up.pop_due(now):
-			recipient.take_ack(packet.decode_u32(0))
+			recipient.take_ack(packet.decode_u32(0), now)
 	print("          SNAPSHOTS over %d ticks%s: %s; largest %d B" % [TICKS,
 		" (taking stale)" if take_stale else (" (corrupting %.0f%%)" % (corrupt * 100.0) if corrupt > 0.0 else ""),
 		str(counts), largest])

@@ -21,6 +21,15 @@ signal event_received(type: NetEvents.Type, payload: PackedByteArray, tick: int)
 const RING: int = 32
 ## Authority ticks of body positions kept for lag compensation: Source's sv_maxunlag, one second.
 const HISTORY_TICKS: int = 64
+## A shield raised after the moment a shot rewinds to is not in its way, and one up then is (DESIGN
+## 13.4c); false: shots meet the live shields.
+const REWIND_SHIELDS: bool = true
+## Ticks a claimed view time may lie behind the measured one: the client's own jitter allowance.
+const VIEW_SLACK_TICKS: float = 4.0
+## What the history keeps per seat (DESIGN 8): its body at the seat, its hologram at 8 + seat, its shield.
+const _DECOY_ENTITY: int = NetTransport.MAX_PLAYERS
+const _SHIELD_ENTITY: int = 2 * NetTransport.MAX_PLAYERS
+const _ENTITIES: int = 3 * NetTransport.MAX_PLAYERS
 ## How far behind its own tick the host draws other bodies: one sample interval, never extrapolated.
 const HOST_PLAYOUT_TICKS: float = 2.0
 ## Event types presented on arrival: they are about this machine's own predicted body.
@@ -35,6 +44,10 @@ class Recipient:
 	## Every event up to this sequence has reached the client or been passed over.
 	var event_acked: int = -1
 	var event_counted: int = -1
+	## Host ticks from sending a snapshot to taking its ack, smoothed, and its mean deviation (RFC 6298);
+	## -1 before the first.
+	var rtt_ticks: float = -1.0
+	var rtt_deviation: float = 0.0
 	var _sent_ticks: PackedInt64Array = PackedInt64Array()
 	var _sent_events: PackedInt64Array = PackedInt64Array()
 	var _at: int = 0
@@ -53,15 +66,24 @@ class Recipient:
 		_at = (_at + 1) % RING
 		event_counted = maxi(event_counted, passed)
 
-	## The client decoded the snapshot at [param tick].
-	func take_ack(tick: int) -> void:
+	## The client decoded the snapshot at [param tick]; its ack reached the host at tick [param now].
+	func take_ack(tick: int, now: int) -> void:
 		if tick < 0 or (acked >= 0 and not NetCodec.is_newer_tick(tick, acked)):
 			return
 		acked = tick
 		for i: int in RING:
 			if _sent_ticks[i] == tick:
 				event_acked = maxi(event_acked, int(_sent_events[i]))
+				_sample_rtt(float(now - tick))
 				return
+
+	func _sample_rtt(sample: float) -> void:
+		if rtt_ticks < 0.0:
+			rtt_ticks = sample
+			rtt_deviation = sample * 0.5
+			return
+		rtt_deviation += (absf(sample - rtt_ticks) - rtt_deviation) * 0.25
+		rtt_ticks += (sample - rtt_ticks) * 0.125
 
 
 ## The session this replicator belongs to.
@@ -140,11 +162,14 @@ const _CLOCK_SNAP_TICKS: float = 20.0
 const _UNTIMED_FRAME_INTERVALS: float = 2.0
 var _blend: PlayerState = PlayerState.new()
 
-## Position of seat s at the tick in slot i is _history[s * HISTORY_TICKS + i].
+## Position of entity e at the tick in slot i is _history[e * HISTORY_TICKS + i].
 var _history: PackedVector3Array = PackedVector3Array()
 var _history_ticks: PackedInt32Array = PackedInt32Array()
-## The body's collision layer on that tick, in the same slot; 0 for a seat with no body in play.
+## The entity's collision layer on that tick, in the same slot (0: none in play), its placement
+## counter (no blending across a placement) and its stance (1: crouched).
 var _history_layers: PackedInt32Array = PackedInt32Array()
+var _history_placed: PackedInt32Array = PackedInt32Array()
+var _history_crouched: PackedByteArray = PackedByteArray()
 var _rewind_space: RewindSpace = null
 
 ## Client: this machine's commands, numbered and kept until the host has run them.
@@ -286,10 +311,10 @@ func take_commands(sender: int, payload: PackedByteArray) -> void:
 		return
 	var recipient: Recipient = _recipients.get(sender, null)
 	if recipient != null:
-		recipient.take_ack(NetCodec.command_snap_ack(payload))
+		recipient.take_ack(NetCodec.command_snap_ack(payload), _tick)
 	for link: PlayerNetLink in _links:
 		if link.owner_peer_id == sender:
-			var newest: int = stream_for(sender).receive(payload, _tick)
+			var newest: int = stream_for(sender).receive(payload, _tick, float(_tick) - _honest_back(recipient))
 			if newest >= 0:
 				link.intent_received.emit(sender, newest)
 			return
@@ -467,6 +492,17 @@ static func sample_bodies(world: WorldSnapshot, links: Array[PlayerNetLink], tic
 		world.owner_valid |= 1 << link.seat_index
 
 
+## Ticks behind the host an honest view can be as its command arrives (Source's latency plus lerp):
+## the measured round trip, the client's playout delay, and jitter slack. 0 for a peer never sent a world.
+func _honest_back(recipient: Recipient) -> float:
+	if recipient == null or recipient.rtt_ticks < 0.0:
+		return 0.0
+	var settings: NetSettings = session.get_settings()
+	var interval: float = settings.get_snapshot_interval() * float(NetCodec.TICK_RATE)
+	var playout: float = maxf(float(settings.interpolation_delay_ticks), maxf(interval, 1.0))
+	return recipient.rtt_ticks + 4.0 * recipient.rtt_deviation + playout + VIEW_SLACK_TICKS
+
+
 ## The seat whose body [param peer] drives, or -1.
 func _seat_of_peer(peer: int) -> int:
 	for link: PlayerNetLink in _links:
@@ -477,22 +513,44 @@ func _seat_of_peer(peer: int) -> int:
 
 # --- Lag compensation ---------------------------------------------------------
 
-## Keep where every body is on this tick, after it has moved.
+## Keep where every body, hologram and shield is on this tick, after it has moved.
 func _record_history() -> void:
 	if _history.is_empty():
-		_history.resize(NetTransport.MAX_PLAYERS * HISTORY_TICKS)
+		var size: int = _ENTITIES * HISTORY_TICKS
+		_history.resize(size)
+		_history_layers.resize(size)
+		_history_placed.resize(size)
+		_history_crouched.resize(size)
 		_history_ticks.resize(HISTORY_TICKS)
 		_history_ticks.fill(-1)
-		_history_layers.resize(_history.size())
 	var slot: int = _tick % HISTORY_TICKS
 	_history_ticks[slot] = _tick
-	for seat: int in NetTransport.MAX_PLAYERS:
-		_history_layers[seat * HISTORY_TICKS + slot] = 0
+	for entity: int in _ENTITIES:
+		_history_layers[entity * HISTORY_TICKS + slot] = 0
 	for link: PlayerNetLink in _links:
-		if link.is_replicable() and link.seat_index < NetTransport.MAX_PLAYERS:
-			var at: int = link.seat_index * HISTORY_TICKS + slot
-			_history[at] = link.controller.global_position
-			_history_layers[at] = link.controller.collision_layer
+		if not link.is_replicable() or link.seat_index >= NetTransport.MAX_PLAYERS:
+			continue
+		var body: PlayerController = link.controller
+		_record(link.seat_index, slot, body, body.global_position)
+		var power: RunnerPower = body.power
+		if power == null:
+			continue
+		var decoy: PlayerController = power.get_decoy()
+		if decoy != null and power.state.out:
+			# From the anchor, the pose the snapshot sends.
+			_record(_DECOY_ENTITY + link.seat_index, slot, decoy, power.state.pose_position)
+		var shield: StaticBody3D = power.get_shield()
+		if is_instance_valid(shield):
+			_record(_SHIELD_ENTITY + link.seat_index, slot, shield, shield.global_position)
+
+
+func _record(entity: int, slot: int, body: CollisionObject3D, at: Vector3) -> void:
+	var i: int = entity * HISTORY_TICKS + slot
+	var runner: PlayerController = body as PlayerController
+	_history[i] = at
+	_history_layers[i] = body.collision_layer
+	_history_placed[i] = runner.placed_counter if runner != null else 0
+	_history_crouched[i] = 1 if runner != null and runner.is_crouching() else 0
 
 
 ## The tick (fractional) of the world this machine last drew other bodies at, stamped on its
@@ -501,20 +559,25 @@ func get_view_time() -> float:
 	return _drawn_time
 
 
-## Authority: ticks back to the world a command's [param view_time] names, within the history kept.
-func rewind_ticks(view_time: float) -> int:
+## Authority: ticks back (fractional) to the world a command's [param view_time] names, clamped to
+## the history kept: a time ahead of the authority is its present, never extrapolated.
+func rewind_ticks(view_time: float) -> float:
 	if not is_finite(view_time):
-		return 0
-	return clampi(roundi(float(_tick) - view_time), 0, HISTORY_TICKS - 1)
+		return 0.0
+	return clampf(float(_tick) - view_time, 0.0, float(HISTORY_TICKS - 1))
 
 
-## [param query]'s ray in [param space], with every body it does not exclude standing where it
-## stood [param back] ticks ago; the live ray when that tick is not in the history kept.
-func trace(space: PhysicsDirectSpaceState3D, query: PhysicsRayQueryParameters3D, back: int) -> Dictionary:
-	var then: int = _tick - back
-	var slot: int = posmod(then, HISTORY_TICKS)
-	if not _is_authority or back <= 0 or then < 0 or _history.is_empty() or _history_ticks[slot] != then:
+## [param query]'s ray in [param space], with every body, hologram and shield it does not exclude
+## where it stood [param back] ticks ago, blended between the two ticks kept around that moment
+## (Bernier's target time); the live ray when that moment is not in the history kept.
+func trace(space: PhysicsDirectSpaceState3D, query: PhysicsRayQueryParameters3D, back: float) -> Dictionary:
+	var then: float = float(_tick) - back
+	var early: int = floori(then)
+	var slot: int = posmod(early, HISTORY_TICKS)
+	if not _is_authority or back <= 0.0 or early < 0 or _history.is_empty() or _history_ticks[slot] != early:
 		return space.intersect_ray(query)
+	var late_slot: int = posmod(early + 1, HISTORY_TICKS)
+	var weight: float = then - float(early) if _history_ticks[late_slot] == early + 1 else 0.0
 	var live_exclude: Array[RID] = query.exclude
 	var exclude: Array[RID] = live_exclude.duplicate()
 	if _rewind_space == null:
@@ -524,13 +587,25 @@ func trace(space: PhysicsDirectSpaceState3D, query: PhysicsRayQueryParameters3D,
 		if not link.is_replicable() or link.seat_index >= NetTransport.MAX_PLAYERS:
 			continue
 		var body: PlayerController = link.controller
-		if live_exclude.has(body.get_rid()):
+		if not live_exclude.has(body.get_rid()):
+			exclude.append(body.get_rid())
+			_stand_body(link.seat_index, body, slot, late_slot, weight, query.collision_mask)
+		var power: RunnerPower = body.power
+		if power == null:
 			continue
-		exclude.append(body.get_rid())
-		var at: int = link.seat_index * HISTORY_TICKS + slot
-		# A body that could not be hit on that tick was not there for the shooter to aim at.
-		if (_history_layers[at] & query.collision_mask) != 0:
-			_rewind_space.place(link.seat_index, body, _history[at])
+		var decoy: PlayerController = power.get_decoy()
+		if decoy != null and not live_exclude.has(decoy.get_rid()):
+			exclude.append(decoy.get_rid())
+			_stand_body(_DECOY_ENTITY + link.seat_index, decoy, slot, late_slot, weight, query.collision_mask)
+		if REWIND_SHIELDS:
+			var shield: StaticBody3D = power.get_shield()
+			if is_instance_valid(shield):
+				exclude.append(shield.get_rid())
+			var at: int = (_SHIELD_ENTITY + link.seat_index) * HISTORY_TICKS + slot
+			if (_history_layers[at] & query.collision_mask) != 0:
+				_rewind_space.place_sphere(
+					_SHIELD_ENTITY + link.seat_index, _history[at], RunnerPower.SHIELD_RADIUS, _history_layers[at], shield
+				)
 	var hit: Dictionary = _rewind_space.intersect_ray(query)
 	query.exclude = exclude
 	var world_hit: Dictionary = space.intersect_ray(query)
@@ -541,6 +616,20 @@ func trace(space: PhysicsDirectSpaceState3D, query: PhysicsRayQueryParameters3D,
 		return hit
 	var near: float = query.from.distance_squared_to(hit["position"])
 	return hit if near <= query.from.distance_squared_to(world_hit["position"]) else world_hit
+
+
+## Stand [param entity]'s [param body] as it was at the tick in [param slot], blended [param weight]
+## of the way to the next where it stood on both and was not placed between them; its stance is the earlier's.
+func _stand_body(entity: int, body: PlayerController, slot: int, late_slot: int, weight: float, mask: int) -> void:
+	var at: int = entity * HISTORY_TICKS + slot
+	# A body that could not be hit on that tick was not there for the shooter to aim at.
+	if (_history_layers[at] & mask) == 0:
+		return
+	var origin: Vector3 = _history[at]
+	var late: int = entity * HISTORY_TICKS + late_slot
+	if weight > 0.0 and _history_layers[late] != 0 and _history_placed[late] == _history_placed[at]:
+		origin = origin.lerp(_history[late], weight)
+	_rewind_space.place_body(entity, body, origin, _history_crouched[at] != 0)
 
 
 # --- Receiving ----------------------------------------------------------------
@@ -722,8 +811,8 @@ func _owe_stop(elapsed: float) -> void:
 		_stop_debt = maxf(_stop_debt - elapsed * _MAX_DILATION, 0.0)
 
 
-## Host: draw every body but its own at tick [param time], from the worlds it sent. Render-only:
-## the avatar moves, the collider stays where physics has it.
+## Host: draw every body but its own, and their powers, at tick [param time], from the worlds it
+## sent. Render-only: the avatar and views move, the colliders stay where physics has them.
 func draw_host_at(time: float) -> void:
 	var live: bool = _ring_count < 2 or session == null or session.get_peer_count() <= 1 or _scene == 0
 	_drawn_time = MoveIntent.LIVE_WORLD if live else time
@@ -743,10 +832,11 @@ func draw_host_at(time: float) -> void:
 			continue
 		var span: float = float(to_snapshot.tick - from_snapshot.tick)
 		var weight: float = 1.0 if span <= 0.0 else clampf((_drawn_time - float(from_snapshot.tick)) / span, 0.0, 1.0)
-		if from_state.placed_counter != to_state.placed_counter:
-			weight = 1.0
-		var yaw: float = lerp_angle(from_state.yaw, to_state.yaw, weight)
-		link.draw_avatar_at(Transform3D(Basis(Vector3.UP, yaw), from_state.position.lerp(to_state.position, weight)))
+		_blend.interpolate_from(from_state, to_state, weight)
+		link.draw_avatar_at(Transform3D(Basis(Vector3.UP, _blend.yaw), _blend.position))
+		# Its power too (shield, hologram, cat), where lag compensation traces a host shot at them.
+		if link.controller.power != null:
+			link.controller.power.take_playout_record(_blend)
 
 
 func _draw_live(link: PlayerNetLink) -> void:

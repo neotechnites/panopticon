@@ -1270,9 +1270,22 @@ func _crouched_capsule_height() -> float:
 func _apply_stance() -> void:
 	if _capsule == null:
 		return
-	var height: float = _crouched_capsule_height() if _crouching else _standing_height
-	_capsule.height = height
-	collision.position.y = _collision_base_y - (_standing_height - height) * 0.5
+	_capsule.height = stance_capsule_height(_crouching)
+	collision.position = stance_capsule_transform(_crouching).origin
+
+
+## The capsule's height standing or [param crouched]; 0.0 for a body with no capsule.
+func stance_capsule_height(crouched: bool) -> float:
+	if _capsule == null:
+		return 0.0
+	return _crouched_capsule_height() if crouched else _standing_height
+
+
+## The capsule's local transform standing or [param crouched]: its foot stays where it was.
+func stance_capsule_transform(crouched: bool) -> Transform3D:
+	var at: Transform3D = collision.transform if collision != null else Transform3D.IDENTITY
+	at.origin.y = _collision_base_y - (_standing_height - stance_capsule_height(crouched)) * 0.5
+	return at
 
 
 ## Is there room above the crouched capsule for the standing one?

@@ -85,6 +85,9 @@ func test_the_holder_is_found_when_its_link_is_not_under_its_body() -> void:
 	if not assert_eq_int(cats.size(), 1, "the host has the cat"):
 		return
 	await step_ticks(2)
+	# Views are drawn per frame, not per tick: the signal comes before a frame's drawing, so two.
+	await get_tree().process_frame
+	await get_tree().process_frame
 	var view: CatView = power.get_cat_view()
 	if not assert_not_null(view, "the host draws the cat in its carrier's hands"):
 		return
