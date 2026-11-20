@@ -501,6 +501,60 @@ func test_a_ghost_catching_a_prisoner_swaps_their_roles() -> void:
 	assert_eq_int(_catches, 1, "the swap did not oscillate on the next tick")
 
 
+## A bot prisoner stood in a cover point and caught there by a ghost; the incoming prisoner and the point.
+func _a_bot_in_cover_caught(held_seconds: float, leaves_first: bool) -> Dictionary:
+	await step_ticks(RUNNING_TICKS)
+	var victim: MatchParticipant = _controller.get_live_participants()[0]
+	assert_true(_controller.apply_hit(victim), "a prisoner is shot to make the ghost")
+	await _await_respawn(victim)
+	_hold_fire(_controller.get_seat_participant())
+	var quarry: MatchParticipant = _controller.get_live_participants()[0]
+	var brain: RunnerBrain = quarry.brain
+	var bake: RingBake = brain.get_navigation()
+	var forward: Vector3 = -quarry.body.global_transform.basis.z
+	forward.y = 0.0
+	var index: int = bake.nearest_cover_ahead(quarry.body.global_position, forward.normalized(), 12.0, PackedVector3Array())
+	if not assert_ge(float(index), 0.0, "there is cover ahead of the quarry"):
+		return {}
+	var point: Vector3 = bake.cover_point(index)
+	quarry.body.global_position = Vector3(point.x, quarry.body.global_position.y, point.z)
+	brain.set(&"_cover", point)
+	brain.set(&"_cover_seconds", held_seconds)
+	brain.set(&"_state", RunnerBrain.State.TAKE_COVER)
+	if leaves_first:
+		# Its own tick, past its patience: it leaves the cover through the brain's own exit.
+		await step_ticks(1)
+		assert_false(brain.get_state_name() == "TAKE_COVER", "the quarry left the cover it had waited out")
+	_put_ghost_on(victim, quarry, true)
+	await step_ticks(MatchController.SETTLE_PHYSICS_FRAMES + 2)
+	assert_same(_shove_catch(victim), quarry, "the ghost shoved the prisoner in the cover")
+	return {"incoming": victim, "point": point}
+
+
+## The incoming prisoner holds the cover for what is left of the caught one's patience, not a fresh one:
+## two ghosts arriving inside the patience otherwise keep a hidden runner hidden forever, and the round with it.
+func test_a_bot_caught_in_cover_hands_over_the_time_already_held() -> void:
+	var held: float = 2.0
+	var caught: Dictionary = await _a_bot_in_cover_caught(held, false)
+	if caught.is_empty():
+		return
+	var brain: RunnerBrain = (caught["incoming"] as MatchParticipant).brain
+	assert_eq_string(brain.get_state_name(), "TAKE_COVER", "the incoming prisoner holds the cover it took over")
+	assert_almost_eq(brain.get_cover_seconds(), held, 0.05, "with the time already held there")
+	assert_lt(_flat((brain.get(&"_cover") as Vector3) - (caught["point"] as Vector3)), 0.01, "at the same cover point")
+
+
+## A prisoner caught just out of a cover it waited out: the one who takes the spot does not go back into it.
+func test_a_bot_caught_leaving_cover_does_not_take_it_again() -> void:
+	var caught: Dictionary = await _a_bot_in_cover_caught(60.0, true)
+	if caught.is_empty():
+		return
+	var brain: RunnerBrain = (caught["incoming"] as MatchParticipant).brain
+	var found: bool = brain.call(&"_find_cover")
+	var again: bool = found and _flat((brain.get(&"_cover") as Vector3) - (caught["point"] as Vector3)) < 0.01
+	assert_false(again, "the incoming prisoner takes no cover the run has already left")
+
+
 ## TOUCHING IS NOT CATCHING. The author's rule: a ghost must SHOVE a living
 ## prisoner to take their place.
 ##
