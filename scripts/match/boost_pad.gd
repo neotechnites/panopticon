@@ -1,87 +1,13 @@
 class_name BoostPad
 extends Area3D
 
-## A Halo-style launch pad: walk onto it and leave along a fixed 45-degree arc,
-## in the direction the pad is facing.
+## A Halo-style launch pad: a body that steps onto its box leaves along this node's own forward
+## (-Z) tilted [member launch_angle_degrees] up, at [member launch_speed] whatever it arrived with.
 ##
-## Canon, in the author's words: [i]"lets also add the halo 45 degree boost
-## pad... you can make the boost pad before putting it in the level, it should
-## just be a game object we can use to make maps, same as the trap."[/i]
-##
-## [b]This is a movement toy, not a level feature.[/b] Explicitly not how
-## players travel between levels -- Ryan has ruled that ramps behind cover do
-## that. It is a reusable prop under [code]props/[/code], instanced into
-## a map the same way [TrapVolume] is, and it is placed in no map by this
-## change.
-##
-## [b]It never asks who touched it and never reports anywhere.[/b] Unlike
-## [TrapVolume] this node has no [MatchController] to find and no death to
-## route: it only reads and writes [member PlayerController.velocity], exactly
-## the seam [method PlayerController._try_jump] itself uses
-## ([code]velocity.y = profile.jump_velocity[/code], assigned directly, never
-## requested through a [MoveIntent]). A body that is not a [PlayerController]
-## is left alone, in the same spirit as [TrapVolume] doing nothing to a body
-## that is not a recognised participant -- deciding what such a thing is is not
-## this node's job.
-##
-## [b]It does not add a movement mode.[/b] The tick after a launch is an
-## ordinary AIR tick as far as [PlayerController] is concerned -- indistinguishable
-## from one that started with a jump. Every existing air rule (Quake air-strafe,
-## gravity, [member MovementProfile.auto_bunny_hop] on landing) applies to it
-## untouched, because nothing here tells the controller it was launched at all.
-##
-## [b]Facing, not placement, aims it.[/b] The launch direction is built from
-## this node's OWN basis: local -Z (forward -- the same axis
-## [method PlayerController._get_wish_vector] treats as forward) tilted towards
-## local +Y (up) by [member launch_angle_degrees]. Rotating the node is the
-## whole interface; if a placement ever tilts pitch or roll too (mounted askew
-## on a built structure) that tilt rides along, because the pad reads its own
-## orientation and never the world's.
-##
-## [b]Fixed arc, not added momentum -- this is the deliberate answer to "walked
-## on slowly vs. sprinted on."[/b] Touching the pad OVERWRITES velocity rather
-## than adding to it, so a body that shuffled on and a body that sprinted on
-## leave on exactly the same vector. That is the Halo reference and it is what
-## makes this usable as a MAP-MAKING piece: a level author can place one knowing
-## exactly where a player who touches it lands, rather than tuning it against
-## however fast people happen to arrive. Adding launch velocity to whatever the
-## body already had would make the same pad throw a walker three metres and a
-## bunny-hopper across the whole map -- a trap for a level designer, not a tool.
-##
-## [b]Landing is not this node's business.[/b] No new landing state, no fall
-## damage (the game has none), no special catch. The same
-## [signal PlayerController.landed] a jump's landing fires drives the same
-## landing audio ([code]scripts/audio/movement_audio_*.gd[/code], scaled by
-## impact speed), and the body regains ordinary ground control on the tick it
-## settles, same as after any fall. Anything bespoke here would be exactly the
-## "special launched movement mode" the brief rules out.
-##
-## [b]Bots and ghosts hit it exactly as a human does, because there is no
-## branch that could tell them apart.[/b] A [PlayerController] driven by a
-## [HumanIntentSource], one driven by a [BotIntentSource] (see [RunnerBrain]),
-## and a ghost's body under [MatchController] are the identical script, and
-## this node only ever touches [member PlayerController.velocity], never an
-## intent. A bot brain with no obstacle avoidance and no notion of "airborne"
-## (RunnerBrain has neither) simply keeps issuing whatever wish direction it
-## already had while the assigned velocity carries the body -- nothing to
-## error on. A GHOST is the same body with
-## [member PlayerController.speed_scale] raised (3.0 in the shipped
-## [GhostProfile]); that multiplier scales only the WISH speed the ground and
-## air accelerate routines chase (see [method PlayerController._air_accelerate]),
-## never the velocity this node assigns, so a ghost leaves a pad on exactly the
-## vector a human would and only out-accelerates them afterwards -- exactly how
-## a ghost out-paces a human everywhere else in the game. [member collision_mask]
-## is widened past the default living-body layer to include
-## [constant MatchController.GHOST_HAZARD_LAYER] for exactly this reason; see
-## [TrapVolume] for why that is the bit a ghost's body stands on.
-##
-## [b]It is a floor object, and unlike [TrapVolume] it lifts its own geometry to
-## say so.[/b] [TrapVolume] centres its box on the node's own origin and leaves
-## the half-height offset to whoever places it. A boost pad is something you
-## WALK ONTO, so this node instead lifts both the detection shape and the drawn
-## plate by half of [member footprint_metres.y], so the node's origin IS the
-## walkable surface: drop it at floor height and the plate sits ON the floor,
-## not half-buried in it.
+## The pad is data, not a physics monitor: each body tests its own move against the pads of its world
+## ([method PlayerController._touch_pads]) and launches itself, so a client's replay throws it again.
+## A pad takes the bodies on the layers its [member collision_mask] holds, while [member armed].
+## Its origin is the floor: the box and the plate are lifted to stand on it.
 
 ## Metres a body must overlap to trigger the pad. X is the footprint's width
 ## (across the direction of travel), Y is how tall the trigger volume stands
@@ -136,8 +62,19 @@ const CHEVRON_DEPTH_METRES: float = 0.18
 const CHEVRON_WIDTH_FRACTIONS: PackedFloat32Array = [0.75, 0.5, 0.25]
 
 
-static var _live: Array[BoostPad] = []
+## Ternary-search steps for a segment's distance to the box: (2/3)^24 of the segment, under 0.1 mm.
+const SEARCH_STEPS: int = 24
+
+## The pads in each world, as Area3D binds to its space; keyed by [World3D].
+static var _by_world: Dictionary[World3D, Array] = {}
+static var _none: Array[BoostPad] = []
+
+## Whether the pad launches. The one switch: the Area3D itself never monitors.
+var armed: bool = true
+
+var _world: World3D = null
 var _box: CollisionShape3D = null
+var _half: Vector3 = Vector3.ZERO
 var _reach: float = 0.0
 
 
@@ -147,32 +84,63 @@ func _ready() -> void:
 	var holder: CollisionShape3D = _find_shape_holder()
 	if holder != null and holder.shape is BoxShape3D:
 		_box = holder
-		var scale: Vector3 = holder.global_basis.get_scale()
+		_half = (holder.shape as BoxShape3D).size * 0.5
 		_reach = (holder.global_position - global_position).length() \
-			+ (holder.shape as BoxShape3D).size.length() * 0.5 * maxf(scale.x, maxf(scale.y, scale.z))
+			+ (_half * holder.global_basis.get_scale().abs()).length()
 
 
-func _enter_tree() -> void:
-	_live.append(self)
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_ENTER_WORLD:
+		_world = get_world_3d()
+		if not _by_world.has(_world):
+			var pads: Array[BoostPad] = []
+			_by_world[_world] = pads
+		_by_world[_world].append(self)
+	elif what == NOTIFICATION_EXIT_WORLD and _world != null:
+		var pads: Array = _by_world[_world]
+		pads.erase(self)
+		if pads.is_empty():
+			_by_world.erase(_world)
+		_world = null
 
 
-func _exit_tree() -> void:
-	_live.erase(self)
+## The pads in [param world] now, for the bodies there that test themselves against them.
+static func in_world(world: World3D) -> Array[BoostPad]:
+	return _by_world.get(world, _none)
 
 
-## Every pad in a tree now, for the bodies that test themselves against them.
-static func live() -> Array[BoostPad]:
-	return _live
-
-
-## The box that launches, and where it stands in the world; null before ready.
-func get_detection_shape() -> CollisionShape3D:
-	return _box
-
-
-## Metres from this node's origin to the far corner of its box: nothing farther can touch it.
+## Metres from this node's origin to the far corner of its box, at ready's scale: nothing farther touches it.
 func get_reach() -> float:
 	return _reach
+
+
+## Least distance, metres, from the world segment [param from]-[param to] to this pad's box, scale and all;
+## INF before ready. A sheared box is read as its nearest oriented box.
+func distance_to_segment(from: Vector3, to: Vector3) -> float:
+	if _box == null:
+		return INF
+	var basis: Basis = _box.global_basis
+	var to_box: Transform3D = Transform3D(basis.orthonormalized(), _box.global_position).inverse()
+	return _segment_to_box(to_box * from, to_box * to, _half * basis.get_scale().abs())
+
+
+## Least distance from segment [param from]-[param to] to the box of half-size [param half] at the origin:
+## the distance along the segment is convex, so a ternary search finds its least.
+static func _segment_to_box(from: Vector3, to: Vector3, half: Vector3) -> float:
+	var lo: float = 0.0
+	var hi: float = 1.0
+	for _i: int in SEARCH_STEPS:
+		var a: float = lerpf(lo, hi, 1.0 / 3.0)
+		var b: float = lerpf(lo, hi, 2.0 / 3.0)
+		if _point_to_box(from.lerp(to, a), half) <= _point_to_box(from.lerp(to, b), half):
+			hi = b
+		else:
+			lo = a
+	return _point_to_box(from.lerp(to, (lo + hi) * 0.5), half)
+
+
+static func _point_to_box(point: Vector3, half: Vector3) -> float:
+	return (point - point.clamp(-half, half)).length()
 
 
 # --- Geometry -----------------------------------------------------------------
@@ -262,20 +230,13 @@ func _find_chevrons() -> Array[CSGBox3D]:
 # --- Launch ---------------------------------------------------------------
 
 
-# A body launches itself on the step onto a pad: [method PlayerController._touch_pads], part of its
-# move, so a client's replay of that move throws it again.
-
-
-## The unit vector a body leaves along: this node's own forward, tilted
-## [member launch_angle_degrees] towards this node's own up. Both basis columns
-## are normalised individually before combining, so a pad instanced with any
-## accidental non-uniform scale still launches along a true unit direction
-## rather than a distorted one.
 ## The velocity a body leaves this pad with, in world space.
 func get_launch_velocity() -> Vector3:
 	return _launch_direction() * launch_speed
 
 
+## This node's forward tilted [member launch_angle_degrees] towards its up, each axis normalised so
+## any scale still gives a unit direction.
 func _launch_direction() -> Vector3:
 	var forward: Vector3 = -global_transform.basis.z.normalized()
 	var up: Vector3 = global_transform.basis.y.normalized()

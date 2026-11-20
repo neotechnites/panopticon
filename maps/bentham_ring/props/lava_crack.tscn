@@ -73,6 +73,7 @@ color_initial_ramp = SubResource("GradientTexture1D_ember_birth")
 editor_description = "A lava crack, drag-in/Ctrl+D/rotate to aim/move: a boost pad with wavy hotness instead of a model. Embers and heat wisps vent up out of it (Embers), and the haze carries a vent band up its middle."
 collision_layer = 0
 collision_mask = 1048577
+monitoring = false
 monitorable = false
 script = ExtResource("1_boost_pad")
 footprint_metres = Vector3(2.5, 1, 2.5)

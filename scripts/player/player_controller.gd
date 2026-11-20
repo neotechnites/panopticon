@@ -86,6 +86,9 @@ signal press_ruled(buttons: int, ruling: StringName)
 ## Emitted when [method launch] throws this body: a shove, a cat's blast, a boost pad.
 signal launched(velocity_vector: Vector3)
 
+## Emitted when this body's own move steps onto [param pad] and launches it; never in a replay.
+signal pad_launched(pad: BoostPad)
+
 ## Emitted when [method set_held] changes whether the match holds this body.
 signal held_changed(hold: bool)
 
@@ -203,8 +206,6 @@ var _speed_boost_multiplier: float = 1.0
 const TURBO_MULTIPLIER: float = 3.0
 ## The least a floor-contact probe reaches down, metres: a restored body standing on a floor touches it.
 const FLOOR_PROBE_METRES: float = 0.05
-## Ternary-search steps for a capsule's distance to a pad's box: (2/3)^24 of the capsule, under 0.1 mm.
-const PAD_SEARCH_STEPS: int = 24
 const EMOTE_KEYS: int = MoveIntent.EMOTE | MoveIntent.EMOTE_ALT
 ## The presses [method _move] answers, which a movement lock swallows.
 const LOCKED_KEYS: int = EMOTE_KEYS | MoveIntent.JUMP
@@ -213,7 +214,6 @@ var _speed_boost_timer: float = 0.0
 ## Downward speed on the last airborne tick, reported by [signal landed].
 var _fall_speed: float = 0.0
 
-var _was_on_floor: bool = true
 ## Whether the body stood on a boost pad after its last move: a pad launches on the step onto it.
 var _on_pad: bool = false
 
@@ -360,7 +360,8 @@ func _move(delta: float) -> void:
 	else:
 		_apply_look(_intent.look_delta)
 
-	var on_floor: bool = is_on_floor()
+	var was_on_floor: bool = is_on_floor()
+	var on_floor: bool = was_on_floor
 	_tick_jump_timers(on_floor, delta)
 	_tick_slide_timers(delta)
 	_tick_speed_boost(delta)
@@ -445,7 +446,7 @@ func _move(delta: float) -> void:
 
 	_settle_head(delta)
 	move_and_slide()
-	_update_floor_state()
+	_update_floor_state(was_on_floor)
 	_update_slide_exit(delta)
 	_touch_pads()
 
@@ -453,58 +454,40 @@ func _move(delta: float) -> void:
 ## A boost pad is part of the move, so a replay throws the body where its first run did: stepping onto
 ## one (it was not on one last tick) launches the body next tick, as [method launch] does.
 func _touch_pads() -> void:
-	var pad: BoostPad = _pad_under() if not BoostPad.live().is_empty() else null
+	var pad: BoostPad = _pad_under()
 	if pad != null and not _on_pad:
 		launch(pad.get_launch_velocity())
+		pad_launched.emit(pad)
 	_on_pad = pad != null
 
 
-## The boost pad whose box this body's capsule overlaps where the body stands now, or null. Computed,
-## not asked of the physics server, whose copy of a body's transform lags the moves of a replay.
+## The armed pad in this body's world whose box its capsule overlaps where it stands now, or null.
+## Computed: a pad is no physics object (layer 0, never monitoring), and a shape query allocates.
 func _pad_under() -> BoostPad:
 	var capsule: CapsuleShape3D = collision.shape as CapsuleShape3D if collision != null else null
 	if capsule == null or not is_inside_tree():
 		return null
+	var pads: Array[BoostPad] = BoostPad.in_world(get_world_3d())
 	var here: Vector3 = global_position
 	var reach: float = maxf(capsule.height * 0.5 - capsule.radius, 0.0)
-	var axis: Transform3D = Transform3D()
+	var low: Vector3 = Vector3.ZERO
+	var high: Vector3 = Vector3.ZERO
 	var measured: bool = false
-	for pad: BoostPad in BoostPad.live():
+	for pad: BoostPad in pads:
+		if not pad.armed or (pad.collision_mask & collision_layer) == 0:
+			continue
 		# Far from the box (its corner's reach and the whole capsule's), nothing more is needed.
 		var near: float = pad.get_reach() + capsule.height
-		if here.distance_squared_to(pad.global_position) > near * near or (pad.collision_mask & collision_layer) == 0:
-			continue
-		var box: CollisionShape3D = pad.get_detection_shape()
-		if box == null:
+		if here.distance_squared_to(pad.global_position) > near * near:
 			continue
 		if not measured:
-			axis = collision.global_transform
+			var axis: Transform3D = collision.global_transform
+			low = axis * Vector3(0.0, -reach, 0.0)
+			high = axis * Vector3(0.0, reach, 0.0)
 			measured = true
-		var to_box: Transform3D = box.global_transform.affine_inverse()
-		var low: Vector3 = to_box * (axis * Vector3(0.0, -reach, 0.0))
-		var high: Vector3 = to_box * (axis * Vector3(0.0, reach, 0.0))
-		if _segment_to_box(low, high, (box.shape as BoxShape3D).size * 0.5) <= capsule.radius:
+		if pad.distance_to_segment(low, high) <= capsule.radius:
 			return pad
 	return null
-
-
-## Least distance from segment [param from]-[param to] to the box of half-size [param half] at the origin:
-## the distance along the segment is convex, so a ternary search finds its least.
-static func _segment_to_box(from: Vector3, to: Vector3, half: Vector3) -> float:
-	var lo: float = 0.0
-	var hi: float = 1.0
-	for _i: int in PAD_SEARCH_STEPS:
-		var a: float = lerpf(lo, hi, 1.0 / 3.0)
-		var b: float = lerpf(lo, hi, 2.0 / 3.0)
-		if _point_to_box(from.lerp(to, a), half) <= _point_to_box(from.lerp(to, b), half):
-			hi = b
-		else:
-			lo = a
-	return _point_to_box(from.lerp(to, (lo + hi) * 0.5), half)
-
-
-static func _point_to_box(point: Vector3, half: Vector3) -> float:
-	return (point - point.clamp(-half, half)).length()
 
 
 ## Supply intent from outside. Use it when [member intent_source] is unset --
@@ -644,7 +627,7 @@ func capture_motion_state(out: PackedFloat32Array) -> void:
 	out[8] = 1.0 if _sliding else 0.0
 	out[9] = 1.0 if _was_slide_pressed else 0.0
 	out[10] = 1.0 if _crouching else 0.0
-	out[11] = 1.0 if _was_on_floor else 0.0
+	out[11] = 1.0 if is_on_floor() else 0.0
 	out[12] = _fall_speed
 	out[13] = _head_offset
 	out[14] = _pitch
@@ -659,8 +642,8 @@ func capture_motion_state(out: PackedFloat32Array) -> void:
 	out[23] = 1.0 if _on_pad else 0.0
 
 
-## Put a state from [method capture_motion_state] back on the body. A wrongly
-## sized array is ignored rather than half-restored.
+## Put a state from [method capture_motion_state] back on the body, its position already restored: the
+## floor contact is remade where it stands. A wrongly sized array is ignored rather than half-restored.
 func restore_motion_state(values: PackedFloat32Array) -> void:
 	if values.size() != MOTION_STATE_SIZE:
 		return
@@ -675,7 +658,6 @@ func restore_motion_state(values: PackedFloat32Array) -> void:
 	_sliding = values[8] > 0.5
 	_was_slide_pressed = values[9] > 0.5
 	_crouching = values[10] > 0.5
-	_was_on_floor = values[11] > 0.5
 	_fall_speed = values[12]
 	_head_offset = values[13]
 	_pitch = values[14]
@@ -691,20 +673,19 @@ func restore_motion_state(values: PackedFloat32Array) -> void:
 	# The capsule is sized from the stance, so a restored crouch has to resize
 	# it or the body keeps the height of the tick it was rewound from.
 	_apply_stance()
+	_restore_floor_contact(values[11] > 0.5)
 
 
-## Replay one of this body's own commands on a predicting client: [method run_command] silenced and
-## marked [member replaying], on state already restored. See [PlayerNetLink].
-## Make the engine's floor contact [param on_floor] where the body stands, as a restored state needs:
-## the next [method CharacterBody3D.move_and_slide] snaps and tests the floor off the last contact.
-func restore_floor_contact(on_floor: bool) -> void:
-	if is_on_floor() == on_floor or not is_inside_tree():
+## Remake the engine's floor contact where the body stands, [param on_floor] or not: the next
+## [method CharacterBody3D.move_and_slide] snaps and tests off it, and its normal and walls are read.
+func _restore_floor_contact(on_floor: bool) -> void:
+	if not is_inside_tree():
 		return
 	var at: Vector3 = global_position
 	var moving: Vector3 = velocity
 	var snap: float = floor_snap_length
 	floor_snap_length = 0.0
-	# A probe the length of a snap onto the floor beneath, or no motion at all: either leaves the contact.
+	# A snap's length down onto the floor, or no motion, which still finds a floor within the margin.
 	var tick: float = maxf(get_physics_process_delta_time(), 1e-4)
 	velocity = Vector3.DOWN * (maxf(snap, FLOOR_PROBE_METRES) / tick) if on_floor else Vector3.ZERO
 	move_and_slide()
@@ -713,6 +694,8 @@ func restore_floor_contact(on_floor: bool) -> void:
 	floor_snap_length = snap
 
 
+## Replay one of this body's own commands on a predicting client: [method run_command] silenced and
+## marked [member replaying], on state already restored. See [PlayerNetLink].
 func simulate_tick(intent: MoveIntent, delta: float) -> void:
 	var blocked: bool = is_blocking_signals()
 	set_block_signals(true)
@@ -729,6 +712,7 @@ func place(at: Vector3, yaw: float) -> void:
 	rotation = Vector3(0.0, yaw, 0.0)
 	view_base = wrapf(yaw - _intent.view_angles.x, -PI, PI)
 	placed_counter += 1
+	_on_pad = false
 
 
 ## Start (or refresh) a timed ground-speed boost -- a race power-up. Ground max
@@ -1484,14 +1468,14 @@ func _apply_gravity(delta: float) -> void:
 
 # --- Floor state --------------------------------------------------------------
 
-func _update_floor_state() -> void:
+## Land or fall after the move, against the contact [param was_on_floor] the move started from.
+func _update_floor_state(was_on_floor: bool) -> void:
 	var on_floor: bool = is_on_floor()
-	if on_floor and not _was_on_floor:
+	if on_floor and not was_on_floor:
 		_apply_landing_speed_scale()
 		landed.emit(_fall_speed)
 	elif not on_floor:
 		_fall_speed = maxf(-velocity.y, 0.0)
-	_was_on_floor = on_floor
 
 
 ## Scale horizontal speed on touchdown: a full stop with no input, a mild

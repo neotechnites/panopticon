@@ -105,20 +105,33 @@ var _props_tick: int = -1
 var missing_baselines: int = 0
 var last_baseline: int = -1
 
-## Client playout clock: how far behind the newest snapshot it draws, in authority ticks.
-var _render_lag: float = 0.0
+## Client playout clock: at real time t (see [method real_ticks]) it draws authority tick t + _playout_offset,
+## ioq3's cl.serverTime = cls.realtime + cl.serverTimeDelta. Measured once per snapshot set, then slewed.
+var _playout_offset: float = 0.0
 var _have_clock: bool = false
-var _clock_seconds: float = 0.0
-var _last_arrival_seconds: float = -1.0
-var _jitter_seconds: float = 0.0
+## The offset's error at the last snapshot set, in ticks, not yet slewed out.
+var _clock_error: float = 0.0
+## Ticks the drawing runs behind the clock because a hit stop slowed the world; slewed out after it.
+var _stop_debt: float = 0.0
+## Real time, in ticks, of the last frame drawn, of the poll it drew after, and of the newest poll;
+## snapshots taken since the last frame, waiting for the next.
+var _frame_ticks: float = -1.0
+var _polled_ticks: float = -1.0
+var _looked_ticks: float = -1.0
+var _fresh: int = 0
+var _last_arrival_ticks: float = -1.0
+var _jitter_ticks: float = 0.0
 var _interval_ticks: float = 0.0
 var _delay_ticks: float = 2.0
 const _JITTER_ALPHA: float = 0.1
-## Playback speed change per tick of clock error, and the most of it allowed.
+## Share of the clock error slewed out per tick, and the most playback may speed up or slow down for it.
 const _CLOCK_GAIN: float = 0.1
 const _MAX_DILATION: float = 0.2
-## Clock error past which the drift is jumped rather than dilated away: the connection changed.
+## Clock error past which the clock is jumped forward rather than dilated: the line came back from a gap.
+## Behind is always slewed; the starvation hold bounds how far ahead the clock can get.
 const _CLOCK_SNAP_TICKS: float = 20.0
+## Polls further apart than this many snapshot intervals took their packets at unknown times: not timed.
+const _UNTIMED_FRAME_INTERVALS: float = 2.0
 var _blend: PlayerState = PlayerState.new()
 
 ## Position of seat s at the tick in slot i is _history[s * HISTORY_TICKS + i].
@@ -155,6 +168,8 @@ func _ready() -> void:
 	# After the bodies have moved, so what is sampled is the result of this tick.
 	process_physics_priority = 100
 	session.connection_state_changed.connect(_on_connection_state_changed)
+	# SceneTree emits process_frame right after the multiplayer poll, before any _process.
+	get_tree().process_frame.connect(_on_polled)
 	refresh_role()
 
 
@@ -307,7 +322,7 @@ func get_latest_tick() -> int:
 
 ## How far behind the newest snapshot this client is drawing, in ticks, or -1 before the clock starts.
 func get_render_lag_ticks() -> float:
-	return _render_lag if _have_clock else -1.0
+	return float(_newest().tick) - _drawn_time if _have_clock else -1.0
 
 
 func get_delay_ticks() -> float:
@@ -315,14 +330,25 @@ func get_delay_ticks() -> float:
 
 
 func get_jitter_seconds() -> float:
-	return _jitter_seconds
+	return _jitter_ticks * _tick_seconds()
+
+
+## Set by the test runner, whose machines share one time-compressed main loop: their real time is its physics.
+static var ticks_from_physics: bool = false
+
+
+## Real time in authority ticks: the clock remote worlds are played out on. Not the frame delta,
+## which drops what a stalled frame's capped physics steps did not run.
+static func real_ticks() -> float:
+	if ticks_from_physics:
+		return float(Engine.get_physics_frames()) + Engine.get_physics_interpolation_fraction()
+	return float(Time.get_ticks_usec()) * float(Engine.physics_ticks_per_second) / 1000000.0
 
 
 # --- Sending ------------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
 	if not _is_authority:
-		_advance_clock(delta)
 		if session != null and session.is_established() and _scene != 0:
 			_send_bare_ack()
 		return
@@ -533,7 +559,7 @@ func receive_snapshot(payload: PackedByteArray) -> bool:
 func _take(first: bool, previous_match: PackedByteArray) -> void:
 	var newest: WorldSnapshot = _newest()
 	outbox.acknowledge(_info.cmd_ack)
-	_measure_arrival(first)
+	_fresh += 1
 	_deliver_predictions(newest, _info.cmd_ack)
 	if first or newest.match_record != previous_match:
 		match_record_received.emit(newest.match_record, newest.tick, first)
@@ -580,61 +606,90 @@ static func _newer_u16(candidate: int, reference: int) -> bool:
 	return difference != 0 and difference < 0x8000
 
 
-## Re-measure how irregularly snapshots arrive, and set the playout buffer's depth from it.
-func _measure_arrival(first: bool) -> void:
-	if not first and _ring_count >= 2:
-		var advanced: int = NetCodec.tick_delta(_slot(_ring_count - 2).tick, _newest().tick)
-		if advanced > 0:
-			_render_lag += float(advanced)
-			_interval_ticks = float(advanced) if _interval_ticks <= 0.0 else lerpf(_interval_ticks, float(advanced), _JITTER_ALPHA)
+## Once per frame that brought snapshots, polled at [param now_ticks]: time them, size the buffer from their
+## jitter, and steer the clock at the newest (ioq3 CL_AdjustTimeDelta: per snapshot set, never per packet).
+func _take_arrivals(now_ticks: float, window_ticks: float) -> void:
 	var settings: NetSettings = session.get_settings()
-	if _last_arrival_seconds >= 0.0 and _interval_ticks > 0.0:
-		var expected: float = _interval_ticks * _tick_seconds()
-		var observed: float = _clock_seconds - _last_arrival_seconds
-		_jitter_seconds = lerpf(_jitter_seconds, absf(observed - expected), _JITTER_ALPHA)
-	_last_arrival_seconds = _clock_seconds
-	var jitter_ticks: float = clampf(
-		_jitter_seconds * 2.0 / _tick_seconds(), 0.0, float(settings.max_interpolation_jitter_ticks)
-	)
+	for i: int in range(maxi(_ring_count - _fresh, 0), _ring_count):
+		if i > 0:
+			var advanced: int = NetCodec.tick_delta(_slot(i - 1).tick, _slot(i).tick)
+			if advanced > 0:
+				_interval_ticks = float(advanced) if _interval_ticks <= 0.0 else lerpf(_interval_ticks, float(advanced), _JITTER_ALPHA)
+		var timed: bool = window_ticks <= _interval_ticks * _UNTIMED_FRAME_INTERVALS
+		if timed and _last_arrival_ticks >= 0.0 and _interval_ticks > 0.0:
+			var gap: float = now_ticks - _last_arrival_ticks
+			_jitter_ticks = lerpf(_jitter_ticks, absf(gap - _interval_ticks), _JITTER_ALPHA)
+		_last_arrival_ticks = now_ticks
+	_fresh = 0
+	var jitter: float = clampf(_jitter_ticks * 2.0, 0.0, float(settings.max_interpolation_jitter_ticks))
 	# Below a whole snapshot interval there is no second snapshot to interpolate towards.
-	_delay_ticks = maxf(float(settings.interpolation_delay_ticks), maxf(_interval_ticks, 1.0)) + jitter_ticks
-	if not _have_clock:
-		_render_lag = _delay_ticks
+	_delay_ticks = maxf(float(settings.interpolation_delay_ticks), maxf(_interval_ticks, 1.0)) + jitter
+	# Just after an arrival the newest is half an interval newer than on average.
+	var target: float = float(_newest().tick) - _delay_ticks - 0.5 * _interval_ticks
+	var error: float = target - (now_ticks + _playout_offset)
+	_clock_error = error
+	if not _have_clock or error > _CLOCK_SNAP_TICKS:
+		_slew_clock(INF)
 		_have_clock = true
 
 
-## Move the playout clock on by one authority tick, give or take the dilation taking drift out of it.
-func _advance_clock(delta: float) -> void:
-	_clock_seconds += delta
-	if not _have_clock or _ring_count == 0 or not _should_interpolate():
-		return
-	var error: float = _render_lag - _delay_ticks
-	if absf(error) > _CLOCK_SNAP_TICKS:
-		_render_lag = _delay_ticks
-	else:
-		_render_lag -= 1.0 + clampf(error * _CLOCK_GAIN, -_MAX_DILATION, _MAX_DILATION)
-	# Never behind both the oldest snapshot held and the target: a buffer still filling holds its first.
-	var oldest_lag: float = float(NetCodec.tick_delta(_slot(0).tick, _newest().tick))
-	_render_lag = clampf(_render_lag, -_extrapolation_ticks(), maxf(oldest_lag, _delay_ticks))
+## Take [param ticks] of real time's share of the clock error out of the offset; never more than the error.
+func _slew_clock(ticks: float) -> void:
+	var step: float = _clock_error * minf(ticks * _CLOCK_GAIN, 1.0)
+	step = clampf(step, -ticks * _MAX_DILATION, ticks * _MAX_DILATION)
+	_playout_offset += step
+	_clock_error -= step
 
 
 # --- Drawing ------------------------------------------------------------------
 
-func _process(delta: float) -> void:
-	play_back(delta)
+func _on_polled() -> void:
+	_looked_ticks = real_ticks()
 
 
-## One frame of playback. Public because the cost test times it directly.
-func play_back(_delta: float) -> void:
+func _process(_delta: float) -> void:
+	play_back(real_ticks(), _looked_ticks)
+
+
+## One frame of playback at real time [param now_ticks], whose packets were polled at [param looked_ticks]
+## (default: now). Public because tests drive the frame clock.
+func play_back(now_ticks: float, looked_ticks: float = -1.0) -> void:
 	if _is_authority:
 		draw_host_at(float(_tick) - HOST_PLAYOUT_TICKS + Engine.get_physics_interpolation_fraction())
 		return
-	if not _have_clock or _ring_count == 0 or not _should_interpolate():
+	var looked: float = now_ticks if looked_ticks < 0.0 else minf(looked_ticks, now_ticks)
+	# Time only runs forward, whoever hands it in.
+	var elapsed: float = maxf(now_ticks - _frame_ticks, 0.0) if _frame_ticks >= 0.0 else 0.0
+	var window: float = maxf(looked - _polled_ticks, 0.0) if _polled_ticks >= 0.0 else 0.0
+	_frame_ticks = now_ticks
+	_polled_ticks = looked
+	if _ring_count == 0 or not _should_interpolate():
 		return
-	var lag: float = maxf(_render_lag - Engine.get_physics_interpolation_fraction(), -_extrapolation_ticks())
-	_drawn_time = float(_newest().tick) - lag
-	_draw(lag)
+	_slew_clock(elapsed)
+	_owe_stop(elapsed)
+	if _fresh > 0:
+		_take_arrivals(looked, window)
+	var newest: float = float(_newest().tick)
+	var edge: float = newest + _extrapolation_ticks()
+	# When the worlds run out the clock waits, then catches up; only for time it looked and found none,
+	# so a stall after the poll is not taken for starvation. A buffer still filling draws its oldest.
+	_playout_offset = minf(_playout_offset, edge - looked)
+	var drawn: float = clampf(now_ticks + _playout_offset - _stop_debt, float(_slot(0).tick), edge)
+	# Never earlier than the last frame (ioq3 CL_SetCGameTime's oldServerTime guard).
+	_drawn_time = maxf(drawn, _drawn_time)
+	_draw(newest - _drawn_time)
 	_present_due(_drawn_time)
+
+
+## A hit stop slows the drawing with the local world while the clock stays on real time; afterwards
+## the drawing catches up at the clock's most dilation. Run under the test runner, physics is already slowed.
+func _owe_stop(elapsed: float) -> void:
+	var rate: float = 1.0 if ticks_from_physics else minf(Engine.time_scale, 1.0)
+	if rate < 1.0:
+		# A frame past the untimed window was this machine stalling, not the world slowed.
+		_stop_debt += minf(elapsed, _interval_ticks * _UNTIMED_FRAME_INTERVALS) * (1.0 - rate)
+	else:
+		_stop_debt = maxf(_stop_debt - elapsed * _MAX_DILATION, 0.0)
 
 
 ## Host: draw every body but its own at tick [param time], from the worlds it sent. Render-only:
@@ -810,9 +865,12 @@ func _clear_worlds() -> void:
 	_event_seen = -1
 	_props_tick = -1
 	_have_clock = false
-	_render_lag = 0.0
-	_last_arrival_seconds = -1.0
-	_jitter_seconds = 0.0
+	_playout_offset = 0.0
+	_clock_error = 0.0
+	_stop_debt = 0.0
+	_fresh = 0
+	_last_arrival_ticks = -1.0
+	_jitter_ticks = 0.0
 	_interval_ticks = 0.0
 	_drawn_time = MoveIntent.LIVE_WORLD
 

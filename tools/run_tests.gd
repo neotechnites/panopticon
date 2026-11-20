@@ -168,6 +168,8 @@ func _initialize() -> void:
 	Engine.physics_ticks_per_second = SIM_HZ * TIME_COMPRESSION
 	Engine.time_scale = float(TIME_COMPRESSION)
 	Engine.max_fps = 0
+	# Every machine here shares this main loop, so their real time is the physics it ran, not the wall.
+	NetReplicator.ticks_from_physics = true
 
 
 func _process(_delta: float) -> bool:

@@ -135,7 +135,7 @@ static func disarm_pads(root: Node) -> int:
 	var count: int = 0
 	for node: Node in _walk(root):
 		if node is BoostPad:
-			(node as Area3D).monitoring = false
+			(node as BoostPad).armed = false
 			count += 1
 	return count
 
