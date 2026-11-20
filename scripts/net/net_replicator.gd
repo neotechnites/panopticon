@@ -24,6 +24,8 @@ const HISTORY_TICKS: int = 64
 ## A shield raised after the moment a shot rewinds to is not in its way, and one up then is (DESIGN
 ## 13.4c); false: shots meet the live shields.
 const REWIND_SHIELDS: bool = true
+## Ticks a claimed view time may lie behind the measured one: the client's own jitter allowance.
+const VIEW_SLACK_TICKS: float = 4.0
 ## What the history keeps per seat (DESIGN 8): its body at the seat, its hologram at 8 + seat, its shield.
 const _DECOY_ENTITY: int = NetTransport.MAX_PLAYERS
 const _SHIELD_ENTITY: int = 2 * NetTransport.MAX_PLAYERS
@@ -42,6 +44,10 @@ class Recipient:
 	## Every event up to this sequence has reached the client or been passed over.
 	var event_acked: int = -1
 	var event_counted: int = -1
+	## Host ticks from sending a snapshot to taking its ack, smoothed, and its mean deviation (RFC 6298);
+	## -1 before the first.
+	var rtt_ticks: float = -1.0
+	var rtt_deviation: float = 0.0
 	var _sent_ticks: PackedInt64Array = PackedInt64Array()
 	var _sent_events: PackedInt64Array = PackedInt64Array()
 	var _at: int = 0
@@ -60,15 +66,24 @@ class Recipient:
 		_at = (_at + 1) % RING
 		event_counted = maxi(event_counted, passed)
 
-	## The client decoded the snapshot at [param tick].
-	func take_ack(tick: int) -> void:
+	## The client decoded the snapshot at [param tick]; its ack reached the host at tick [param now].
+	func take_ack(tick: int, now: int) -> void:
 		if tick < 0 or (acked >= 0 and not NetCodec.is_newer_tick(tick, acked)):
 			return
 		acked = tick
 		for i: int in RING:
 			if _sent_ticks[i] == tick:
 				event_acked = maxi(event_acked, int(_sent_events[i]))
+				_sample_rtt(float(now - tick))
 				return
+
+	func _sample_rtt(sample: float) -> void:
+		if rtt_ticks < 0.0:
+			rtt_ticks = sample
+			rtt_deviation = sample * 0.5
+			return
+		rtt_deviation += (absf(sample - rtt_ticks) - rtt_deviation) * 0.25
+		rtt_ticks += (sample - rtt_ticks) * 0.125
 
 
 ## The session this replicator belongs to.
@@ -278,10 +293,10 @@ func take_commands(sender: int, payload: PackedByteArray) -> void:
 		return
 	var recipient: Recipient = _recipients.get(sender, null)
 	if recipient != null:
-		recipient.take_ack(NetCodec.command_snap_ack(payload))
+		recipient.take_ack(NetCodec.command_snap_ack(payload), _tick)
 	for link: PlayerNetLink in _links:
 		if link.owner_peer_id == sender:
-			var newest: int = stream_for(sender).receive(payload, _tick)
+			var newest: int = stream_for(sender).receive(payload, _tick, float(_tick) - _honest_back(recipient))
 			if newest >= 0:
 				link.intent_received.emit(sender, newest)
 			return
@@ -423,6 +438,17 @@ static func sample_bodies(world: WorldSnapshot, links: Array[PlayerNetLink], tic
 		if link.owner_peer_id != 0 and not link.is_owned_here():
 			link.sample_predicted(world.owners[link.seat_index])
 		world.owner_valid |= 1 << link.seat_index
+
+
+## Ticks behind the host an honest view can be as its command arrives (Source's latency plus lerp):
+## the measured round trip, the client's playout delay, and jitter slack. 0 for a peer never sent a world.
+func _honest_back(recipient: Recipient) -> float:
+	if recipient == null or recipient.rtt_ticks < 0.0:
+		return 0.0
+	var settings: NetSettings = session.get_settings()
+	var interval: float = settings.get_snapshot_interval() * float(NetCodec.TICK_RATE)
+	var playout: float = maxf(float(settings.interpolation_delay_ticks), maxf(interval, 1.0))
+	return recipient.rtt_ticks + 4.0 * recipient.rtt_deviation + playout + VIEW_SLACK_TICKS
 
 
 ## The seat whose body [param peer] drives, or -1.
@@ -700,8 +726,8 @@ func play_back(_delta: float) -> void:
 	_present_due(_drawn_time)
 
 
-## Host: draw every body but its own, and their host entities, at tick [param time], from the worlds
-## it sent. Render-only: the avatar and views move, the colliders stay where physics has them.
+## Host: draw every body but its own, and their powers, at tick [param time], from the worlds it
+## sent. Render-only: the avatar and views move, the colliders stay where physics has them.
 func draw_host_at(time: float) -> void:
 	var live: bool = _ring_count < 2 or session == null or session.get_peer_count() <= 1 or _scene == 0
 	_drawn_time = MoveIntent.LIVE_WORLD if live else time
@@ -723,8 +749,9 @@ func draw_host_at(time: float) -> void:
 		var weight: float = 1.0 if span <= 0.0 else clampf((_drawn_time - float(from_snapshot.tick)) / span, 0.0, 1.0)
 		_blend.interpolate_from(from_state, to_state, weight)
 		link.draw_avatar_at(Transform3D(Basis(Vector3.UP, _blend.yaw), _blend.position))
-		# Its hologram and cat too, where lag compensation traces a host shot at them.
-		link.apply_anchor(_blend)
+		# Its power too (shield, hologram, cat), where lag compensation traces a host shot at them.
+		if link.controller.power != null:
+			link.controller.power.take_playout_record(_blend)
 
 
 func _draw_live(link: PlayerNetLink) -> void:

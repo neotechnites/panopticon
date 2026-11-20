@@ -31,4 +31,4 @@ func send(links: Array[PlayerNetLink], tick: int, epoch: int, owner_seat: int, s
 
 ## The client's command packet arrived: its acknowledgement of a snapshot.
 func take_commands(payload: PackedByteArray) -> void:
-	_recipient.take_ack(NetCodec.command_snap_ack(payload))
+	_recipient.take_ack(NetCodec.command_snap_ack(payload), NetCodec.command_snap_ack(payload))

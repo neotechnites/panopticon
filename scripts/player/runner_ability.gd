@@ -56,6 +56,11 @@ var _decoy: PlayerController = null
 var _cat: CatGrenade = null
 ## The visuals.
 var _shield: StaticBody3D = null
+var _bubble: MeshInstance3D = null
+## This machine decides the power: its shield's collider follows the state, whatever is drawn.
+var _collider_from_state: bool = false
+## The host: the whole power drawn from this frame's playout record, as the body is.
+var _has_playout_record: bool = false
 var _shell: MeshInstance3D = null
 var _camo_mesh: MeshInstance3D = null
 var _camo_saved: Material = null
@@ -134,6 +139,7 @@ func _process(_delta: float) -> void:
 	sync_visuals(_current_view())
 	# A record is this frame's: a body that stops being drawn from one draws its own state.
 	_has_entity_record = false
+	_has_playout_record = false
 
 
 ## The host: follow the entities' poses into the state, once they have moved this tick.
@@ -177,8 +183,9 @@ func step(intent: MoveIntent, _delta: float, authority: bool) -> void:
 				_end(&"expired")
 	_rule(asked, &"busy")
 	if authority:
-		# The shield's collider is part of what is drawn: the host's stands from the tick it is raised.
-		_sync_effect(state)
+		# The host's shield collider stands from the tick it is raised, whenever it is drawn.
+		_collider_from_state = true
+		_sync_shield_body(state)
 
 
 ## Tell the body what this command made of the keys in [param buttons]; nothing when none went down.
@@ -225,7 +232,8 @@ func activate(which: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE, a
 	state.pose_velocity = Vector3.ZERO
 	if authority:
 		_spawn_entity()
-		_sync_effect(state)
+		_collider_from_state = true
+		_sync_shield_body(state)
 	return true
 
 
@@ -259,6 +267,12 @@ func take_record(record: PlayerState) -> void:
 ## For a body this machine predicts: [param record] at this frame's playout clock, for its host entity.
 func take_entity_record(record: PlayerState) -> void:
 	_has_entity_record = true
+	_entity_record.take_record(record)
+
+
+## The host, for a body it draws at its playout: [param record] at that clock, for everything drawn.
+func take_playout_record(record: PlayerState) -> void:
+	_has_playout_record = true
 	_entity_record.take_record(record)
 
 
@@ -321,9 +335,14 @@ func throw_cat() -> bool:
 	return true
 
 
-## The shield drawn here (its collider stops shots), or null.
+## The shield's collider here (it stops shots), or null.
 func get_shield() -> StaticBody3D:
 	return _shield
+
+
+## The shield as drawn here, or null: on the host a remote one is drawn at its playout.
+func get_bubble() -> MeshInstance3D:
+	return _bubble
 
 
 ## The armor lock's shell drawn here, or null.
@@ -480,6 +499,8 @@ func _free_entities() -> void:
 
 ## What this machine draws: its state, with the host entity a predicting body sees from the record.
 func _current_view() -> PowerState:
+	if _has_playout_record:
+		return _entity_record
 	if not _has_entity_record:
 		return state
 	var record: PowerState = _entity_record
@@ -505,11 +526,28 @@ func sync_visuals(view: PowerState) -> void:
 	if body == null:
 		return
 	_sync_effect(view)
+	_sync_shield_body(state if _collider_from_state else view)
 	_draw_hologram(view)
 	_draw_cat(view)
 
 
-## The shield, shell or tint [param view] shows; the host entities' views are drawn per frame only.
+## The shield's collider, standing while [param source] has the shield up.
+func _sync_shield_body(source: PowerState) -> void:
+	if _shield != null and not is_instance_valid(_shield):
+		_shield = null
+	var up: bool = source.running() == MatchRules.RunnerAbility.BUBBLE_SHIELD
+	if up and _shield == null and body != null and body.get_parent() != null:
+		_raise_shield()
+	elif not up and _shield != null:
+		# Out of every ray this tick, not only once the frame ends.
+		_shield.collision_layer = 0
+		_shield.queue_free()
+		_shield = null
+	if _shield != null and _shield.global_position != source.place_position:
+		_shield.global_position = source.place_position
+
+
+## The bubble, shell or tint [param view] shows; the host entities' views are drawn per frame only.
 func _sync_effect(view: PowerState) -> void:
 	_forget_freed_visuals()
 	var effect: int = view.running() if DEFS[view.which][&"entity"] == Entity.NONE else 0
@@ -518,20 +556,21 @@ func _sync_effect(view: PowerState) -> void:
 		_tear_down_effect()
 		match effect:
 			MatchRules.RunnerAbility.BUBBLE_SHIELD:
-				_raise_shield()
+				_bubble = _build_shield_mesh()
+				_stage().add_child(_bubble)
 			MatchRules.RunnerAbility.ARMOR_LOCK:
 				_raise_shell()
 			MatchRules.RunnerAbility.ACTIVE_CAMO:
 				_cloak()
-	if _shield != null and _shield.global_position != view.place_position:
-		_shield.global_position = view.place_position
+	if _bubble != null and _bubble.global_position != view.place_position:
+		_bubble.global_position = view.place_position
 	_drawn.copy_from(view)
 
 
 ## A visual freed with the container it stands in (a rebuilt roster) is drawn again from state.
 func _forget_freed_visuals() -> void:
-	if (_shield != null and not is_instance_valid(_shield)) or (_shell != null and not is_instance_valid(_shell)):
-		_shield = null
+	if (_bubble != null and not is_instance_valid(_bubble)) or (_shell != null and not is_instance_valid(_shell)):
+		_bubble = null
 		_shell = null
 		_drawn.clear()
 	if _hologram != null and not is_instance_valid(_hologram):
@@ -541,11 +580,9 @@ func _forget_freed_visuals() -> void:
 
 
 func _tear_down_effect() -> void:
-	if _shield != null:
-		# Out of every ray this tick, not only once the frame ends.
-		_shield.collision_layer = 0
-		_shield.queue_free()
-		_shield = null
+	if _bubble != null:
+		_bubble.queue_free()
+		_bubble = null
 	if _shell != null:
 		_shell.queue_free()
 		_shell = null
@@ -611,7 +648,6 @@ func _raise_shield() -> void:
 	sphere.radius = SHIELD_RADIUS
 	shape.shape = sphere
 	shield.add_child(shape)
-	shield.add_child(_build_shield_mesh())
 	_stage().add_child(shield)
 	_shield = shield
 
