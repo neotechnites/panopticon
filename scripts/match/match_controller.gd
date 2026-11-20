@@ -2970,12 +2970,12 @@ func _wake_ghost(participant: MatchParticipant) -> void:
 	var body: PlayerController = participant.body
 	if body == null:
 		return
+	var profile: GhostProfile = get_ghost_profile()
+	body.collision_layer = (
+		participant.home_collision_layer if profile.shootable else GHOST_HAZARD_LAYER
+	)
+	body.collision_mask = participant.home_collision_mask
 	if _moves(participant):
-		var profile: GhostProfile = get_ghost_profile()
-		body.collision_layer = (
-			participant.home_collision_layer if profile.shootable else GHOST_HAZARD_LAYER
-		)
-		body.collision_mask = participant.home_collision_mask
 		body.set_held(false)
 	body.revived.emit()
 
@@ -3741,8 +3741,8 @@ func _hold_body(participant: MatchParticipant) -> void:
 	participant.respawn_hold_remaining = 0.0
 
 
-## False for the body a mirror predicts: its hold, place and release arrive with its owner block
-## on arrival (DESIGN 5), so the match's transitions leave its motion alone here.
+## False for the body a mirror predicts: its hold, place and release arrive with its owner block on
+## arrival (DESIGN 5), so transitions leave its motion alone; its collision is still the match's.
 func _moves(participant: MatchParticipant) -> bool:
 	return not (_mirror and participant.body != null and participant.body.net_predicted)
 
@@ -3829,9 +3829,9 @@ func _wake_body(participant: MatchParticipant) -> void:
 	var body: PlayerController = participant.body
 	if body == null:
 		return
+	body.collision_layer = participant.home_collision_layer
+	body.collision_mask = participant.home_collision_mask
 	if _moves(participant):
-		body.collision_layer = participant.home_collision_layer
-		body.collision_mask = participant.home_collision_mask
 		body.set_held(false)
 	body.revived.emit()
 
