@@ -65,6 +65,13 @@ const DOOR_MARGIN_METRES: float = 0.5
 enum State { RUN, TAKE_COVER, CROSS, RECOVER }
 enum Cross { LINE_UP, TAKEOFF, FLY }
 
+## The run's hold on a cover point, which a catch hands to whoever takes the spot (see [method resume]).
+class CoverHold extends RefCounted:
+	var point: Vector3 = Vector3.ZERO
+	var seconds: float = 0.0
+	## True while the point is held; false once it has been left, and is not to be taken again.
+	var holding: bool = false
+
 ## The body this brain drives; its intent_source must be [member input].
 @export var controller: PlayerController
 @export var input: BotIntentSource
@@ -113,6 +120,9 @@ var _has_path: bool = false
 var _cover: Vector3 = Vector3.ZERO
 var _cover_seconds: float = 0.0
 var _cover_exposed: float = 0.0
+## The cover this run last left; never the next one it takes.
+var _spent_cover: Vector3 = Vector3.ZERO
+var _has_spent_cover: bool = false
 var _dared: bool = false
 
 var _link: RingBake.Link = null
@@ -151,16 +161,39 @@ func configure(arena_centre: Vector3, start_point: Vector3, end_point: Vector3, 
 	_arm(arena_centre, start_point, end_point, 0.0, start_angle, route, 0)
 
 
-## Start running from where the body already stands, [param travelled_arc] into the lap.
+## Start running from where the body already stands, [param travelled_arc] into the lap, keeping
+## [param hold]: a caught run's cover, so its patience bounds the hiding across every catch.
 func resume(
 	arena_centre: Vector3, start_point: Vector3, end_point: Vector3, travelled_arc: float,
-	route: RingRoute = null, level: int = 0,
+	route: RingRoute = null, level: int = 0, hold: CoverHold = null,
 ) -> void:
 	if controller == null or input == null or profile == null:
 		return
 	input.command.clear()
 	var here: Vector3 = controller.global_position
 	_arm(arena_centre, start_point, end_point, travelled_arc, atan2(here.z - arena_centre.z, here.x - arena_centre.x), route, level)
+	if hold == null:
+		return
+	if not hold.holding:
+		_spent_cover = hold.point
+		_has_spent_cover = true
+		return
+	_cover = hold.point
+	_goal = _cover
+	_cover_seconds = hold.seconds
+	_cover_exposed = 0.0
+	_set_state(State.TAKE_COVER)
+
+
+## This run's cover, held or last left, for [method resume] on whoever takes the spot; null for none.
+func get_cover_hold() -> CoverHold:
+	if _state != State.TAKE_COVER and not _has_spent_cover:
+		return null
+	var hold: CoverHold = CoverHold.new()
+	hold.holding = _state == State.TAKE_COVER
+	hold.point = _cover if hold.holding else _spent_cover
+	hold.seconds = _cover_seconds if hold.holding else 0.0
+	return hold
 
 
 func _arm(
@@ -205,6 +238,7 @@ func _arm(
 	_link = null
 	_flights = 0
 	_covers = 0
+	_has_spent_cover = false
 	_dared = _rng.randf() < _play.boldness
 	_state = State.RUN
 	_reset_stuck()
@@ -598,6 +632,8 @@ func _find_cover() -> bool:
 		var rival: Node3D = node as Node3D
 		if rival != null and rival != controller and is_instance_valid(rival):
 			_taken.append(rival.global_position)
+	if _has_spent_cover:
+		_taken.append(_spent_cover)
 	var index: int = _bake.nearest_cover_ahead(here, forward, _play.cover_reach_metres, _taken)
 	if index < 0:
 		return false
@@ -646,6 +682,8 @@ func _tick_cover(delta: float) -> void:
 
 
 func _leave_cover() -> void:
+	_spent_cover = _cover
+	_has_spent_cover = true
 	_dared = _rng.randf() < _play.boldness
 	_has_path = false
 	_set_state(State.RUN)

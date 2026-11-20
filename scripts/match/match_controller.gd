@@ -2614,12 +2614,14 @@ func _swap_with_ghost(ghost: MatchParticipant, caught: MatchParticipant) -> void
 	# ghost is taking, and how far round the ring they had got IS the spot.
 	var carried_arc: float = caught.tracker.get_travelled_arc()
 	var source: MatchLapTracker = caught.tracker
+	# The cover the caught run holds goes with the spot, read before the chase resets its brain.
+	var hold: RunnerBrain.CoverHold = caught.brain.get_cover_hold() if caught.brain != null else null
 
 	caught.is_running = false
 	_make_ghost(caught)
 
 	_unmake_ghost(ghost)
-	_start_running_in_place(ghost, carried_arc, source)
+	_start_running_in_place(ghost, carried_arc, source, hold)
 
 	_catch_count += 1
 	ghost_caught.emit(ghost, caught)
@@ -2870,7 +2872,8 @@ func _unmake_ghost(participant: MatchParticipant) -> void:
 ## [method _hold_body] for what a 300 m one costs. A prisoner who has just taken
 ## somebody's spot is standing in it already.
 func _start_running_in_place(
-	participant: MatchParticipant, travelled_arc: float, source: MatchLapTracker
+	participant: MatchParticipant, travelled_arc: float, source: MatchLapTracker,
+	hold: RunnerBrain.CoverHold = null,
 ) -> void:
 	var active: MatchRules = get_rules()
 	var body: PlayerController = participant.body
@@ -2898,7 +2901,7 @@ func _start_running_in_place(
 		participant.brain.rules = active
 		if not _mirror:
 			participant.brain.resume(
-				_centre, _start_point, _end_point, travelled_arc, _route, carried_level
+				_centre, _start_point, _end_point, travelled_arc, _route, carried_level, hold
 			)
 
 
