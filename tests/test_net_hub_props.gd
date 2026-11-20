@@ -80,8 +80,7 @@ func test_a_prop_behind_a_removed_phase_gate_keeps_its_id_on_a_late_binder() -> 
 		if not assert_false(_orbs[machine].is_inside_tree(), "machine %d's gate took its orb out at bind" % machine):
 			return
 	for machine: int in 3:
-		_stubs[machine].phase = MatchController.Phase.ROUND
-		_stubs[machine].round_started.emit()
+		_stubs[machine].enter(MatchController.Phase.ROUND)
 	await step_ticks(10)
 	for machine: int in 3:
 		assert_true(_orbs[machine].is_inside_tree() and _orbs[machine].is_armed(), "machine %d's orb is back, armed" % machine)
@@ -92,6 +91,20 @@ func test_a_prop_behind_a_removed_phase_gate_keeps_its_id_on_a_late_binder() -> 
 		str(_orbs[A].is_armed()), str(_orbs[B].is_armed())])
 
 
+func test_an_orb_taken_before_a_late_binder_arrives_is_taken_on_it() -> void:
+	prepare_hub = _gate_an_orb.bind(MatchController.Phase.ROUND)
+	if not await stand_up(0.0, 0, 2):
+		return
+	await step_ticks(10)
+	_orbs[HOST].call(&"_on_body_entered", body(HOST, HOST))
+	if not assert_true(await until(func() -> bool: return not _orbs[A].is_armed()), "A takes the host's taken orb"):
+		return
+	if not await join_late(B, JOIN_LOAD_TICKS):
+		return
+	assert_true(_orbs[B].is_inside_tree(), "the late binder's gate holds its orb in the rounds")
+	assert_true(await until(func() -> bool: return not _orbs[B].is_armed()), "the late binder draws the orb taken, from its record alone")
+
+
 func _ids(bodies: Array[PlayerController]) -> Array[int]:
 	var ids: Array[int] = []
 	for found: PlayerController in bodies:
@@ -99,9 +112,10 @@ func _ids(bodies: Array[PlayerController]) -> Array[int]:
 	return ids
 
 
-## A rounds-only gate holding an orb, following a stand-in match that is in the race.
-func _gate_an_orb(machine: int, hub: Node3D) -> void:
+## A rounds-only gate holding an orb, following a stand-in match in [param phase].
+func _gate_an_orb(machine: int, hub: Node3D, phase: int = MatchController.Phase.RACE) -> void:
 	var stub: PhaseStub = PhaseStub.new()
+	stub.phase = phase
 	_stubs[machine] = stub
 	var gate: PhaseGate = PhaseGate.new()
 	gate.name = "RoundsGate"
@@ -118,14 +132,17 @@ func _gate_an_orb(machine: int, hub: Node3D) -> void:
 	_orbs[machine] = orb
 
 
-## What a [PhaseGate] needs of a match: its two signals and its phase.
+## What a [PhaseGate] needs of a match: [signal MatchController.structure_changed] and its phase.
 class PhaseStub:
 	extends Node
 
-	signal race_started()
-	signal round_started()
+	signal structure_changed(phase: int)
 
 	var phase: int = MatchController.Phase.RACE
 
 	func get_phase() -> int:
 		return phase
+
+	func enter(next: int) -> void:
+		phase = next
+		structure_changed.emit(next)
