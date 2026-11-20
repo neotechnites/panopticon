@@ -5,11 +5,6 @@ extends RigidBody3D
 ## takes it from its record in the snapshot ([NetProp]). Hooked from [method MatchController.apply_shove].
 
 enum State { REST, HELD, FLYING, GONE }
-## Where the cat sits relative to the carrier's head: just under and ahead of the face.
-const CARRY_OFFSET: Vector3 = Vector3(0.0, -0.3, -0.55)
-const THROW_SPEED: float = 10.0
-const THROW_LIFT: float = 2.0
-const THROW_SPIN: float = 12.0
 ## Height off the floor of the cone check: a cat on a ledge above you is out of reach.
 const REACH_HEIGHT: float = 2.0
 const FACING_DOT: float = 0.5
@@ -17,38 +12,18 @@ const FALL_OUT_Y: float = -60.0
 const CAT_LAYER: int = 1 << 3
 const FUSE_SECONDS: float = 0.5
 const RESPAWN_SECONDS: float = 4.0
-const HEART_TEXTURE: Texture2D = preload("res://hub/props/cat/fx/heart.png")
-const EXPLOSION_SHEET: Texture2D = preload("res://hub/props/cat/fx/explosion_sheet.png")
-const MEOW_SOUND: AudioStream = preload("res://hub/props/cat/fx/meow.wav")
-const PURR_SOUND: AudioStream = preload("res://hub/props/cat/fx/purr.wav")
-const MEOW_DB: float = 2.0
-const PURR_DB: float = 8.0
-const EXPLOSION_SOUND: AudioStream = preload("res://hub/props/cat/fx/explosion.wav")
-const KEY_TEXTURE: Texture2D = preload("res://hub/props/cat/fx/key_e.png")
-## The pet prompt: the E keycap drawn this many times its pixels, this far below the crosshair.
-const PROMPT_KEY_SCALE: float = 3.0
-const PROMPT_BELOW_CROSSHAIR: float = 90.0
-const PROMPT_FONT_SIZE: int = 24
-## Extra drop below the crosshair, as a fraction of screen height.
-const PROMPT_SCREEN_DROP: float = 0.1
-
-## Frames in the explosion sheet's horizontal strip.
-@export var explosion_frames: int = 17
-@export var explosion_fps: float = 16.0
 
 static var _all: Array[HubCat] = []
 
 var _state: State = State.REST
 var _carrier: PlayerController = null
 var _home: Transform3D = Transform3D.IDENTITY
-var _local_held: bool = false
-var _prompt_layer: CanvasLayer = null
-var _pet_tween: Tween = null
+## The pet prompt and the petting, on the machine whose player carries it.
+var _view: CatView = null
 var _fuse: int = 0
 var _gone: bool = false
 ## The seat carrying this cat, -1 for nobody: the host's word on every machine.
 var _carrier_seat: int = -1
-var _purr: AudioStreamPlayer3D = null
 
 
 func _ready() -> void:
@@ -61,6 +36,8 @@ func _ready() -> void:
 	freeze = true
 	_all.append(self)
 	add_to_group(NetProp.GROUP)
+	_view = CatView.new(get_node_or_null("Mesh") as MeshInstance3D)
+	add_child(_view)
 
 
 func _exit_tree() -> void:
@@ -68,120 +45,15 @@ func _exit_tree() -> void:
 	_set_local_held(false)
 
 
-## E while this machine's player carries the cat: a squish; eaten before the lobby sees it.
-func _input(event: InputEvent) -> void:
-	if not _local_held or not event.is_action_pressed(&"interact"):
-		return
-	get_viewport().set_input_as_handled()
-	var mesh: MeshInstance3D = get_node_or_null("Mesh") as MeshInstance3D
-	if mesh == null:
-		return
-	if _purr == null:
-		_purr = become_happy(mesh)
-	_pet_tween = pet(mesh, _pet_tween)
-
-
-## One pet of [param mesh]: a heart and a squish. Returns the squish, which replaces [param tween].
-static func pet(mesh: MeshInstance3D, tween: Tween) -> Tween:
-	spawn_heart(mesh)
-	if tween != null:
-		tween.kill()
-	mesh.scale = Vector3.ONE
-	var squish: Tween = mesh.create_tween()
-	squish.tween_property(mesh, "scale", Vector3(1.2, 0.75, 1.2), 0.08)
-	squish.tween_property(mesh, "scale", Vector3(0.92, 1.1, 0.92), 0.1)
-	squish.tween_property(mesh, "scale", Vector3.ONE, 0.1)
-	return squish
-
-
-## First pet: meow, swap to the happy face (mesh surface 2) and purr; returns the purr.
-static func become_happy(mesh: MeshInstance3D) -> AudioStreamPlayer3D:
-	if mesh.mesh != null and mesh.mesh.get_surface_count() > 2:
-		mesh.set_surface_override_material(1, mesh.mesh.surface_get_material(2))
-		mesh.set_surface_override_material(2, mesh.mesh.surface_get_material(1))
-	var meow: AudioStreamPlayer3D = AudioStreamPlayer3D.new()
-	meow.stream = MEOW_SOUND
-	meow.volume_db = MEOW_DB
-	meow.finished.connect(meow.queue_free)
-	mesh.add_child(meow)
-	meow.play()
-	var purr: AudioStreamPlayer3D = AudioStreamPlayer3D.new()
-	purr.stream = PURR_SOUND
-	purr.volume_db = PURR_DB
-	mesh.add_child(purr)
-	purr.play()
-	return purr
-
-
-## Back to the neutral face and silence.
-func _become_neutral() -> void:
-	var mesh: MeshInstance3D = get_node_or_null("Mesh") as MeshInstance3D
-	if mesh != null:
-		mesh.set_surface_override_material(1, null)
-		mesh.set_surface_override_material(2, null)
-	if _purr != null:
-		_purr.queue_free()
-		_purr = null
-
-
-## A billboarded heart that drifts up off [param over] and fades; rapid pets stack.
-static func spawn_heart(over: Node3D) -> void:
-	var heart: Sprite3D = Sprite3D.new()
-	heart.texture = HEART_TEXTURE
-	heart.pixel_size = 0.012
-	heart.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	heart.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	heart.shaded = false
-	heart.no_depth_test = true
-	over.get_tree().current_scene.add_child(heart)
-	var start: Vector3 = over.global_position + Vector3(randf_range(-0.2, 0.2), 0.6, 0.0)
-	heart.global_position = start
-	var drift: float = randf_range(-0.4, 0.4)
-	var tween: Tween = heart.create_tween().set_parallel(true)
-	tween.tween_property(heart, "global_position", start + Vector3(drift, 1.6, 0.0), 2.0)
-	tween.tween_property(heart, "modulate:a", 0.0, 2.0).set_delay(0.8)
-	tween.chain().tween_callback(heart.queue_free)
-
-
 ## Show or hide the pet prompt on this machine.
 func _set_local_held(held: bool) -> void:
-	_local_held = held
-	if held and _prompt_layer == null:
-		_prompt_layer = make_pet_prompt()
-		add_child(_prompt_layer)
-	elif not held and _prompt_layer != null:
-		_prompt_layer.queue_free()
-		_prompt_layer = null
+	if _view != null:
+		_view.set_petting(held)
 
 
-## The E keycap and "Pet cat", just under the crosshair.
-static func make_pet_prompt() -> CanvasLayer:
-	var layer: CanvasLayer = CanvasLayer.new()
-	var row: HBoxContainer = HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override(&"separation", 24)
-	var key: TextureRect = TextureRect.new()
-	key.texture = KEY_TEXTURE
-	key.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	key.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	key.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	key.custom_minimum_size = Vector2(KEY_TEXTURE.get_width(), KEY_TEXTURE.get_height()) * PROMPT_KEY_SCALE
-	row.add_child(key)
-	var label: Label = Label.new()
-	label.text = TranslationServer.translate("HUB_CAT_PET_PROMPT")
-	label.add_theme_color_override(&"font_outline_color", Color.BLACK)
-	label.add_theme_constant_override(&"outline_size", 14)
-	label.add_theme_font_size_override(&"font_size", PROMPT_FONT_SIZE)
-	row.add_child(label)
-	row.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	row.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	row.grow_vertical = Control.GROW_DIRECTION_BOTH
-	row.anchor_top += PROMPT_SCREEN_DROP
-	row.anchor_bottom += PROMPT_SCREEN_DROP
-	row.offset_top += PROMPT_BELOW_CROSSHAIR
-	row.offset_bottom += PROMPT_BELOW_CROSSHAIR
-	layer.add_child(row)
-	return layer
+## True while this machine offers its own player the pet.
+func is_offered_here() -> bool:
+	return _view != null and _view.is_petting()
 
 
 ## The host's carrier changed: every machine reads the seat from the record; this one's prompt now.
@@ -255,8 +127,8 @@ func _pick_up(body: PlayerController) -> void:
 
 
 func _throw() -> void:
-	var look: Basis = _carry_basis()
-	global_transform = _carry_transform()
+	var velocity: Vector3 = CatView.throw_velocity(_carrier)
+	global_transform = CatView.carry_transform(_carrier)
 	_carrier = null
 	_announce_held(false)
 	_state = State.FLYING
@@ -264,8 +136,8 @@ func _throw() -> void:
 	collision_mask = 1
 	freeze = false
 	sleeping = false
-	linear_velocity = -look.z * THROW_SPEED + Vector3.UP * THROW_LIFT
-	angular_velocity = Vector3.UP * THROW_SPIN
+	linear_velocity = velocity
+	angular_velocity = Vector3.UP * CatView.THROW_SPIN
 	_fuse += 1
 	var mine: int = _fuse
 	get_tree().create_timer(FUSE_SECONDS).timeout.connect(func() -> void: _explode(mine))
@@ -284,7 +156,7 @@ func _explode(fuse: int) -> void:
 	if net != null:
 		net.get_session().replicator.send_event(NetEvents.Type.CAT_BLAST, NetCodec.pack_point(0, at))
 	_go()
-	_show_blast(at)
+	CatView.play_blast(_stage(), at)
 	get_tree().create_timer(RESPAWN_SECONDS).timeout.connect(_returned)
 
 
@@ -292,7 +164,6 @@ func _explode(fuse: int) -> void:
 func _go() -> void:
 	_gone = true
 	_carrier_seat = -1
-	_become_neutral()
 	_set_local_held(false)
 	visible = false
 	collision_layer = 0
@@ -307,14 +178,6 @@ func _returned() -> void:
 	collision_layer = CAT_LAYER
 	collision_mask = 1
 	global_transform = _home
-
-
-## A cat blast heard from the host's event ring, drawn by the first hub cat under [param root].
-static func blast_in(root: Node, at: Vector3) -> void:
-	for cat: HubCat in _all:
-		if is_instance_valid(cat) and root.is_ancestor_of(cat):
-			cat._show_blast(at)
-			return
 
 
 ## [NetProp]: state and carrying seat (u8: state, seat + 1 above it), position and yaw.
@@ -359,51 +222,10 @@ func _link_of_seat(seat: int) -> PlayerNetLink:
 	return net.get_session().replicator.find_link(seat) if net != null and seat >= 0 else null
 
 
-func _show_blast(at: Vector3) -> void:
+## Where a blast is drawn: the running scene, or beside the cat when there is none.
+func _stage() -> Node:
 	var scene: Node = get_tree().current_scene
-	if scene == null:
-		scene = get_parent()
-	var blast: AnimatedSprite3D = AnimatedSprite3D.new()
-	var frames: SpriteFrames = SpriteFrames.new()
-	frames.add_animation(&"boom")
-	frames.set_animation_loop(&"boom", false)
-	frames.set_animation_speed(&"boom", explosion_fps)
-	var width: int = EXPLOSION_SHEET.get_width() / maxi(explosion_frames, 1)
-	for i: int in explosion_frames:
-		var atlas: AtlasTexture = AtlasTexture.new()
-		atlas.atlas = EXPLOSION_SHEET
-		atlas.region = Rect2(i * width, 0, width, EXPLOSION_SHEET.get_height())
-		frames.add_frame(&"boom", atlas)
-	blast.sprite_frames = frames
-	blast.pixel_size = 0.06
-	blast.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	blast.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	blast.shaded = false
-	blast.no_depth_test = true
-	scene.add_child(blast)
-	blast.global_position = at
-	blast.animation_finished.connect(blast.queue_free)
-	blast.play(&"boom")
-	var sound: AudioStreamPlayer3D = AudioStreamPlayer3D.new()
-	sound.stream = EXPLOSION_SOUND
-	scene.add_child(sound)
-	sound.global_position = at
-	sound.finished.connect(sound.queue_free)
-	sound.play()
-
-
-func _carry_basis() -> Basis:
-	if _carrier.head != null:
-		return _carrier.head.global_basis.orthonormalized()
-	return _carrier.global_basis.orthonormalized()
-
-
-func _carry_transform() -> Transform3D:
-	var origin: Vector3 = _carrier.global_position + Vector3.UP * 1.5
-	if _carrier.head != null:
-		origin = _carrier.head.global_position
-	var look: Basis = _carry_basis()
-	return Transform3D(Basis(Vector3.UP, look.get_euler().y), origin + look * CARRY_OFFSET)
+	return scene if scene != null else get_parent()
 
 
 func _physics_process(_delta: float) -> void:
@@ -413,7 +235,7 @@ func _physics_process(_delta: float) -> void:
 			var link: PlayerNetLink = _link_of_seat(_carrier_seat)
 			_carrier = link.controller if link != null else null
 		if _state == State.HELD and is_instance_valid(_carrier) and not _gone:
-			global_transform = _carry_transform()
+			global_transform = CatView.carry_transform(_carrier)
 		return
 	if _state == State.REST:
 		return
@@ -423,7 +245,7 @@ func _physics_process(_delta: float) -> void:
 		else:
 			# Carried in the hands the host draws: a remote carrier's, its playout behind (render-only, off every layer).
 			var link: PlayerNetLink = PlayerNetLink.of(_carrier)
-			global_transform = _carry_transform()
+			global_transform = CatView.carry_transform(_carrier)
 			if link != null:
 				global_position += link.drawn_offset()
 	elif global_position.y < FALL_OUT_Y:

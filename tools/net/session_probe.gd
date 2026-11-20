@@ -20,6 +20,8 @@ const OPTIONS: Dictionary = {
 const MATCH_SCENE: String = "res://match/match.tscn"
 const HUB_SCENE: String = "res://hub/hub.tscn"
 const HITCH_MS: int = 100
+## The match transitions tools/net/check_session.py checks in order (its EVENT_KINDS).
+const TRANSITIONS: PackedStringArray = ["match_started", "race_started", "brawl_started", "round_started", "round_resolved", "match_won"]
 const ISOLATION_ENV: String = "PANOPTICON_NET_ISOLATED"
 ## The wire probe's packets: magic, u32 destination peer id, u32 sequence per destination, f64 send time (unix ms).
 const PROBE_MAGIC: int = 0x5750
@@ -69,6 +71,8 @@ var _result_showing: bool = false
 var _quit_done: bool = false
 var _cats_seen: Dictionary[int, Array] = {}
 var _broke: bool = false
+var _ev_tampered: bool = false
+var _ev_held: String = ""
 var _hubs_bound: int = 0
 ## Freezes still to come: [scene kind ("match", "hub" or "any"), nth bind, seconds, ms].
 var _freezes: Array[Array] = []
@@ -397,8 +401,20 @@ func _hook_controller() -> void:
 			line("RIFLE missed at=%.1f,%.1f,%.1f" % [end_point.x, end_point.y, end_point.z]))
 
 
+## record=1: a transition a client replays while it converges on its first match record, not one it was sent.
+## --break=event-drop / event-reorder: the first sent transition after the break is left out / logged after the next.
 func _ev(text: String) -> void:
-	line("EV %s kind=%s epoch=%d" % [text, _scene_kind, lobby.get_epoch()])
+	var record: bool = net_match.is_converging()
+	var entry: String = "EV %s kind=%s epoch=%d record=%d" % [text, _scene_kind, lobby.get_epoch(), int(record)]
+	var tampers: bool = _broke and not _ev_tampered and not record and text.get_slice(" ", 0) in TRANSITIONS
+	if tampers and String(o["break"]) in ["event-drop", "event-reorder"]:
+		_ev_tampered = true
+		_ev_held = entry if String(o["break"]) == "event-reorder" else ""
+		return
+	line(entry)
+	if not _ev_held.is_empty() and text.get_slice(" ", 0) in TRANSITIONS:
+		line(_ev_held)
+		_ev_held = ""
 
 
 ## The lobby seat a participant plays, "s<seat>", the one name every machine agrees on.
@@ -536,7 +552,6 @@ func _watch_state() -> void:
 
 ## What each body is drawing here, logged on the frame it changes: power, emote, ragdoll, role.
 func _watch_bodies() -> void:
-	var cats: int = 0
 	for p: MatchParticipant in controller.get_participants_ref():
 		if p.body == null:
 			continue
@@ -548,7 +563,7 @@ func _watch_bodies() -> void:
 		_note("power" + seat, str(shown), "POWER seat=%s ability=%d left=%.1f immune=%d camo=%d shield=%d decoy=%d cool=%.1f" % [
 			seat, shown, power.get_remaining() if power != null else 0.0,
 			int(power != null and power.is_hit_immune()), int(power != null and power.is_camouflaged()),
-			int(power != null and power.get_shield() != null), int(power != null and power.get_decoy() != null),
+			int(power != null and power.get_shield() != null), int(power != null and power.get_hologram() != null),
 			power.get_cooldown_remaining() if power != null else 0.0])
 		var emote: int = (2 if p.body.is_emote_alt() else 1) if p.body.is_emoting() else 0
 		_note("emote" + seat, str(emote), "EMOTE seat=%s on=%d alt=%d" % [seat, int(emote > 0), int(emote == 2)])
@@ -558,12 +573,14 @@ func _watch_bodies() -> void:
 		if avatar != null and avatar._ragdoll != null:
 			var rag: int = (1 if avatar._ragdoll.is_active() else 0) + (2 if avatar._ragdoll.is_flopping() else 0)
 			_note("rag" + seat, str(rag), "RAG seat=%s active=%d flop=%d" % [seat, rag & 1, rag >> 1])
+		var cat_drawn: int = int(power != null and power.get_cat_view() != null)
+		_note("catview" + seat, str(cat_drawn), "CAT seat=%s drawn=%d" % [seat, cat_drawn])
 		if session.is_authority() and power != null:
-			var cat: CatGrenade = power._cat
-			if is_instance_valid(cat):
-				cats += 1
-				_cats_seen[p.index] = [cat.cooking, cat.fuse_left]
-				_note("cat" + seat, str(cat.cooking), "CATHOST seat=%s held=1 cooking=%d fuse=%.2f" % [seat, int(cat.cooking), cat.fuse_left])
+			var cat: CatGrenade = power.get_cat()
+			if cat != null:
+				_cats_seen[p.index] = [power.state.cooking, power.get_remaining()]
+				_note("cat" + seat, str(power.state.cooking), "CATHOST seat=%s held=1 cooking=%d fuse=%.2f" % [
+					seat, int(power.state.cooking), power.get_remaining()])
 			elif _seen.get("cat" + seat, "gone") != "gone":
 				var last: Array = _cats_seen.get(p.index, [false, 0.0])
 				_note("cat" + seat, "gone", "CATHOST seat=%s held=0 was_cooking=%d fuse_was=%.2f" % [seat, int(last[0]), float(last[1])])
@@ -574,10 +591,6 @@ func _watch_bodies() -> void:
 		link.controller.launched.connect(func(velocity_vector: Vector3) -> void:
 			line("KNOCK seat=%s local=1 after=%d frame=%d speed=%.1f" % [_seat_of_body(link.controller),
 				session.replicator.outbox.next_seq() - 1, Engine.get_physics_frames(), velocity_vector.length()]))
-	if not session.is_authority():
-		var relay: CatGrenadeRelay = CatGrenadeRelay.of(session)
-		cats = relay._shown.size() if relay != null else 0
-	_note("cats", str(cats), "CATS drawn=%d" % cats)
 
 
 func _avatar_of(body: PlayerController) -> PrisonerAvatar:
@@ -691,6 +704,11 @@ func _break() -> void:
 					break
 		"hide-world":
 			get_viewport().disable_3d = true
+		"undrawn":
+			# Every other seat's power visuals stop being drawn here: its cat is never built.
+			for p: MatchParticipant in controller.get_participants_ref():
+				if p != mine and p.body != null and RunnerPower.of(p.body) != null:
+					RunnerPower.of(p.body).set_process(false)
 		"flood":
 			if not _broke:
 				for i: int in 60:

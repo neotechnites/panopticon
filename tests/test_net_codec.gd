@@ -49,6 +49,7 @@ func _make_state(seat: int, offset: float) -> PlayerState:
 	state.pitch = -0.125 * offset
 	state.on_floor = seat % 2 == 0
 	state.ability = seat % 5
+	state.power_active = seat % 5 != 0
 	state.ability_end_tick = TICK + 30 * seat
 	state.cooldown_end_tick = TICK + 18 * seat
 	state.is_finisher = seat == 1

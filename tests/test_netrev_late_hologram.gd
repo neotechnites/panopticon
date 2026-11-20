@@ -39,7 +39,7 @@ func test_rv_a_late_peer_sees_the_hologram_the_others_see() -> void:
 	var power: RunnerPower = RunnerPower.of(_rig.body(HOST, slot))
 	assert_true(power.activate(MatchRules.RunnerAbility.HOLOGRAM), "the host starts a bot runner's hologram")
 	var early: RunnerPower = RunnerPower.of(_rig.body(CLIENT, slot))
-	if not await _rig.wait_for(func() -> bool: return early.get_decoy() != null):
+	if not await _rig.wait_for(func() -> bool: return early.get_hologram() != null):
 		fail("the peer that was there never saw the hologram")
 		return
 	if not await _rig.bind_late(LATE):
@@ -48,9 +48,9 @@ func test_rv_a_late_peer_sees_the_hologram_the_others_see() -> void:
 	await step_ticks(120)
 	var mine: RunnerPower = RunnerPower.of(_rig.body(LATE, slot))
 	print("PROOF late-hologram: host decoy=%s, early client decoy=%s, late client decoy=%s, late client shows power %d" % [
-		str(power.get_decoy() != null), str(early.get_decoy() != null), str(mine.get_decoy() != null), int(mine.get_shown())])
+		str(power.get_decoy() != null), str(early.get_hologram() != null), str(mine.get_hologram() != null), int(mine.get_shown())])
 	assert_true(power.get_decoy() != null, "the hologram is still up on the host")
-	assert_true(mine.get_decoy() != null, "and the late peer draws it")
+	assert_true(mine.get_hologram() != null, "and the late peer draws it")
 
 
 ## A shield stands where it was raised, and its runner has moved on by the time the late peer binds.

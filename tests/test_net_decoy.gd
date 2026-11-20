@@ -80,7 +80,7 @@ func test_a_clients_hologram_stands_where_the_hosts_does_and_dies_with_it() -> v
 		return
 
 	var spawned: bool = await NetFixtures.poll_until(
-		self, func() -> bool: return client_power.get_decoy() != null
+		self, func() -> bool: return client_power.get_hologram() != null
 	)
 	assert_true(spawned, "and the client was told there is one")
 	if not spawned:
@@ -102,7 +102,7 @@ func test_a_clients_hologram_stands_where_the_hosts_does_and_dies_with_it() -> v
 		if not is_instance_valid(host_decoy) or host_decoy.is_queued_for_deletion():
 			break
 		last = host_decoy.global_position
-		var mirror: PlayerController = client_power.get_decoy()
+		var mirror: HologramView = client_power.get_hologram()
 		if mirror == null:
 			fail("the client's hologram vanished while the host's was still running")
 			return
@@ -113,11 +113,11 @@ func test_a_clients_hologram_stands_where_the_hosts_does_and_dies_with_it() -> v
 		var seat: int = PlayerNetLink.of(host_power.body).seat_index
 		for i: int in ring._ring_count:
 			var to_state: PlayerState = ring._slot(i).find_seat(seat)
-			if to_state == null or not to_state.decoy_alive:
+			if to_state == null or not to_state.power_out:
 				continue
 			# A segment from the world before, or the one point of the hologram's first world.
 			var from_state: PlayerState = ring._slot(i - 1).find_seat(seat) if i > 0 else null
-			var from: Vector3 = from_state.anchor_position if from_state != null and from_state.decoy_alive else to_state.anchor_position
+			var from: Vector3 = from_state.anchor_position if from_state != null and from_state.power_out else to_state.anchor_position
 			var on_path: Vector3 = Geometry3D.get_closest_point_to_segment(
 				mirror.global_position, from, to_state.anchor_position)
 			var distance: float = mirror.global_position.distance_to(on_path)
@@ -143,7 +143,7 @@ func test_the_hologram_dies_on_the_client_when_it_dies_on_the_host() -> void:
 	if powers.is_empty():
 		return
 	assert_true(powers[0].activate(), "the runner threw a hologram")
-	if not await NetFixtures.poll_until(self, func() -> bool: return powers[1].get_decoy() != null):
+	if not await NetFixtures.poll_until(self, func() -> bool: return powers[1].get_hologram() != null):
 		fail("the client was never told there is one")
 		return
 
@@ -151,10 +151,9 @@ func test_the_hologram_dies_on_the_client_when_it_dies_on_the_host() -> void:
 	await step_ticks(1)
 	assert_null(powers[0].get_decoy(), "the shot took the host's hologram")
 
-	# One tick of transport, not one snapshot: the despawn does not wait for the
-	# ability byte to go to NONE in the next snapshot.
+	# The shatter is the record's out bit going false: drawn when the client's playout reaches it.
 	var gone: bool = await NetFixtures.poll_until(
-		self, func() -> bool: return powers[1].get_decoy() == null
+		self, func() -> bool: return powers[1].get_hologram() == null
 	)
 	assert_true(gone, "and the client's went with it")
 
@@ -164,14 +163,14 @@ func test_the_hologram_expires_on_the_client_when_the_power_runs_out() -> void:
 	if powers.is_empty():
 		return
 	assert_true(powers[0].activate(), "the runner threw a hologram")
-	if not await NetFixtures.poll_until(self, func() -> bool: return powers[1].get_decoy() != null):
+	if not await NetFixtures.poll_until(self, func() -> bool: return powers[1].get_hologram() != null):
 		fail("the client was never told there is one")
 		return
 
 	await step_seconds(DURATION_SECONDS + 0.1)
 	assert_null(powers[0].get_decoy(), "the power ran out on the authority")
 	var gone: bool = await NetFixtures.poll_until(
-		self, func() -> bool: return powers[1].get_decoy() == null
+		self, func() -> bool: return powers[1].get_hologram() == null
 	)
 	assert_true(gone, "and the client's hologram expired with it")
 

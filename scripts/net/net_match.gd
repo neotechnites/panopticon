@@ -63,6 +63,8 @@ var _scene_peers: PackedInt32Array = PackedInt32Array()
 ## transitions that arrived before it, to be taken or dropped against it.
 var _converged_tick: int = -1
 var _early: Array[Array] = []
+## Client: true only while [method _converge] replays the first record's transitions.
+var _converging: bool = false
 ## Authority: the rules last published from this scene, so a widget that edited none sends none.
 var _rules_said: PackedByteArray = PackedByteArray()
 
@@ -199,6 +201,11 @@ func is_authority() -> bool:
 
 func has_started() -> bool:
 	return _started
+
+
+## True while a transition is replayed from the match record this client converges on, not sent to it.
+func is_converging() -> bool:
+	return _converging
 
 
 ## The lobby epoch this scene was loaded for, or 0 when it is bound to none.
@@ -528,7 +535,9 @@ func _on_match_record(record: PackedByteArray, tick: int, first: bool) -> void:
 	if not first or hub_mode:
 		return
 	if not record.is_empty():
+		_converging = true
 		_converge(record)
+		_converging = false
 	_converged_tick = tick
 	for early: Array in _early:
 		if NetCodec.is_newer_tick(int(early[0]), tick):
@@ -563,7 +572,7 @@ func _on_event(type: NetEvents.Type, payload: PackedByteArray, _tick: int) -> vo
 		NetEvents.Type.SHOVE_KICK:
 			controller.net_shove_felt(NetCodec.event_unit(payload, 0))
 		NetEvents.Type.CAT_BLAST:
-			HubCat.blast_in(get_parent(), NetCodec.event_point(payload, 1))
+			CatView.play_blast(get_parent(), NetCodec.event_point(payload, 1))
 
 
 ## The other machines whose copy of this scene stands; who a prop in it may send to.

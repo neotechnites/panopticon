@@ -357,7 +357,7 @@ func test_every_per_tick_message_fits_in_one_datagram() -> void:
 		state.ability = 1
 		state.ability_end_tick = 160
 		state.cooldown_end_tick = 400
-		state.has_anchor = true
+		state.power_active = true
 		state.anchor_position = Vector3.ONE
 		state.boost_end_tick = 200
 		state.boost_multiplier = 2.0

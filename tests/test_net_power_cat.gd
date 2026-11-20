@@ -23,13 +23,12 @@ func test_a_clients_cat_is_one_carried_cat_on_the_host_drawn_on_both_clients() -
 	)
 	assert_eq_int(int(power_of(host_links, A_SEAT).get_active()), CAT, "the host runs the cat power")
 	await step_ticks(10)
-	for session: NetSession in [a, b]:
-		var shown: Dictionary = _shown(session)
-		if not assert_eq_int(shown.size(), 1, "%s draws one cat" % _who(session)):
+	for session: NetSession in [host, a, b]:
+		if not assert_eq_int(_shown_count(session), 1, "%s draws one cat" % _who(session)):
 			continue
-		var mesh: MeshInstance3D = shown.values()[0] as MeshInstance3D
+		var view: CatView = _views(session)[0]
 		assert_lt(
-			mesh.global_position.distance_to(cats[0].global_position), DRAW_TOLERANCE_METRES,
+			view.global_position.distance_to(cats[0].global_position), DRAW_TOLERANCE_METRES,
 			"%s draws the cat where the host has it" % _who(session),
 		)
 
@@ -39,12 +38,10 @@ func test_the_pet_prompt_is_on_the_client_that_holds_the_cat_only() -> void:
 		return
 	if not await _hold(a_keys, A_SEAT):
 		return
-	var offered: bool = await until(func() -> bool: return _held_id(a) > 0)
-	assert_true(offered, "A holds the cat and is offered the pet (held id %d)" % _held_id(a))
-	assert_true(_has_prompt(a), "A's machine has the pet prompt up")
-	assert_eq_int(_held_id(host), 0, "the host does not hold A's cat")
-	assert_eq_int(_held_id(b), 0, "B does not hold A's cat")
-	assert_false(_has_prompt(host) or _has_prompt(b), "no prompt on the host or on B")
+	var offered: bool = await until(func() -> bool: return _has_prompt(a))
+	assert_true(offered, "A holds the cat and is offered the pet")
+	assert_false(_has_prompt(host), "the host does not hold A's cat")
+	assert_false(_has_prompt(b), "B does not hold A's cat")
 
 
 func test_the_pet_prompt_is_on_the_host_when_the_host_holds_the_cat() -> void:
@@ -52,20 +49,18 @@ func test_the_pet_prompt_is_on_the_host_when_the_host_holds_the_cat() -> void:
 		return
 	if not await _hold(host_keys, HOST_SEAT):
 		return
-	assert_gt(float(_held_id(host)), 0.0, "the host holds its own cat and is offered the pet")
-	assert_true(_has_prompt(host), "the host's machine has the pet prompt up")
+	assert_true(_has_prompt(host), "the host holds its own cat and is offered the pet")
 	await step_ticks(10)
-	assert_eq_int(_held_id(a), 0, "A does not hold the host's cat")
-	assert_eq_int(_held_id(b), 0, "B does not hold the host's cat")
-	assert_false(_has_prompt(a) or _has_prompt(b), "no prompt on A or on B")
+	assert_false(_has_prompt(a), "A does not hold the host's cat")
+	assert_false(_has_prompt(b), "B does not hold the host's cat")
 
 
-func test_the_holders_peer_is_found_when_its_link_is_not_under_its_body() -> void:
+func test_the_holder_is_found_when_its_link_is_not_under_its_body() -> void:
 	var port: int = await NetFixtures.host_and_wait(self, host)
 	if not assert_gt(float(port), 0.0, "the host took a port"):
 		return
-	# The match's layout: links sit beside the bodies they carry, never under them.
-	var remote_peer: int = 777
+	# The match's layout: links sit beside the bodies they carry, never under them. The body is
+	# the host's own player's, driven by no human device: only its link can say it is.
 	var body: PlayerController = TestFixtures.make_bot_player(profile)
 	body.name = "Seat1"
 	host.get_parent().add_child(body)
@@ -77,7 +72,7 @@ func test_the_holders_peer_is_found_when_its_link_is_not_under_its_body() -> voi
 	link.replicator = host.replicator
 	link.controller = body
 	link.seat_index = A_SEAT
-	link.owner_peer_id = remote_peer
+	link.owner_peer_id = host.get_local_peer_id()
 	host.get_parent().add_child(link)
 	await step_ticks(2)
 	var stub: MatchController = _make_stub(host)
@@ -89,10 +84,11 @@ func test_the_holders_peer_is_found_when_its_link_is_not_under_its_body() -> voi
 	var cats: Array[CatGrenade] = _host_cats()
 	if not assert_eq_int(cats.size(), 1, "the host has the cat"):
 		return
-	assert_eq_int(
-		int(cats[0].get("_holder_peer")), remote_peer,
-		"the cat names the peer that owns its carrier, so that peer gets the prompt",
-	)
+	await step_ticks(2)
+	var view: CatView = power.get_cat_view()
+	if not assert_not_null(view, "the host draws the cat in its carrier's hands"):
+		return
+	assert_true(view.is_petting(), "the host's player, found through the link beside its body, is offered the pet")
 
 
 func test_a_cooked_cat_runs_its_fuse_and_goes_off_everywhere() -> void:
@@ -122,7 +118,7 @@ func test_a_cooked_cat_runs_its_fuse_and_goes_off_everywhere() -> void:
 	assert_true(
 		undrawn, "no client still draws a cat: A %d, B %d" % [_shown_count(a), _shown_count(b)]
 	)
-	assert_eq_int(_held_id(a), 0, "A is no longer offered the pet")
+	assert_false(_has_prompt(a), "A is no longer offered the pet")
 	await step_ticks(10)
 	assert_true(
 		_shown_count(a) == 0 and _shown_count(b) == 0, "and a late position does not redraw it"
@@ -141,9 +137,10 @@ func test_an_uncooked_cat_does_not_go_off() -> void:
 	var cats: Array[CatGrenade] = _host_cats()
 	if not assert_eq_int(cats.size(), 1, "the cat is still there four seconds on"):
 		return
-	assert_false(cats[0].cooking, "nobody lit it")
+	var host_power: RunnerPower = power_of(host_links, A_SEAT)
+	assert_false(host_power.state.cooking, "nobody lit it")
 	assert_same(cats[0].carrier, body_of(host_links, A_SEAT), "it is still in A's hands")
-	assert_almost_eq(cats[0].fuse_left, CatGrenade.FUSE_SECONDS, 0.001, "its fuse is whole")
+	assert_almost_eq(host_power.get_remaining(), CatGrenade.FUSE_SECONDS, 0.001, "its fuse is whole")
 	assert_true(all_draw(A_SEAT, CAT), "the power still runs on all three: %s" % str(drawn(A_SEAT)))
 	assert_true(
 		_shown_count(a) == 1 and _shown_count(b) == 1,
@@ -198,33 +195,33 @@ func test_a_holder_freed_mid_hold_takes_its_cat_with_it() -> void:
 	await step_ticks(3)
 	assert_eq_int(_host_cats().size(), 1, "the host still has the cat while its holder stands")
 	body_of(host_links, A_SEAT).queue_free()
+	# B's copy is taken away by its roster (NetMatch), covered in test_net_power_hub_roster.
 	var ticks: int = 0
-	while ticks < 30 and not (_host_cats().is_empty() and _shown_count(a) == 0 and _shown_count(b) == 0):
+	while ticks < 30 and not (_host_cats().is_empty() and _shown_count(a) == 0 and _shown_count(host) == 0):
 		await step_ticks(1)
 		ticks += 1
 	assert_eq_int(_host_cats().size(), 0, "the host's cat went with its holder")
 	assert_eq_int(_shown_count(a), 0, "A draws no cat within 30 ticks")
-	assert_eq_int(_shown_count(b), 0, "B draws no cat within 30 ticks")
-	assert_eq_int(_held_id(a), 0, "A is no longer offered the pet")
+	assert_eq_int(_shown_count(host), 0, "the host draws no cat within 30 ticks")
+	assert_false(_has_prompt(a), "A is no longer offered the pet")
 	await step_ticks(10)
 	assert_true(
-		_shown_count(a) == 0 and _shown_count(b) == 0, "and a late position does not redraw it"
+		_shown_count(a) == 0 and _shown_count(host) == 0, "and a later world does not redraw it"
 	)
 
 
-func test_every_machine_has_a_relay_before_any_body_exists() -> void:
-	var port: int = await NetFixtures.host_and_wait(self, host)
-	if not assert_gt(float(port), 0.0, "the host took a port"):
+func test_a_cat_is_drawn_from_the_power_alone_on_every_machine() -> void:
+	if not await stand_up():
 		return
-	for client: NetSession in [a, b]:
-		if not await NetFixtures.join_and_wait(self, client, host, port):
-			fail("a loopback handshake did not complete")
-			return
-	await step_ticks(1)
+	if not await _hold(a_keys, A_SEAT):
+		return
+	# Every cat drawn anywhere belongs to the power of the body that carries it.
 	for session: NetSession in [host, a, b]:
-		assert_not_null(
-			_relay(session), "%s has a cat relay with no body in its scene" % _who(session)
-		)
+		var drawn: int = 0
+		for node: Node in session.get_parent().find_children("*", "Node3D", true, false):
+			if node is CatView and not node.is_queued_for_deletion():
+				drawn += 1
+		assert_eq_int(drawn, 1, "%s draws one cat, and only through A's power" % _who(session))
 
 
 func test_a_blast_does_not_store_a_launch_on_a_body_held_out_of_the_world() -> void:
@@ -276,7 +273,7 @@ func _blasts(session: NetSession) -> Array[AudioStreamPlayer3D]:
 	var sounds: Array[AudioStreamPlayer3D] = []
 	for child: Node in session.get_parent().get_children():
 		var sound: AudioStreamPlayer3D = child as AudioStreamPlayer3D
-		if sound != null and sound.stream == CatGrenadeRelay.EXPLOSION_SOUND:
+		if sound != null and sound.stream == CatView.EXPLOSION_SOUND:
 			sounds.append(sound)
 	return sounds
 
@@ -352,7 +349,7 @@ func _hold(keys: PressSource, seat: int) -> bool:
 		func() -> bool: return _shown_count(a) == 1 and _shown_count(b) == 1
 	)
 	return assert_true(
-		seen, "A and B each draw the cat: A %d, B %d (-1: no relay)" % [_shown_count(a), _shown_count(b)]
+		seen, "A and B each draw the cat: A %d, B %d" % [_shown_count(a), _shown_count(b)]
 	)
 
 
@@ -366,37 +363,31 @@ func _host_cats() -> Array[CatGrenade]:
 
 
 func _host_cooking() -> bool:
-	var cats: Array[CatGrenade] = _host_cats()
-	return not cats.is_empty() and cats[0].cooking
+	return not _host_cats().is_empty() and power_of(host_links, A_SEAT).state.cooking
 
 
-## The relay beside [param session], or null on a machine that has none.
-func _relay(session: NetSession) -> Node:
-	return session.get_parent().get_node_or_null("CatGrenadeRelay")
+## The cats [param session]'s machine draws for its seats.
+func _views(session: NetSession) -> Array[CatView]:
+	var views: Array[CatView] = []
+	for links: Array[PlayerNetLink] in [host_links, a_links, b_links]:
+		for link: PlayerNetLink in links:
+			if is_instance_valid(link) and link.session == session and is_instance_valid(link.controller):
+				var view: CatView = RunnerPower.of(link.controller).get_cat_view()
+				if view != null:
+					views.append(view)
+	return views
 
 
-func _shown(session: NetSession) -> Dictionary:
-	var relay: Node = _relay(session)
-	return (relay.get("_shown") as Dictionary) if relay != null else {}
-
-
-## Cats [param session]'s machine draws; -1 when it has no relay to draw one with.
 func _shown_count(session: NetSession) -> int:
-	return _shown(session).size() if _relay(session) != null else -1
+	return _views(session).size()
 
 
-## The cat [param session]'s machine is offered the pet for; 0 for none, -1 with no relay.
-func _held_id(session: NetSession) -> int:
-	var relay: Node = _relay(session)
-	return int(relay.get("_held_id")) if relay != null else -1
-
-
+## True while [param session]'s machine offers its own player the pet.
 func _has_prompt(session: NetSession) -> bool:
-	var relay: Node = _relay(session)
-	if relay == null:
-		return false
-	var prompt: Variant = relay.get("_prompt")
-	return is_instance_valid(prompt) and not (prompt as Node).is_queued_for_deletion()
+	for view: CatView in _views(session):
+		if view.is_petting():
+			return true
+	return false
 
 
 func _who(session: NetSession) -> String:
@@ -417,7 +408,4 @@ func _standing_runner() -> MatchParticipant:
 
 ## A cat's blast one metre to the -X side of [param runner], at chest height.
 func _blast_beside(runner: MatchParticipant) -> void:
-	var cat: CatGrenade = CatGrenade.new()
-	var at: Vector3 = runner.body.global_position + Vector3(-1.0, CatGrenade.BODY_CENTRE, 0.0)
-	cat.call(&"_push", runner, at)
-	cat.free()
+	CatGrenade.push(runner, runner.body.global_position + Vector3(-1.0, CatGrenade.BODY_CENTRE, 0.0))

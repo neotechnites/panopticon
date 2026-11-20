@@ -35,7 +35,7 @@ const REGISTRIES: Array[Array] = [
 ]
 
 ## Nodes the game itself keeps under the root for the life of the process, made on first use.
-const ROOT_SINGLETONS: Array[StringName] = [CatGrenadeRelay.NODE_NAME]
+const ROOT_SINGLETONS: Array[StringName] = []
 
 ## The variable the runner's supervisor sets to the user directory it isolated.
 const ISOLATED_HOME_VARIABLE: String = "PANOPTICON_TEST_HOME"

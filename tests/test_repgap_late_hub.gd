@@ -27,7 +27,7 @@ func _draws(machine: int, which: int) -> bool:
 		SHIELD:
 			return mine.get_shield() != null
 		HOLOGRAM:
-			return mine.get_decoy() != null
+			return mine.get_hologram() != null
 		ARMOR:
 			return body(machine, A).get_node_or_null("ArmorShell") != null
 		CAMO:
@@ -115,12 +115,11 @@ func test_a_joiner_whose_hub_stands_while_a_power_cat_is_held_draws_it() -> void
 	await step_ticks(20)
 	assert_not_null(grenade(A), "the cat is still in A's hands on the host")
 	assert_eq_int(int(power(B, A).get_shown()), CAT_POWER, "the joiner shows A's cat power running")
-	var shown: Dictionary = relay(B).get("_shown")
 	var drawn_cats: int = 0
-	for mesh: Variant in shown.values():
-		if is_instance_valid(mesh) and (mesh as Node3D).is_inside_tree():
+	for view: CatView in cat_views(B):
+		if view.is_inside_tree():
 			drawn_cats += 1
-			var off: float = (mesh as Node3D).global_position.distance_to(grenade(A).global_position)
+			var off: float = view.global_position.distance_to(grenade(A).global_position)
 			assert_lt(off, 1.0, "the joiner draws the cat where the host has it")
 	assert_eq_int(drawn_cats, 1, "the joiner draws the one cat")
 	assert_eq_int(pet_offer(B), 0, "and is not offered the pet for a cat it does not hold")

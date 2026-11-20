@@ -156,6 +156,9 @@ var slide_enabled: bool = false
 ## this tick's intent still readable through [method get_intent]. Its own armor lock holds it too.
 var movement_locked: bool = false
 
+## This body's runner power (its Ability child), or null for one with none (a hologram's body).
+@onready var power: RunnerPower = get_node_or_null(^"Ability") as RunnerPower
+
 ## True while this body holds the tower seat. [MatchController] is the only
 ## thing that writes it, in [method MatchController._place_in_tower] and
 ## [method MatchController._place_on_track]. The costume reads it to draw the
@@ -289,6 +292,11 @@ var _headroom_query: PhysicsShapeQueryParameters3D = null
 
 ## The match holds this body or lets it go. A held body still takes its commands and moves nothing.
 func set_held(hold: bool) -> void:
+	if hold:
+		# Nothing thrown at a body out of the world lands on it when it is let go.
+		_has_pending_launch = false
+		_pending_launch = Vector3.ZERO
+		_air_lock_timer = 0.0
 	if hold != held:
 		held = hold
 		held_changed.emit(hold)
@@ -328,7 +336,6 @@ func run_command(command: MoveIntent, delta: float) -> void:
 		press_ruled.emit(_intent.pressed, &"held")
 	# The machine that decides: the session's authority (or no session), and never a prediction.
 	var authority: bool = not net_predicted and (multiplayer.multiplayer_peer == null or multiplayer.is_server())
-	var power: RunnerPower = RunnerPower.of(self)
 	if power != null:
 		power.step(_intent, delta, authority)
 	var swung: bool = _swing(delta)
@@ -554,8 +561,7 @@ var net_floor: int = -1
 
 ## Held still, as a body this machine runs it: by the match, or by the armor lock it is running.
 func is_movement_locked() -> bool:
-	var power: RunnerPower = RunnerPower.of(self)
-	return movement_locked or (power != null and power.get_active() == MatchRules.RunnerAbility.ARMOR_LOCK)
+	return movement_locked or (power != null and power.holds_body())
 
 
 ## On the floor, however this machine knows it. Read this, not [method is_on_floor],
@@ -942,6 +948,9 @@ func _tick_jump_timers(on_floor: bool, delta: float) -> void:
 ## Returns true if the body left the ground this tick.
 ## Throw the body at [param velocity_vector] on the next tick, surviving floor contact.
 func launch(velocity_vector: Vector3, air_lock_seconds: float = 0.0) -> void:
+	if held:
+		# Held out of the world: a launch stored on it would fire when it is let go.
+		return
 	_pending_launch = velocity_vector
 	_has_pending_launch = true
 	_air_lock_timer = maxf(air_lock_seconds, 0.0)

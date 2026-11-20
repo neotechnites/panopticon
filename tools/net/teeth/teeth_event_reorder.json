@@ -1,0 +1,24 @@
+{
+ "runner": "match",
+ "peers": 2,
+ "limit": 110,
+ "common": {
+  "seconds": 60,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 0,
+  "marksman": true
+ },
+ "host": {
+  "rounds": 2,
+  "ghosts": "false"
+ },
+ "client": {
+  "break": "event-reorder",
+  "break-at": 3
+ },
+ "name": "teeth_event_reorder",
+ "teeth": [
+  "events"
+ ]
+}

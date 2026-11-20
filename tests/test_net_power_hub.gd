@@ -168,8 +168,7 @@ func _throw_the_power_cat(delay_ms: int) -> void:
 	var live: CatGrenade = await hold_power_cat()
 	if live == null:
 		return
-	var blast: Array[Vector3] = []
-	live.exploded.connect(func() -> void: blast.append(live.global_position))
+	var blast: Array[Vector3] = _watch_blast(live)
 	var swings: Array = _count_a_swings()
 	keys[A].tap(&"shove_pressed")
 	var thrown: bool = await until(
@@ -180,7 +179,7 @@ func _throw_the_power_cat(delay_ms: int) -> void:
 	var let_go: bool = await until(func() -> bool: return pet_offer(A) == 0, 1000)
 	assert_true(let_go, "A's machine stops offering the pet for a cat in the air")
 	# B's own body walks up to the lit cat.
-	await until(func() -> bool: return not blast.is_empty() or live.fuse_left <= 0.5)
+	await until(func() -> bool: return not blast.is_empty() or power(HOST, A).get_remaining() <= 0.5)
 	if not blast.is_empty():
 		fail("the cat went off before its fuse was nearly out")
 		return
@@ -218,10 +217,9 @@ func test_a_power_cat_cooked_in_the_hand_pushes_its_holder_and_hurts_nobody() ->
 		return
 	var a_at: Vector3 = body(HOST, A).global_position
 	var forward: Vector3 = -body(HOST, A).global_transform.basis.z
-	var blast: Array[Vector3] = []
-	live.exploded.connect(func() -> void: blast.append(live.global_position))
+	var blast: Array[Vector3] = _watch_blast(live)
 	keys[A].tap(&"cook_pressed")
-	var lit: bool = await until(func() -> bool: return not blast.is_empty() or live.cooking)
+	var lit: bool = await until(func() -> bool: return not blast.is_empty() or power(HOST, A).state.cooking)
 	assert_true(lit, "E lit the fuse on the host")
 	var went_off: bool = await until(func() -> bool: return not blast.is_empty(), 5000)
 	if not assert_true(went_off, "the cooked cat went off in the hand"):
@@ -255,22 +253,28 @@ func test_only_the_holders_machine_is_offered_the_pet_while_a_client_holds_the_p
 	assert_true(offered, "A's machine offers the pet for the cat A holds")
 	assert_eq_int(pet_offer(HOST), 0, "the host's machine does not")
 	assert_eq_int(pet_offer(B), 0, "B's machine does not")
-	assert_eq_string(str(cats_drawn()), str([0, 1, 1]), "A and B each draw the one cat the host owns")
+	assert_eq_string(str(cats_drawn()), str([1, 1, 1]), "every machine draws the one cat the host owns")
 
 
 func test_only_the_host_is_offered_the_pet_while_the_host_holds_the_power_cat() -> void:
 	if not await stand_up():
 		return
-	if relay(HOST) == null:
-		fail("no cat relay beside the host's session (API absent)")
-		return
 	keys[HOST].tap_slot(CAT)
 	var offered: bool = await until(func() -> bool: return pet_offer(HOST) != 0)
 	assert_true(offered, "the host's machine offers the pet for the cat the host holds")
-	await until(func() -> bool: return cats_drawn() == [0, 1, 1])
+	await until(func() -> bool: return cats_drawn() == [1, 1, 1])
 	await step_ticks(10)
 	assert_eq_int(pet_offer(A), 0, "A's machine does not")
 	assert_eq_int(pet_offer(B), 0, "B's machine does not")
+
+
+## Where the host's cat [param live] is when its power goes off: one entry per blast.
+func _watch_blast(live: CatGrenade) -> Array[Vector3]:
+	var blast: Array[Vector3] = []
+	power(HOST, A).ended.connect(func(_which: MatchRules.RunnerAbility, reason: StringName) -> void:
+		if reason == &"spent" and is_instance_valid(live):
+			blast.append(live.global_position))
+	return blast
 
 
 # --- 10-12. The hub cats --------------------------------------------------------

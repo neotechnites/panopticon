@@ -139,9 +139,11 @@ const _PLACED_SHIFT: int = 12
 const JUMP_COUNTER_MODULUS: int = 8
 const SHOVE_COUNTER_MODULUS: int = 4
 const PLACED_COUNTER_MODULUS: int = 8
-## The power byte: which power (3 b), then whether its hologram is out and whether it has an anchor.
-const _POWER_DECOY: int = 1 << 3
-const _POWER_ANCHOR: int = 1 << 4
+## The power byte: which power (3 b), running, entity out, fuse lit, then the activation (2 b).
+const _POWER_ACTIVE: int = 1 << 3
+const _POWER_OUT: int = 1 << 4
+const _POWER_COOKING: int = 1 << 5
+const _POWER_SERIAL_SHIFT: int = 6
 const _BOOST_TENTHS_MAX: int = 255
 const _FLAG_SEAT_READY: int = 1 << 0
 
@@ -516,11 +518,11 @@ static func body_changes(a: PlayerState, b: PlayerState) -> int:
 	if a.health != b.health:
 		mask |= BODY_HEALTH
 	if (
-		a.ability != b.ability or a.decoy_alive != b.decoy_alive or a.has_anchor != b.has_anchor
-		or a.ability_end_tick != b.ability_end_tick or a.cooldown_end_tick != b.cooldown_end_tick
+		_power_byte(a) != _power_byte(b) or a.ability_end_tick != b.ability_end_tick
+		or a.cooldown_end_tick != b.cooldown_end_tick
 	):
 		mask |= BODY_POWER
-	if a.has_anchor and (a.anchor_position != b.anchor_position or a.anchor_yaw != b.anchor_yaw or not b.has_anchor):
+	if a.anchor_position != b.anchor_position or a.anchor_yaw != b.anchor_yaw:
 		mask |= BODY_ANCHOR
 	if a.boost_multiplier != b.boost_multiplier or a.boost_end_tick != b.boost_end_tick:
 		mask |= BODY_BOOST
@@ -546,14 +548,11 @@ static func quantise_state(state: PlayerState, tick: int) -> void:
 	state.placed_counter = posmod(state.placed_counter, PLACED_COUNTER_MODULUS)
 	state.health = clampi(state.health, 0, _HEALTH_MAX)
 	state.ability = clampi(state.ability, 0, _MAX_ABILITY)
+	state.power_serial = posmod(state.power_serial, PowerState.SERIAL_MODULUS)
 	state.ability_end_tick = _wire_end(state.ability_end_tick, tick)
 	state.cooldown_end_tick = _wire_end(state.cooldown_end_tick, tick)
-	if state.has_anchor:
-		state.anchor_position = quantised_metres(state.anchor_position)
-		state.anchor_yaw = turn_of(quantise_turn(state.anchor_yaw))
-	else:
-		state.anchor_position = Vector3.ZERO
-		state.anchor_yaw = 0.0
+	state.anchor_position = quantised_metres(state.anchor_position)
+	state.anchor_yaw = turn_of(quantise_turn(state.anchor_yaw))
 	state.boost_end_tick = _wire_end(state.boost_end_tick, tick)
 	state.boost_multiplier = (
 		float(clampi(roundi(state.boost_multiplier * 10.0), 0, _BOOST_TENTHS_MAX)) * 0.1
@@ -598,6 +597,14 @@ static func _resolve_end(wire: int, tick: int) -> int:
 	return (tick + ahead + TICK_MODULUS) % TICK_MODULUS
 
 
+static func _power_byte(state: PlayerState) -> int:
+	return (
+		state.ability | (_POWER_ACTIVE if state.power_active else 0) | (_POWER_OUT if state.power_out else 0)
+		| (_POWER_COOKING if state.power_cooking else 0)
+		| (posmod(state.power_serial, PowerState.SERIAL_MODULUS) << _POWER_SERIAL_SHIFT)
+	)
+
+
 static func _body_flags(state: PlayerState) -> int:
 	return (
 		(_FLAG_ON_FLOOR if state.on_floor else 0) | (_FLAG_SLIDING if state.sliding else 0)
@@ -628,7 +635,7 @@ static func _put_body(buffer: StreamPeerBuffer, state: PlayerState, base: Player
 	if (mask & BODY_HEALTH) != 0:
 		buffer.put_u8(state.health)
 	if (mask & BODY_POWER) != 0:
-		buffer.put_u8(state.ability | (_POWER_DECOY if state.decoy_alive else 0) | (_POWER_ANCHOR if state.has_anchor else 0))
+		buffer.put_u8(_power_byte(state))
 		_put_end(buffer, state.ability_end_tick)
 		_put_end(buffer, state.cooldown_end_tick)
 	if (mask & BODY_ANCHOR) != 0:
@@ -692,14 +699,13 @@ static func _get_body(payload: PackedByteArray, at: int, state: PlayerState, tic
 		var power: int = payload.decode_u8(at)
 		# A power from a build with more of them than this one is drawn as none rather than refused.
 		state.ability = power & 7 if (power & 7) <= _MAX_ABILITY else 0
-		state.decoy_alive = (power & _POWER_DECOY) != 0
-		state.has_anchor = (power & _POWER_ANCHOR) != 0
+		state.power_active = (power & _POWER_ACTIVE) != 0 and (power & 7) <= _MAX_ABILITY
+		state.power_out = (power & _POWER_OUT) != 0
+		state.power_cooking = (power & _POWER_COOKING) != 0
+		state.power_serial = power >> _POWER_SERIAL_SHIFT
 		state.ability_end_tick = _resolve_end(payload.decode_u16(at + 1), tick)
 		state.cooldown_end_tick = _resolve_end(payload.decode_u16(at + 3), tick)
 		at += 5
-		if not state.has_anchor:
-			state.anchor_position = Vector3.ZERO
-			state.anchor_yaw = 0.0
 	if (mask & BODY_ANCHOR) != 0:
 		state.anchor_position = metres_at(payload, at)
 		state.anchor_yaw = turn_of(payload.decode_u16(at + 6))

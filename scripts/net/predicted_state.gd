@@ -9,10 +9,9 @@ const VELOCITY: int = 3
 const YAW: int = 6
 const VIEW_BASE: int = 7
 const LOCKED: int = 8
-const POWER_ACTIVE: int = 9
-const POWER_REMAINING: int = 10
-const POWER_COOLDOWN: int = 11
-const MOTION: int = 12
+## The power's predicted part ([method PowerState.capture]).
+const POWER: int = 9
+const MOTION: int = POWER + PowerState.PREDICTED_SIZE
 const WEAPON: int = MOTION + PlayerController.MOTION_STATE_SIZE
 const SIZE: int = WEAPON + Rifle.GATE_STATE_SIZE
 
@@ -51,10 +50,11 @@ func capture(body: PlayerController, weapon: Rifle) -> void:
 	values[YAW] = body.rotation.y
 	values[VIEW_BASE] = body.view_base
 	values[LOCKED] = 1.0 if body.movement_locked else 0.0
-	var power: RunnerPower = RunnerPower.of(body)
-	values[POWER_ACTIVE] = float(power.get_active()) if power != null else 0.0
-	values[POWER_REMAINING] = power.get_predicted_remaining() if power != null else 0.0
-	values[POWER_COOLDOWN] = power.get_cooldown_remaining() if power != null else 0.0
+	if body.power != null:
+		body.power.state.capture(values, POWER)
+	else:
+		for i: int in PowerState.PREDICTED_SIZE:
+			values[POWER + i] = 0.0
 	body.capture_motion_state(_motion)
 	for i: int in _motion.size():
 		values[MOTION + i] = _motion[i]
@@ -75,9 +75,8 @@ func restore(body: PlayerController, weapon: Rifle) -> void:
 	for i: int in _motion.size():
 		_motion[i] = values[MOTION + i]
 	body.restore_motion_state(_motion)
-	var power: RunnerPower = RunnerPower.of(body)
-	if power != null:
-		power.restore_predicted(int(values[POWER_ACTIVE]), values[POWER_REMAINING], values[POWER_COOLDOWN])
+	if body.power != null:
+		body.power.state.restore(values, POWER)
 	body.movement_locked = values[LOCKED] > 0.5
 	if weapon != null:
 		for i: int in _gate.size():
