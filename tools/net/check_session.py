@@ -377,44 +377,57 @@ def dropped_at(host: Peer, client: Peer) -> float:
                  and l.w > seated), float("inf"))
 
 
+def converged_through(record: list[tuple[tuple, Line]], theirs: list[tuple[tuple, Line]]) -> int | None:
+    """The host index of the last transition a client replayed from its match record, -1 with none, None when
+    the replay is not the host's history in order: each one the latest such host event before the client had it."""
+    at = len(theirs)
+    last = -1
+    for n, (key, line) in enumerate(reversed(record)):
+        at = next((i for i in range(at - 1, -1, -1) if theirs[i][0] == key and theirs[i][1].w <= line.w), None)
+        if at is None:
+            return None
+        last = at if n == 0 else last
+    return last
+
+
 def check_events(host: Peer, clients: list[Peer], v: Verdict, slack: float) -> None:
+    """A client's transitions are the ones its match record replays, then every host transition after the
+    last of them, in order and none twice, until its scene ends or the host stops sending to it."""
     host_events = events_of(host)
     for client in clients:
         bound = bound_times(client)
         sent_until = dropped_at(host, client)
         for epoch, mine in events_of(client).items():
             theirs = host_events.get(epoch, [])
-            start = bound.get(epoch, client.first_w)
-            # The burst a machine replays as it binds may stand in for events it was not there for.
-            kept = [(k, l) for k, l in mine if l.w > start + 0.05]
-            keys = [k for k, _ in kept]
             host_keys = [k for k, _ in theirs]
-            # What follows the burst follows the host event the burst ended on: a replayed event seen again is a repeat.
-            burst = [(k, l) for k, l in mine if l.w <= start + 0.05]
-            first = 0
-            if burst:
-                last_key, last_line = burst[-1]
-                first = 1 + max((i for i, (k, l) in enumerate(theirs) if k == last_key and l.w <= last_line.w), default=-1)
+            if any("record" not in l.kv for _, l in mine):
+                v.fail("events", client.name, f"events at epoch {epoch} do not say whether they came from the match record")
+                continue
+            record = [(k, l) for k, l in mine if l.kv["record"] == "1"]
+            sent = [(k, l) for k, l in mine if l.kv["record"] == "0"]
+            last = converged_through(record, theirs)
+            if last is None:
+                v.fail("events", client.name,
+                       f"converged at epoch {epoch} on {[' '.join(k) for k, _ in record]}, which is not the host's history "
+                       f"{[' '.join(k) for k in host_keys][:12]}", client.ref(record[-1][1]))
+                continue
+            first = last + 1
+            keys = [k for k, _ in sent]
+            start = bound.get(epoch, client.first_w)
             scene_end = next((l.w for l in client.lines if l.tag in ("SCENE", "END", "QUIT") and l.w > start), client.last_w)
             scene_end = min(scene_end, sent_until)
-            required = {i for i, (_, l) in enumerate(theirs) if start + slack < l.w < scene_end - slack}
-            ok = False
-            for offset in range(first, len(host_keys) - len(keys) + 1):
-                if host_keys[offset:offset + len(keys)] == keys and required <= set(range(offset, offset + len(keys))):
-                    ok = True
-                    break
-            if ok:
+            owed = sum(1 for _, l in theirs[first:] if l.w < scene_end - slack)
+            expected = host_keys[first:first + len(keys)]
+            if keys == expected and len(keys) >= owed:
                 continue
             # Name the first place the two sequences part.
-            tail = host_keys[-len(keys):] if keys else []
-            where = next((i for i, (a, b) in enumerate(zip(keys, tail)) if a != b), min(len(keys), len(tail)))
-            got = kept[where][1] if where < len(kept) else None
-            want = [k for i, k in enumerate(host_keys) if i in required]
+            where = next((i for i, (a, b) in enumerate(zip(keys, expected)) if a != b), min(len(keys), len(expected)))
+            got = sent[where][1] if where < len(sent) else None
             v.fail("events", client.name,
-                   f"event sequence at epoch {epoch} is not the host's: here {[' '.join(k) for k in keys][:12]}, "
-                   f"host {[' '.join(k) for k in host_keys][:12]} (host events it had to see: {len(want)})",
+                   f"event sequence at epoch {epoch} is not the host's after the {len(record)} it converged on: "
+                   f"here {[' '.join(k) for k in keys][:12]}, host {[' '.join(k) for k in host_keys[first:]][:12]} "
+                   f"(host events it had to see: {owed})",
                    client.ref(got) if got else "")
-    return
 
 
 def host_state_timeline(host: Peer) -> list[tuple[float, tuple]]:
@@ -613,7 +626,7 @@ def check_presentation(host: Peer, clients: list[Peer], v: Verdict, lag: float, 
         ("POWER", "power", lambda l: l.kv.get("ability", "0"), 0.4),
         ("EMOTE", "emote", lambda l: ("alt" if l.kv.get("alt") == "1" else "on") if l.kv.get("on") == "1" else "0", 0.4),
         ("RAG", "ragdoll", lambda l: l.kv.get("active", "0"), 0.4),
-        ("CATS", "cat drawn", lambda l: "1" if l.kv.get("drawn", "0") != "0" else "0", 0.4),
+        ("CAT", "cat drawn", lambda l: l.kv.get("drawn", "0"), 0.4),
     ]
     slack = SLACK + lag
     for tag, label, value_of, least in watched:

@@ -397,8 +397,10 @@ func _hook_controller() -> void:
 			line("RIFLE missed at=%.1f,%.1f,%.1f" % [end_point.x, end_point.y, end_point.z]))
 
 
+## record=1: a transition a client replays while it converges on its first match record, not one it was sent.
 func _ev(text: String) -> void:
-	line("EV %s kind=%s epoch=%d" % [text, _scene_kind, lobby.get_epoch()])
+	var record: bool = not session.is_authority() and not net_match.hub_mode and net_match._converged_tick < 0
+	line("EV %s kind=%s epoch=%d record=%d" % [text, _scene_kind, lobby.get_epoch(), int(record)])
 
 
 ## The lobby seat a participant plays, "s<seat>", the one name every machine agrees on.
@@ -536,7 +538,6 @@ func _watch_state() -> void:
 
 ## What each body is drawing here, logged on the frame it changes: power, emote, ragdoll, role.
 func _watch_bodies() -> void:
-	var cats: int = 0
 	for p: MatchParticipant in controller.get_participants_ref():
 		if p.body == null:
 			continue
@@ -558,8 +559,8 @@ func _watch_bodies() -> void:
 		if avatar != null and avatar._ragdoll != null:
 			var rag: int = (1 if avatar._ragdoll.is_active() else 0) + (2 if avatar._ragdoll.is_flopping() else 0)
 			_note("rag" + seat, str(rag), "RAG seat=%s active=%d flop=%d" % [seat, rag & 1, rag >> 1])
-		if power != null and power.get_cat_view() != null:
-			cats += 1
+		var cat_drawn: int = int(power != null and power.get_cat_view() != null)
+		_note("catview" + seat, str(cat_drawn), "CAT seat=%s drawn=%d" % [seat, cat_drawn])
 		if session.is_authority() and power != null:
 			var cat: CatGrenade = power.get_cat()
 			if cat != null:
@@ -576,7 +577,6 @@ func _watch_bodies() -> void:
 		link.controller.launched.connect(func(velocity_vector: Vector3) -> void:
 			line("KNOCK seat=%s local=1 after=%d frame=%d speed=%.1f" % [_seat_of_body(link.controller),
 				session.replicator.outbox.next_seq() - 1, Engine.get_physics_frames(), velocity_vector.length()]))
-	_note("cats", str(cats), "CATS drawn=%d" % cats)
 
 
 func _avatar_of(body: PlayerController) -> PrisonerAvatar:
@@ -690,6 +690,11 @@ func _break() -> void:
 					break
 		"hide-world":
 			get_viewport().disable_3d = true
+		"undrawn":
+			# Every other seat's power visuals stop being drawn here: its cat is never built.
+			for p: MatchParticipant in controller.get_participants_ref():
+				if p != mine and p.body != null and RunnerPower.of(p.body) != null:
+					RunnerPower.of(p.body).set_process(false)
 		"flood":
 			if not _broke:
 				for i: int in 60:

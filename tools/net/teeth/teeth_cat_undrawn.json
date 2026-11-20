@@ -1,0 +1,30 @@
+{
+ "runner": "match",
+ "peers": 3,
+ "limit": 80,
+ "common": {
+  "seconds": 30,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 0
+ },
+ "host": {
+  "aim": false,
+  "fire-every": 0,
+  "press-fire": 0,
+  "ghosts": "false"
+ },
+ "client": {
+  "keys": "5@12,e@14"
+ },
+ "peer": {
+  "2": {
+   "keys": "",
+   "break": "undrawn"
+  }
+ },
+ "name": "teeth_cat_undrawn",
+ "teeth": [
+  "presentation"
+ ]
+}
