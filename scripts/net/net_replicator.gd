@@ -613,8 +613,9 @@ func _advance_clock(delta: float) -> void:
 		_render_lag = _delay_ticks
 	else:
 		_render_lag -= 1.0 + clampf(error * _CLOCK_GAIN, -_MAX_DILATION, _MAX_DILATION)
+	# Never behind both the oldest snapshot held and the target: a buffer still filling holds its first.
 	var oldest_lag: float = float(NetCodec.tick_delta(_slot(0).tick, _newest().tick))
-	_render_lag = clampf(_render_lag, -_extrapolation_ticks(), oldest_lag)
+	_render_lag = clampf(_render_lag, -_extrapolation_ticks(), maxf(oldest_lag, _delay_ticks))
 
 
 # --- Drawing ------------------------------------------------------------------
