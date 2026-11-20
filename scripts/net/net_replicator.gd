@@ -309,14 +309,26 @@ func get_latest_tick() -> int:
 
 
 ## The host tick the command this machine simulates now runs at: the authority's own tick; on a client
-## the newest snapshot's plus the commands sent past its acknowledgement (DESIGN 7), -1 before one.
+## that of its newest command sent (DESIGN 7), -1 before a snapshot.
 func get_predicted_tick() -> int:
-	if _is_authority:
-		return _tick
+	return _tick if _is_authority else tick_of_command(outbox.next_seq() - 1)
+
+
+## Client: the host tick command [param seq] runs at: the newest snapshot's, plus the commands sent past
+## the acknowledgement it carried. -1 before a snapshot.
+func tick_of_command(seq: int) -> int:
 	if _ring_count == 0:
 		return -1
-	var ahead: int = outbox.next_seq() - 1 - _newest_cmd_ack if _newest_cmd_ack >= 0 else 0
-	return _newest().tick + maxi(ahead, 0)
+	return _newest().tick + (maxi(seq - _newest_cmd_ack, 0) if _newest_cmd_ack >= 0 else 0)
+
+
+## Client: stand every collision prop as it is at host tick [param tick], for a command run or replayed
+## there (as a pad is tested inside the move); -1 is the predicted present.
+func collide_props_at(tick: int) -> void:
+	var at: int = tick if tick >= 0 else get_predicted_tick()
+	for i: int in _props.size():
+		if _prop_arrives[i] and is_instance_valid(_props[i]) and _props[i].is_inside_tree():
+			_props[i].call(&"net_collide_at", at)
 
 
 ## How far behind the newest snapshot this client is drawing, in ticks, or -1 before the clock starts.

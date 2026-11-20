@@ -66,11 +66,10 @@ var _age: int = -1
 ## The scene's [NetMatch], or null in a world with none.
 var _net: NetMatch = null
 ## Client: the host tick the current cycle was pulled at (-1: at rest), whether a record has named the
-## cycle yet, the drawn and colliding ages (each only moves forward within a cycle), and a quiet first draw.
+## cycle yet, the drawn age (only forward within a cycle), and a quiet first draw.
 var _pulled_at: int = -1
 var _cycle_known: bool = false
 var _shown_age: int = -1
-var _solid_age: int = -1
 var _quiet: bool = false
 var _phase: Phase = Phase.ARMED
 var _leaves: Array[Node3D] = []
@@ -247,12 +246,16 @@ func net_arrive(record: PackedByteArray, tick: int) -> void:
 	_cycle = record.decode_u16(0)
 	_pulled_at = -1 if age == AGE_AT_REST else tick - age
 	_shown_age = -1
-	_solid_age = -1
 
 
 ## True on a client in a session: the host's cycle is followed, not run.
 func _follows_host() -> bool:
 	return _net != null and _net.is_active() and not NetProp.is_authority(self)
+
+
+## [NetProp] collision: the leaves at host tick [param tick], a pure function of the cycle's origin and it.
+func net_collide_at(tick: int) -> void:
+	_hold(tick - _pulled_at if _pulled_at >= 0 and tick >= _pulled_at else -1)
 
 
 ## The client's door: drawn at the playout clock, colliding at the predicted one, both from the pull's tick.
@@ -265,8 +268,7 @@ func _follow_host() -> void:
 	_shown_age = maxi(_shown_age, at - _pulled_at)
 	_advance(_shown_age)
 	_quiet = false
-	_solid_age = maxi(_solid_age, replicator.get_predicted_tick() - _pulled_at)
-	_hold(_solid_age)
+	net_collide_at(replicator.get_predicted_tick())
 
 
 # --- The clock -----------------------------------------------------------------

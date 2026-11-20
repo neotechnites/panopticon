@@ -98,3 +98,82 @@ func test_a_client_steps_through_each_phase_of_a_cycle_once() -> void:
 	]
 	assert_eq_string(str(phases), str(cycle), "the client entered each phase once, in order")
 	assert_eq_string(str(layers), str([1, 0, 1]), "its leaves stopped holding once and held again once")
+
+
+## With a few ticks each way every replay spans several commands: each one replayed once this machine has
+## heard of the pull must meet the leaves as the host's run of it did, across OPEN to CLOSE and every boundary.
+func test_a_replay_across_a_door_boundary_meets_the_leaves_as_the_host_did() -> void:
+	for peer: int in 2:
+		var line: NetConditions = NetConditions.new(21 + peer)
+		# Real milliseconds under the suite's compressed clock: about 6 ticks.
+		line.delay_ms = 2.0
+		_rig.wire_conditions[peer] = line
+	if not await _rig.connect_peers(self, 1):
+		fail("handshake")
+		return
+	_rig.settings().map_id = MARBLE
+	if not await _rig.launch(3, HOST):
+		fail("the match never started")
+		return
+	var own_link: PlayerNetLink = _rig.net_match(1).get_local_link()
+	if not await _rig.wait_for(func() -> bool: return own_link.is_predicting() and _rig.sessions[1].replicator.outbox.get_acked() >= 0):
+		fail("the client's commands never ran on the host")
+		return
+	await step_ticks(120)
+	var host: TrapDoor = _door(HOST)
+	var mine: TrapDoor = _door(1)
+	var slot: int = _rig.local_slot(1)
+	var own: PlayerController = _rig.body(1, slot)
+	var host_leaf: AnimatableBody3D = host.find_children("*Body", "AnimatableBody3D", false, false)[0] as AnimatableBody3D
+	var leaf: AnimatableBody3D = mine.find_children("*Body", "AnimatableBody3D", false, false)[0] as AnimatableBody3D
+	# Each command is known by its sequence: on the host by the stream's acknowledgement after the tick
+	# that ran it, here by the predicted slot its replay ran from.
+	var seat: int = _rig.sessions[1].lobby.get_local_seat_index()
+	var host_link: PlayerNetLink = _rig.net_match(HOST).call(&"_link_for_seat", seat)
+	var stream: CommandStream = host_link.replicator.stream_for(host_link.owner_peer_id)
+	var at_host: Dictionary[int, int] = {}
+	var replayed: Array[Array] = []
+	var pending: Array[Array] = []
+	## The host tick of the pull: a replay counts once this machine holds a snapshot that has it.
+	var pulled_at: Array[int] = [1 << 40]
+	var own_step: Callable = own.match_step
+	own.match_step = func(intent: MoveIntent, swung: bool, authority: bool) -> void:
+		if own.replaying:
+			pending.append([_rig.sessions[1].replicator.get_latest_tick(), leaf.collision_layer])
+		own_step.call(intent, swung, authority)
+	var sample: Callable = func() -> void:
+		at_host[stream.get_ack()] = host_leaf.collision_layer
+		# A replay runs every slot still unacknowledged, in order, and drops the rest: what is left is it.
+		if pending.size() == int(own_link.get(&"_predicted_count")):
+			for i: int in pending.size():
+				if pending[i][0] >= pulled_at[0]:
+					replayed.append([int((own_link.call(&"_slot", i) as RefCounted).get(&"seq")), pending[i][1]])
+		pending.clear()
+	get_tree().physics_frame.connect(sample)
+	assert_true(host.pull(), "the host trips the door")
+	pulled_at[0] = host_link.replicator.get_tick()
+	var done: bool = await _rig.wait_for(func() -> bool: return host.is_armed() and mine.is_armed() and host.get_phase() == TrapDoor.Phase.ARMED, 20000)
+	await step_ticks(60)
+	get_tree().physics_frame.disconnect(sample)
+	own.match_step = own_step
+	assert_true(done, "the cycle ran out on both")
+	# A host draining a backlog runs up to two commands a tick, so a command beside a boundary may be
+	# placed a tick off it; a replay that disagrees with the host anywhere else is wrong.
+	var wrong: Array[Array] = []
+	var seen: Dictionary[int, bool] = {}
+	for run: Array in replayed:
+		if at_host.has(run[0]):
+			seen[run[1]] = true
+			if at_host[run[0]] != run[1] and not _beside_a_boundary(at_host, run[0], run[1]):
+				wrong.append([run[0], run[1], at_host[run[0]]])
+	assert_true(seen.has(0) and seen.has(1), "replays ran with the leaves open and shut: %s (%d replayed, %d host runs, e.g. %s / %s)" % [
+		str(seen.keys()), replayed.size(), at_host.size(), str(replayed.slice(0, 3)), str(at_host.keys().slice(0, 3))])
+	assert_eq_int(wrong.size(), 0, "every replayed command met the leaves as the host's run did: %s" % str(wrong.slice(0, 12)))
+
+
+## True when the host ran a command within two of [param seq] meeting the leaves as [param layer].
+func _beside_a_boundary(at_host: Dictionary[int, int], seq: int, layer: int) -> bool:
+	for near: int in [seq - 2, seq - 1, seq + 1, seq + 2]:
+		if at_host.get(near, -1) == layer:
+			return true
+	return false
