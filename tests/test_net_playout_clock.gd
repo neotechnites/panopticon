@@ -60,8 +60,9 @@ func _host_tick() -> int:
 	return _base_tick + floori(_real_seconds / SIM_DELTA)
 
 
-## One client frame of [param seconds], in Godot's order: capped physics steps, poll, idle.
-func _frame(seconds: float) -> void:
+## One client frame of [param seconds], in Godot's order: capped physics steps, poll, idle; the idle
+## frame may itself stall for [param stall_after_poll] seconds before drawing.
+func _frame(seconds: float, stall_after_poll: float = 0.0) -> void:
 	_real_seconds += seconds
 	_owed_seconds += seconds
 	var steps: int = mini(floori(_owed_seconds / SIM_DELTA), Engine.max_physics_steps_per_frame)
@@ -75,7 +76,10 @@ func _frame(seconds: float) -> void:
 		assert_true(_client.replicator.receive_snapshot(_snapshot(tick)), "the snapshot for tick %d is taken" % tick)
 		_sent_tick = tick
 		tick += SNAPSHOT_EVERY
-	_client.replicator.play_back(_real_seconds * SIM_HZ)
+	var polled: float = _real_seconds * SIM_HZ
+	_real_seconds += stall_after_poll
+	_owed_seconds += stall_after_poll
+	_client.replicator.play_back(_real_seconds * SIM_HZ, polled)
 
 
 func _snapshot(tick: int) -> PackedByteArray:
@@ -95,6 +99,15 @@ func _behind() -> float:
 
 
 func test_a_long_frame_does_not_leave_remote_bodies_drawn_late() -> void:
+	await _ride_out_a_long_frame(false)
+
+
+## The stall after the poll: the frame draws before it has looked for what came in meanwhile.
+func test_a_stall_between_the_poll_and_the_draw_is_not_taken_for_a_starved_line() -> void:
+	await _ride_out_a_long_frame(true)
+
+
+func _ride_out_a_long_frame(after_poll: bool) -> void:
 	if not await _stand_up():
 		fail("the loopback handshake did not complete")
 		return
@@ -104,7 +117,10 @@ func test_a_long_frame_does_not_leave_remote_bodies_drawn_late() -> void:
 		if i >= SETTLE_FRAMES - 60:
 			settled += _behind() / 60.0
 	var depth: float = _client.replicator.get_delay_ticks()
-	_frame(HITCH_SECONDS)
+	if after_poll:
+		_frame(SIM_DELTA, HITCH_SECONDS)
+	else:
+		_frame(HITCH_SECONDS)
 	var after: float = 0.0
 	while after < RECOVERED_BY_SECONDS:
 		_frame(SIM_DELTA)

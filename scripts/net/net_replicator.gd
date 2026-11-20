@@ -111,8 +111,11 @@ var _playout_offset: float = 0.0
 var _have_clock: bool = false
 ## The offset's error at the last snapshot set, in ticks, not yet slewed out.
 var _clock_error: float = 0.0
-## Real time of the last frame played, in ticks; snapshots taken since, waiting for the next frame.
+## Real time, in ticks, of the last frame drawn, of the poll it drew after, and of the newest poll;
+## snapshots taken since the last frame, waiting for the next.
 var _frame_ticks: float = -1.0
+var _polled_ticks: float = -1.0
+var _looked_ticks: float = -1.0
 var _fresh: int = 0
 var _last_arrival_ticks: float = -1.0
 var _jitter_ticks: float = 0.0
@@ -124,7 +127,7 @@ const _CLOCK_GAIN: float = 0.1
 const _MAX_DILATION: float = 0.2
 ## Clock error past which the drift is jumped rather than dilated away: the connection changed.
 const _CLOCK_SNAP_TICKS: float = 20.0
-## A frame spanning more snapshot intervals than this took its packets at unknown times: they are not timed.
+## Polls further apart than this many snapshot intervals took their packets at unknown times: not timed.
 const _UNTIMED_FRAME_INTERVALS: float = 2.0
 var _blend: PlayerState = PlayerState.new()
 
@@ -162,6 +165,8 @@ func _ready() -> void:
 	# After the bodies have moved, so what is sampled is the result of this tick.
 	process_physics_priority = 100
 	session.connection_state_changed.connect(_on_connection_state_changed)
+	# SceneTree emits process_frame right after the multiplayer poll, before any _process.
+	get_tree().process_frame.connect(_on_polled)
 	refresh_role()
 
 
@@ -592,16 +597,16 @@ static func _newer_u16(candidate: int, reference: int) -> bool:
 	return difference != 0 and difference < 0x8000
 
 
-## Once per frame that brought snapshots: time them, size the buffer from their jitter, and steer
-## the clock at the newest (ioq3 CL_AdjustTimeDelta: per snapshot set, never per packet).
-func _take_arrivals(now_ticks: float, frame_ticks: float) -> void:
+## Once per frame that brought snapshots, polled at [param now_ticks]: time them, size the buffer from their
+## jitter, and steer the clock at the newest (ioq3 CL_AdjustTimeDelta: per snapshot set, never per packet).
+func _take_arrivals(now_ticks: float, window_ticks: float) -> void:
 	var settings: NetSettings = session.get_settings()
 	for i: int in range(maxi(_ring_count - _fresh, 0), _ring_count):
 		if i > 0:
 			var advanced: int = NetCodec.tick_delta(_slot(i - 1).tick, _slot(i).tick)
 			if advanced > 0:
 				_interval_ticks = float(advanced) if _interval_ticks <= 0.0 else lerpf(_interval_ticks, float(advanced), _JITTER_ALPHA)
-		var timed: bool = frame_ticks <= _interval_ticks * _UNTIMED_FRAME_INTERVALS
+		var timed: bool = window_ticks <= _interval_ticks * _UNTIMED_FRAME_INTERVALS
 		if timed and _last_arrival_ticks >= 0.0 and _interval_ticks > 0.0:
 			var gap: float = now_ticks - _last_arrival_ticks
 			_jitter_ticks = lerpf(_jitter_ticks, absf(gap - _interval_ticks), _JITTER_ALPHA)
@@ -629,26 +634,36 @@ func _slew_clock(ticks: float) -> void:
 
 # --- Drawing ------------------------------------------------------------------
 
+func _on_polled() -> void:
+	_looked_ticks = real_ticks()
+
+
 func _process(_delta: float) -> void:
-	play_back(real_ticks())
+	play_back(real_ticks(), _looked_ticks)
 
 
-## One frame of playback at real time [param now_ticks]. Public because tests drive the frame clock.
-func play_back(now_ticks: float) -> void:
+## One frame of playback at real time [param now_ticks], whose packets were polled at [param looked_ticks]
+## (default: now). Public because tests drive the frame clock.
+func play_back(now_ticks: float, looked_ticks: float = -1.0) -> void:
 	if _is_authority:
 		draw_host_at(float(_tick) - HOST_PLAYOUT_TICKS + Engine.get_physics_interpolation_fraction())
 		return
+	var looked: float = now_ticks if looked_ticks < 0.0 else minf(looked_ticks, now_ticks)
 	var elapsed: float = now_ticks - _frame_ticks if _frame_ticks >= 0.0 else 0.0
+	var window: float = looked - _polled_ticks if _polled_ticks >= 0.0 else 0.0
 	_frame_ticks = now_ticks
+	_polled_ticks = looked
 	if _ring_count == 0 or not _should_interpolate():
 		return
 	_slew_clock(elapsed)
 	if _fresh > 0:
-		_take_arrivals(now_ticks, elapsed)
+		_take_arrivals(looked, window)
 	var newest: float = float(_newest().tick)
-	# The clock never runs past what it can draw: when the worlds run out it waits, then catches up.
-	_drawn_time = clampf(now_ticks + _playout_offset, float(_slot(0).tick), newest + _extrapolation_ticks())
-	_playout_offset = _drawn_time - now_ticks
+	var edge: float = newest + _extrapolation_ticks()
+	# When the worlds run out the clock waits, then catches up; only for time it looked and found none,
+	# so a stall after the poll is not taken for starvation.
+	_playout_offset = clampf(_playout_offset, float(_slot(0).tick) - now_ticks, edge - looked)
+	_drawn_time = clampf(now_ticks + _playout_offset, float(_slot(0).tick), edge)
 	_draw(newest - _drawn_time)
 	_present_due(_drawn_time)
 
