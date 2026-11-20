@@ -16,6 +16,7 @@ func _state() -> MatchState:
 	state.resolve_count = 9
 	state.last_outcome = int(MatchController.Outcome.WIN)
 	state.hold_end_tick = 7600
+	state.hold_paused_ticks = 345
 	state.kill_beat_serial = 2
 	state.kill_beat_guard = 2
 	state.kill_beat_throw = Vector3(12.5, -0.25, -3.0)
@@ -47,7 +48,7 @@ func test_every_field_round_trips() -> void:
 	assert_true(NetCodec.unpack_match_state(bytes, sent.tick, got), "a whole record decodes")
 	for field: String in [
 		"started", "phase", "round_number", "guard", "finisher", "winner", "outcome", "match_serial", "resolve_count",
-		"last_outcome", "hold_end_tick", "kill_beat_serial", "kill_beat_guard", "brawl_end_tick", "brawl_winner",
+		"last_outcome", "hold_end_tick", "hold_paused_ticks", "kill_beat_serial", "kill_beat_guard", "brawl_end_tick", "brawl_winner",
 	]:
 		assert_eq_string(str(got.get(field)), str(sent.get(field)), field)
 	assert_vec3_almost_eq(got.kill_beat_throw, sent.kill_beat_throw, 0.006, "the finale's throw")

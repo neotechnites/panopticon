@@ -1062,14 +1062,6 @@ static func recent_hit_on(body: Node3D, since_msec: int) -> int:
 	return best
 
 
-static func recent_hit_point(slot: int) -> Vector3:
-	return _hit_points[slot]
-
-
-static func recent_hit_direction(slot: int) -> Vector3:
-	return _hit_directions[slot]
-
-
 ## The direction of the newest hit this machine noted: the shot whose [signal target_hit] is being handled.
 static func newest_hit_direction() -> Vector3:
 	return _hit_directions[(_hit_next + RECENT_HITS - 1) % RECENT_HITS]

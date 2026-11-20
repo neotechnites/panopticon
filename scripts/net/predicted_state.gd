@@ -15,7 +15,9 @@ const MOTION: int = POWER + PowerState.PREDICTED_SIZE
 const WEAPON: int = MOTION + PlayerController.MOTION_STATE_SIZE
 ## The engine's floor contact after the tick: what the next move's snap and floor test read.
 const ON_FLOOR: int = WEAPON + Rifle.GATE_STATE_SIZE
-const SIZE: int = ON_FLOOR + 1
+## The match holds the body (Quake's PM_FREEZE): it runs its commands and moves nothing.
+const HELD: int = ON_FLOOR + 1
+const SIZE: int = HELD + 1
 
 var values: PackedFloat32Array = PackedFloat32Array()
 var _motion: PackedFloat32Array = PackedFloat32Array()
@@ -67,6 +69,7 @@ func capture(body: PlayerController, weapon: Rifle) -> void:
 	for i: int in _gate.size():
 		values[WEAPON + i] = _gate[i]
 	values[ON_FLOOR] = 1.0 if body.is_on_floor() else 0.0
+	values[HELD] = 1.0 if body.held else 0.0
 
 
 ## Put this state on [param body], its power and [param weapon] (when it holds one).
@@ -82,6 +85,7 @@ func restore(body: PlayerController, weapon: Rifle) -> void:
 	if body.power != null:
 		body.power.state.restore(values, POWER)
 	body.movement_locked = values[LOCKED] > 0.5
+	body.set_held(values[HELD] > 0.5)
 	if weapon != null:
 		for i: int in _gate.size():
 			_gate[i] = values[WEAPON + i]

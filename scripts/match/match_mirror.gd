@@ -124,7 +124,11 @@ func _take_lives(base: MatchState, cur: MatchState, from_record: bool) -> void:
 		if not (base.participants[ghost].ghost and cur.participants[ghost].running):
 			continue
 		for caught: int in count:
-			if _used[caught] == 0 and base.participants[caught].running and cur.participants[caught].ghost:
+			# A runner the rifle killed in the same interval was shot, not caught.
+			if (
+				_used[caught] == 0 and base.participants[caught].running and cur.participants[caught].ghost
+				and not _has_cue(_deaths, caught, base.tick, cur.tick)
+			):
 				controller.net_ghost_caught(ghost, caught)
 				_used[caught] = 1
 				break
@@ -170,8 +174,13 @@ func _die(i: int, now: MatchState.Entry, since: int, until: int) -> void:
 
 ## The cue for slot [param i] stamped in (since, until], taken; empty when there is none.
 func _cue(cues: Dictionary[int, Array], i: int, since: int, until: int) -> Array:
-	var cue: Array = cues.get(i, [])
-	if cue.is_empty() or int(cue[0]) > until or (since >= 0 and int(cue[0]) <= since):
+	if not _has_cue(cues, i, since, until):
 		return []
+	var cue: Array = cues[i]
 	cues.erase(i)
 	return cue
+
+
+func _has_cue(cues: Dictionary[int, Array], i: int, since: int, until: int) -> bool:
+	var cue: Array = cues.get(i, [])
+	return not cue.is_empty() and int(cue[0]) <= until and (since < 0 or int(cue[0]) > since)

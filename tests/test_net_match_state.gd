@@ -212,3 +212,81 @@ func test_a_ghost_waiting_when_the_match_ends_is_not_respawned_on_a_mirror() -> 
 	await step_ticks(CROSS_TICKS)
 	assert_eq_int(respawns[0], 0, "no ghost was put back on the start line by the end of the match")
 	assert_true(_rig.ragdoll(CLIENT, slot).is_active(), "the corpse still lies where it fell")
+
+
+## A ghost held for its respawn changes nothing lasting: its stopped grace must not resend the record.
+func test_a_held_ghost_does_not_resend_the_match_record() -> void:
+	if not await _start_round(1, 3):
+		return
+	var host: MatchController = _rig.controller(HOST)
+	host.get_ghost_profile().respawn_delay_seconds = 3.0
+	TestFixtures.pin_the_field(host, null)
+	var slot: int = 2
+	_shoot(slot)
+	var host_side: MatchParticipant = _rig.participant(HOST, slot)
+	await step_ticks(CROSS_TICKS)
+	var arrived: Array[int] = [0]
+	var counting: Callable = func(_record: PackedByteArray) -> void: arrived[0] += 1
+	var replicator: NetReplicator = (_rig.sessions[CLIENT] as NetSession).replicator
+	replicator.match_arrived.connect(counting)
+	var snapshots: Array[int] = [0]
+	var counting_snapshots: Callable = func(_tick: int, _count: int) -> void: snapshots[0] += 1
+	replicator.snapshot_received.connect(counting_snapshots)
+	await step_ticks(90)
+	replicator.match_arrived.disconnect(counting)
+	replicator.snapshot_received.disconnect(counting_snapshots)
+	assert_true(host.is_awaiting_respawn(host_side), "the ghost was held throughout")
+	assert_gt(float(snapshots[0]), 20.0, "snapshots arrived (%d)" % snapshots[0])
+	assert_le(float(arrived[0]), float(snapshots[0]) * 0.1,
+		"the match record changed in %d of %d snapshots while nothing lasting did" % [arrived[0], snapshots[0]])
+
+
+## The client's own respawn: control back on the host's release tick, then no pull back to the line, no flick.
+## The release step itself carries the commands sent while held, which the host runs released.
+func test_an_own_respawn_returns_control_at_the_hosts_release_without_a_snap() -> void:
+	if not await _start_round(1, 3):
+		return
+	var host: MatchController = _rig.controller(HOST)
+	var slot: int = _rig.local_slot(CLIENT)
+	host.get_ghost_profile().respawn_delay_seconds = 0.5
+	TestFixtures.pin_the_field(host, _rig.participant(HOST, slot))
+	host.call(&"_silence_brain", _rig.participant(HOST, slot))
+	var host_side: MatchParticipant = _rig.participant(HOST, slot)
+	var mine: MatchParticipant = _rig.participant(CLIENT, slot)
+	_shoot(slot)
+	if not await _rig.wait_for(func() -> bool: return not moves(host_side.body) and not moves(mine.body)):
+		fail("the shot client was never held on both machines")
+		return
+	_rig.drive(CLIENT, Vector2(0.0, 1.0))
+	var host_free: int = -1
+	var mine_free: int = -1
+	var worst_step: float = 0.0
+	var fastest_host: float = 0.0
+	var worst_turn: float = 0.0
+	var last: Vector3 = mine.body.global_position
+	var last_host: Vector3 = host_side.body.global_position
+	var last_yaw: float = mine.body.rotation.y
+	for tick: int in 240:
+		await step_ticks(1)
+		if host_free < 0 and moves(host_side.body):
+			host_free = tick
+		if mine_free < 0 and moves(mine.body):
+			mine_free = tick
+		var here: Vector3 = mine.body.global_position
+		if mine_free >= 0 and tick > mine_free:
+			worst_step = maxf(worst_step, here.distance_to(last))
+			worst_turn = maxf(worst_turn, absf(angle_difference(mine.body.rotation.y, last_yaw)))
+		if host_free >= 0 and tick > host_free:
+			fastest_host = maxf(fastest_host, host_side.body.global_position.distance_to(last_host))
+		last = here
+		last_host = host_side.body.global_position
+		last_yaw = mine.body.rotation.y
+		if mine_free >= 0 and tick > mine_free + 60:
+			break
+	_rig.drive(CLIENT, Vector2.ZERO)
+	if not assert_true(host_free >= 0 and mine_free >= 0, "the host released the ghost (%d) and the client ran it (%d)" % [host_free, mine_free]):
+		return
+	assert_le(float(mine_free - host_free), 4.0, "the client has control %d ticks after the host's release" % (mine_free - host_free))
+	assert_lt(worst_step, fastest_host * 1.5 + 0.05,
+		"no snap once running: worst step %.3f m in a tick against the host's fastest %.3f" % [worst_step, fastest_host])
+	assert_lt(worst_turn, 0.05, "no camera flick: worst turn %.3f rad in a tick" % worst_turn)

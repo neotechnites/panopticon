@@ -50,7 +50,7 @@ const _VIEW_TIME_NONE: int = -32768
 ## u8 flags, u8 event count (DESIGN 3.4).
 const SNAPSHOT_HEADER_SIZE: int = 17
 ## Bumped whenever the snapshot layout changes: two builds must agree on it (the fingerprint).
-const SNAPSHOT_VERSION: int = 3
+const SNAPSHOT_VERSION: int = 4
 ## No snapshot reaches this, inside ENet's and SDR's MTU: a fragment lost is the whole packet lost.
 const MAX_SNAPSHOT_BYTES: int = 1200
 ## Host ticks a second: the unit of every tick and end tick on the wire.
@@ -1020,8 +1020,8 @@ static func roster_epoch(payload: PackedByteArray) -> int:
 # --- Match record: the MATCH section --------------------------------------------
 
 ## Bytes of the match record's header: phase, round, guard, finisher, outcome, winner, count, match serial, resolve
-## count, last outcome, u32 hold end, kill beat serial, guard, throw i16 cm/s x3, u32 brawl end, brawl winner.
-const MATCH_HEADER_SIZE: int = 27
+## count, last outcome, u32 hold end, kill beat serial, guard, throw i16 cm/s x3, u32 brawl end, brawl winner, u32 hold paused.
+const MATCH_HEADER_SIZE: int = 31
 ## Bytes per participant: flags, life counter, rounds won, turns, lives, u32 respawn end, u32 grace end, cause.
 const MATCH_PARTICIPANT_SIZE: int = 15
 const _MATCH_RUNNING: int = 1
@@ -1039,7 +1039,7 @@ static func pack_match_state(state: MatchState) -> PackedByteArray:
 		return out
 	out.resize(MATCH_HEADER_SIZE + count * MATCH_PARTICIPANT_SIZE)
 	out[0] = state.phase
-	out[1] = clampi(state.round_number, 0, 255)
+	out[1] = state.round_number & 0xFF
 	out[2] = _slot_byte(state.guard)
 	out[3] = _slot_byte(state.finisher)
 	out[4] = state.outcome
@@ -1055,6 +1055,7 @@ static func pack_match_state(state: MatchState) -> PackedByteArray:
 		out.encode_s16(16 + axis * 2, clampi(roundi(state.kill_beat_throw[axis] * QUANT_CENTIMETRE), -32768, 32767))
 	out.encode_u32(22, state.brawl_end_tick % TICK_MODULUS)
 	out[26] = _slot_byte(state.brawl_winner)
+	out.encode_u32(27, state.hold_paused_ticks % TICK_MODULUS)
 	for i: int in count:
 		var p: MatchState.Entry = state.participants[i]
 		var at: int = MATCH_HEADER_SIZE + i * MATCH_PARTICIPANT_SIZE
@@ -1098,6 +1099,7 @@ static func unpack_match_state(record: PackedByteArray, tick: int, out: MatchSta
 	out.kill_beat_throw = Vector3(record.decode_s16(16), record.decode_s16(18), record.decode_s16(20)) / QUANT_CENTIMETRE
 	out.brawl_end_tick = record.decode_u32(22)
 	out.brawl_winner = _slot_of(record[26])
+	out.hold_paused_ticks = record.decode_u32(27)
 	out.resize(count)
 	for i: int in count:
 		var p: MatchState.Entry = out.participants[i]

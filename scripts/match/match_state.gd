@@ -56,8 +56,9 @@ var match_serial: int = 0
 ## Rounds resolved this match (u8), and how the newest one went: a round resolved and re-armed in one tick.
 var resolve_count: int = 0
 var last_outcome: int = 0
-## The siege clock's end; 0 when none runs.
+## The siege clock's end while it runs, else 0 and the ticks it shows stopped.
 var hold_end_tick: int = 0
+var hold_paused_ticks: int = 0
 ## Bumped by every finale shove (u8); the guard it threw and the throw.
 var kill_beat_serial: int = 0
 var kill_beat_guard: int = NONE
@@ -87,6 +88,7 @@ func copy_from(other: MatchState) -> void:
 	resolve_count = other.resolve_count
 	last_outcome = other.last_outcome
 	hold_end_tick = other.hold_end_tick
+	hold_paused_ticks = other.hold_paused_ticks
 	kill_beat_serial = other.kill_beat_serial
 	kill_beat_guard = other.kill_beat_guard
 	kill_beat_throw = other.kill_beat_throw
