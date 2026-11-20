@@ -91,6 +91,12 @@ var _carry: Array[NetEvents.Entry] = []
 var match_source: Callable
 var _props: Array[Node] = []
 var _prop_ids: PackedInt32Array = PackedInt32Array()
+## Client: the record each prop last took, by id; a prop out of the tree takes its record on return.
+var _prop_taken: Dictionary[int, PackedByteArray] = {}
+## Per bound prop: true when it is world collision the prediction reads, taken on arrival ([code]net_arrive[/code]).
+var _prop_arrives: Array[bool] = []
+## Client: the command acknowledgement the newest snapshot carried, or -1.
+var _newest_cmd_ack: int = -1
 
 ## Client: the packet being decoded, and the events it carried.
 var _incoming: WorldSnapshot = WorldSnapshot.new()
@@ -196,23 +202,20 @@ func bind_scene(scene: int) -> void:
 	_clear_worlds()
 
 
-## The scene's props ([NetProp]), named by id; a collision is refused and leaves the scene none.
-func bind_props(props: Array[Node]) -> void:
+## The scene's props ([NetProp]) by id, as [NetMatch] registered them.
+func bind_props(props: Dictionary[int, Node]) -> void:
 	_props.clear()
 	_prop_ids.clear()
-	var by_id: Dictionary[int, Node] = {}
-	for prop: Node in props:
-		var id: int = NetProp.id_of(prop)
-		if by_id.has(id):
-			push_error("NetReplicator: props %s and %s share id %d; this scene's props are not replicated." % [
-				by_id[id].get_path(), prop.get_path(), id])
-			return
-		by_id[id] = prop
-	var ids: Array[int] = by_id.keys()
+	_prop_arrives.clear()
+	var ids: Array[int] = props.keys()
 	ids.sort()
 	for id: int in ids:
 		_prop_ids.append(id)
-		_props.append(by_id[id])
+		_props.append(props[id])
+		_prop_arrives.append(props[id].has_method(&"net_arrive"))
+	for id: int in _prop_taken.keys():
+		if not props.has(id):
+			_prop_taken.erase(id)
 
 
 # --- Registry -----------------------------------------------------------------
@@ -320,6 +323,29 @@ func get_latest_tick() -> int:
 	return _newest().tick if _ring_count > 0 and not _is_authority else -1
 
 
+## The host tick the command this machine simulates now runs at: the authority's own tick; on a client
+## that of its newest command sent (DESIGN 7), -1 before a snapshot.
+func get_predicted_tick() -> int:
+	return _tick if _is_authority else tick_of_command(outbox.next_seq() - 1)
+
+
+## Client: the host tick command [param seq] runs at: the newest snapshot's, plus the commands sent past
+## the acknowledgement it carried. -1 before a snapshot.
+func tick_of_command(seq: int) -> int:
+	if _ring_count == 0:
+		return -1
+	return _newest().tick + (maxi(seq - _newest_cmd_ack, 0) if _newest_cmd_ack >= 0 else 0)
+
+
+## Client: stand every collision prop as it is at host tick [param tick], for a command run or replayed
+## there (as a pad is tested inside the move); -1 is the predicted present.
+func collide_props_at(tick: int) -> void:
+	var at: int = tick if tick >= 0 else get_predicted_tick()
+	for i: int in _props.size():
+		if _prop_arrives[i] and is_instance_valid(_props[i]) and _props[i].is_inside_tree():
+			_props[i].call(&"net_collide_at", at)
+
+
 ## How far behind the newest snapshot this client is drawing, in ticks, or -1 before the clock starts.
 func get_render_lag_ticks() -> float:
 	return float(_newest().tick) - _drawn_time if _have_clock else -1.0
@@ -421,7 +447,7 @@ func _sample_world() -> void:
 		_world.match_record = match_source.call()
 	for i: int in _props.size():
 		if is_instance_valid(_props[i]):
-			_world.set_prop(_prop_ids[i], _props[i].call(&"net_record"))
+			_world.set_prop(_prop_ids[i], _props[i].call(&"net_record", _tick))
 
 
 ## [param links]' bodies into a cleared [param world] at [param tick] in [param epoch], quantised, with
@@ -558,8 +584,10 @@ func receive_snapshot(payload: PackedByteArray) -> bool:
 ## match record, and the events.
 func _take(first: bool, previous_match: PackedByteArray) -> void:
 	var newest: WorldSnapshot = _newest()
+	_newest_cmd_ack = _info.cmd_ack
 	outbox.acknowledge(_info.cmd_ack)
 	_fresh += 1
+	_take_props(newest, true)
 	_deliver_predictions(newest, _info.cmd_ack)
 	if first or newest.match_record != previous_match:
 		match_record_received.emit(newest.match_record, newest.tick, first)
@@ -808,19 +836,26 @@ func _present_due(time: float) -> void:
 		event_received.emit(entry.type, entry.payload, entry.tick)
 
 
-## Each prop whose record [param snapshot] changes, once, when the playout clock reaches it.
+## Each prop in the tree whose record [param snapshot] changes, once, when the playout clock reaches it.
 func _apply_props(snapshot: WorldSnapshot) -> void:
 	if _props_tick >= 0 and not NetCodec.is_newer_tick(snapshot.tick, _props_tick):
 		return
-	var before: WorldSnapshot = _find_world(_props_tick) if _props_tick >= 0 else null
 	_props_tick = snapshot.tick
+	_take_props(snapshot, false)
+
+
+## The changed records of the props taken on arrival ([param arriving]) or at the playout clock.
+func _take_props(snapshot: WorldSnapshot, arriving: bool) -> void:
 	for i: int in _prop_ids.size():
+		if _prop_arrives[i] != arriving:
+			continue
 		var record: PackedByteArray = snapshot.find_prop(_prop_ids[i])
-		if record.is_empty() or not is_instance_valid(_props[i]):
+		if record.is_empty() or not is_instance_valid(_props[i]) or not _props[i].is_inside_tree():
 			continue
-		if before != null and before.find_prop(_prop_ids[i]) == record:
+		if _prop_taken.get(_prop_ids[i], PackedByteArray()) == record:
 			continue
-		_props[i].call(&"net_apply", record)
+		_prop_taken[_prop_ids[i]] = record
+		_props[i].call(&"net_arrive" if arriving else &"net_apply", record, snapshot.tick)
 
 
 # --- Rings --------------------------------------------------------------------
@@ -866,6 +901,8 @@ func _clear_worlds() -> void:
 	_due_events.clear()
 	_event_seen = -1
 	_props_tick = -1
+	_prop_taken.clear()
+	_newest_cmd_ack = -1
 	_have_clock = false
 	_playout_offset = 0.0
 	_clock_error = 0.0

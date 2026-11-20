@@ -46,7 +46,7 @@ var _armed: bool = true
 
 
 func _ready() -> void:
-	add_to_group(NetProp.GROUP)
+	NetProp.register(self)
 	_build_shape()
 	_controller = _resolve_controller()
 	if _controller != null:
@@ -103,11 +103,11 @@ func _on_body_entered(body: Node3D) -> void:
 
 
 ## [NetProp]: one byte, whether the orb is there to take.
-func net_record() -> PackedByteArray:
+func net_record(_tick: int) -> PackedByteArray:
 	return PackedByteArray([1 if _armed else 0])
 
 
-func net_apply(record: PackedByteArray) -> void:
+func net_apply(record: PackedByteArray, _tick: int) -> void:
 	_set_armed(record[0] != 0)
 
 

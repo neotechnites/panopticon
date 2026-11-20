@@ -61,7 +61,7 @@ func _walk_join_walk(delay_ms: int) -> void:
 	for machine: int in 3:
 		assert_eq_int(
 			ctrl(machine).get_participants().size(), 3,
-			"machine %d rebuilt its hub for three" % machine,
+			"machine %d seated three in its hub" % machine,
 		)
 	await step_ticks(10)
 	var rebuilt: Vector3 = body(HOST, A).global_position

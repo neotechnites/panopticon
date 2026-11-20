@@ -42,20 +42,6 @@ func test_the_rifle_outlives_a_roster_rebuilt_with_fewer_bots() -> void:
 	assert_eq_int(controller.get_participants().size(), controller.rules.get_participant_count(), "the roster was rebuilt")
 
 
-func test_the_rifle_outlives_a_released_roster() -> void:
-	var controller: MatchController = await _a_bot_in_the_tower()
-	var rifle: Rifle = controller.rifle
-	var holder: PlayerController = controller.get_seat_participant().body
-	# What a hub rebuild does: the controller lets go, then the bodies are freed.
-	controller.release_roster()
-	holder.queue_free()
-	await step_ticks(2)
-	if not assert_true(is_instance_valid(rifle), "the rifle was not freed with the body that held it"):
-		return
-	assert_same(rifle.get_parent(), controller, "it was stowed on the controller")
-	assert_null(rifle.shooter_body, "and names no shooter")
-
-
 ## Host and [param clients] clients launch; client 1 leaves before it acknowledges, with the host's scene already built.
 func _launch_with_a_leaver(clients: int, map: StringName) -> bool:
 	_rig = Rig.new()

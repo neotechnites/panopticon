@@ -66,10 +66,6 @@ static var relaunch_bot_seats: Variant = null
 ## The hub's controller, in [member MatchController.hub_mode].
 @export var controller: MatchController
 
-## The hub's seat-to-body bridge, in [member NetMatch.hub_mode]. Null in a scene
-## with no networking at all.
-@export var net_match: NetMatch
-
 ## The local player's body, for the trigger test.
 @export var player: PlayerController
 
@@ -122,9 +118,7 @@ var _lobby: NetLobby = null
 ## it in the panel does not edit the shipped resource.
 var _rules: MatchRules = null
 
-## True for the length of [method start_map], so the seat edits a launch makes
-## -- readying everybody, filling the empty seats with bots -- do not each
-## rebuild the bodies of a hub that is about to be torn down anyway.
+## True for the length of [method start_map]: no second launch or vote opens inside one.
 var _starting: bool = false
 
 ## The wedge whose dais the local body is standing on, or null out on the ring.
@@ -136,7 +130,8 @@ var _prompt: String = ""
 var _wedges: Array[MapWedge] = []
 var _wedge_triggers: Array[Area3D] = []
 var _vote_open: bool = false
-var _vote_seconds_left: float = 0.0
+## Physics ticks until the vote closes: the host's clock, and a client's from the record's close tick.
+var _vote_ticks_left: int = 0
 var _vote_shown_seconds: int = -1
 var _vote_seed: int = 0
 var _vote_counts: PackedInt32Array = PackedInt32Array()
@@ -148,6 +143,7 @@ func _ready() -> void:
 	_store = SettingsStore.instance()
 	_rules = (load(RULES_PATH) as MatchRules).duplicate() as MatchRules
 	_session = get_tree().root.get_node_or_null(session_path) as NetSession
+	NetProp.register(self)
 	if wedges_root != null:
 		for child: Node in wedges_root.get_children():
 			var wedge: MapWedge = child as MapWedge
@@ -235,19 +231,19 @@ func _wedge_under(body: PlayerController) -> MapWedge:
 	return null
 
 
-func _physics_process(delta: float) -> void:
+func _physics_process(_delta: float) -> void:
 	if not _vote_open:
 		return
-	_vote_seconds_left = maxf(_vote_seconds_left - delta, 0.0)
+	_vote_ticks_left = maxi(_vote_ticks_left - 1, 0)
 	if not is_host():
-		if ceili(_vote_seconds_left) != _vote_shown_seconds:
+		if ceili(get_vote_seconds_left()) != _vote_shown_seconds:
 			_refresh_vote_view()
 		return
 	if _count_votes():
-		_publish_vote()
-	elif ceili(_vote_seconds_left) != _vote_shown_seconds:
+		_vote_moved()
+	elif ceili(get_vote_seconds_left()) != _vote_shown_seconds:
 		_refresh_vote_view()
-	if _vote_seconds_left <= 0.0:
+	if _vote_ticks_left <= 0:
 		_close_vote()
 
 
@@ -345,7 +341,7 @@ func is_vote_open() -> bool:
 
 
 func get_vote_seconds_left() -> float:
-	return _vote_seconds_left
+	return float(_vote_ticks_left) * get_physics_process_delta_time()
 
 
 func get_vote_seed() -> int:
@@ -378,14 +374,14 @@ func open_vote(rng_seed: int = 0) -> bool:
 		return false
 	_publish_rules()
 	_vote_seed = rng_seed if rng_seed != 0 else maxi(randi(), 1)
-	_vote_seconds_left = _rules.vote_seconds
+	_vote_ticks_left = roundi(_rules.vote_seconds / maxf(get_physics_process_delta_time(), 0.0001))
 	_vote_shown_seconds = -1
 	_vote_counts.fill(0)
 	_vote_winner = null
 	_vote_tied = false
 	_vote_open = true
 	_count_votes()
-	_publish_vote()
+	_vote_moved()
 	_refresh()
 	return true
 
@@ -396,7 +392,7 @@ func cancel_vote() -> bool:
 		return false
 	_vote_open = false
 	_vote_winner = null
-	_publish_vote()
+	_vote_moved()
 	_refresh()
 	return true
 
@@ -468,7 +464,7 @@ func _close_vote() -> void:
 	_vote_open = false
 	_vote_winner = _wedges[winner] if winner >= 0 else null
 	_vote_tied = winner >= 0 and _is_tied(_vote_counts)
-	_publish_vote()
+	_vote_moved()
 	if _vote_winner == null:
 		_refresh()
 		return
@@ -477,32 +473,37 @@ func _close_vote() -> void:
 		_refresh()
 
 
-## The host's copy of the vote, to this machine and to every client.
-func _publish_vote() -> void:
+## The vote moved on this machine: the signs and readout follow. Clients take it from the record.
+func _vote_moved() -> void:
 	_refresh_vote_view()
 	vote_changed.emit()
-	if _lobby != null and _session.is_established() and _session.get_peer_count() > 1:
-		rpc(
-			&"_vote_state", _vote_open, _vote_seconds_left, _vote_seed,
-			_wedges.find(_vote_winner), _vote_counts,
-		)
 
 
-## Authority to everyone: where the vote stands.
-@rpc("authority", "reliable", "call_remote", 0)
-func _vote_state(
-	open: bool, seconds: float, rng_seed: int, winner: int, counts: PackedInt32Array
-) -> void:
-	if is_host() or not is_finite(seconds) or counts.size() != _wedges.size():
+## [NetProp]: open bit and winner + 1 (u8), the closing tick's low 16 bits, the seed (u32), and one
+## count byte per wedge.
+func net_record(tick: int) -> PackedByteArray:
+	var record: PackedByteArray = PackedByteArray()
+	record.resize(7 + _wedges.size())
+	record[0] = (1 if _vote_open else 0) | ((_wedges.find(_vote_winner) + 1) << 1)
+	record.encode_u16(1, (tick + _vote_ticks_left) & 0xFFFF if _vote_open else 0)
+	record.encode_u32(3, _vote_seed)
+	for i: int in _wedges.size():
+		record[7 + i] = clampi(_vote_counts[i], 0, 255)
+	return record
+
+
+func net_apply(record: PackedByteArray, tick: int) -> void:
+	if is_host() or record.size() != 7 + _wedges.size():
 		return
-	_vote_open = open
-	_vote_seconds_left = maxf(seconds, 0.0)
-	_vote_seed = rng_seed
-	_vote_counts = counts
+	_vote_open = (record[0] & 1) != 0
+	var winner: int = (record[0] >> 1) - 1
+	_vote_ticks_left = maxi(NetProp.nearest_tick(record.decode_u16(1), tick) - tick, 0) if _vote_open else 0
+	_vote_seed = record.decode_u32(3)
+	for i: int in _wedges.size():
+		_vote_counts[i] = record[7 + i]
 	_vote_winner = _wedges[winner] if winner >= 0 and winner < _wedges.size() else null
-	_vote_tied = _vote_winner != null and _is_tied(counts)
-	_refresh_vote_view()
-	vote_changed.emit()
+	_vote_tied = _vote_winner != null and _is_tied(_vote_counts)
+	_vote_moved()
 	_refresh()
 
 
@@ -551,9 +552,8 @@ func _start_on(wedge: MapWedge) -> bool:
 	var launched: bool = _session.flow.start(_rules, _store.settings.prisoner_count + 1)
 	_starting = false
 	if not launched:
-		# Refused -- the roster moved while the panel was open, say. The hub is
-		# still standing, so put its bodies back in step with the seats.
-		_on_roster_changed()
+		# Refused -- the roster moved while the panel was open, say. The hub still stands.
+		_refresh()
 	return launched
 
 
@@ -564,6 +564,12 @@ func _begin(map_id: StringName) -> void:
 		return
 	_launched = true
 	HubLobby.returns_to_hub = true
+	if _vote_open:
+		# A client's vote closes with the launch: the map launched is the wedge that won.
+		_vote_open = false
+		_vote_winner = _wedge_for_map(map_id)
+		_vote_tied = _vote_winner != null and _is_tied(_vote_counts)
+		_vote_moved()
 	match_starting.emit(map_id)
 	if not changes_scene or _lobby != null:
 		# Networked, [SessionFlow] loads the match on every machine.
@@ -600,16 +606,8 @@ func _wedge_for_map(map_id: StringName) -> MapWedge:
 	return null
 
 
-## A peer joined or left. The hub's bodies are built per seat, so the set is
-## rebuilt rather than patched; see [method NetMatch.rebuild_hub].
+## A peer joined or left: the counts and seat lines follow. The bodies are [NetMatch]'s.
 func _on_roster_changed() -> void:
-	# Only a gathering lobby has a roster to stand bodies for; a closed one is a session ending.
-	var gathering: bool = _lobby.get_phase() == NetLobby.Phase.GATHERING
-	if net_match != null and gathering and not _launched and not _starting:
-		net_match.rebuild_hub()
-	if _vote_open and is_host():
-		# A joiner missed the opening; the bodies were just rebuilt anyway.
-		_publish_vote()
 	_refresh()
 
 
@@ -693,7 +691,7 @@ func _prompt_text() -> String:
 
 ## The signs and the readout, from the counts as they stand.
 func _refresh_vote_view() -> void:
-	_vote_shown_seconds = ceili(_vote_seconds_left)
+	_vote_shown_seconds = ceili(get_vote_seconds_left())
 	for i: int in _wedges.size():
 		_wedges[i].set_vote_count(_vote_counts[i] if _vote_open else -1)
 	if vote_label == null:

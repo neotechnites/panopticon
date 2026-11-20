@@ -350,16 +350,16 @@ func test_a_late_joiner_stands_on_a_spawn_and_leaves_everyone_solid_where_they_s
 		# Standing still again before the roster moves, so a place is where a body stays.
 		await step_ticks(CROSS_TICKS)
 	var before: Dictionary[int, Vector3] = _where_everyone_stands()
-	# Two roster changes inside one frame: the second rebuild finds the bodies still held by the first.
+	# Two roster changes inside one frame: the second reconcile finds the first's bodies as they stand.
 	for peer: int in _rig.peer_count():
-		_rig.net_match(peer).rebuild_hub()
-		_rig.net_match(peer).rebuild_hub()
+		_rig.sessions[peer].lobby.roster_changed.emit()
+		_rig.sessions[peer].lobby.roster_changed.emit()
 	if not await _rig.hubs_settled():
-		fail("the hub never settled after two rebuilds in a frame")
+		fail("the hub never settled after two roster changes in a frame")
 		return
 	await step_ticks(CROSS_TICKS)
-	_assert_everyone_stands_in_the_hub("after two rebuilds in a frame", before)
-	await _assert_everyone_walks("after two rebuilds in a frame", ahead)
+	_assert_everyone_stands_in_the_hub("after two roster changes in a frame", before)
+	await _assert_everyone_walks("after two roster changes in a frame", ahead)
 	var first: String = _log.lines[0] if _log.count() > 0 else ""
 	assert_eq_int(_log.count(), 0, "engine errors as the hub fills (first: %s)" % first)
 

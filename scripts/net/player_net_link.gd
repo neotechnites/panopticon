@@ -552,6 +552,7 @@ func _shape_command(command: MoveIntent) -> MoveIntent:
 		_command_seq = -1
 	else:
 		_command_seq = replicator.outbox.push(_command)
+		replicator.collide_props_at(replicator.tick_of_command(_command_seq))
 		if _command.pressed | _command.released != 0:
 			command_sent.emit(_command_seq, _command)
 	return _command
@@ -612,8 +613,10 @@ func _reconcile(delta: float) -> void:
 		if node != null:
 			node.set_block_signals(true)
 	for i: int in range(first, _predicted_count):
+		replicator.collide_props_at(replicator.tick_of_command(_slot(i).seq))
 		controller.simulate_tick(_slot(i).intent, delta)
 		_slot(i).position = controller.global_position
+	replicator.collide_props_at(-1)
 	for j: int in quiet.size():
 		if quiet[j] != null:
 			quiet[j].set_block_signals(was_blocked[j])

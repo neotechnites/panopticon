@@ -43,10 +43,10 @@ func _a_joiner_draws(which: int) -> void:
 		return
 	if not await connect_late(B):
 		return
-	# B's seat rebuilt every body: A predicts its own again before it presses.
+	# A predicts its own body before it presses.
 	if not await until(func() -> bool:
 		return net(A).get_local_link() != null and net(A).get_local_link().is_predicting()):
-		fail("A's own body was never placed after the rebuild")
+		fail("A's own body was never placed")
 		return
 	_lengthened = ctrl(HOST).get_rules()
 	_shipped_seconds = _lengthened.ability_duration_seconds
@@ -103,7 +103,7 @@ func test_a_joiner_whose_hub_stands_while_a_power_cat_is_held_draws_it() -> void
 		return
 	if not await until(func() -> bool:
 		return net(A).get_local_link() != null and net(A).get_local_link().is_predicting()):
-		fail("A's own body was never placed after the rebuild")
+		fail("A's own body was never placed")
 		return
 	await step_ticks(30)
 	keys[A].tap_slot(CAT_POWER)

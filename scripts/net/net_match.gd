@@ -7,9 +7,6 @@ extends Node
 ## The server started the match, or a client learned that it did.
 signal match_bound(authority: bool)
 
-## Every NetMatch in the tree: how a scene prop finds the one on its own machine.
-const GROUP: StringName = &"net_match"
-
 const SESSION_PATH: NodePath = ^"/root/NetSession"
 const LINK_SCENE_PATH: String = "res://match/net/player_net_link.tscn"
 
@@ -67,6 +64,10 @@ var _early: Array[Array] = []
 var _converging: bool = false
 ## Authority: the rules last published from this scene, so a widget that edited none sends none.
 var _rules_said: PackedByteArray = PackedByteArray()
+## Every prop registered in this scene, as [id, prop], kept while a gate holds it out of the tree.
+var _registered: Array[Array] = []
+## True once this scene's props are handed to the replicator: a later registration is handed on too.
+var _props_bound: bool = false
 
 
 func _ready() -> void:
@@ -79,7 +80,6 @@ func _ready() -> void:
 	if _epoch == 0:
 		set_physics_process(false)
 		return
-	add_to_group(GROUP)
 	_lobby.roster_changed.connect(_on_roster_changed)
 	if not _session.is_authority():
 		_session.replicator.event_received.connect(_on_event)
@@ -99,7 +99,7 @@ func _ready() -> void:
 			controller.participant_shoved.connect(_on_participant_shoved)
 		controller.start_hub()
 		_started = true
-		_session.replicator.bind_props(_scene_props())
+		_bind_props()
 		_on_started()
 		_session.flow.scene_bound(_epoch, get_parent())
 		return
@@ -114,7 +114,7 @@ func _ready() -> void:
 func _bind_match() -> void:
 	_build_bodies()
 	_apply_opening()
-	_session.replicator.bind_props(_scene_props())
+	_bind_props()
 	if _session.is_authority():
 		_subscribe_server()
 		_session.replicator.match_source = func() -> PackedByteArray: return NetCodec.pack_match(controller, _started)
@@ -124,14 +124,53 @@ func _bind_match() -> void:
 	_session.flow.scene_bound(_epoch, get_parent())
 
 
-## The scene's props: what the snapshot carries besides bodies (DESIGN 3.4 PROPS).
-func _scene_props() -> Array[Node]:
-	var props: Array[Node] = []
-	var root: Node = get_parent()
-	for prop: Node in get_tree().get_nodes_in_group(NetProp.GROUP):
-		if root.is_ancestor_of(prop):
-			props.append(prop)
-	return props
+## The NetMatch of the scene [param node] stands in: the nearest ancestor with one as a child, or null.
+static func of_scene(node: Node) -> NetMatch:
+	var at: Node = node.get_parent()
+	while at != null:
+		for child: Node in at.get_children():
+			if child is NetMatch:
+				return child as NetMatch
+		at = at.get_parent()
+	return null
+
+
+## Take [param prop] as this scene's, named by its path from the scene root (DESIGN 2 prop ids).
+func register_prop(prop: Node) -> void:
+	_registered.append([NetProp.id_of(get_parent().get_path_to(prop)), prop])
+	if _props_bound:
+		_bind_props()
+
+
+## Hand the replicator the scene's props by id. A prop on its way out is no longer the scene's, and
+## two that share an id leave the scene none.
+func _bind_props() -> void:
+	_props_bound = true
+	var kept: Array[Array] = []
+	var by_id: Dictionary[int, Node] = {}
+	var clash: String = ""
+	for entry: Array in _registered:
+		var prop: Node = entry[1]
+		if not is_instance_valid(prop) or _is_leaving(prop):
+			continue
+		kept.append(entry)
+		if by_id.has(entry[0]) and clash.is_empty():
+			clash = "%s and %s" % [by_id[entry[0]].name, prop.name]
+		by_id[entry[0]] = prop
+	_registered = kept
+	if not clash.is_empty():
+		push_error("NetMatch: props %s share an id; this scene's props are not replicated." % clash)
+		by_id.clear()
+	_session.replicator.bind_props(by_id)
+
+
+## True when [param node] or a node above it is queued to be freed.
+static func _is_leaving(node: Node) -> bool:
+	while node != null:
+		if node.is_queued_for_deletion():
+			return true
+		node = node.get_parent()
+	return false
 
 
 func _exit_tree() -> void:
@@ -143,7 +182,8 @@ func _exit_tree() -> void:
 		_session.replicator.event_received.disconnect(_on_event)
 		_session.replicator.match_record_received.disconnect(_on_match_record)
 	_session.replicator.match_source = Callable()
-	_session.replicator.bind_props([])
+	_props_bound = false
+	_session.replicator.bind_props({})
 	if _lobby.rules_changed.is_connected(_on_rules_changed):
 		_lobby.rules_changed.disconnect(_on_rules_changed)
 	_session.replicator.bind_scene(0)
@@ -154,6 +194,7 @@ func _exit_tree() -> void:
 ## their seats, and the host starts once everyone stands.
 func _on_roster_changed() -> void:
 	_bind_replicator()
+	_reconcile_hub()
 	_reconcile_seats()
 	_start_if_ready()
 
@@ -233,46 +274,60 @@ func get_session() -> NetSession:
 
 # --- Bodies -------------------------------------------------------------------
 
-## Rebuild the hub's bodies when the seat-to-peer map changed; a seat still held keeps its place.
-## Interim until Phase 6's per-seat reconcile.
-func rebuild_hub() -> void:
-	if not hub_mode or _lobby == null:
+## The hub's bodies follow the seats one by one (DESIGN 4.5): a seat that gained a person is built, one
+## that lost theirs is freed, and nobody else is touched. Only while the lobby names this hub.
+func _reconcile_hub() -> void:
+	if not hub_mode or not _started or not _is_current():
 		return
+	var seats: Array[LobbySeat] = _seats_to_build()
 	var wanted: Dictionary[int, int] = {}
-	for seat: LobbySeat in _seats_to_build():
+	for seat: LobbySeat in seats:
 		wanted[seat.index] = seat.peer_id
-	var built: Dictionary[int, int] = {}
-	for link: PlayerNetLink in _links:
-		built[link.seat_index] = link.owner_peer_id
-	if wanted == built:
-		# A ready mark or a machine standing changes the roster, not who is in the hub.
-		return
-	var places: Dictionary[int, Transform3D] = {}
-	var holders: Dictionary[int, int] = {}
-	for link: PlayerNetLink in _links:
-		if link.controller != null and link.controller.is_inside_tree():
-			places[link.seat_index] = link.controller.global_transform
-			holders[link.seat_index] = link.owner_peer_id
-	# Out of the tree BEFORE the free, not merely queued: queue_free defers, and
-	# a Link0 still holding the name when the new Link0 is added is renamed to
-	# Link0@2 -- which is a node path that resolves on nobody else's machine.
-	for link: PlayerNetLink in _links:
-		remove_child(link)
-		link.queue_free()
-	_links.clear()
+	var changed: bool = false
+	for link: PlayerNetLink in _links.duplicate():
+		if wanted.get(link.seat_index, -1) != link.owner_peer_id and link.controller != player:
+			_unseat(link)
+			changed = true
+	for slot: int in seats.size():
+		if _link_for_seat(seats[slot].index) == null:
+			_seat(seats[slot], slot)
+			changed = true
+	if changed:
+		_index_slots()
+
+
+## Build [param seat]'s body and link and seat it in the standing hub at [param slot].
+func _seat(seat: LobbySeat, slot: int) -> void:
+	var body: PlayerController = runner_scene.instantiate() as PlayerController
+	body.name = "Seat%d" % seat.index
+	runner_container.add_child(body)
+	_add_link(seat, body, false)
+	controller.hub_seat(body, seat_name(seat), slot, seat.index)
+
+
+## Take [param link]'s body out of the hub and free both. Out of the tree before the free: a queued
+## Link0 still holding the name would rename the next Link0, a path nobody else's machine has.
+func _unseat(link: PlayerNetLink) -> void:
+	var body: PlayerController = link.controller
+	controller.hub_unseat(body)
+	_links.erase(link)
+	remove_child(link)
+	link.queue_free()
+	if body != null:
+		body.get_parent().remove_child(body)
+		body.queue_free()
+
+
+## Seat to slot and back from the controller's roster, after a seat was built or freed.
+func _index_slots() -> void:
 	_slot_of_seat.clear()
-	_seat_of_slot.clear()
-	if runner_container != null:
-		for child: Node in runner_container.get_children():
-			runner_container.remove_child(child)
-			child.queue_free()
-	controller.release_roster()
-	_build_bodies()
-	controller.start_hub()
-	for link: PlayerNetLink in _links:
-		if holders.get(link.seat_index, -1) == link.owner_peer_id:
-			var place: Transform3D = places[link.seat_index]
-			link.controller.place(place.origin, place.basis.get_euler().y)
+	var participants: Array[MatchParticipant] = controller.get_participants_ref()
+	_seat_of_slot.resize(participants.size())
+	for slot: int in participants.size():
+		var link: PlayerNetLink = PlayerNetLink.of(participants[slot].body)
+		_seat_of_slot[slot] = link.seat_index if link != null else -1
+		if link != null:
+			_slot_of_seat[link.seat_index] = slot
 
 
 ## The seats bodies are built for: every occupant in a match, and only the
@@ -312,7 +367,7 @@ func _build_bodies() -> void:
 		_slot_of_seat[seat.index] = slot
 		_seat_of_slot[slot] = seat.index
 		_add_link(seat, body, seat.index == local_seat)
-	controller.configure_net(bodies, kinds, names, local_slot, not _session.is_authority())
+	controller.configure_net(bodies, kinds, names, local_slot, not _session.is_authority(), _seat_of_slot)
 
 
 ## The name a seat's player goes by in a match, on every screen.
@@ -584,16 +639,6 @@ func get_scene_peers() -> PackedInt32Array:
 		if peer != NetTransport.AUTHORITY_PEER_ID and _lobby.is_standing_in(peer, _epoch):
 			_scene_peers.append(peer)
 	return _scene_peers
-
-
-## The NetMatch on [param node]'s machine, or null: off a session there is none bound.
-static func of(node: Node) -> NetMatch:
-	if node == null or not node.is_inside_tree():
-		return null
-	for found: Node in node.get_tree().get_nodes_in_group(GROUP):
-		if found.multiplayer == node.multiplayer:
-			return found as NetMatch
-	return null
 
 
 ## The finisher is in the tower; every peer is told who, for the role.
