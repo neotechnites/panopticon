@@ -1776,6 +1776,9 @@ static func _end_tick(tick: int, seconds: float) -> int:
 ## The world's collision for [param phase]: the tower open over the brawl floor in a brawl and shut
 ## otherwise, and every [PhaseGate] on its side. The host's transitions and a mirror's converge call it.
 func apply_structure(phase: Phase) -> void:
+	if not _geometry_ready:
+		# A mirror's first record can arrive before its match has started here: the tower stands where it is.
+		_cache_geometry()
 	if phase == Phase.BRAWL:
 		if not is_instance_valid(_brawl_floor):
 			_open_for_brawl()
