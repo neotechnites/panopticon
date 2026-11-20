@@ -578,7 +578,7 @@ var net_floor: int = -1
 
 ## Held still, as a body this machine runs it: by the match, or by the armor lock it is running.
 func is_movement_locked() -> bool:
-	return movement_locked or (power != null and power.get_active() == MatchRules.RunnerAbility.ARMOR_LOCK)
+	return movement_locked or (power != null and power.holds_body())
 
 
 ## On the floor, however this machine knows it. Read this, not [method is_on_floor],

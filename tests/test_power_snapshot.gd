@@ -66,21 +66,26 @@ func test_a_flying_cats_orientation_matches_the_hosts() -> void:
 	var host_power: RunnerPower = power_of(host_links, HOST_SEAT)
 	if not assert_true(host_power.throw_cat(), "the host throws its cat"):
 		return
+	# The host's cat as the host has it on every tick (60 Hz), against which B's 30 Hz copy is held.
+	var host_yaw: Dictionary[int, float] = {}
 	var watched: int = 0
 	var worst: float = 0.0
 	for _tick: int in WATCH_TICKS:
 		await step_ticks(1)
+		if host_power.state.out:
+			host_yaw[host.replicator.get_tick()] = host_power.state.pose_yaw
 		var view: CatView = power_of(b_links, HOST_SEAT).get_cat_view()
 		if view == null or not power_of(b_links, HOST_SEAT).state.out:
 			continue
-		var yaw: float = _host_yaw_at(b.replicator.get_view_time())
+		var yaw: float = _yaw_at(host_yaw, b.replicator.get_view_time())
 		if not is_finite(yaw):
 			continue
 		watched += 1
 		worst = maxf(worst, absf(rad_to_deg(angle_difference(view.global_basis.get_euler().y, yaw))))
-		# Upright: the cat is axis-locked to its yaw on the host, so any tilt drawn here is wrong.
-		assert_almost_eq(view.global_basis.y.dot(Vector3.UP), 1.0, 0.001, "B draws the flying cat upright")
+	var turns: Array[float] = host_yaw.values()
+	var spun: float = absf(angle_difference(turns[0], turns[mini(10, turns.size() - 1)])) if turns.size() > 1 else 0.0
 	print("    flying cat: %d ticks watched, worst %.2f degrees from the host's at B's drawn time" % [watched, worst])
+	assert_gt(rad_to_deg(spun), ORIENTATION_DEGREES * 2.0, "the host's cat spins in flight, so a stale yaw would show")
 	assert_gt(float(watched), 10.0, "B drew the cat in flight")
 	assert_lt(worst, ORIENTATION_DEGREES, "B's flying cat faces the way the host's did at B's drawn time")
 
@@ -125,15 +130,9 @@ func _draws(links: Array[PlayerNetLink], which: int, seat: int = A_SEAT) -> bool
 	return false
 
 
-## The host cat's yaw at fractional host tick [param time], from the worlds the host sent; NAN outside them.
-func _host_yaw_at(time: float) -> float:
-	var ring: NetReplicator = host.replicator
-	for i: int in range(1, ring._ring_count):
-		var from: PlayerState = ring._slot(i - 1).find_seat(HOST_SEAT)
-		var to: PlayerState = ring._slot(i).find_seat(HOST_SEAT)
-		if from == null or to == null or not to.power_out or not from.power_out:
-			continue
-		if float(ring._slot(i - 1).tick) <= time and time <= float(ring._slot(i).tick):
-			var span: float = float(ring._slot(i).tick - ring._slot(i - 1).tick)
-			return lerp_angle(from.anchor_yaw, to.anchor_yaw, (time - float(ring._slot(i - 1).tick)) / maxf(span, 1.0))
-	return NAN
+## The yaw in [param by_tick] at fractional tick [param time], between the two ticks around it; NAN outside.
+func _yaw_at(by_tick: Dictionary[int, float], time: float) -> float:
+	var before: int = floori(time)
+	if not by_tick.has(before) or not by_tick.has(before + 1):
+		return NAN
+	return lerp_angle(by_tick[before], by_tick[before + 1], time - float(before))

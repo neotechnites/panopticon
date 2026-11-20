@@ -150,7 +150,7 @@ func _a_late_machine_draws(which: int, map: StringName, on_bot: bool) -> void:
 	# The host ends it: the late machine is left drawing nothing.
 	if which == CAT:
 		_power(HOST).state.cooking = true
-		_power(HOST).state.remaining = 0.05
+		_power(HOST).state.remaining_ticks = 3
 	else:
 		_power(HOST).cancel()
 	var over: bool = await _rig.wait_for(func() -> bool:

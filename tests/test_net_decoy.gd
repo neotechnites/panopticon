@@ -151,8 +151,7 @@ func test_the_hologram_dies_on_the_client_when_it_dies_on_the_host() -> void:
 	await step_ticks(1)
 	assert_null(powers[0].get_decoy(), "the shot took the host's hologram")
 
-	# One tick of transport, not one snapshot: the despawn does not wait for the
-	# ability byte to go to NONE in the next snapshot.
+	# The shatter is the record's out bit going false: drawn when the client's playout reaches it.
 	var gone: bool = await NetFixtures.poll_until(
 		self, func() -> bool: return powers[1].get_hologram() == null
 	)

@@ -141,6 +141,11 @@ func seconds_to(end_tick: int) -> float:
 	return maxf(float(NetCodec.tick_delta(tick, end_tick)), 0.0) / float(NetCodec.TICK_RATE)
 
 
+## Whole ticks from [member tick] to [param end_tick], never negative; 0 for none.
+func ticks_to(end_tick: int) -> int:
+	return 0 if end_tick == 0 else maxi(NetCodec.tick_delta(tick, end_tick), 0)
+
+
 func ability_remaining() -> float:
 	return seconds_to(ability_end_tick)
 

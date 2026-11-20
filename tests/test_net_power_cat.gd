@@ -59,8 +59,8 @@ func test_the_holder_is_found_when_its_link_is_not_under_its_body() -> void:
 	var port: int = await NetFixtures.host_and_wait(self, host)
 	if not assert_gt(float(port), 0.0, "the host took a port"):
 		return
-	# The match's layout: links sit beside the bodies they carry, never under them.
-	var remote_peer: int = 777
+	# The match's layout: links sit beside the bodies they carry, never under them. The body is
+	# the host's own player's, driven by no human device: only its link can say it is.
 	var body: PlayerController = TestFixtures.make_bot_player(profile)
 	body.name = "Seat1"
 	host.get_parent().add_child(body)
@@ -72,7 +72,7 @@ func test_the_holder_is_found_when_its_link_is_not_under_its_body() -> void:
 	link.replicator = host.replicator
 	link.controller = body
 	link.seat_index = A_SEAT
-	link.owner_peer_id = remote_peer
+	link.owner_peer_id = host.get_local_peer_id()
 	host.get_parent().add_child(link)
 	await step_ticks(2)
 	var stub: MatchController = _make_stub(host)
@@ -88,7 +88,7 @@ func test_the_holder_is_found_when_its_link_is_not_under_its_body() -> void:
 	var view: CatView = power.get_cat_view()
 	if not assert_not_null(view, "the host draws the cat in its carrier's hands"):
 		return
-	assert_false(view.is_petting(), "the host offers no pet for a cat another peer's player carries")
+	assert_true(view.is_petting(), "the host's player, found through the link beside its body, is offered the pet")
 
 
 func test_a_cooked_cat_runs_its_fuse_and_goes_off_everywhere() -> void:
@@ -195,19 +195,18 @@ func test_a_holder_freed_mid_hold_takes_its_cat_with_it() -> void:
 	await step_ticks(3)
 	assert_eq_int(_host_cats().size(), 1, "the host still has the cat while its holder stands")
 	body_of(host_links, A_SEAT).queue_free()
-	# The vacated seat is taken off every machine by its roster (NetMatch); the rig does it by hand.
-	body_of(b_links, A_SEAT).queue_free()
+	# B's copy is taken away by its roster (NetMatch), covered in test_net_power_hub_roster.
 	var ticks: int = 0
-	while ticks < 30 and not (_host_cats().is_empty() and _shown_count(a) == 0 and _shown_count(b) == 0):
+	while ticks < 30 and not (_host_cats().is_empty() and _shown_count(a) == 0 and _shown_count(host) == 0):
 		await step_ticks(1)
 		ticks += 1
 	assert_eq_int(_host_cats().size(), 0, "the host's cat went with its holder")
 	assert_eq_int(_shown_count(a), 0, "A draws no cat within 30 ticks")
-	assert_eq_int(_shown_count(b), 0, "B draws no cat within 30 ticks")
+	assert_eq_int(_shown_count(host), 0, "the host draws no cat within 30 ticks")
 	assert_false(_has_prompt(a), "A is no longer offered the pet")
 	await step_ticks(10)
 	assert_true(
-		_shown_count(a) == 0 and _shown_count(b) == 0, "and a late position does not redraw it"
+		_shown_count(a) == 0 and _shown_count(host) == 0, "and a later world does not redraw it"
 	)
 
 

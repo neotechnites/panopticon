@@ -37,13 +37,13 @@ func _init() -> void:
 
 
 func _ready() -> void:
-	if carrier != null:
+	if is_instance_valid(carrier):
 		global_transform = CatView.carry_transform(carrier)
 
 
 ## Huck it the way the hub cat is thrown. False if it is not held.
 func throw() -> bool:
-	if carrier == null:
+	if not is_instance_valid(carrier):
 		return false
 	var velocity: Vector3 = CatView.throw_velocity(carrier)
 	global_transform = CatView.carry_transform(carrier)
@@ -62,7 +62,7 @@ func blast_point() -> Vector3:
 
 
 func _physics_process(_delta: float) -> void:
-	if carrier != null:
+	if is_instance_valid(carrier):
 		global_transform = CatView.carry_transform(carrier)
 
 

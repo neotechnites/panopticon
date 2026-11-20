@@ -214,8 +214,15 @@ func _hologram() -> void:
 	assert_true(decoy.is_in_group(RunnerPower.DECOY_GROUP), "the host's hologram is a target for the guard")
 	assert_false(decoy.is_in_group(MatchController.RUNNER_GROUP), "and not a runner")
 	var from: Vector3 = decoy.global_position
-	# Short of the field it runs into on hell: the clients draw it from the playout clock on.
-	await step_ticks(12)
+	# Asked as soon as it has run a metre and every client draws it running, wherever that is on the map.
+	await _rig.wait_for(func() -> bool:
+		if decoy.global_position.distance_to(from) <= 1.0:
+			return false
+		for peer: int in range(1, _rig.peer_count()):
+			var drawn: HologramView = _power(peer).get_hologram()
+			if drawn == null or drawn.get_clip() != HologramView.RUN_CLIP:
+				return false
+		return true)
 	assert_gt(decoy.global_position.distance_to(from), 1.0, "the hologram runs on the host")
 	assert_gt(decoy.velocity.length(), 1.0, "and is still running when the clients are asked")
 	for peer: int in range(1, _rig.peer_count()):

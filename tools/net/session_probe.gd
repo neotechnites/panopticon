@@ -563,9 +563,9 @@ func _watch_bodies() -> void:
 		if session.is_authority() and power != null:
 			var cat: CatGrenade = power.get_cat()
 			if cat != null:
-				_cats_seen[p.index] = [power.state.cooking, power.state.remaining]
+				_cats_seen[p.index] = [power.state.cooking, power.get_remaining()]
 				_note("cat" + seat, str(power.state.cooking), "CATHOST seat=%s held=1 cooking=%d fuse=%.2f" % [
-					seat, int(power.state.cooking), power.state.remaining])
+					seat, int(power.state.cooking), power.get_remaining()])
 			elif _seen.get("cat" + seat, "gone") != "gone":
 				var last: Array = _cats_seen.get(p.index, [false, 0.0])
 				_note("cat" + seat, "gone", "CATHOST seat=%s held=0 was_cooking=%d fuse_was=%.2f" % [seat, int(last[0]), float(last[1])])

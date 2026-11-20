@@ -4,7 +4,11 @@ extends Node
 ## The runner's power (DESIGN 9): one [PowerState], stepped by the body's commands where it is decided
 ## or predicted and taken from the snapshot elsewhere, drawn from that state alone on every machine.
 
+## What the host simulates for a power, where its activation puts it, and the clock it runs on:
+## the rules' duration from the press, or the cat's fuse once it is lit.
 enum Entity { NONE, DECOY, CAT }
+enum Place { NONE, ABOVE, AHEAD }
+enum Clock { NONE, RULES, FUSE }
 const DECOY_GROUP: StringName = &"hologram_decoys"
 const SHIELD_RADIUS: float = 4.0
 ## How far above a body's origin its shield is centred.
@@ -18,15 +22,15 @@ const DECOY_LEAD_METRES: float = 2.0
 const CAMO_VISIBLE_RANGE: float = 25.0
 ## Whole-body camo tint: dark hell red.
 const CAMO_COLOR: Color = Color(0.55, 0.11, 0.06, 1.0)
-## One row per [enum MatchRules.RunnerAbility]: whether letting the key go ends it, whether the
-## activation places it in the world, and the entity the host simulates for it.
+## One row per [enum MatchRules.RunnerAbility] (DESIGN 9 PowerDef): its clock, whether letting the
+## key go ends it, where the press places it, its host entity, and whether it holds the body still.
 const DEFS: Array[Dictionary] = [
-	{&"release": false, &"placed": false, &"entity": Entity.NONE},
-	{&"release": false, &"placed": true, &"entity": Entity.NONE},
-	{&"release": false, &"placed": true, &"entity": Entity.DECOY},
-	{&"release": true, &"placed": false, &"entity": Entity.NONE},
-	{&"release": false, &"placed": false, &"entity": Entity.NONE},
-	{&"release": false, &"placed": false, &"entity": Entity.CAT},
+	{&"clock": Clock.NONE, &"release": false, &"place": Place.NONE, &"entity": Entity.NONE, &"hold": false},
+	{&"clock": Clock.RULES, &"release": false, &"place": Place.ABOVE, &"entity": Entity.NONE, &"hold": false},
+	{&"clock": Clock.RULES, &"release": false, &"place": Place.AHEAD, &"entity": Entity.DECOY, &"hold": false},
+	{&"clock": Clock.RULES, &"release": true, &"place": Place.NONE, &"entity": Entity.NONE, &"hold": true},
+	{&"clock": Clock.RULES, &"release": false, &"place": Place.NONE, &"entity": Entity.NONE, &"hold": false},
+	{&"clock": Clock.FUSE, &"release": false, &"place": Place.NONE, &"entity": Entity.CAT, &"hold": false},
 ]
 
 ## Power [param which] stopped: "expired", "released", "unheld" (a starved command let the key go),
@@ -40,7 +44,7 @@ var match_controller: MatchController = null
 ## This machine's truth: simulated where it is decided, predicted by its owner, the record elsewhere.
 var state: PowerState = PowerState.new()
 
-## A predicting body's snapshot record, at the playout clock: its host entity is drawn from it.
+## A predicting body's snapshot record at this frame's playout clock: its host entity is drawn from it.
 var _entity_record: PowerState = PowerState.new()
 var _has_entity_record: bool = false
 var _view: PowerState = PowerState.new()
@@ -87,11 +91,19 @@ static func decoy_of(collider: Node) -> PlayerController:
 	return null
 
 
-## How long [param which] runs: the cat's fuse, else the rules' duration (0 without rules).
+## How long [param which] runs on its clock, in seconds (0 for a rules clock without rules).
 static func duration_of(which: int, match_rules: MatchRules) -> float:
-	if which == MatchRules.RunnerAbility.CAT_GRENADE:
-		return CatGrenade.FUSE_SECONDS
-	return maxf(match_rules.ability_duration_seconds, 0.0) if match_rules != null else 0.0
+	match DEFS[which][&"clock"]:
+		Clock.FUSE:
+			return CatGrenade.FUSE_SECONDS
+		Clock.RULES:
+			return maxf(match_rules.ability_duration_seconds, 0.0) if match_rules != null else 0.0
+	return 0.0
+
+
+## [param seconds] as whole commands: a power's clocks count commands, one a host tick.
+static func ticks_of(seconds: float) -> int:
+	return maxi(roundi(seconds * float(NetCodec.TICK_RATE)), 0)
 
 
 func _init() -> void:
@@ -112,7 +124,7 @@ func _exit_tree() -> void:
 	state.active = false
 	state.out = false
 	state.cooking = false
-	state.remaining = 0.0
+	state.remaining_ticks = 0
 	_has_entity_record = false
 	_view.clear()
 	sync_visuals(_view)
@@ -120,6 +132,8 @@ func _exit_tree() -> void:
 
 func _process(_delta: float) -> void:
 	sync_visuals(_current_view())
+	# A record is this frame's: a body that stops being drawn from one draws its own state.
+	_has_entity_record = false
 
 
 ## The host: follow the entities' poses into the state, once they have moved this tick.
@@ -129,9 +143,9 @@ func _physics_process(_delta: float) -> void:
 
 ## One command's worth of the power, run by [method PlayerController.run_command]: its clocks,
 ## and a press, release or cook. [param authority] simulates what only the host may (decoy, cat).
-func step(intent: MoveIntent, delta: float, authority: bool) -> void:
-	if state.cooldown > 0.0:
-		state.cooldown = maxf(state.cooldown - delta, 0.0)
+func step(intent: MoveIntent, _delta: float, authority: bool) -> void:
+	if state.cooldown_ticks > 0:
+		state.cooldown_ticks -= 1
 	if body == null or body.held:
 		return
 	var asked: int = intent.pressed & MoveIntent.ALL_POWER_KEYS
@@ -144,22 +158,23 @@ func step(intent: MoveIntent, delta: float, authority: bool) -> void:
 	if authority and not _has_its_entity():
 		# The host runs a power only with its entity: a machine that became the host has none.
 		_end(&"spent")
-	elif state.which == MatchRules.RunnerAbility.CAT_GRENADE:
-		if intent.cook_pressed:
+	else:
+		var fused: bool = DEFS[state.which][&"clock"] == Clock.FUSE
+		if fused and intent.cook_pressed:
 			state.cooking = true
 			_rule(MoveIntent.COOK, &"ran")
-		if state.cooking:
-			state.remaining = maxf(state.remaining - delta, 0.0)
-			# The fuse runs out on the host's word; a predicting client waits for it.
-			if state.remaining <= 0.0 and authority:
-				_blast()
-	else:
-		_rule(intent.pressed & MoveIntent.COOK, &"no-cat")
-		state.remaining = maxf(state.remaining - delta, 0.0)
+		elif not fused:
+			_rule(intent.pressed & MoveIntent.COOK, &"no-cat")
+		if state.is_timed() and state.remaining_ticks > 0:
+			state.remaining_ticks -= 1
+		# The clock runs out on the host's word; a predicting client waits for it.
 		if DEFS[state.which][&"release"] and not intent.ability_held:
 			_end(&"released" if intent.released & MoveIntent.ALL_POWER_KEYS != 0 else &"unheld")
-		elif state.remaining <= 0.0 and authority:
-			_end(&"expired")
+		elif state.is_timed() and state.remaining_ticks <= 0 and authority:
+			if fused:
+				_blast()
+			else:
+				_end(&"expired")
 	_rule(asked, &"busy")
 	if authority:
 		# The shield's collider is part of what is drawn: the host's stands from the tick it is raised.
@@ -177,7 +192,7 @@ func arm(match_rules: MatchRules, controller: MatchController) -> void:
 	cancel()
 	rules = match_rules
 	match_controller = controller
-	state.cooldown = 0.0
+	state.cooldown_ticks = 0
 
 
 ## Start the selected power, as the deciding machine when [param authority] (it builds the entity);
@@ -190,21 +205,21 @@ func activate(which: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE, a
 	state.which = which
 	state.active = true
 	state.serial = (state.serial + 1) % PowerState.SERIAL_MODULUS
-	state.remaining = duration_of(which, rules)
+	state.remaining_ticks = ticks_of(duration_of(which, rules))
 	state.cooking = false
 	state.out = DEFS[which][&"entity"] == Entity.DECOY
 	state.place_position = Vector3.ZERO
 	state.place_yaw = 0.0
-	match which:
-		MatchRules.RunnerAbility.BUBBLE_SHIELD:
+	match DEFS[which][&"place"]:
+		Place.ABOVE:
 			state.place_position = body.global_position + Vector3.UP * SHIELD_RISE
-		MatchRules.RunnerAbility.HOLOGRAM:
+		Place.AHEAD:
 			var ahead: Vector3 = -body.global_transform.basis.z
 			ahead.y = 0.0
 			state.place_position = body.global_position + ahead.normalized() * DECOY_LEAD_METRES
 			state.place_yaw = body.global_rotation.y
-		MatchRules.RunnerAbility.ARMOR_LOCK:
-			body.velocity = Vector3.ZERO
+	if DEFS[which][&"hold"]:
+		body.velocity = Vector3.ZERO
 	state.pose_position = state.place_position
 	state.pose_yaw = state.place_yaw
 	state.pose_velocity = Vector3.ZERO
@@ -220,7 +235,7 @@ func refusal(which: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE) ->
 		return &"unarmed"
 	if state.active:
 		return &"busy"
-	if state.cooldown > 0.0:
+	if state.cooldown_ticks > 0:
 		return &"cooldown"
 	if which == MatchRules.RunnerAbility.NONE and rules.runner_ability == MatchRules.RunnerAbility.NONE:
 		return &"unpicked"
@@ -241,7 +256,7 @@ func take_record(record: PlayerState) -> void:
 	state.take_record(record)
 
 
-## For a body this machine predicts: [param record] at the playout clock, for its host entity.
+## For a body this machine predicts: [param record] at this frame's playout clock, for its host entity.
 func take_entity_record(record: PlayerState) -> void:
 	_has_entity_record = true
 	_entity_record.take_record(record)
@@ -271,15 +286,20 @@ func get_shown() -> MatchRules.RunnerAbility:
 
 
 func get_remaining() -> float:
-	return state.remaining if state.active else 0.0
+	return state.get_remaining() if state.active else 0.0
 
 
 func get_cooldown_remaining() -> float:
-	return state.cooldown
+	return state.get_cooldown()
+
+
+## True while the running power holds its body still (the armor lock).
+func holds_body() -> bool:
+	return state.active and DEFS[state.which][&"hold"]
 
 
 func is_hit_immune() -> bool:
-	return state.running() == MatchRules.RunnerAbility.ARMOR_LOCK
+	return holds_body()
 
 
 func is_camouflaged() -> bool:
@@ -288,7 +308,7 @@ func is_camouflaged() -> bool:
 
 ## True while this body carries its own cat, so its swing is the throw.
 func holds_cat() -> bool:
-	return state.running() == MatchRules.RunnerAbility.CAT_GRENADE and not state.out
+	return state.active and DEFS[state.which][&"entity"] == Entity.CAT and not state.out
 
 
 ## Shove while carrying the cat: throw it, lit. True when a cat took the shove. Authority only.
@@ -346,7 +366,7 @@ func _end(reason: StringName) -> void:
 	var was: int = state.running()
 	_stop()
 	# MatchRules.ability_cooldown_multiplier is the lever; the seconds are the design value it scales.
-	state.cooldown = maxf(rules.ability_cooldown_seconds * rules.ability_cooldown_multiplier, 0.0) if rules != null else 0.0
+	state.cooldown_ticks = ticks_of(rules.ability_cooldown_seconds * rules.ability_cooldown_multiplier) if rules != null else 0
 	ended.emit(was, reason)
 
 
@@ -355,7 +375,7 @@ func _stop() -> void:
 	state.active = false
 	state.out = false
 	state.cooking = false
-	state.remaining = 0.0
+	state.remaining_ticks = 0
 
 
 # --- Host entities ------------------------------------------------------------
@@ -468,10 +488,11 @@ func _current_view() -> PowerState:
 	if not state.active:
 		# Over here and not yet at the playout clock: the host's entity is drawn until it is.
 		return record
-	if record.serial != state.serial or record.which != state.which:
-		# Not yet in a record: the activation as predicted.
-		return state
 	_view.copy_from(state)
+	if record.serial != state.serial or record.which != state.which:
+		# The host's entity is drawn once a record has it (DESIGN 7); the rest is as predicted.
+		_view.out = false
+		return _view
 	_view.out = record.out
 	_view.pose_position = record.pose_position
 	_view.pose_yaw = record.pose_yaw
@@ -483,6 +504,7 @@ func _current_view() -> PowerState:
 func sync_visuals(view: PowerState) -> void:
 	if body == null:
 		return
+	_forget_freed_visuals()
 	var effect: int = view.running() if DEFS[view.which][&"entity"] == Entity.NONE else 0
 	var drawn_effect: int = _drawn.running() if DEFS[_drawn.which][&"entity"] == Entity.NONE else 0
 	if effect != drawn_effect:
@@ -501,8 +523,22 @@ func sync_visuals(view: PowerState) -> void:
 	_drawn.copy_from(view)
 
 
+## A visual freed with the container it stands in (a rebuilt roster) is drawn again from state.
+func _forget_freed_visuals() -> void:
+	if (_shield != null and not is_instance_valid(_shield)) or (_shell != null and not is_instance_valid(_shell)):
+		_shield = null
+		_shell = null
+		_drawn.clear()
+	if _hologram != null and not is_instance_valid(_hologram):
+		_hologram = null
+	if _cat_view != null and not is_instance_valid(_cat_view):
+		_cat_view = null
+
+
 func _tear_down_effect() -> void:
 	if _shield != null:
+		# Out of every ray this tick, not only once the frame ends.
+		_shield.collision_layer = 0
 		_shield.queue_free()
 		_shield = null
 	if _shell != null:
@@ -515,7 +551,7 @@ func _tear_down_effect() -> void:
 
 
 func _draw_hologram(view: PowerState) -> void:
-	if view.running() != MatchRules.RunnerAbility.HOLOGRAM or not view.out or not is_inside_tree():
+	if not view.active or DEFS[view.which][&"entity"] != Entity.DECOY or not view.out or not is_inside_tree():
 		if _hologram != null:
 			_hologram.queue_free()
 			_hologram = null
@@ -527,7 +563,7 @@ func _draw_hologram(view: PowerState) -> void:
 
 
 func _draw_cat(view: PowerState) -> void:
-	if view.running() != MatchRules.RunnerAbility.CAT_GRENADE or not is_inside_tree():
+	if not view.active or DEFS[view.which][&"entity"] != Entity.CAT or not is_inside_tree():
 		if _cat_view != null:
 			_cat_view.queue_free()
 			_cat_view = null
@@ -546,12 +582,12 @@ func _draw_cat(view: PowerState) -> void:
 	_cat_view.set_petting(not view.out and _carried_here())
 
 
-## True when the body is this machine's own player in a live game: its link's while the session
-## stands, or with no session the human's.
+## True when the body is this machine's own player: its link's owner (none once the session is
+## gone), or with no session the human's.
 func _carried_here() -> bool:
 	var link: PlayerNetLink = PlayerNetLink.of(body)
 	if link != null:
-		return link.session != null and link.session.is_established() and link.is_owned_here()
+		return link.is_owned_here()
 	return body.intent_source is HumanIntentSource
 
 

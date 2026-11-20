@@ -18,14 +18,12 @@ static var _all: Array[HubCat] = []
 var _state: State = State.REST
 var _carrier: PlayerController = null
 var _home: Transform3D = Transform3D.IDENTITY
-var _local_held: bool = false
-var _prompt_layer: CanvasLayer = null
-var _pet_tween: Tween = null
+## The pet prompt and the petting, on the machine whose player carries it.
+var _view: CatView = null
 var _fuse: int = 0
 var _gone: bool = false
 ## The seat carrying this cat, -1 for nobody: the host's word on every machine.
 var _carrier_seat: int = -1
-var _purr: AudioStreamPlayer3D = null
 
 
 func _ready() -> void:
@@ -38,6 +36,8 @@ func _ready() -> void:
 	freeze = true
 	_all.append(self)
 	add_to_group(NetProp.GROUP)
+	_view = CatView.new(get_node_or_null("Mesh") as MeshInstance3D)
+	add_child(_view)
 
 
 func _exit_tree() -> void:
@@ -45,34 +45,15 @@ func _exit_tree() -> void:
 	_set_local_held(false)
 
 
-## E while this machine's player carries the cat: a squish; eaten before the lobby sees it.
-func _input(event: InputEvent) -> void:
-	if not _local_held or not event.is_action_pressed(&"interact"):
-		return
-	get_viewport().set_input_as_handled()
-	var mesh: MeshInstance3D = get_node_or_null("Mesh") as MeshInstance3D
-	if mesh == null:
-		return
-	if _purr == null:
-		_purr = CatView.become_happy(mesh)
-	_pet_tween = CatView.pet(mesh, _pet_tween)
-
-
-## Back to the neutral face and silence.
-func _become_neutral() -> void:
-	CatView.become_neutral(get_node_or_null("Mesh") as MeshInstance3D, _purr)
-	_purr = null
-
-
 ## Show or hide the pet prompt on this machine.
 func _set_local_held(held: bool) -> void:
-	_local_held = held
-	if held and _prompt_layer == null:
-		_prompt_layer = CatView.make_pet_prompt()
-		add_child(_prompt_layer)
-	elif not held and _prompt_layer != null:
-		_prompt_layer.queue_free()
-		_prompt_layer = null
+	if _view != null:
+		_view.set_petting(held)
+
+
+## True while this machine offers its own player the pet.
+func is_offered_here() -> bool:
+	return _view != null and _view.is_petting()
 
 
 ## The host's carrier changed: every machine reads the seat from the record; this one's prompt now.
@@ -183,7 +164,6 @@ func _explode(fuse: int) -> void:
 func _go() -> void:
 	_gone = true
 	_carrier_seat = -1
-	_become_neutral()
 	_set_local_held(false)
 	visible = false
 	collision_layer = 0

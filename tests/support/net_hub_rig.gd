@@ -314,7 +314,7 @@ func pet_offer(machine: int) -> int:
 
 ## True while [param machine] offers its own player the pet for the hub cat.
 func holds_locally(machine: int) -> bool:
-	return bool(cat(machine, HUB_CAT).get("_local_held"))
+	return cat(machine, HUB_CAT).is_offered_here()
 
 
 ## Stand [param seat] in reach of the hub cat, facing it, and shove. False after failing.

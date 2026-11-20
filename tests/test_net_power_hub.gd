@@ -179,7 +179,7 @@ func _throw_the_power_cat(delay_ms: int) -> void:
 	var let_go: bool = await until(func() -> bool: return pet_offer(A) == 0, 1000)
 	assert_true(let_go, "A's machine stops offering the pet for a cat in the air")
 	# B's own body walks up to the lit cat.
-	await until(func() -> bool: return not blast.is_empty() or power(HOST, A).state.remaining <= 0.5)
+	await until(func() -> bool: return not blast.is_empty() or power(HOST, A).get_remaining() <= 0.5)
 	if not blast.is_empty():
 		fail("the cat went off before its fuse was nearly out")
 		return

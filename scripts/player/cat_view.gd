@@ -33,13 +33,17 @@ var _purr: AudioStreamPlayer3D = null
 var _pet_tween: Tween = null
 
 
-func _init() -> void:
+## A view drawing its own cat, or petting [param drawn], a cat mesh that is drawn already (the hub's).
+func _init(drawn: MeshInstance3D = null) -> void:
 	name = "CatView"
+	set_process_input(false)
+	if drawn != null:
+		mesh = drawn
+		return
 	mesh = MeshInstance3D.new()
 	mesh.name = "Mesh"
 	mesh.mesh = MESH
 	add_child(mesh)
-	set_process_input(false)
 
 
 ## Offer this machine's player the pet, or take the offer and the happiness away.
