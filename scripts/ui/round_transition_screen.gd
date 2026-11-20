@@ -623,7 +623,9 @@ func _subscribe() -> void:
 
 
 func _on_round_started() -> void:
-	begin_transition()
+	# A mirror landing in a round already running is not shown its start.
+	if controller.is_presenting():
+		begin_transition()
 
 
 ## A fresh match. Whatever was on screen is about to be wrong, and the round card

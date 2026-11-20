@@ -246,6 +246,13 @@ signal kill_beat_started(guard: MatchParticipant, seconds: float, throw: Vector3
 ## publishes them; see [NetMatch].
 signal rules_edited()
 
+## The world's phase-bound collision changed: the tower and every [PhaseGate] follow [param phase].
+signal structure_changed(phase: Phase)
+
+## A rifle hit killed [param participant] at [param at], the shot travelling along [param direction]:
+## the ragdoll's start, which the host sends on as a DEATH event.
+signal participant_shot_dead(participant: MatchParticipant, at: Vector3, direction: Vector3)
+
 ## Every design parameter of the match: how many players, on what track, at what
 ## pace, with what reload escalation, and what counts as a win.
 ##
@@ -642,6 +649,18 @@ var _local_body: PlayerController = null
 ## True on a client: nothing here decides; net_* methods apply what the server decided.
 var _mirror: bool = false
 var _applying: bool = false
+## False while a mirror lands silently in the record it converged on: no round card.
+var _presenting: bool = true
+## The phase the world's collision was last built for (see [method apply_structure]).
+var _structure_phase: Phase = Phase.IDLE
+## Bumped by every match start and every finale shove; the newest round's outcome. What a mirror
+## needs to see a transition that is undone inside one tick (DESIGN 3.4 MatchState).
+var _match_serial: int = 0
+var _kill_beat_serial: int = 0
+var _kill_beat_throw: Vector3 = Vector3.ZERO
+var _last_outcome: Outcome = Outcome.IN_PROGRESS
+## Mirror: the host's siege clock is stopped (resolved, paused); [member _hold_remaining] is what it shows.
+var _hold_paused: bool = false
 
 
 ## The rule set actually in force, never null.
@@ -908,6 +927,7 @@ func start_match() -> void:
 	_outcome = Outcome.IN_PROGRESS
 	_warned_unimplemented_rules = false
 	_hold_remaining = 0.0
+	_match_serial += 1
 
 	match_started.emit(_participants.size())
 	if _mirror:
@@ -1121,6 +1141,7 @@ func start_race() -> void:
 	# game through a race nobody is shooting in. See [constant GUARD_GROUP].
 	_publish_the_seat()
 
+	_host_structure()
 	_settle_frames = SETTLE_PHYSICS_FRAMES
 	var racers: Array[MatchParticipant] = _participants.duplicate()
 	_place_runners(racers)
@@ -1144,7 +1165,7 @@ func start_brawl() -> void:
 	_brawl_elapsed = 0.0
 	_brawl_bots.clear()
 	_brawl_rng.seed = get_rules().ai_shooter_aim_seed
-	_open_for_brawl()
+	_host_structure()
 	_settle_frames = SETTLE_PHYSICS_FRAMES
 	for index: int in _participants.size():
 		_place_in_brawl(_participants[index], index, _participants.size())
@@ -1175,8 +1196,7 @@ func _place_in_brawl(participant: MatchParticipant, index: int, count: int) -> v
 	var ring: float = clampf(float(count) * 1.2 / TAU, BRAWL_RING_METRES, maxf(_brawl_floor_radius - 0.8, BRAWL_RING_METRES))
 	var offset: Vector3 = Vector3(cos(angle), 0.0, sin(angle)) * ring
 	# Facing out, so nobody starts with a shove lined up.
-	body.place(_tower_point + offset, _heading_of(offset))
-	body.velocity = Vector3.ZERO
+	_place(participant, _tower_point + offset, _heading_of(offset))
 	body.add_to_group(RUNNER_GROUP)
 
 
@@ -1358,8 +1378,15 @@ func _brawl_out(participant: MatchParticipant, throw: Vector3) -> void:
 func _open_for_brawl() -> void:
 	_free_brawl_floor()
 	var space: PhysicsDirectSpaceState3D = arena.get_world_3d().direct_space_state
+	# The map's floor only: the same ray on every machine, whoever stands there when it runs.
+	var bodies: Array[RID] = []
+	for body: PlayerController in _net_bodies:
+		bodies.append(body.get_rid())
+	for participant: MatchParticipant in _participants:
+		if participant.body != null:
+			bodies.append(participant.body.get_rid())
 	var down: Dictionary = space.intersect_ray(PhysicsRayQueryParameters3D.create(
-		_tower_point + Vector3.UP * 0.5, _tower_point + Vector3.DOWN * 3.0, 1))
+		_tower_point + Vector3.UP * 0.5, _tower_point + Vector3.DOWN * 3.0, 1, bodies))
 	_brawl_floor_y = (down["position"] as Vector3).y if not down.is_empty() else _tower_point.y
 	var radius: float = maxf(_tower_room_radius() - BRAWL_EDGE_INSET_METRES, BRAWL_RING_METRES + 1.0)
 	_open_tower()
@@ -1478,6 +1505,7 @@ func start_round() -> void:
 	# [constant GUARD_GROUP]; [method _arm_tower_brain] says it again on the wake
 	# because that is where a seat can also change.
 	_publish_the_seat()
+	_host_structure()
 	_settle_frames = SETTLE_PHYSICS_FRAMES
 	var runners: Array[MatchParticipant] = []
 	for participant: MatchParticipant in _participants:
@@ -1729,6 +1757,140 @@ func hold_start_for(seconds: float) -> void:
 		return
 	var frames: int = int(ceilf(seconds * float(Engine.physics_ticks_per_second)))
 	_settle_frames = maxi(_settle_frames, frames)
+
+
+# --- The match record ----------------------------------------------------------
+
+## The match's lasting state at host tick [param tick] into [param out]: what a mirror converges on.
+func capture_state(out: MatchState, tick: int, started: bool) -> void:
+	out.tick = tick
+	out.started = started
+	out.phase = int(_phase)
+	out.round_number = _round_number
+	out.guard = slot_of(_seat)
+	out.finisher = slot_of(_finisher)
+	out.winner = slot_of(_winner)
+	out.outcome = int(_outcome)
+	out.match_serial = _match_serial
+	out.resolve_count = _resolve_count
+	out.last_outcome = int(_last_outcome)
+	# A clock is sent as an end tick only while it runs; a stopped one as what it shows, so it costs nothing.
+	var hold: float = get_hold_remaining_seconds()
+	var hold_runs: bool = _phase == Phase.ROUND and not is_resolved() and not debug_clock_paused
+	out.hold_end_tick = _end_tick(tick, hold) if hold_runs else 0
+	out.hold_paused_ticks = 0 if hold_runs else roundi(hold * float(NetCodec.TICK_RATE))
+	var beat: bool = _in_kill_beat()
+	out.kill_beat_serial = _kill_beat_serial
+	out.kill_beat_guard = slot_of(_kill_beat_guard) if beat else MatchState.NONE
+	out.kill_beat_throw = _kill_beat_throw if beat else Vector3.ZERO
+	out.brawl_end_tick = _end_tick(tick, _brawl_end_remaining)
+	out.brawl_winner = slot_of(_brawl_winner)
+	out.resize(_participants.size())
+	for i: int in _participants.size():
+		var p: MatchParticipant = _participants[i]
+		var entry: MatchState.Entry = out.participants[i]
+		entry.running = p.is_running
+		entry.ghost = p.is_ghost
+		entry.shooter = p.is_shooter
+		entry.held = p.respawn_hold_remaining > 0.0
+		entry.finisher = p.is_finisher
+		entry.life = p.life
+		entry.rounds_won = p.rounds_won
+		entry.turns_in_tower = p.turns_in_tower
+		entry.lives = p.lives
+		entry.respawn_end_tick = _end_tick(tick, p.respawn_hold_remaining)
+		entry.grace_end_tick = _end_tick(tick, p.ghost_grace_remaining) if _grace_runs(p) else 0
+		entry.death_cause = int(p.death_cause)
+
+
+## [param participant]'s slot, or [constant MatchState.NONE].
+## Whether [method _tick_ghosts] counts [param p]'s catch grace this tick.
+func _grace_runs(p: MatchParticipant) -> bool:
+	return (
+		_phase == Phase.ROUND and not is_resolved() and get_rules().has_ghosts() and p.is_ghost
+		and p.respawn_hold_remaining <= 0.0 and p.ghost_settle_frames <= 0
+	)
+
+
+static func slot_of(participant: MatchParticipant) -> int:
+	return participant.index if participant != null else MatchState.NONE
+
+
+## The tick [param seconds] after [param tick], or 0 for a clock that is not running.
+static func _end_tick(tick: int, seconds: float) -> int:
+	return 0 if seconds <= 0.0 else tick + maxi(roundi(seconds * float(NetCodec.TICK_RATE)), 1)
+
+
+## The world's collision for [param phase]: the tower open over the brawl floor in a brawl and shut
+## otherwise, and every [PhaseGate] on its side. The host's transitions and a mirror's converge call it.
+func apply_structure(phase: Phase) -> void:
+	if not _geometry_ready:
+		# A mirror's first record can arrive before its match has started here: the tower stands where it is.
+		_cache_geometry()
+	if phase == Phase.BRAWL:
+		if not is_instance_valid(_brawl_floor):
+			_open_for_brawl()
+	else:
+		_close_tower()
+		_free_brawl_floor()
+	if phase != _structure_phase:
+		_structure_phase = phase
+		structure_changed.emit(phase)
+
+
+## The host's half of [method apply_structure]: a mirror's structure is the record's, taken on arrival.
+func _host_structure() -> void:
+	if not _mirror:
+		apply_structure(_phase)
+
+
+## False while a mirror lands silently in the state it bound into: one-shot presentation stays quiet.
+func is_presenting() -> bool:
+	return _presenting
+
+
+func net_set_presenting(presenting: bool) -> void:
+	_presenting = presenting
+
+
+## A record's numbers on a mirror, after its transitions: counts, lives, causes and the clocks
+## as they stand at the record's tick.
+func net_take_state(state: MatchState) -> void:
+	_hold_paused = state.hold_end_tick == 0
+	_hold_remaining = float(state.hold_paused_ticks) / float(NetCodec.TICK_RATE) if _hold_paused else state.seconds_to(state.hold_end_tick)
+	_brawl_end_remaining = state.seconds_to(state.brawl_end_tick) if state.brawl_end_tick != 0 else -1.0
+	_brawl_winner = _participant_at(state.brawl_winner)
+	for i: int in mini(state.participants.size(), _participants.size()):
+		var entry: MatchState.Entry = state.participants[i]
+		var p: MatchParticipant = _participants[i]
+		p.rounds_won = entry.rounds_won
+		p.turns_in_tower = entry.turns_in_tower
+		p.lives = entry.lives
+		p.life = entry.life
+		p.death_cause = cause_of(entry.death_cause)
+		p.respawn_hold_remaining = state.seconds_to(entry.respawn_end_tick) if p.is_ghost else 0.0
+		p.ghost_grace_remaining = state.seconds_to(entry.grace_end_tick)
+
+
+## A death cause off the wire, or SHOT for a number this build has no cause for.
+static func cause_of(cause: int) -> MatchParticipant.DeathCause:
+	if cause < 0 or cause >= MatchParticipant.DeathCause.size():
+		return MatchParticipant.DeathCause.SHOT
+	return cause as MatchParticipant.DeathCause
+
+
+## A rifle kill's ragdoll on a mirror, from the host's DEATH: hit at [param at] along [param direction].
+func net_shot_dead(index: int, at: Vector3, direction: Vector3) -> void:
+	var participant: MatchParticipant = _participant_at(index)
+	if participant != null:
+		_go_limp(participant, at, direction)
+
+
+## The killed body goes limp from the shot that killed it.
+func _go_limp(participant: MatchParticipant, at: Vector3, direction: Vector3) -> void:
+	var avatar: PrisonerAvatar = PrisonerAvatar.of(participant.body) if participant.body != null else null
+	if avatar != null:
+		avatar.go_limp(at, direction)
 
 
 # --- Applying the server's decisions on a client -------------------------------
@@ -2209,6 +2371,8 @@ func _begin_kill_beat(guard: MatchParticipant, scorer: MatchParticipant, seconds
 	_kill_beat_remaining = seconds
 	_kill_beat_scorer = scorer
 	_kill_beat_guard = guard
+	_kill_beat_serial += 1
+	_kill_beat_throw = throw
 	_freeze_for_kill_beat(guard)
 	# Held, collision and physics off, so the finisher stays where he shoved from.
 	_freeze_for_kill_beat(scorer)
@@ -2752,9 +2916,11 @@ func _tick_respawn_holds(delta: float) -> void:
 			_finish_respawn(participant)
 
 
-## Count a client's respawn holds down without ever ending one. Presentation
-## only: the placement arrives as net_ghost_respawn.
+## Count a client's respawn holds and siege clock down without ever ending one. Presentation
+## only: what ends them arrives in the match record.
 func _tick_mirror_respawn_holds(delta: float) -> void:
+	if not _hold_paused:
+		_hold_remaining = maxf(_hold_remaining - delta, 0.0)
 	for participant: MatchParticipant in _participants:
 		if participant.respawn_hold_remaining > 0.0:
 			participant.respawn_hold_remaining = maxf(
@@ -2781,8 +2947,9 @@ func _finish_respawn(participant: MatchParticipant) -> void:
 	# Facing down the track, exactly as a prisoner placed on the line is. A human
 	# ghost dropped facing the wall would spend its first second turning round,
 	# and a ghost's first second is the one in which the field is still nearby.
-	body.place(place, _heading_of(_track_tangent(_angle_of(place))))
+	_place(participant, place, _heading_of(_track_tangent(_angle_of(place))))
 	participant.ghost_settle_frames = SETTLE_PHYSICS_FRAMES
+	participant.life = (participant.life + 1) % 256
 	if participant.is_ghost:
 		_tint_body(participant, _ghost_material_for(participant))
 	ghost_respawned.emit(participant)
@@ -2836,7 +3003,8 @@ func _wake_ghost(participant: MatchParticipant) -> void:
 		participant.home_collision_layer if profile.shootable else GHOST_HAZARD_LAYER
 	)
 	body.collision_mask = participant.home_collision_mask
-	body.set_held(false)
+	if _moves(participant):
+		body.set_held(false)
 	body.revived.emit()
 
 
@@ -3512,8 +3680,7 @@ func _place_on_track(participant: MatchParticipant, start_point: Vector3) -> voi
 		# Face down the track. A human teleported to the start line facing the
 		# outer wall would spend their first second turning round, and that
 		# second is part of the race.
-		body.place(start_point, _heading_of(_track_tangent(_angle_of(start_point))))
-		body.velocity = Vector3.ZERO
+		_place(participant, start_point, _heading_of(_track_tangent(_angle_of(start_point))))
 
 	body.add_to_group(RUNNER_GROUP)
 	participant.tracker.begin(body, _centre, _route, active.lap_arrival_tolerance)
@@ -3538,11 +3705,10 @@ func _place_in_tower(participant: MatchParticipant) -> void:
 	# The guard keeps the shirt colour they wore as a runner.
 	_tint_body(participant, _runner_material_for(participant))
 	_hold_body(participant)
-	body.velocity = Vector3.ZERO
 	# Look at the ring start from the seat, so the first frame shows the runners.
 	var to_start: Vector3 = _start_point - _tower_point
 	to_start.y = 0.0
-	body.place(_tower_point, _heading_of(to_start) if to_start.length() > 0.01 else body.rotation.y)
+	_place(participant, _tower_point, _heading_of(to_start) if to_start.length() > 0.01 else body.rotation.y)
 	# Out of the target group, which is the whole of "the tower cannot be shot":
 	# an AI shooter's candidate list IS this group, so a seat holder left in it
 	# would be a legitimate target for the next occupant -- and, but for
@@ -3583,14 +3749,15 @@ func _place_in_tower(participant: MatchParticipant) -> void:
 ## physics is deferred, and only by two frames.
 func _hold_body(participant: MatchParticipant) -> void:
 	var body: PlayerController = participant.body
-	var ability: RunnerPower = RunnerPower.of(body)
-	if ability != null:
-		ability.cancel()
 	body.visible = true
-	body.velocity = Vector3.ZERO
-	body.collision_layer = 0
-	body.collision_mask = 0
-	body.set_held(true)
+	if _moves(participant):
+		var ability: RunnerPower = RunnerPower.of(body)
+		if ability != null:
+			ability.cancel()
+		body.velocity = Vector3.ZERO
+		body.collision_layer = 0
+		body.collision_mask = 0
+		body.set_held(true)
 	# Whoever is holding the body now owns waking it. A ghost settle still
 	# running would otherwise hand this body its GHOST collision back two frames
 	# into a round that has just placed it as a prisoner.
@@ -3601,6 +3768,19 @@ func _hold_body(participant: MatchParticipant) -> void:
 	# BEFORE they set their own clocks, so cancelling here is free for them and
 	# correct for every other placement in the file.
 	participant.respawn_hold_remaining = 0.0
+
+
+## False for the body a mirror predicts: its hold, place and release arrive with its owner block on
+## arrival (DESIGN 5), so transitions leave its motion alone; its collision is still the match's.
+func _moves(participant: MatchParticipant) -> bool:
+	return not (_mirror and participant.body != null and participant.body.net_predicted)
+
+
+## [param participant]'s body at [param at] facing [param yaw], stopped, where this machine moves it.
+func _place(participant: MatchParticipant, at: Vector3, yaw: float) -> void:
+	if _moves(participant):
+		participant.body.place(at, yaw)
+		participant.body.velocity = Vector3.ZERO
 
 
 ## Put a prisoner who survived a hit back on their own place on the start line.
@@ -3618,6 +3798,7 @@ func _respawn_at_start(participant: MatchParticipant) -> void:
 	var place: Vector3 = _start_place_for(participant.index, _participants.size())
 	body.place(place, _heading_of(_track_tangent(_angle_of(place))))
 	participant.ghost_settle_frames = SETTLE_PHYSICS_FRAMES
+	participant.life = (participant.life + 1) % 256
 	# The lap starts again with the body: left counting, the tracker books the move as arc
 	# and the brain steers for whatever it was doing on the far side of the ring.
 	participant.tracker.begin(body, _centre, _route, get_rules().lap_arrival_tolerance)
@@ -3679,7 +3860,8 @@ func _wake_body(participant: MatchParticipant) -> void:
 		return
 	body.collision_layer = participant.home_collision_layer
 	body.collision_mask = participant.home_collision_mask
-	body.set_held(false)
+	if _moves(participant):
+		body.set_held(false)
 	body.revived.emit()
 
 
@@ -3713,13 +3895,13 @@ func _park_body(participant: MatchParticipant) -> void:
 	participant.tracker.stop()
 	_silence_brain(participant)
 	_silence_tower_brain(participant)
-	body.velocity = Vector3.ZERO
-	body.set_held(true)
 	body.remove_from_group(RUNNER_GROUP)
 	body.visible = false
-	body.collision_layer = 0
-	body.collision_mask = 0
-	body.place(_pen_point(participant.index), body.rotation.y)
+	if _moves(participant):
+		body.set_held(true)
+		body.collision_layer = 0
+		body.collision_mask = 0
+	_place(participant, _pen_point(participant.index), body.rotation.y)
 
 
 ## Where body number [param index] is put when it is out of the world. Distinct
@@ -4150,7 +4332,7 @@ func _place_finisher_in_tower(participant: MatchParticipant) -> void:
 		aside = Vector3.BACK
 	var place: Vector3 = _tower_point + aside.normalized() * FINISHER_TOWER_OFFSET
 	_hold_body(participant)
-	body.place(place, _heading_of(_tower_point - place))
+	_place(participant, place, _heading_of(_tower_point - place))
 	participant.ghost_settle_frames = SETTLE_PHYSICS_FRAMES
 
 
@@ -4165,8 +4347,6 @@ func _hunt_the_guard(participant: MatchParticipant) -> void:
 ## End the finale: the finisher is a prisoner again and the tower is closed.
 ## Idempotent, and safe to call on a match that never armed a finisher.
 func _disarm_finisher() -> void:
-	_close_tower()
-	_free_brawl_floor()
 	if _finisher == null:
 		return
 	_finisher.is_finisher = false
@@ -4176,7 +4356,7 @@ func _disarm_finisher() -> void:
 
 # --- Resolution ---------------------------------------------------------------
 
-func _on_target_hit(collider: Node3D, _hit_position: Vector3, _hit_normal: Vector3) -> void:
+func _on_target_hit(collider: Node3D, hit_position: Vector3, _hit_normal: Vector3) -> void:
 	if _phase != Phase.ROUND or is_resolved() or _mirror:
 		return
 	var participant: MatchParticipant = resolve_participant(collider)
@@ -4185,7 +4365,10 @@ func _on_target_hit(collider: Node3D, _hit_position: Vector3, _hit_normal: Vecto
 		RunnerPower.shatter(RunnerPower.decoy_of(collider))
 		_charge_miss()
 		return
-	apply_hit(participant)
+	if apply_hit(participant):
+		var direction: Vector3 = Rifle.newest_hit_direction()
+		_go_limp(participant, hit_position, direction)
+		participant_shot_dead.emit(participant, hit_position, direction)
 
 
 ## The round reached maximum range and stopped on nothing.
@@ -4378,6 +4561,7 @@ func _award_round_to_shooter() -> void:
 
 func _win_match(participant: MatchParticipant) -> void:
 	_phase = Phase.MATCH_OVER
+	_host_structure()
 	_winner = participant
 	_freeze_everyone()
 	match_won.emit(participant)
@@ -4387,6 +4571,7 @@ func _resolve(outcome: Outcome) -> void:
 	if is_resolved():
 		return
 	_outcome = outcome
+	_last_outcome = outcome
 	_resolve_count += 1
 	_freeze_runners()
 	round_resolved.emit(_outcome)
@@ -4426,8 +4611,9 @@ func _freeze_everyone() -> void:
 		_end_chase(participant)
 		participant.tracker.stop()
 		participant.respawn_hold_remaining = 0.0
-		participant.body.velocity = Vector3.ZERO
-		participant.body.set_held(true)
+		if _moves(participant):
+			participant.body.velocity = Vector3.ZERO
+			participant.body.set_held(true)
 
 
 # --- Ring geometry ------------------------------------------------------------

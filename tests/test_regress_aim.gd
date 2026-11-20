@@ -231,7 +231,9 @@ func _a_new_round_faces_a_client_runner_down_the_lane(map: StringName, clients: 
 	if not await _start_round(map, clients, clients + 2, bot_slot):
 		return
 	var host: MatchController = _rig.controller(HOST)
-	# The bot guard keeps the seat, where a shove can reach it.
+	# The bot guard keeps the seat, where a shove can reach it: put back on it, since the mirrors
+	# see the round at their playout clock and it has had that long to walk.
+	host.call(&"_return_seat_holder_to_tower")
 	_rig.body(HOST, bot_slot).movement_locked = true
 	await step_ticks(_cross)
 	for client: int in range(1, clients + 1):
@@ -242,18 +244,21 @@ func _a_new_round_faces_a_client_runner_down_the_lane(map: StringName, clients: 
 	await step_ticks(_cross)
 	# Where the host's placement faces each client, read as the new round begins and before any view arrives.
 	var placed: Dictionary[int, float] = {}
+	var lanes: Array[Vector3] = []
 	host.round_started.connect(
 		func() -> void:
 			for client: int in range(1, clients + 1):
 				placed[client] = _rig.body(HOST, _rig.local_slot(client)).rotation.y
+			# The thrown bot is a runner now, placed by the match on the same line: the lane, read here
+			# before its brain turns it.
+			lanes.append(_facing(_rig.body(HOST, bot_slot)))
 	)
 	if not await _hand_the_tower_to(HOST):
 		return
 	await step_ticks(_cross * 2)
 	if not assert_eq_int(placed.size(), clients, "the host placed every client for the new round"):
 		return
-	# The thrown bot is a runner now and has not been let move: it faces as the match placed it.
-	var lane: Vector3 = _facing(_rig.body(HOST, bot_slot))
+	var lane: Vector3 = lanes[0]
 	for client: int in range(1, clients + 1):
 		var slot: int = _rig.local_slot(client)
 		assert_lt(

@@ -101,8 +101,7 @@ extends Node3D
 ## [b]Death outranks everything, and Aim is the guard's stance.[/b] Both,
 ## like Jump, are authored clips in the glTF. [signal PlayerController.died]
 ## arms [member death_clip], which holds -- nothing below it is checked again
-## -- until the body's speed crosses [member run_resume_speed], which is what a
-## respawned ghost does the moment it starts moving. [member aim_clip] is
+## -- until the match revives the body ([signal PlayerController.revived]). [member aim_clip] is
 ## simpler: it plays for as long as [member PlayerController.is_guard] is
 ## true, one seat's whole occupancy, so it sits above slide/crouch/airborne too
 ## -- a body in the tower does not do any of those.
@@ -136,12 +135,6 @@ const RifleHold: GDScript = preload("res://scripts/player/rifle_hold.gd")
 const FirstPersonArms: GDScript = preload("res://scripts/player/first_person_arms.gd")
 const DeathRagdoll: GDScript = preload("res://scripts/player/death_ragdoll.gd")
 const BodyMotion: GDScript = preload("res://scripts/player/body_motion.gd")
-## How long a death waits for its rifle hit (a client hears the kill first), and
-## how far a dead body moves before it counts as reused.
-const RAGDOLL_WAIT_MSEC: int = 400
-const REUSED_DISTANCE: float = 1.5
-## After a death, the replicated run (snapshots still in flight) cannot revive the body.
-const DEATH_SETTLE_SECONDS: float = 0.6
 ## A shoved body flops once it is seen thrown (rising this fast, or jolted this much, m/s), or after the wait.
 const FLOP_RISE: float = 2.0
 const FLOP_JOLT: float = 5.0
@@ -428,9 +421,7 @@ var _jump_armed: bool = false
 ## Whether [member death_clip] was found in the glTF.
 var _has_death: bool = false
 
-## Set by [signal PlayerController.died], cleared once the body's speed
-## crosses [member run_resume_speed] again -- a respawned ghost moving under
-## its own power, the only way this body gets a second act.
+## Set by [signal PlayerController.died], cleared by [signal PlayerController.revived].
 var _dead: bool = false
 
 ## Whether the body was in the death pose last tick. The edge, for the same
@@ -439,14 +430,9 @@ var _in_death: bool = false
 
 ## A rifle kill's limp body (the scene's Ragdoll child), or null to keep the clip.
 var _ragdoll: DeathRagdoll = null
-## Waiting, after a death, for the rifle hit that caused it; see [constant RAGDOLL_WAIT_MSEC].
-var _ragdoll_pending: bool = false
 ## True while [member mesh] is culled by the limp parts rather than by its own bounds.
 var _culled_by_parts: bool = false
-var _death_msec: int = 0
-var _dead_seconds: float = 0.0
 var _death_velocity: Vector3 = Vector3.ZERO
-var _death_position: Vector3 = Vector3.ZERO
 ## The body's velocity as drawn, so a mirror's kill carries its run too.
 var _seen_velocity: Vector3 = Vector3.ZERO
 var _last_position: Vector3 = Vector3.ZERO
@@ -619,8 +605,6 @@ static func of(of_body: PlayerController) -> PrisonerAvatar:
 func throw_out(throw: Vector3) -> void:
 	if _ragdoll == null or _ragdoll.is_active():
 		return
-	_ragdoll_pending = false
-	_death_position = body.global_position
 	animation.pause()
 	_restore_hidden_bones()
 	_pose_rifle(false)
@@ -833,33 +817,21 @@ func _process(delta: float) -> void:
 	_sample_motion(delta)
 	_cull_by_parts()
 
-	# Death outranks everything: whatever the body was doing when it was shot
-	# is no longer happening. It holds until the body moves under its own power
-	# again -- a respawned ghost picking the chase back up -- rather than on a
-	# timer, because nothing else here knows how long the respawn hold lasts.
+	# Death outranks everything: whatever the body was doing when it was shot is no longer
+	# happening. It holds until the match revives the body ([signal PlayerController.revived]).
 	if _has_death and _dead:
-		_dead_seconds += delta
-		var settled: bool = _dead_seconds >= DEATH_SETTLE_SECONDS
-		if not settled:
-			# A mirror's body still slides on to where the authority froze it: that is where it died.
-			_death_position = body.global_position
-		if settled and (body.get_horizontal_speed() >= run_resume_speed or _is_reused()):
-			_stand_up()
-		else:
-			if _ragdoll_pending:
-				_try_ragdoll()
-			if not _in_death:
-				_in_death = true
-				_end_emote()
-				_in_slide = false
-				_in_crouch = false
-				_in_air = false
-				_in_aim = false
-				_running = false
-				if _ragdoll == null or not _ragdoll.is_active():
-					animation.speed_scale = death_rate
-					animation.play(death_clip, blend_time)
-			return
+		if not _in_death:
+			_in_death = true
+			_end_emote()
+			_in_slide = false
+			_in_crouch = false
+			_in_air = false
+			_in_aim = false
+			_running = false
+			if _ragdoll == null or not _ragdoll.is_active():
+				animation.speed_scale = death_rate
+				animation.play(death_clip, blend_time)
+		return
 
 	# The guard's stance, asked for rather than inferred exactly like the slide
 	# and the crouch: it is whatever MatchController._place_in_tower says, for
@@ -1066,16 +1038,21 @@ func _on_body_jumped() -> void:
 ## is cleared.
 func _on_body_died() -> void:
 	_dead = true
-	_dead_seconds = 0.0
 	_shove_remaining = 0.0
 	_flop_wait = -1.0
-	if _ragdoll == null or _ragdoll.is_active():
-		return
-	_ragdoll_pending = true
-	_death_msec = Time.get_ticks_msec()
-	_death_position = body.global_position
 	# The host still has the run's velocity on this tick; a mirror has what was seen.
 	_death_velocity = body.velocity if body.velocity.length() > _seen_velocity.length() else _seen_velocity
+
+
+## A rifle kill: limp from the death pose, struck at [param at] along [param direction] (the host's
+## hit, or a mirror's DEATH event). A death with none keeps the clip.
+func go_limp(at: Vector3, direction: Vector3) -> void:
+	if not _dead or _ragdoll == null or _ragdoll.is_active():
+		return
+	animation.pause()
+	_restore_hidden_bones()
+	_pose_rifle(false)
+	_ragdoll.start(_death_velocity, at, direction)
 
 
 ## The match put the body back in the world: the death ends here, whether or not it has moved yet.
@@ -1089,26 +1066,12 @@ func _stand_up() -> void:
 	var limp: bool = _ragdoll != null and _ragdoll.is_active()
 	_dead = false
 	_in_death = false
-	_ragdoll_pending = false
 	if limp:
 		_ragdoll.stop()
 		_pose_rifle(_held != null)
 		_drop_carried_rifle()
 	if limp or body.get_horizontal_speed() < run_resume_speed:
 		_go_idle()
-
-
-## Go limp if a rifle hit on this body has come in; give up after the wait and keep the clip.
-func _try_ragdoll() -> void:
-	var slot: int = Rifle.recent_hit_on(body, _death_msec - RAGDOLL_WAIT_MSEC)
-	if slot >= 0:
-		_ragdoll_pending = false
-		animation.pause()
-		_restore_hidden_bones()
-		_pose_rifle(false)
-		_ragdoll.start(_death_velocity, Rifle.recent_hit_point(slot), Rifle.recent_hit_direction(slot))
-	elif Time.get_ticks_msec() - _death_msec > RAGDOLL_WAIT_MSEC:
-		_ragdoll_pending = false
 
 
 ## A limp body is drawn where its parts lie, metres from the capsule the mesh follows: cull it by them, or the
@@ -1120,12 +1083,6 @@ func _cull_by_parts() -> void:
 	elif _culled_by_parts:
 		mesh.custom_aabb = AABB()
 	_culled_by_parts = limp
-
-
-## A dead body placed somewhere else (a respawn, a new round) is no longer the corpse.
-func _is_reused() -> bool:
-	return _ragdoll != null and _ragdoll.is_active() \
-		and body.global_position.distance_to(_death_position) > REUSED_DISTANCE
 
 
 ## Hand this body and the shared motion to every procedural layer authored under the skeleton.
@@ -1179,7 +1136,8 @@ func _on_body_shoved() -> void:
 ## The viewed body hides itself; every other one is drawn whole. Public so a
 ## test or a harness may step it without waiting on a frame.
 func tick_first_person() -> void:
-	var want: bool = _head_hider != null and is_viewed_first_person()
+	# A limp body simulates on full-size bones, whoever looks out of it.
+	var want: bool = _head_hider != null and is_viewed_first_person() and not (_ragdoll != null and _ragdoll.is_active())
 	if want != _first_person:
 		_first_person = want
 		_head_hider.set_hidden(want)

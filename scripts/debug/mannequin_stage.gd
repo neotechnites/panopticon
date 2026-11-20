@@ -207,6 +207,8 @@ func shoot() -> void:
 ## Walk each target off its corpse: the avatar stands back up the way a respawned body does.
 func stand_up() -> void:
 	for body: PlayerController in targets():
+		# The stage is this body's match: it says when a death is over.
+		body.revived.emit()
 		var intent: MannequinIntent = _intent(body)
 		if intent != null:
 			intent.run(MannequinIntent.Routine.NUDGE)
@@ -238,7 +240,6 @@ func set_ragdoll(on: bool) -> void:
 		avatar.set_meta(&"mannequin_ragdoll", true)
 		if not on and ragdoll.call(&"is_active"):
 			ragdoll.call(&"stop")
-		avatar.set(&"_ragdoll_pending", false)
 		avatar.set(&"_ragdoll", ragdoll if on else null)
 
 
@@ -462,7 +463,7 @@ func _fire_at(body: PlayerController, miss: bool) -> bool:
 	return false
 
 
-func _on_hit(collider: Node3D, _at: Vector3, _normal: Vector3, body: PlayerController) -> void:
+func _on_hit(collider: Node3D, at: Vector3, _normal: Vector3, body: PlayerController) -> void:
 	if not is_instance_valid(body) or collider == null:
 		return
 	if collider != body and not body.is_ancestor_of(collider):
@@ -471,6 +472,9 @@ func _on_hit(collider: Node3D, _at: Vector3, _normal: Vector3, body: PlayerContr
 	if intent != null:
 		intent.run(MannequinIntent.Routine.STAND)
 	body.died.emit()
+	var avatar: PrisonerAvatar = PrisonerAvatar.of(body)
+	if avatar != null:
+		avatar.go_limp(at, Rifle.newest_hit_direction())
 
 
 # --- Routes ---------------------------------------------------------------------

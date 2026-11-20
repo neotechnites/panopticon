@@ -309,9 +309,9 @@ func is_replicable() -> bool:
 ## authority. The replicator asks, because a predicted body must not also be
 ## interpolated.
 ##
-## Not while the match holds it: a held body is a mirrored one until the match lets it go.
+## A held one too: the hold rides its owner block, and a held body runs its commands and moves nothing.
 func is_predicting() -> bool:
-	return _predicting and controller != null and not controller.held
+	return _predicting and controller != null
 
 
 ## True when this machine's own player drives this body: not a bot's seat, and not another peer's.

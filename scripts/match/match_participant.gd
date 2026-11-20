@@ -201,6 +201,9 @@ enum DeathCause { SHOT, LAVA, FELL }
 
 var death_cause: DeathCause = DeathCause.SHOT
 
+## Bumped on every respawn (u8): a mirror sees a death and respawn inside one snapshot interval by it.
+var life: int = 0
+
 
 ## Which runner colour this participant wears: its seat's in a session, else its slot's.
 func colour_index() -> int:
