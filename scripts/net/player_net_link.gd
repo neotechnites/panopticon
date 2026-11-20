@@ -403,20 +403,8 @@ func sample_state(out: PlayerState, tick: int) -> void:
 	out.jump_counter = _jump_counter
 	out.shove_counter = _shove_counter
 	out.placed_counter = controller.placed_counter
-	var power: RunnerPower = RunnerPower.of(controller)
-	if power != null:
-		out.ability = int(power.get_active())
-		out.ability_end_tick = NetCodec.end_tick(tick, power.get_remaining())
-		out.cooldown_end_tick = NetCodec.end_tick(tick, power.get_cooldown_remaining())
-		var decoy: PlayerController = power.get_decoy()
-		var shield: Node3D = power.get_shield()
-		out.decoy_alive = decoy != null
-		out.has_anchor = decoy != null or shield != null
-		if decoy != null:
-			out.anchor_position = decoy.global_position
-			out.anchor_yaw = decoy.rotation.y
-		elif shield != null:
-			out.anchor_position = shield.global_position
+	if controller.power != null:
+		controller.power.state.sample(out, tick)
 	out.boost_multiplier = controller.get_speed_boost_multiplier()
 	out.boost_end_tick = NetCodec.end_tick(tick, controller.get_speed_boost_remaining())
 	var weapon: Rifle = _weapon()
@@ -466,27 +454,18 @@ func apply_state(state: PlayerState) -> void:
 		placed.emit()
 
 
-## What the host's record says of this predicting body that it does not predict itself: where its
-## power stands in the world. Called at the playout clock, as for any remote entity.
+## What the host's record says of this predicting body that it does not predict itself: the entity its
+## power put in the world. Called at the playout clock, as for any remote entity.
 func apply_anchor(state: PlayerState) -> void:
-	var power: RunnerPower = RunnerPower.of(controller)
-	if power != null:
-		power.present_anchor(
-			state.ability as MatchRules.RunnerAbility, state.anchor_position if state.has_anchor else Vector3.INF,
-			state.decoy_alive, state.anchor_yaw, state.anchor_velocity,
-		)
+	if controller != null and controller.power != null:
+		controller.power.take_entity_record(state)
 
 
 ## The half of a record that is drawn rather than simulated: the power, the rifle and the
 ## participant's own facts. A predicting body restores its power from the owner block instead.
 func _apply_presentation(state: PlayerState, predicted: bool = false) -> void:
-	var power: RunnerPower = RunnerPower.of(controller)
-	if power != null and not predicted:
-		power.present(
-			state.ability as MatchRules.RunnerAbility, state.ability_remaining(), state.cooldown_remaining(),
-			state.anchor_position if state.has_anchor else Vector3.INF, state.decoy_alive, state.anchor_yaw,
-			state.anchor_velocity,
-		)
+	if controller.power != null and not predicted:
+		controller.power.take_record(state)
 	controller.is_armed = state.is_armed
 	var weapon: Rifle = _weapon()
 	if weapon != null and not predicted:
@@ -625,9 +604,8 @@ func _reconcile(delta: float) -> void:
 	var before: Vector3 = controller.global_position
 	var weapon: Rifle = _weapon()
 	_pending_owner.restore(controller, weapon)
-	var power: RunnerPower = RunnerPower.of(controller)
 	# What the replay moves says nothing: its reload and power cues were heard the first time.
-	var quiet: Array[Object] = [weapon, power]
+	var quiet: Array[Object] = [weapon, controller.power]
 	var was_blocked: Array[bool] = []
 	for node: Object in quiet:
 		was_blocked.append(node != null and node.is_blocking_signals())
@@ -639,8 +617,6 @@ func _reconcile(delta: float) -> void:
 	for j: int in quiet.size():
 		if quiet[j] != null:
 			quiet[j].set_block_signals(was_blocked[j])
-	if power != null:
-		power.settle_visuals()
 	if first > 0:
 		_drop_through(first - 1)
 	if snapped:

@@ -256,8 +256,8 @@ func _why_not(key: String, me: MatchParticipant) -> String:
 		"1", "2", "3", "4", "5", "q":
 			if power == null or power.rules == null:
 				return "unarmed"
-			if power.get_shown() != MatchRules.RunnerAbility.NONE:
-				return "busy-%d" % int(power.get_shown())
+			if power.get_active() != MatchRules.RunnerAbility.NONE:
+				return "busy-%d" % int(power.get_active())
 			# One power at a time: a second power key in the tick of the first is ignored by the body.
 			for other: String in _down:
 				if other != key and POWER_KEYS.has(other):
@@ -267,7 +267,7 @@ func _why_not(key: String, me: MatchParticipant) -> String:
 			if key == "q" and power.rules.runner_ability == MatchRules.RunnerAbility.NONE:
 				return "no-picked-power"
 		"e":
-			if power == null or power.get_shown() != MatchRules.RunnerAbility.CAT_GRENADE:
+			if power == null or power.get_active() != MatchRules.RunnerAbility.CAT_GRENADE:
 				return "no-cat"
 		"j":
 			if me.body.movement_locked:

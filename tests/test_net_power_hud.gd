@@ -157,7 +157,7 @@ func test_nothing_picked_running_or_cooling_shows_no_panel() -> void:
 
 func test_a_presented_power_is_shown_as_a_client_sees_it() -> void:
 	# What a snapshot does to a client's body: the power is drawn, never run, on this machine.
-	_power.present(MatchRules.RunnerAbility.ACTIVE_CAMO, 3.0, 0.0)
+	_present(MatchRules.RunnerAbility.ACTIVE_CAMO, true, 3.0, 0.0)
 	_hud.tick()
 	assert_true(_hud.power_panel.visible, "the panel is up for a power the host says is running")
 	assert_eq_string(
@@ -167,7 +167,8 @@ func test_a_presented_power_is_shown_as_a_client_sees_it() -> void:
 		}),
 		"it names camo with the 3.0 s the host reported",
 	)
-	_power.present(MatchRules.RunnerAbility.NONE, 0.0, 4.0)
+	# The record names the power it is cooling, so the panel needs no memory of its own.
+	_present(MatchRules.RunnerAbility.ACTIVE_CAMO, false, 0.0, 4.0)
 	_hud.tick()
 	assert_eq_string(
 		_hud.get_context_text(),
@@ -176,12 +177,23 @@ func test_a_presented_power_is_shown_as_a_client_sees_it() -> void:
 		}),
 		"then camo's cooldown, as the host reported it",
 	)
-	_power.present(MatchRules.RunnerAbility.NONE, 0.0, 0.0)
+	_present(MatchRules.RunnerAbility.ACTIVE_CAMO, false, 0.0, 0.0)
 	_hud.tick()
 	assert_eq_string(_hud.get_context_text(), "", "and nothing once the host says it is ready")
 
 
 # --- Helpers ------------------------------------------------------------------
+
+## A snapshot's record of [param which] onto the viewed body, as a client takes one.
+func _present(which: MatchRules.RunnerAbility, running: bool, remaining: float, cooldown: float) -> void:
+	var record: PlayerState = PlayerState.new()
+	record.tick = 600
+	record.ability = which
+	record.power_active = running
+	record.ability_end_tick = NetCodec.end_tick(record.tick, remaining)
+	record.cooldown_end_tick = NetCodec.end_tick(record.tick, cooldown)
+	_power.take_record(record)
+
 
 func _title(which: MatchRules.RunnerAbility) -> String:
 	return MatchRules.runner_ability_title(which).to_upper()

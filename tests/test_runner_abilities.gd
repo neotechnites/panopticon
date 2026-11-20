@@ -157,8 +157,9 @@ func test_a_power_never_frees_a_body_the_match_holds() -> void:
 	_input.command.ability_held = false
 	await step_ticks(2)
 	assert_false(_ability.is_active(), "and over")
-	_ability.present(MatchRules.RunnerAbility.NONE, 0.0, 0.0)
-	_ability.settle_visuals()
+	# A record with no power taken and drawn, as a mirror would: neither may write the match's hold.
+	_ability.take_record(PlayerState.new())
+	_ability.sync_visuals(_ability.state)
 	assert_true(_body.movement_locked, "the match's hold outlives the power and its presentation")
 	var held: Vector3 = _body.global_position
 	await step_ticks(10)

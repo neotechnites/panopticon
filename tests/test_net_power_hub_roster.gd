@@ -13,7 +13,7 @@ const NONE: int = MatchRules.RunnerAbility.NONE
 func test_a_joiner_arriving_while_a_client_holds_the_power_cat_leaves_no_cat_behind() -> void:
 	if not await stand_up(0.0, 0, 2):
 		return
-	if await hold_power_cat([0, 1, 0]) == null:
+	if await hold_power_cat([1, 1, 0]) == null:
 		return
 	if not await join_late(B, LOAD_TICKS):
 		return
@@ -26,9 +26,9 @@ func test_a_joiner_arriving_while_a_client_holds_the_power_cat_leaves_no_cat_beh
 	assert_eq_int(pet_offer(A), 0, "A's machine offers no pet for a cat that is gone")
 	keys[A].tap_slot(CAT)
 	var again: bool = await until(
-		func() -> bool: return grenade(A) != null and cats_drawn() == [0, 1, 1]
+		func() -> bool: return grenade(A) != null and cats_drawn() == [1, 1, 1]
 	)
-	assert_true(again, "A's next 5 holds a new cat, drawn on A and on the joiner: %s" % str(cats_drawn()))
+	assert_true(again, "A's next 5 holds a new cat, drawn on every machine and the joiner: %s" % str(cats_drawn()))
 
 
 func test_a_joiner_arriving_while_a_client_carries_a_hub_cat_sees_it_where_the_host_has_it() -> void:
@@ -92,8 +92,7 @@ func test_a_client_leaving_with_the_power_cat_in_hand_takes_it_along() -> void:
 		return
 	var cleared: bool = await until(
 		func() -> bool:
-			var shown: Dictionary = relay(B).get("_shown")
-			return shown.is_empty() and _live_grenades() == 0
+			return cat_views(B).is_empty() and cat_views(HOST).is_empty() and _live_grenades() == 0
 	)
 	assert_true(cleared, "the leaver's cat is gone from the host and from B's screen")
 	# A press at a held body does nothing (the rebuilt hub holds it until placed), and B sends no

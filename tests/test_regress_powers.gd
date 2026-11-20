@@ -140,15 +140,22 @@ func _alive_everywhere(why: String) -> void:
 		assert_true(who.is_running and not who.is_ghost, "peer %d: the presser is alive %s" % [peer, why])
 
 
-## The cats [param peer] draws for the clients' relay; the host holds the real one.
+## The cats [param peer] draws for the presser; the host also holds the real one.
 func _cats_drawn(peer: int) -> int:
-	var relay: Node = _rig.sessions[peer].get_parent().get_node_or_null("CatGrenadeRelay")
-	return (relay.get("_shown") as Dictionary).size() if relay != null else -1
+	return 1 if _power(peer).get_cat_view() != null else 0
 
 
 func _host_cat() -> CatGrenade:
-	var cat: Variant = _power(HOST).get(&"_cat")
-	return (cat as CatGrenade) if is_instance_valid(cat) else null
+	return _power(HOST).get_cat()
+
+
+## Blasts [param peer] is playing in its scene now.
+func _blasts(peer: int) -> int:
+	var played: int = 0
+	for node: Node in _rig.controller(peer).get_parent().find_children("*", "AudioStreamPlayer3D", true, false):
+		if (node as AudioStreamPlayer3D).stream == CatView.EXPLOSION_SOUND and not node.is_queued_for_deletion():
+			played += 1
+	return played
 
 
 func _shield() -> void:
@@ -180,7 +187,7 @@ func _from_hosts_worlds(at: Vector3) -> float:
 	var nearest: float = INF
 	for i: int in replicator._ring_count:
 		var state: PlayerState = replicator._slot(i).find_seat(seat)
-		if state != null and state.decoy_alive:
+		if state != null and state.power_out:
 			nearest = minf(nearest, at.distance_to(state.anchor_position))
 	return nearest
 
@@ -196,26 +203,27 @@ func _hologram() -> void:
 		return
 	var all_have_one: bool = await _rig.wait_for(func() -> bool:
 		for peer: int in _rig.peer_count():
-			if _power(peer).get_decoy() == null:
+			if _power(peer).get_hologram() == null:
 				return false
-		return true)
+		return _power(HOST).get_decoy() != null)
 	for peer: int in _rig.peer_count():
-		assert_true(all_have_one or _power(peer).get_decoy() != null, "peer %d has the hologram in its world" % peer)
+		assert_true(all_have_one or _power(peer).get_hologram() != null, "peer %d draws the hologram in its world" % peer)
 	if not all_have_one:
 		return
 	var decoy: PlayerController = _power(HOST).get_decoy()
 	assert_true(decoy.is_in_group(RunnerPower.DECOY_GROUP), "the host's hologram is a target for the guard")
 	assert_false(decoy.is_in_group(MatchController.RUNNER_GROUP), "and not a runner")
 	var from: Vector3 = decoy.global_position
-	await step_ticks(20)
+	# Short of the field it runs into on hell: the clients draw it from the playout clock on.
+	await step_ticks(12)
 	assert_gt(decoy.global_position.distance_to(from), 1.0, "the hologram runs on the host")
 	assert_gt(decoy.velocity.length(), 1.0, "and is still running when the clients are asked")
 	for peer: int in range(1, _rig.peer_count()):
-		var copy: PlayerController = _power(peer).get_decoy()
+		var copy: HologramView = _power(peer).get_hologram()
 		if assert_not_null(copy, "peer %d still has it" % peer):
 			# Drawn at the playout clock, like the bodies: where the host had it in a world it sent.
 			assert_lt(_from_hosts_worlds(copy.global_position), 0.5, "peer %d draws it where the host had it, a buffer late" % peer)
-			assert_gt(copy.velocity.length(), 0.5, "peer %d draws it running, not standing in the air pose" % peer)
+			assert_eq_string(String(copy.get_clip()), String(HologramView.RUN_CLIP), "peer %d draws it running, not standing in the air pose" % peer)
 	_land_on(decoy)
 	# Counted in ticks, well inside the hologram's own time: it must go because it was shot.
 	await step_ticks(2)
@@ -223,7 +231,7 @@ func _hologram() -> void:
 	await step_ticks(CROSS_TICKS)
 	assert_eq_int(int(_power(HOST).get_active()), HOLOGRAM, "with the power's time still running")
 	for peer: int in _rig.peer_count():
-		assert_null(_power(peer).get_decoy(), "peer %d: the shot hologram is gone" % peer)
+		assert_null(_power(peer).get_hologram(), "peer %d: the shot hologram is gone" % peer)
 	_alive_everywhere("after its hologram took the round")
 	await _every_peer_shows(NONE, "once the hologram's time is up")
 
@@ -288,12 +296,12 @@ func _carry_the_cat() -> bool:
 	if not await _every_peer_shows(CAT, "after the press"):
 		return false
 	var drawn: bool = await _rig.wait_for(func() -> bool:
-		for peer: int in range(1, _rig.peer_count()):
+		for peer: int in _rig.peer_count():
 			if _cats_drawn(peer) != 1:
 				return false
 		return _host_cat() != null)
 	assert_not_null(_host_cat(), "the host holds one cat")
-	for peer: int in range(1, _rig.peer_count()):
+	for peer: int in _rig.peer_count():
 		assert_true(drawn or _cats_drawn(peer) == 1, "peer %d draws one cat, got %d" % [peer, _cats_drawn(peer)])
 	return drawn
 
@@ -301,12 +309,12 @@ func _carry_the_cat() -> bool:
 ## The cat is gone and the power over on every machine.
 func _the_cat_is_gone(why: String) -> void:
 	var gone: bool = await _rig.wait_for(func() -> bool:
-		for peer: int in range(1, _rig.peer_count()):
+		for peer: int in _rig.peer_count():
 			if _cats_drawn(peer) != 0:
 				return false
 		return _host_cat() == null)
 	assert_null(_host_cat(), "the host's cat is gone %s" % why)
-	for peer: int in range(1, _rig.peer_count()):
+	for peer: int in _rig.peer_count():
 		assert_true(gone or _cats_drawn(peer) == 0, "peer %d draws no cat %s, got %d" % [peer, why, _cats_drawn(peer)])
 	await _every_peer_shows(NONE, why)
 
@@ -315,26 +323,37 @@ func _cat() -> void:
 	if not await _carry_the_cat():
 		return
 	await _stays_up(CAT, 30)
-	assert_false(_host_cat().cooking, "an uncooked cat's fuse does not run")
+	assert_false(_power(HOST).state.cooking, "an uncooked cat's fuse does not run")
+	assert_almost_eq(_power(HOST).get_remaining(), CatGrenade.FUSE_SECONDS, 0.001, "and its fuse is whole")
 	var body: PlayerController = _rig.body(HOST, _slot)
 	var stood: Vector3 = body.global_position
 	await step_ticks(1)
 	_keys().cook_pressed = true
 	await step_ticks(1)
 	_keys().cook_pressed = false
-	if not await _rig.wait_for(func() -> bool: return _host_cat() != null and _host_cat().cooking):
+	if not await _rig.wait_for(func() -> bool: return _host_cat() != null and _power(HOST).state.cooking):
 		fail("the cook key never lit the cat on the host")
 		return
 	var far: Array[float] = [0.0]
+	var heard: Array[bool] = []
+	heard.resize(_rig.peer_count())
+	heard.fill(false)
+	var listen: Callable = func() -> void:
+		for peer: int in _rig.peer_count():
+			heard[peer] = heard[peer] or _blasts(peer) > 0
 	if not await _rig.wait_for(func() -> bool:
 		far[0] = maxf(far[0], body.global_position.distance_to(stood))
+		listen.call()
 		return _host_cat() == null):
 		fail("the cooked cat never went off")
 		return
 	for _i: int in 40:
 		await step_ticks(1)
 		far[0] = maxf(far[0], body.global_position.distance_to(stood))
+		listen.call()
 	assert_gt(far[0], 0.5, "the blast in the hand throws its holder on the host")
+	for peer: int in _rig.peer_count():
+		assert_true(heard[peer], "peer %d plays the blast" % peer)
 	await _the_cat_is_gone("after the blast")
 	_alive_everywhere("after its own cat went off")
 	# Then one thrown with the shove key.
@@ -346,7 +365,7 @@ func _cat() -> void:
 	if not await _rig.wait_for(func() -> bool: return is_instance_valid(cat) and cat.carrier == null):
 		fail("the shove key never threw the cat on the host")
 		return
-	assert_true(cat.cooking, "a thrown cat is lit")
+	assert_true(_power(HOST).state.cooking, "a thrown cat is lit")
 	await _the_cat_is_gone("after the thrown cat went off")
 
 
@@ -669,20 +688,20 @@ func test_a_machine_that_binds_while_a_hologram_runs_draws_it_and_ends_with_none
 		if other.index != _slot and other.is_running and other.body.movement_locked:
 			other.body.global_position += Vector3.UP * 5.0
 	await _tap(HOLOGRAM)
-	if not await _rig.wait_for(func() -> bool: return _power(HOST).get_decoy() != null and _power(1).get_decoy() != null):
+	if not await _rig.wait_for(func() -> bool: return _power(HOST).get_decoy() != null and _power(1).get_hologram() != null):
 		fail("the hologram never showed on the machines already in the match")
 		return
 	if not await _rig.bind_late(2):
 		fail("the late machine never bound")
 		return
 	await step_ticks(CROSS_TICKS)
-	var sees_it: bool = _power(2).get_decoy() != null
+	var sees_it: bool = _power(2).get_hologram() != null
 	if not await _rig.wait_for(func() -> bool: return int(_power(HOST).get_active()) == NONE, 8000):
 		fail("the hologram never ended on the host")
 		return
 	await step_ticks(CROSS_TICKS)
 	for peer: int in _rig.peer_count():
-		assert_null(_power(peer).get_decoy(), "peer %d: no hologram is left when its time is up" % peer)
+		assert_null(_power(peer).get_hologram(), "peer %d: no hologram is left when its time is up" % peer)
 		assert_eq_int(int(_power(peer).get_shown()), NONE, "peer %d draws no power" % peer)
 	assert_true(sees_it, "the machine that bound while it ran drew it")
 

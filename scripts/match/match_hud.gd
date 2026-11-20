@@ -77,9 +77,6 @@ const PIP_COUNT: int = 10
 @export var power_label: Label
 @export var power_fill: Control
 
-## The power the panel last named as running, so its cooldown keeps the name.
-var _last_power: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE
-
 ## Bottom-right, under the power: the speed boost while one is running.
 @export var boost_label: Label
 
@@ -345,14 +342,10 @@ func _ability_text() -> String:
 	return tr("HUD_ABILITY_READY").format({"title": title})
 
 
-## The power the panel names: what is running, else what ran last while it cools, else the host's pick.
+## The power the panel names: the running or the cooling one, else the host's pick.
 func _shown_ability(ability: RunnerPower) -> MatchRules.RunnerAbility:
-	var running: MatchRules.RunnerAbility = ability.get_shown()
-	if running != MatchRules.RunnerAbility.NONE:
-		_last_power = running
-		return running
-	if ability.get_cooldown_remaining() > 0.0 and _last_power != MatchRules.RunnerAbility.NONE:
-		return _last_power
+	if ability.is_active() or ability.get_cooldown_remaining() > 0.0:
+		return ability.get_last()
 	return controller.get_rules().runner_ability
 
 
@@ -365,9 +358,7 @@ func _ability_fill() -> float:
 	if ability == null:
 		return 0.0
 	if ability.is_active():
-		var whole: float = rules.ability_duration_seconds
-		if ability.get_shown() == MatchRules.RunnerAbility.CAT_GRENADE:
-			whole = CatGrenade.FUSE_SECONDS
+		var whole: float = RunnerPower.duration_of(ability.get_last(), rules)
 		return clampf(ability.get_remaining() / maxf(whole, 0.01), 0.0, 1.0)
 	var cooling: float = ability.get_cooldown_remaining()
 	if cooling <= 0.0:

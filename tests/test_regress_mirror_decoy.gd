@@ -13,7 +13,7 @@ func _watch_a_mirrored_hologram(seat: int, mirrors: Array, names: PackedStringAr
 		if power_of(host_links, seat).get_decoy() == null:
 			return false
 		for links: Array[PlayerNetLink] in mirrors:
-			if power_of(links, seat).get_decoy() == null:
+			if power_of(links, seat).get_hologram() == null:
 				return false
 		return true)
 	if not assert_true(built, "the hologram exists on the host and on every machine that mirrors it"):
@@ -30,10 +30,9 @@ func _watch_a_mirrored_hologram(seat: int, mirrors: Array, names: PackedStringAr
 		watched += 1
 		for index: int in mirrors.size():
 			var links: Array[PlayerNetLink] = mirrors[index]
-			var decoy: PlayerController = power_of(links, seat).get_decoy()
-			var avatar: PrisonerAvatar = PrisonerAvatar.of(decoy) if decoy != null else null
-			var runs: bool = avatar != null and decoy.is_grounded() and decoy.get_horizontal_speed() > 2.0 \
-				and bool(avatar.get(&"_running")) and not bool(avatar.get(&"_in_air"))
+			var view: HologramView = power_of(links, seat).get_hologram()
+			var runs: bool = view != null and view.get_clip() == HologramView.RUN_CLIP \
+				and Vector2(view.get_velocity().x, view.get_velocity().z).length() > 2.0
 			if not runs:
 				missed[index] += 1
 	assert_gt(float(watched), 10.0, "the host's hologram ran while it was watched")

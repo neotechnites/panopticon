@@ -413,9 +413,11 @@ func _change(world: WorldSnapshot, tick: int) -> void:
 			body.ability = _rng.randi_range(0, 5)
 			body.ability_end_tick = NetCodec.end_tick(tick, _rng.randf_range(0.0, 25.0))
 			body.cooldown_end_tick = NetCodec.end_tick(tick, _rng.randf_range(0.0, 600.0))
-			body.decoy_alive = _rng.randf() < 0.5
-			body.has_anchor = _rng.randf() < 0.5
-		if body.has_anchor and _rng.randf() < 0.5:
+			body.power_active = _rng.randf() < 0.5
+			body.power_out = _rng.randf() < 0.5
+			body.power_cooking = _rng.randf() < 0.5
+			body.power_serial = _rng.randi_range(0, PowerState.SERIAL_MODULUS - 1)
+		if body.power_active and _rng.randf() < 0.5:
 			body.anchor_position = Vector3(_rng.randf_range(-300.0, 300.0), 1.0, _rng.randf_range(-300.0, 300.0))
 			body.anchor_yaw = _rng.randf_range(-PI, PI)
 		if _rng.randf() < 0.01:

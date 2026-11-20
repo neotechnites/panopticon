@@ -123,8 +123,6 @@ func _ready() -> void:
 		push_error("NetSession has no transport; it can neither host nor join.")
 		set_process(false)
 		return
-	# Cats are drawn through a node beside this one; a peer without it cannot be told about one.
-	CatGrenadeRelay.ensure(self)
 	transport.peer_connected.connect(_on_peer_connected)
 	transport.peer_disconnected.connect(_on_peer_disconnected)
 	transport.connection_state_changed.connect(_on_connection_state_changed)
@@ -344,10 +342,6 @@ func _on_peer_disconnected(peer_id: int) -> void:
 
 
 func _on_connection_state_changed(state: NetTransport.ConnectionState) -> void:
-	var relay: CatGrenadeRelay = CatGrenadeRelay.of(self)
-	if relay != null and state != NetTransport.ConnectionState.CONNECTING:
-		# Every other state is a session beginning or ending; cats are numbered per host.
-		relay.clear()
 	_heard_ms.clear()
 	_seen_state.clear()
 	_seen_since_ms.clear()

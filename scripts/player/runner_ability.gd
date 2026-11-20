@@ -1,9 +1,10 @@
 class_name RunnerPower
 extends Node
 
-## The runner's one-shot power, driven by the body's [MoveIntent] and armed by
-## [MatchController] with the match's [MatchRules].
+## The runner's power (DESIGN 9): one [PowerState], stepped by the body's commands where it is decided
+## or predicted and taken from the snapshot elsewhere, drawn from that state alone on every machine.
 
+enum Entity { NONE, DECOY, CAT }
 const DECOY_GROUP: StringName = &"hologram_decoys"
 const SHIELD_RADIUS: float = 4.0
 ## How far above a body's origin its shield is centred.
@@ -11,17 +12,22 @@ const SHIELD_RISE: float = 0.9
 ## A layer inside the rifle's hit mask that no body's collision mask includes,
 ## so shots stop on the shell and runners walk out of it.
 const SHIELD_LAYER: int = 1 << 19
-## The powers whose effect this body draws itself (a hologram and a cat are host entities).
-const _DRAWN_POWERS: Array[MatchRules.RunnerAbility] = [
-	MatchRules.RunnerAbility.BUBBLE_SHIELD, MatchRules.RunnerAbility.ARMOR_LOCK, MatchRules.RunnerAbility.ACTIVE_CAMO,
-]
 ## The decoy body: hit by the rifle, ignored by every body mask.
 const DECOY_LAYER: int = 1 << 18
 const DECOY_LEAD_METRES: float = 2.0
 const CAMO_VISIBLE_RANGE: float = 25.0
-const CAMO_ALPHA: float = 0.25
 ## Whole-body camo tint: dark hell red.
 const CAMO_COLOR: Color = Color(0.55, 0.11, 0.06, 1.0)
+## One row per [enum MatchRules.RunnerAbility]: whether letting the key go ends it, whether the
+## activation places it in the world, and the entity the host simulates for it.
+const DEFS: Array[Dictionary] = [
+	{&"release": false, &"placed": false, &"entity": Entity.NONE},
+	{&"release": false, &"placed": true, &"entity": Entity.NONE},
+	{&"release": false, &"placed": true, &"entity": Entity.DECOY},
+	{&"release": true, &"placed": false, &"entity": Entity.NONE},
+	{&"release": false, &"placed": false, &"entity": Entity.NONE},
+	{&"release": false, &"placed": false, &"entity": Entity.CAT},
+]
 
 ## Power [param which] stopped: "expired", "released", "unheld" (a starved command let the key go),
 ## "spent" or "cancelled".
@@ -31,24 +37,33 @@ signal ended(which: MatchRules.RunnerAbility, reason: StringName)
 
 var rules: MatchRules = null
 var match_controller: MatchController = null
+## This machine's truth: simulated where it is decided, predicted by its owner, the record elsewhere.
+var state: PowerState = PowerState.new()
 
-var _active: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE
-var _remaining: float = 0.0
-var _cooldown: float = 0.0
-var _shield: StaticBody3D = null
+## A predicting body's snapshot record, at the playout clock: its host entity is drawn from it.
+var _entity_record: PowerState = PowerState.new()
+var _has_entity_record: bool = false
+var _view: PowerState = PowerState.new()
+## What the visuals show now; [method sync_visuals] diffs against it.
+var _drawn: PowerState = PowerState.new()
+
+## The host's entities.
 var _decoy: PlayerController = null
+var _cat: CatGrenade = null
+## The visuals.
+var _shield: StaticBody3D = null
 var _shell: MeshInstance3D = null
 var _camo_mesh: MeshInstance3D = null
 var _camo_saved: Material = null
-var _cat: CatGrenade = null
-## What a client is DRAWING, off the snapshot. Never set on the authority, where
-## [member _active] is the truth.
-var _presented: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE
+var _hologram: HologramView = null
+var _cat_view: CatView = null
 
 
-## A decoy's intent: straight ahead at run speed, nothing else.
+## A decoy's intent: straight ahead at run speed, nothing else. It knows whose power it is.
 class DecoyIntent:
 	extends IntentSource
+
+	var power: RunnerPower = null
 
 	func poll(_delta: float) -> MoveIntent:
 		_intent.clear()
@@ -56,26 +71,10 @@ class DecoyIntent:
 		return _intent
 
 
-## The ability node on [param node], or null.
-##
-## Memoised per body. The tower's target scan, the net link's presentation pass
-## and the decoy driver all ask this per body per tick, and each ask was a path
-## resolution down the body's children.
-static var _by_body: Dictionary[int, RunnerPower] = {}
-
+## The ability node of [param node]'s body, or null.
 static func of(node: Node) -> RunnerPower:
-	if node == null:
-		return null
-	var id: int = node.get_instance_id()
-	var cached: RunnerPower = _by_body.get(id, null)
-	if cached != null and is_instance_valid(cached) and is_instance_valid(node):
-		return cached
-	var found: RunnerPower = node.get_node_or_null(^"Ability") as RunnerPower
-	if found != null:
-		if _by_body.size() > 256:
-			_by_body.clear()
-		_by_body[id] = found
-	return found
+	var controller: PlayerController = node as PlayerController
+	return controller.power if controller != null else null
 
 
 ## The hologram [param collider] belongs to, or null.
@@ -88,52 +87,83 @@ static func decoy_of(collider: Node) -> PlayerController:
 	return null
 
 
+## How long [param which] runs: the cat's fuse, else the rules' duration (0 without rules).
+static func duration_of(which: int, match_rules: MatchRules) -> float:
+	if which == MatchRules.RunnerAbility.CAT_GRENADE:
+		return CatGrenade.FUSE_SECONDS
+	return maxf(match_rules.ability_duration_seconds, 0.0) if match_rules != null else 0.0
+
+
+func _init() -> void:
+	# After the replicator has written this frame's records, so a record is drawn the frame it lands.
+	process_priority = 10
+	# After every body has moved and before the replicator samples them: the entities' poses.
+	process_physics_priority = 90
+
+
 func _ready() -> void:
-	CatGrenadeRelay.ensure(self)
+	# Only while a host entity is out (the engine turns it on at ready for an overridden callback).
+	set_physics_process(_decoy != null or _cat != null)
 
 
 ## A body leaving the tree takes its shield, hologram, shell, tint and cat with it.
 func _exit_tree() -> void:
-	_teardown()
-	_active = MatchRules.RunnerAbility.NONE
-	_remaining = 0.0
+	_free_entities()
+	state.active = false
+	state.out = false
+	state.cooking = false
+	state.remaining = 0.0
+	_has_entity_record = false
+	_view.clear()
+	sync_visuals(_view)
+
+
+func _process(_delta: float) -> void:
+	sync_visuals(_current_view())
+
+
+## The host: follow the entities' poses into the state, once they have moved this tick.
+func _physics_process(_delta: float) -> void:
+	_follow_entities()
 
 
 ## One command's worth of the power, run by [method PlayerController.run_command]: its clocks,
-## and a press, release or cook. [param authority] builds what only the host may (decoy, cat).
+## and a press, release or cook. [param authority] simulates what only the host may (decoy, cat).
 func step(intent: MoveIntent, delta: float, authority: bool) -> void:
-	if _cooldown > 0.0:
-		_cooldown = maxf(_cooldown - delta, 0.0)
+	if state.cooldown > 0.0:
+		state.cooldown = maxf(state.cooldown - delta, 0.0)
 	if body == null or body.held:
 		return
 	var asked: int = intent.pressed & MoveIntent.ALL_POWER_KEYS
-	if _active == MatchRules.RunnerAbility.CAT_GRENADE:
-		# The cat's own fuse is the clock; a predicting client waits on the authority.
-		if is_instance_valid(_cat):
-			if intent.cook_pressed:
-				_cat.cook()
-				_rule(MoveIntent.COOK, &"ran")
-			_remaining = _cat.fuse_left
-		else:
-			_rule(intent.pressed & MoveIntent.COOK, &"no-cat")
-			if authority:
-				_end(&"spent")
-		_rule(asked, &"busy")
+	if not state.active:
+		_rule(intent.pressed & MoveIntent.COOK, &"no-cat")
+		var which: MatchRules.RunnerAbility = intent.ability_slot as MatchRules.RunnerAbility
+		if which != MatchRules.RunnerAbility.NONE or intent.ability_pressed:
+			_rule(asked, &"ran" if activate(which, authority) else refusal(which))
 		return
-	_rule(intent.pressed & MoveIntent.COOK, &"no-cat")
-	if _active != MatchRules.RunnerAbility.NONE:
-		_remaining -= delta
-		var released: bool = _active == MatchRules.RunnerAbility.ARMOR_LOCK and not intent.ability_held
-		# A predicting client's power runs out on the authority's word, not its own clock.
-		if released:
+	if authority and not _has_its_entity():
+		# The host runs a power only with its entity: a machine that became the host has none.
+		_end(&"spent")
+	elif state.which == MatchRules.RunnerAbility.CAT_GRENADE:
+		if intent.cook_pressed:
+			state.cooking = true
+			_rule(MoveIntent.COOK, &"ran")
+		if state.cooking:
+			state.remaining = maxf(state.remaining - delta, 0.0)
+			# The fuse runs out on the host's word; a predicting client waits for it.
+			if state.remaining <= 0.0 and authority:
+				_blast()
+	else:
+		_rule(intent.pressed & MoveIntent.COOK, &"no-cat")
+		state.remaining = maxf(state.remaining - delta, 0.0)
+		if DEFS[state.which][&"release"] and not intent.ability_held:
 			_end(&"released" if intent.released & MoveIntent.ALL_POWER_KEYS != 0 else &"unheld")
-		elif _remaining <= 0.0 and authority:
+		elif state.remaining <= 0.0 and authority:
 			_end(&"expired")
-		_rule(asked, &"busy")
-		return
-	var which: MatchRules.RunnerAbility = intent.ability_slot as MatchRules.RunnerAbility
-	if which != MatchRules.RunnerAbility.NONE or intent.ability_pressed:
-		_rule(asked, &"ran" if activate(which, authority) else refusal(which))
+	_rule(asked, &"busy")
+	if authority:
+		# The shield's collider is part of what is drawn: the host's stands from the tick it is raised.
+		sync_visuals(state)
 
 
 ## Tell the body what this command made of the keys in [param buttons]; nothing when none went down.
@@ -147,38 +177,40 @@ func arm(match_rules: MatchRules, controller: MatchController) -> void:
 	cancel()
 	rules = match_rules
 	match_controller = controller
-	_cooldown = 0.0
+	state.cooldown = 0.0
 
 
-## Start the selected power, as the deciding machine when [param authority] (it spawns the cat);
+## Start the selected power, as the deciding machine when [param authority] (it builds the entity);
 ## false when none is selected, one is running, or the cooldown has not run out.
 func activate(which: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE, authority: bool = true) -> bool:
 	if not refusal(which).is_empty():
 		return false
 	if which == MatchRules.RunnerAbility.NONE:
 		which = rules.runner_ability
-	_active = which
-	_remaining = maxf(rules.ability_duration_seconds, 0.0)
-	if _active == MatchRules.RunnerAbility.ARMOR_LOCK:
-		body.velocity = Vector3.ZERO
-	elif _active == MatchRules.RunnerAbility.CAT_GRENADE:
-		_remaining = CatGrenade.FUSE_SECONDS
-	if body.replaying:
-		# A replayed command changes the state; what is drawn of it was drawn the first time.
-		return true
-	match _active:
+	state.which = which
+	state.active = true
+	state.serial = (state.serial + 1) % PowerState.SERIAL_MODULUS
+	state.remaining = duration_of(which, rules)
+	state.cooking = false
+	state.out = DEFS[which][&"entity"] == Entity.DECOY
+	state.place_position = Vector3.ZERO
+	state.place_yaw = 0.0
+	match which:
 		MatchRules.RunnerAbility.BUBBLE_SHIELD:
-			_raise_shield()
+			state.place_position = body.global_position + Vector3.UP * SHIELD_RISE
 		MatchRules.RunnerAbility.HOLOGRAM:
-			# A predicting client draws its decoy where the authority's will walk; the snapshot moves it.
-			_spawn_decoy(not authority)
+			var ahead: Vector3 = -body.global_transform.basis.z
+			ahead.y = 0.0
+			state.place_position = body.global_position + ahead.normalized() * DECOY_LEAD_METRES
+			state.place_yaw = body.global_rotation.y
 		MatchRules.RunnerAbility.ARMOR_LOCK:
-			_raise_shell()
-		MatchRules.RunnerAbility.ACTIVE_CAMO:
-			_cloak()
-		MatchRules.RunnerAbility.CAT_GRENADE:
-			if authority:
-				_spawn_cat()
+			body.velocity = Vector3.ZERO
+	state.pose_position = state.place_position
+	state.pose_yaw = state.place_yaw
+	state.pose_velocity = Vector3.ZERO
+	if authority:
+		_spawn_entity()
+		sync_visuals(state)
 	return true
 
 
@@ -186,99 +218,33 @@ func activate(which: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE, a
 func refusal(which: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE) -> StringName:
 	if rules == null or body == null:
 		return &"unarmed"
-	if is_active():
+	if state.active:
 		return &"busy"
-	if _cooldown > 0.0:
+	if state.cooldown > 0.0:
 		return &"cooldown"
 	if which == MatchRules.RunnerAbility.NONE and rules.runner_ability == MatchRules.RunnerAbility.NONE:
 		return &"unpicked"
 	return &""
 
 
-## Tear the power down without starting a cooldown.
+## Stop the power without starting a cooldown.
 func cancel() -> void:
-	var was: MatchRules.RunnerAbility = _active
-	_teardown()
-	_active = MatchRules.RunnerAbility.NONE
-	_presented = MatchRules.RunnerAbility.NONE
-	_remaining = 0.0
+	var was: int = state.running()
+	_stop()
 	if was != MatchRules.RunnerAbility.NONE:
 		ended.emit(was, &"cancelled")
 
 
-## Draw [param which] from a record: what [method activate] builds, none of the effect, the anchors
-## at [param anchor]. Called every drawn frame; a no-op unless something changed.
-func present(
-	which: MatchRules.RunnerAbility, remaining: float, cooldown: float, anchor: Vector3 = Vector3.INF,
-	decoy_alive: bool = false, decoy_yaw: float = 0.0, decoy_velocity: Vector3 = Vector3.ZERO,
-) -> void:
-	_remaining = maxf(remaining, 0.0)
-	_cooldown = maxf(cooldown, 0.0)
-	if _active != MatchRules.RunnerAbility.NONE:
-		# A power this machine predicted is the record's to describe now: what it drew is kept when
-		# they agree and dropped when they do not.
-		if _active == which:
-			_presented = which
-		else:
-			_teardown()
-		_active = MatchRules.RunnerAbility.NONE
-	if which != _presented:
-		_teardown(true)
-		_presented = which
-		match which:
-			MatchRules.RunnerAbility.BUBBLE_SHIELD:
-				_raise_shield()
-			MatchRules.RunnerAbility.ARMOR_LOCK:
-				_raise_shell()
-			MatchRules.RunnerAbility.ACTIVE_CAMO:
-				_cloak()
-	present_anchor(which, anchor, decoy_alive, decoy_yaw, decoy_velocity)
+## Take [param record]'s power as this machine's state: a body it draws and does not simulate.
+func take_record(record: PlayerState) -> void:
+	_has_entity_record = false
+	state.take_record(record)
 
 
-## The host's word on where this body's power stands: its shield's centre, and its hologram's pose
-## while one is out. For a predicting body too, whose own guess at both is drawn until this lands.
-func present_anchor(
-	which: MatchRules.RunnerAbility, anchor: Vector3, decoy_alive: bool, decoy_yaw: float,
-	decoy_velocity: Vector3 = Vector3.ZERO,
-) -> void:
-	if _shield != null and which == MatchRules.RunnerAbility.BUBBLE_SHIELD and anchor.is_finite():
-		_shield.global_position = anchor
-	if decoy_alive and anchor.is_finite():
-		present_decoy(anchor, decoy_yaw, decoy_velocity)
-	elif which == MatchRules.RunnerAbility.HOLOGRAM or _active != MatchRules.RunnerAbility.HOLOGRAM:
-		# Out on the host and gone there (shot), or a mirror's power that has none: no hologram.
-		clear_decoy()
-
-
-## Take the host's exact predicted state of this power (DESIGN 7): its data only, as a replay starts.
-## What a record presented while the body was mirrored (held) is the owner block's to say now.
-func restore_predicted(which: int, remaining: float, cooldown: float) -> void:
-	_presented = MatchRules.RunnerAbility.NONE
-	_active = which as MatchRules.RunnerAbility
-	_remaining = remaining
-	_cooldown = cooldown
-
-
-## After a replay: what this power draws follows the state it was left in.
-func settle_visuals() -> void:
-	# The hologram is the host's entity: only the record ([method present_anchor]) builds or ends it.
-	var drawn: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE
-	if _shield != null:
-		drawn = MatchRules.RunnerAbility.BUBBLE_SHIELD
-	elif _shell != null:
-		drawn = MatchRules.RunnerAbility.ARMOR_LOCK
-	elif _camo_mesh != null:
-		drawn = MatchRules.RunnerAbility.ACTIVE_CAMO
-	var wanted: MatchRules.RunnerAbility = _active if _active in _DRAWN_POWERS else MatchRules.RunnerAbility.NONE
-	if drawn != wanted:
-		_teardown(true)
-		match wanted:
-			MatchRules.RunnerAbility.BUBBLE_SHIELD:
-				_raise_shield()
-			MatchRules.RunnerAbility.ARMOR_LOCK:
-				_raise_shell()
-			MatchRules.RunnerAbility.ACTIVE_CAMO:
-				_cloak()
+## For a body this machine predicts: [param record] at the playout clock, for its host entity.
+func take_entity_record(record: PlayerState) -> void:
+	_has_entity_record = true
+	_entity_record.take_record(record)
 
 
 func get_ability() -> MatchRules.RunnerAbility:
@@ -286,104 +252,313 @@ func get_ability() -> MatchRules.RunnerAbility:
 
 
 func is_active() -> bool:
-	return _active != MatchRules.RunnerAbility.NONE or _presented != MatchRules.RunnerAbility.NONE
+	return state.active
 
 
-## The power running now, or NONE. Sampled into the snapshot by [PlayerNetLink].
+## The power running now, or NONE.
 func get_active() -> MatchRules.RunnerAbility:
-	return _active
+	return state.running() as MatchRules.RunnerAbility
 
 
-## What this machine is DRAWING: its own power on the authority, the replicated
-## one on a client.
+## The power of the running or the last activation: what a cooldown is cooling.
+func get_last() -> MatchRules.RunnerAbility:
+	return state.which as MatchRules.RunnerAbility
+
+
+## The power this machine draws, or NONE.
 func get_shown() -> MatchRules.RunnerAbility:
-	return _active if _active != MatchRules.RunnerAbility.NONE else _presented
+	return _drawn.running() as MatchRules.RunnerAbility
 
 
 func get_remaining() -> float:
-	return _remaining if is_active() else 0.0
-
-
-## The power's own clock, as prediction restores it.
-func get_predicted_remaining() -> float:
-	return _remaining
+	return state.remaining if state.active else 0.0
 
 
 func get_cooldown_remaining() -> float:
-	return _cooldown
+	return state.cooldown
 
 
 func is_hit_immune() -> bool:
-	return _active == MatchRules.RunnerAbility.ARMOR_LOCK
+	return state.running() == MatchRules.RunnerAbility.ARMOR_LOCK
 
 
 func is_camouflaged() -> bool:
-	return _active == MatchRules.RunnerAbility.ACTIVE_CAMO
+	return state.running() == MatchRules.RunnerAbility.ACTIVE_CAMO
 
 
+## True while this body carries its own cat, so its swing is the throw.
+func holds_cat() -> bool:
+	return state.running() == MatchRules.RunnerAbility.CAT_GRENADE and not state.out
+
+
+## Shove while carrying the cat: throw it, lit. True when a cat took the shove. Authority only.
+func throw_cat() -> bool:
+	if not holds_cat() or not is_instance_valid(_cat) or not _cat.throw():
+		return false
+	state.out = true
+	state.cooking = true
+	_follow_entities()
+	return true
+
+
+## The shield drawn here (its collider stops shots), or null.
 func get_shield() -> StaticBody3D:
 	return _shield
 
 
-## The armor lock's shell this body is drawing, or null.
+## The armor lock's shell drawn here, or null.
 func get_shell() -> MeshInstance3D:
 	return _shell
 
 
+## The hologram drawn here, or null.
+func get_hologram() -> HologramView:
+	return _hologram
+
+
+## The cat drawn here, carried or thrown, or null.
+func get_cat_view() -> CatView:
+	return _cat_view
+
+
+## The host's decoy body, or null.
 func get_decoy() -> PlayerController:
-	return _decoy if is_instance_valid(_decoy) else null
+	return _decoy if is_instance_valid(_decoy) and not _decoy.is_queued_for_deletion() else null
+
+
+## The host's cat body, or null.
+func get_cat() -> CatGrenade:
+	return _cat if is_instance_valid(_cat) else null
+
+
+## A decoy the rifle has hit is gone, and its power says so.
+static func shatter(decoy: PlayerController) -> void:
+	if decoy == null or decoy.is_queued_for_deletion():
+		return
+	var source: DecoyIntent = decoy.intent_source as DecoyIntent
+	if source != null and source.power != null and source.power._decoy == decoy:
+		source.power._lose_decoy()
+	else:
+		decoy.queue_free()
 
 
 func _end(reason: StringName) -> void:
-	var was: MatchRules.RunnerAbility = _active
-	_teardown()
-	_active = MatchRules.RunnerAbility.NONE
-	_remaining = 0.0
-	# MatchRules.ability_cooldown_multiplier is the lever; the seconds are the
-	# design value it scales.
-	_cooldown = (
-		maxf(rules.ability_cooldown_seconds * rules.ability_cooldown_multiplier, 0.0)
-		if rules != null
-		else 0.0
-	)
+	var was: int = state.running()
+	_stop()
+	# MatchRules.ability_cooldown_multiplier is the lever; the seconds are the design value it scales.
+	state.cooldown = maxf(rules.ability_cooldown_seconds * rules.ability_cooldown_multiplier, 0.0) if rules != null else 0.0
 	ended.emit(was, reason)
 
 
-func _teardown(keep_decoy: bool = false) -> void:
-	if body != null and body.replaying:
+func _stop() -> void:
+	_free_entities()
+	state.active = false
+	state.out = false
+	state.cooking = false
+	state.remaining = 0.0
+
+
+# --- Host entities ------------------------------------------------------------
+
+func _spawn_entity() -> void:
+	match DEFS[state.which][&"entity"]:
+		Entity.DECOY:
+			_spawn_decoy()
+		Entity.CAT:
+			var cat: CatGrenade = CatGrenade.new()
+			cat.carrier = body
+			body.get_parent().add_child(cat)
+			_cat = cat
+	set_physics_process(_decoy != null or _cat != null)
+
+
+## The host's hologram: a runner body with no brain, no avatar and no power, driven straight ahead.
+func _spawn_decoy() -> void:
+	if match_controller == null or match_controller.runner_scene == null:
+		state.out = false
 		return
+	var decoy: PlayerController = match_controller.runner_scene.instantiate() as PlayerController
+	if decoy == null:
+		state.out = false
+		return
+	decoy.name = "Hologram"
+	for child: Node in decoy.get_children():
+		if child is RunnerBrain or child is IntentSource or child is PrisonerAvatar or child is RunnerPower \
+				or child.name == &"BodyMesh":
+			decoy.remove_child(child)
+			child.free()
+	var source: DecoyIntent = DecoyIntent.new()
+	source.name = "DecoyInput"
+	source.power = self
+	decoy.add_child(source)
+	decoy.intent_source = source
+	# A hologram is a target and never a runner: nothing that lists runners may list it.
+	decoy.remove_from_group(MatchController.RUNNER_GROUP)
+	decoy.add_to_group(DECOY_GROUP)
+	var container: Node3D = match_controller.runner_container
+	decoy.position = container.to_local(state.place_position)
+	decoy.rotation = Vector3(0.0, state.place_yaw, 0.0)
+	# Shots stop on it (the rifle mask spans every layer); bodies walk through it.
+	decoy.collision_layer = DECOY_LAYER
+	decoy.collision_mask = 1
+	container.add_child(decoy)
+	_decoy = decoy
+
+
+## True unless this power stands on a host entity this machine does not have.
+func _has_its_entity() -> bool:
+	match DEFS[state.which][&"entity"]:
+		Entity.CAT:
+			return is_instance_valid(_cat)
+		Entity.DECOY:
+			return not state.out or is_instance_valid(_decoy)
+	return true
+
+
+func _lose_decoy() -> void:
+	if is_instance_valid(_decoy):
+		_decoy.queue_free()
+	_decoy = null
+	state.out = false
+	set_physics_process(_cat != null)
+
+
+## The fuse ran out: the push is host physics, the blast a cue to every machine (DESIGN 6).
+func _blast() -> void:
+	var at: Vector3 = _cat.blast_point() if is_instance_valid(_cat) else body.global_position
+	if match_controller != null:
+		CatGrenade.push_all(match_controller.get_participants_ref(), at)
+	var link: PlayerNetLink = PlayerNetLink.of(body)
+	if link != null and link.replicator != null and link.session != null and link.session.is_established():
+		link.replicator.send_event(NetEvents.Type.CAT_BLAST, NetCodec.pack_point(0, at))
+	CatView.play_blast(body.get_parent(), at)
+	_end(&"spent")
+
+
+func _follow_entities() -> void:
+	if is_instance_valid(_decoy) and state.out:
+		state.pose_position = _decoy.global_position
+		state.pose_yaw = _decoy.rotation.y
+		state.pose_velocity = _decoy.velocity
+	if is_instance_valid(_cat) and state.out:
+		state.pose_position = _cat.global_position
+		state.pose_yaw = _cat.rotation.y
+		state.pose_velocity = _cat.linear_velocity
+
+
+func _free_entities() -> void:
+	if is_instance_valid(_decoy):
+		_decoy.queue_free()
+	_decoy = null
+	if is_instance_valid(_cat):
+		_cat.queue_free()
+	_cat = null
+	set_physics_process(false)
+
+
+# --- Drawing ------------------------------------------------------------------
+
+## What this machine draws: its state, with the host entity a predicting body sees from the record.
+func _current_view() -> PowerState:
+	if not _has_entity_record:
+		return state
+	var record: PowerState = _entity_record
+	if not record.active or DEFS[record.which][&"entity"] == Entity.NONE:
+		return state
+	if not state.active:
+		# Over here and not yet at the playout clock: the host's entity is drawn until it is.
+		return record
+	if record.serial != state.serial or record.which != state.which:
+		# Not yet in a record: the activation as predicted.
+		return state
+	_view.copy_from(state)
+	_view.out = record.out
+	_view.pose_position = record.pose_position
+	_view.pose_yaw = record.pose_yaw
+	_view.pose_velocity = record.pose_velocity
+	return _view
+
+
+## Build, move and tear down the visuals so they show [param view]: the only place they are made.
+func sync_visuals(view: PowerState) -> void:
+	if body == null:
+		return
+	var effect: int = view.running() if DEFS[view.which][&"entity"] == Entity.NONE else 0
+	var drawn_effect: int = _drawn.running() if DEFS[_drawn.which][&"entity"] == Entity.NONE else 0
+	if effect != drawn_effect:
+		_tear_down_effect()
+		match effect:
+			MatchRules.RunnerAbility.BUBBLE_SHIELD:
+				_raise_shield()
+			MatchRules.RunnerAbility.ARMOR_LOCK:
+				_raise_shell()
+			MatchRules.RunnerAbility.ACTIVE_CAMO:
+				_cloak()
+	if _shield != null and _shield.global_position != view.place_position:
+		_shield.global_position = view.place_position
+	_draw_hologram(view)
+	_draw_cat(view)
+	_drawn.copy_from(view)
+
+
+func _tear_down_effect() -> void:
 	if _shield != null:
 		_shield.queue_free()
 		_shield = null
-	if not keep_decoy:
-		if is_instance_valid(_decoy):
-			_decoy.queue_free()
-		_decoy = null
 	if _shell != null:
 		_shell.queue_free()
 		_shell = null
-	_presented = MatchRules.RunnerAbility.NONE
-	if is_instance_valid(_cat):
-		_cat.exploded.disconnect(_on_cat_exploded)
-		_cat.discard()
-	_cat = null
 	if _camo_mesh != null:
 		_camo_mesh.material_override = _camo_saved
 		_camo_mesh = null
 		_camo_saved = null
 
 
-static func _build_shield_mesh() -> MeshInstance3D:
-	var mesh: MeshInstance3D = MeshInstance3D.new()
-	var sphere_mesh: SphereMesh = SphereMesh.new()
-	sphere_mesh.radius = SHIELD_RADIUS
-	sphere_mesh.height = SHIELD_RADIUS * 2.0
-	mesh.mesh = sphere_mesh
-	mesh.material_override = _glow_material(Color(0.35, 0.75, 1.0, 0.3), Color(0.2, 0.6, 1.0), 1.5)
-	return mesh
+func _draw_hologram(view: PowerState) -> void:
+	if view.running() != MatchRules.RunnerAbility.HOLOGRAM or not view.out or not is_inside_tree():
+		if _hologram != null:
+			_hologram.queue_free()
+			_hologram = null
+		return
+	if _hologram == null:
+		_hologram = HologramView.build(body)
+		_stage().add_child(_hologram)
+	_hologram.pose(view.pose_position, view.pose_yaw, view.pose_velocity)
 
 
-# --- Bubble shield ------------------------------------------------------------
+func _draw_cat(view: PowerState) -> void:
+	if view.running() != MatchRules.RunnerAbility.CAT_GRENADE or not is_inside_tree():
+		if _cat_view != null:
+			_cat_view.queue_free()
+			_cat_view = null
+		return
+	if _cat_view == null:
+		_cat_view = CatView.new()
+		_stage().add_child(_cat_view)
+	if view.out:
+		_cat_view.global_transform = Transform3D(Basis(Vector3.UP, view.pose_yaw), view.pose_position)
+	else:
+		# In the hands this machine draws: on the host a remote carrier's are its playout behind.
+		var link: PlayerNetLink = PlayerNetLink.of(body)
+		_cat_view.global_transform = CatView.carry_transform(body)
+		if link != null:
+			_cat_view.global_position += link.drawn_offset()
+	_cat_view.set_petting(not view.out and _carried_here())
+
+
+## True when the body is this machine's own player in a live game: its link's while the session
+## stands, or with no session the human's.
+func _carried_here() -> bool:
+	var link: PlayerNetLink = PlayerNetLink.of(body)
+	if link != null:
+		return link.session != null and link.session.is_established() and link.is_owned_here()
+	return body.intent_source is HumanIntentSource
+
+
+## Where a hologram or a cat is drawn: beside the body.
+func _stage() -> Node:
+	return body.get_parent()
+
 
 func _raise_shield() -> void:
 	var shield: StaticBody3D = StaticBody3D.new()
@@ -396,84 +571,19 @@ func _raise_shield() -> void:
 	shape.shape = sphere
 	shield.add_child(shape)
 	shield.add_child(_build_shield_mesh())
-	body.get_parent().add_child(shield)
-	shield.global_position = body.global_position + Vector3.UP * SHIELD_RISE
+	_stage().add_child(shield)
 	_shield = shield
 
 
-# --- Hologram -----------------------------------------------------------------
+static func _build_shield_mesh() -> MeshInstance3D:
+	var mesh: MeshInstance3D = MeshInstance3D.new()
+	var sphere_mesh: SphereMesh = SphereMesh.new()
+	sphere_mesh.radius = SHIELD_RADIUS
+	sphere_mesh.height = SHIELD_RADIUS * 2.0
+	mesh.mesh = sphere_mesh
+	mesh.material_override = _glow_material(Color(0.35, 0.75, 1.0, 0.3), Color(0.2, 0.6, 1.0), 1.5)
+	return mesh
 
-## Place the hologram. [param mirrored] builds the client's copy: the same body
-## on the same layer, with no intent and no physics, moved only by the
-## authority's transforms.
-func _spawn_decoy(mirrored: bool = false) -> void:
-	if match_controller == null or match_controller.runner_scene == null:
-		return
-	var decoy: PlayerController = match_controller.runner_scene.instantiate() as PlayerController
-	if decoy == null:
-		return
-	decoy.name = "Hologram"
-	for child: Node in decoy.get_children():
-		if child is RunnerBrain or child is IntentSource:
-			decoy.remove_child(child)
-			child.free()
-	if not mirrored:
-		var source: DecoyIntent = DecoyIntent.new()
-		source.name = "DecoyInput"
-		decoy.add_child(source)
-		decoy.intent_source = source
-	# A hologram is a target and never a runner: nothing that lists runners may list it.
-	decoy.remove_from_group(MatchController.RUNNER_GROUP)
-	decoy.add_to_group(DECOY_GROUP)
-	var container: Node3D = match_controller.runner_container
-	var ahead: Vector3 = -body.global_transform.basis.z
-	ahead.y = 0.0
-	ahead = ahead.normalized() * DECOY_LEAD_METRES
-	decoy.position = container.to_local(body.global_position + ahead)
-	decoy.rotation = Vector3(0.0, body.global_rotation.y, 0.0)
-	# Shots stop on it (the rifle mask spans every layer); bodies walk through it.
-	decoy.collision_layer = DECOY_LAYER
-	decoy.collision_mask = 1
-	container.add_child(decoy)
-	if mirrored:
-		decoy.set_physics_process(false)
-	var mine: MeshInstance3D = _avatar_mesh(body)
-	var theirs: MeshInstance3D = _avatar_mesh(decoy)
-	if mine != null and theirs != null:
-		theirs.material_override = mine.material_override
-		_copy_surfaces(mine, theirs)
-	_decoy = decoy
-
-
-## Put the mirrored hologram where the host's record has it, moving at [param velocity] (its avatar
-## animates off velocity and floor, which a mirrored decoy never simulates), building it the first time.
-func present_decoy(position: Vector3, yaw: float, velocity: Vector3 = Vector3.ZERO) -> void:
-	if get_decoy() == null:
-		_decoy = null
-		_spawn_decoy(true)
-	if _decoy == null:
-		return
-	_decoy.velocity = velocity
-	_decoy.net_floor = 1
-	_decoy.global_position = position
-	_decoy.rotation.y = yaw
-
-
-## Drop the mirrored hologram: the authority's expiry, or a shot that shattered
-## it, replayed here.
-func clear_decoy() -> void:
-	if is_instance_valid(_decoy):
-		_decoy.queue_free()
-	_decoy = null
-
-
-## A decoy the rifle has hit is gone.
-static func shatter(decoy: PlayerController) -> void:
-	if decoy != null and not decoy.is_queued_for_deletion():
-		decoy.queue_free()
-
-
-# --- Armor lock ---------------------------------------------------------------
 
 ## The armor lock's glowing shell. The hold is the power's state, read by [method PlayerController._move].
 func _raise_shell() -> void:
@@ -495,35 +605,6 @@ static func _build_shell() -> MeshInstance3D:
 	return shell
 
 
-# --- Cat grenade --------------------------------------------------------------
-
-func _spawn_cat() -> void:
-	var cat: CatGrenade = CatGrenade.new()
-	cat.carrier = body
-	cat.match_controller = match_controller
-	cat.exploded.connect(_on_cat_exploded)
-	body.get_parent().add_child(cat)
-	_cat = cat
-
-
-func _on_cat_exploded() -> void:
-	_cat = null
-	if _active == MatchRules.RunnerAbility.CAT_GRENADE:
-		_end(&"spent")
-
-
-## True while this body carries its own cat, so its swing is the throw.
-func holds_cat() -> bool:
-	return is_instance_valid(_cat) and is_instance_valid(_cat.carrier)
-
-
-## Shove while carrying the cat: throw it. True when a cat took the shove. Authority only.
-func throw_cat() -> bool:
-	return is_instance_valid(_cat) and _cat.throw()
-
-
-# --- Active camo --------------------------------------------------------------
-
 func _cloak() -> void:
 	var mesh: MeshInstance3D = _avatar_mesh(body)
 	if mesh == null:
@@ -539,9 +620,7 @@ static func _camo_for(mesh: MeshInstance3D) -> BaseMaterial3D:
 	var base: Material = mesh.material_override
 	if base == null:
 		base = mesh.get_active_material(0)
-	var camo: BaseMaterial3D = (
-		(base.duplicate() as BaseMaterial3D) if base is BaseMaterial3D else StandardMaterial3D.new()
-	)
+	var camo: BaseMaterial3D = (base.duplicate() as BaseMaterial3D) if base is BaseMaterial3D else StandardMaterial3D.new()
 	# Ryan: not invisible -- hell red, the colour that vanished against the rock.
 	camo.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
 	camo.albedo_color = CAMO_COLOR
@@ -551,10 +630,9 @@ static func _camo_for(mesh: MeshInstance3D) -> BaseMaterial3D:
 
 ## What this body's powers draw when they run, for [SceneWarmup]; built by the code that draws them.
 func warmup_samples() -> Array[Node3D]:
-	var samples: Array[Node3D] = [_build_shell(), _build_shield_mesh(), CatGrenadeRelay.build_blast_sprite()]
-	var cat: MeshInstance3D = MeshInstance3D.new()
-	cat.mesh = CatGrenade.MESH
-	samples.append(cat)
+	var samples: Array[Node3D] = [_build_shell(), _build_shield_mesh(), CatView.build_blast_sprite(), CatView.new()]
+	if body != null:
+		samples.append(HologramView.build(body))
 	var avatar: MeshInstance3D = _avatar_mesh(body) if body != null else null
 	if avatar != null and avatar.mesh != null:
 		var cloaked: MeshInstance3D = MeshInstance3D.new()
@@ -562,18 +640,6 @@ func warmup_samples() -> Array[Node3D]:
 		cloaked.material_override = _camo_for(avatar)
 		samples.append(cloaked)
 	return samples
-
-
-# --- Helpers ------------------------------------------------------------------
-
-## Copy every surface override across, so a decoy wears the team shirt its
-## owner does rather than the model's bare grey.
-static func _copy_surfaces(from: MeshInstance3D, to: MeshInstance3D) -> void:
-	var count: int = mini(
-		from.get_surface_override_material_count(), to.get_surface_override_material_count()
-	)
-	for index: int in count:
-		to.set_surface_override_material(index, from.get_surface_override_material(index))
 
 
 static func _avatar_mesh(of_body: PlayerController) -> MeshInstance3D:

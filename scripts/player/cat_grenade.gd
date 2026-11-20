@@ -1,18 +1,10 @@
 class_name CatGrenade
 extends RigidBody3D
 
-## Power 5's cat: carried, cooked with E, thrown by shove; its blast throws every player in
-## reach, guard and hub mannequins too, and hurts nobody. Exists on the authority only; [CatGrenadeRelay] draws it elsewhere.
+## The cat power's body on the host (DESIGN 9): carried, then thrown as a rigid body. Physics only: the
+## fuse is the power's state and every machine draws the cat with a [CatView]. Its blast hurts nobody.
 
-signal exploded
-
-const MESH: Mesh = preload("res://hub/props/cat/cat_mesh.tres")
 const FUSE_SECONDS: float = 2.5
-## The hub cat's carry pose and throw (scripts/hub/hub_cat.gd).
-const CARRY_OFFSET: Vector3 = Vector3(0.0, -0.3, -0.55)
-const THROW_SPEED: float = 10.0
-const THROW_LIFT: float = 2.0
-const THROW_SPIN: float = 12.0
 const BLAST_RADIUS: float = 7.0
 ## Launch speed at the centre of the blast; the edge gets BLAST_EDGE of it.
 const BLAST_SPEED: float = 22.0
@@ -21,16 +13,10 @@ const BLAST_EDGE: float = 0.35
 const BLAST_AIR_LOCK_SECONDS: float = 1.2
 ## Where a body's middle sits above its origin, for the blast's direction.
 const BODY_CENTRE: float = 0.9
+## Where the blast goes off above the cat.
+const BLAST_RISE: float = 0.2
 
 var carrier: PlayerController = null
-var match_controller: MatchController = null
-var cooking: bool = false
-var fuse_left: float = FUSE_SECONDS
-var id: int = 0
-var _relay: CatGrenadeRelay = null
-## The peer whose player carries it, 0 for a bot: who sees the pet prompt.
-var _holder_peer: int = 0
-var _mesh: MeshInstance3D = null
 
 
 func _init() -> void:
@@ -42,11 +28,6 @@ func _init() -> void:
 	collision_mask = 0
 	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
 	freeze = true
-	var mesh: MeshInstance3D = MeshInstance3D.new()
-	mesh.name = "Mesh"
-	mesh.mesh = MESH
-	add_child(mesh)
-	_mesh = mesh
 	var shape: CollisionShape3D = CollisionShape3D.new()
 	var box: BoxShape3D = BoxShape3D.new()
 	box.size = Vector3(0.28, 0.38, 0.5)
@@ -56,82 +37,47 @@ func _init() -> void:
 
 
 func _ready() -> void:
-	_relay = CatGrenadeRelay.of(self)
-	if _relay != null:
-		id = _relay.next_id()
-	if is_instance_valid(carrier):
-		global_transform = _carry_transform()
-		_holder_peer = _peer_of(carrier)
+	if carrier != null:
+		global_transform = CatView.carry_transform(carrier)
 
 
-## Light the fuse. Idempotent.
-func cook() -> void:
-	cooking = true
-
-
-## Huck it the way the hub cat is thrown; an uncooked cat is lit by the throw. False if not held.
+## Huck it the way the hub cat is thrown. False if it is not held.
 func throw() -> bool:
-	if not is_instance_valid(carrier):
+	if carrier == null:
 		return false
-	var look: Basis = _carry_basis()
-	global_transform = _carry_transform()
+	var velocity: Vector3 = CatView.throw_velocity(carrier)
+	global_transform = CatView.carry_transform(carrier)
 	carrier = null
 	collision_mask = 1
 	freeze = false
 	sleeping = false
-	linear_velocity = -look.z * THROW_SPEED + Vector3.UP * THROW_LIFT
-	angular_velocity = Vector3.UP * THROW_SPIN
-	cooking = true
+	linear_velocity = velocity
+	angular_velocity = Vector3.UP * CatView.THROW_SPIN
 	return true
 
 
-## Remove it without a blast: its power was torn down.
-func discard() -> void:
-	if _relay != null:
-		_relay.gone(id)
-	queue_free()
+## Where the blast goes off now.
+func blast_point() -> Vector3:
+	return global_position + Vector3.UP * BLAST_RISE
 
 
-func _physics_process(delta: float) -> void:
-	if is_queued_for_deletion():
-		return
+func _physics_process(_delta: float) -> void:
 	if carrier != null:
-		if not is_instance_valid(carrier) or not carrier.is_inside_tree():
-			carrier = null
-			collision_mask = 1
-			freeze = false
-			cooking = true
-		else:
-			global_transform = _carry_transform()
-	if cooking:
-		fuse_left = maxf(fuse_left - delta, 0.0)
-		if fuse_left <= 0.0:
-			_explode()
-			return
-	if _relay != null:
-		_relay.pose(id, global_position, rotation.y, _holder_peer if carrier != null else 0, _mesh)
+		global_transform = CatView.carry_transform(carrier)
 
 
-func _explode() -> void:
-	var at: Vector3 = global_position + Vector3.UP * 0.2
-	if _relay != null:
-		_relay.blast(id, at)
-	if match_controller != null:
-		for participant: MatchParticipant in match_controller.get_participants_ref():
-			_push(participant, at)
-	exploded.emit()
-	queue_free()
+## Launch every player of [param participants] in reach of [param at], harder the closer.
+static func push_all(participants: Array[MatchParticipant], at: Vector3) -> void:
+	for participant: MatchParticipant in participants:
+		push(participant, at)
 
 
 ## Launch one player away from [param at], harder the closer it stands. Never damage.
-func _push(participant: MatchParticipant, at: Vector3) -> void:
+static func push(participant: MatchParticipant, at: Vector3) -> void:
 	var target: PlayerController = participant.body
 	if target == null or not target.is_inside_tree():
 		return
 	if not participant.is_running and not participant.is_ghost and not participant.is_shooter:
-		return
-	if target.held:
-		# Held out of the world: a launch stored on it would fire when it is let go.
 		return
 	var offset: Vector3 = target.global_position + Vector3.UP * BODY_CENTRE - at
 	var distance: float = offset.length()
@@ -140,28 +86,4 @@ func _push(participant: MatchParticipant, at: Vector3) -> void:
 	var strength: float = lerpf(BLAST_EDGE, 1.0, 1.0 - distance / BLAST_RADIUS)
 	var flat: Vector3 = Vector3(offset.x, 0.0, offset.z)
 	var away: Vector3 = flat.normalized() if flat.length_squared() > 1e-4 else Vector3.ZERO
-	target.launch(
-		(away * BLAST_SPEED + Vector3.UP * BLAST_LIFT) * strength, BLAST_AIR_LOCK_SECONDS * strength
-	)
-
-
-## The peer driving [param body]: its link's owner in a session, this machine for its own human, 0 for a bot.
-func _peer_of(body: PlayerController) -> int:
-	var link: PlayerNetLink = PlayerNetLink.of(body)
-	if link != null:
-		return link.owner_peer_id
-	return multiplayer.get_unique_id() if body.intent_source is HumanIntentSource else 0
-
-
-func _carry_basis() -> Basis:
-	if carrier.head != null:
-		return carrier.head.global_basis.orthonormalized()
-	return carrier.global_basis.orthonormalized()
-
-
-func _carry_transform() -> Transform3D:
-	var origin: Vector3 = carrier.global_position + Vector3.UP * 1.5
-	if carrier.head != null:
-		origin = carrier.head.global_position
-	var look: Basis = _carry_basis()
-	return Transform3D(Basis(Vector3.UP, look.get_euler().y), origin + look * CARRY_OFFSET)
+	target.launch((away * BLAST_SPEED + Vector3.UP * BLAST_LIFT) * strength, BLAST_AIR_LOCK_SECONDS * strength)

@@ -265,10 +265,9 @@ func _watch_a_hologram(clients: int, map: StringName, sender: int) -> void:
 	var all: bool = await _rig.wait_for(func() -> bool:
 		var every: bool = true
 		for peer: int in _rig.peer_count():
-			var decoy: PlayerController = RunnerPower.of(_rig.body(peer, slot)).get_decoy()
-			var avatar: PrisonerAvatar = PrisonerAvatar.of(decoy) if decoy != null else null
-			if avatar != null and decoy.is_grounded() and decoy.get_horizontal_speed() > 2.0 \
-					and bool(avatar.get(&"_running")) and not bool(avatar.get(&"_in_air")):
+			var view: HologramView = RunnerPower.of(_rig.body(peer, slot)).get_hologram()
+			if view != null and view.get_clip() == HologramView.RUN_CLIP \
+					and Vector2(view.get_velocity().x, view.get_velocity().z).length() > 2.0:
 				seen[peer] = true
 			every = every and seen[peer]
 		return every)

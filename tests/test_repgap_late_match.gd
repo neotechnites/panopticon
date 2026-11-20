@@ -68,18 +68,8 @@ func _power(peer: int) -> RunnerPower:
 	return RunnerPower.of(_rig.body(peer, _slot))
 
 
-## The node that draws power cats on [param peer].
-func _relay(peer: int) -> CatGrenadeRelay:
-	return CatGrenadeRelay.of(_rig.sessions[peer])
-
-
 func _cats_drawn(peer: int) -> int:
-	var drawn: int = 0
-	var shown: Dictionary = _relay(peer).get("_shown")
-	for mesh: Variant in shown.values():
-		if is_instance_valid(mesh):
-			drawn += 1
-	return drawn
+	return 1 if _power(peer).get_cat_view() != null else 0
 
 
 ## What [param peer] has standing in its world for [param which] on the body's power.
@@ -90,7 +80,7 @@ func _draws(peer: int, which: int) -> bool:
 		SHIELD:
 			return power.get_shield() != null
 		HOLOGRAM:
-			return power.get_decoy() != null
+			return power.get_hologram() != null
 		ARMOR:
 			# A mirror draws the lock; only the machines running the body hold it.
 			return power.get_shell() != null
@@ -110,7 +100,7 @@ func _from_hosts_worlds(at: Vector3) -> float:
 	var nearest: float = INF
 	for i: int in replicator._ring_count:
 		var state: PlayerState = replicator._slot(i).find_seat(seat)
-		if state != null and state.decoy_alive:
+		if state != null and state.power_out:
 			nearest = minf(nearest, at.distance_to(state.anchor_position))
 	return nearest
 
@@ -155,13 +145,12 @@ func _a_late_machine_draws(which: int, map: StringName, on_bot: bool) -> void:
 		assert_gt(ran, 3.0, "the hologram has run on from its runner")
 		# Each machine draws at its own playout clock: where the host had it in a world it sent.
 		for machine: int in [EARLY, LATE]:
-			var gap: float = _from_hosts_worlds(_power(machine).get_decoy().global_position)
+			var gap: float = _from_hosts_worlds(_power(machine).get_hologram().global_position)
 			assert_lt(gap, 0.3, "machine %d's hologram is where the host's was (%.2f m off, %.1f m from its runner)" % [machine, gap, ran])
 	# The host ends it: the late machine is left drawing nothing.
 	if which == CAT:
-		var cat: CatGrenade = _power(HOST).get("_cat")
-		cat.cook()
-		cat.fuse_left = 0.05
+		_power(HOST).state.cooking = true
+		_power(HOST).state.remaining = 0.05
 	else:
 		_power(HOST).cancel()
 	var over: bool = await _rig.wait_for(func() -> bool:
@@ -222,11 +211,11 @@ func test_a_late_machine_draws_no_hologram_that_was_shot_away_before_it_bound() 
 		return
 	if not assert_true(_power(HOST).activate(HOLOGRAM as MatchRules.RunnerAbility), "the host starts the hologram"):
 		return
-	if not await _rig.wait_for(func() -> bool: return _power(EARLY).get_decoy() != null):
+	if not await _rig.wait_for(func() -> bool: return _power(EARLY).get_hologram() != null):
 		fail("the machine already in the match never drew it")
 		return
 	RunnerPower.shatter(_power(HOST).get_decoy())
-	if not await _rig.wait_for(func() -> bool: return _power(EARLY).get_decoy() == null):
+	if not await _rig.wait_for(func() -> bool: return _power(EARLY).get_hologram() == null):
 		fail("the shot hologram never left the early machine")
 		return
 	if not await _rig.bind_late(LATE):
@@ -235,4 +224,4 @@ func test_a_late_machine_draws_no_hologram_that_was_shot_away_before_it_bound() 
 	await step_ticks(CROSS_TICKS * 2)
 	assert_eq_int(int(_power(HOST).get_active()), HOLOGRAM, "the power still counts as running on the host")
 	for peer: int in _rig.peer_count():
-		assert_null(_power(peer).get_decoy(), "peer %d draws no hologram" % peer)
+		assert_null(_power(peer).get_hologram(), "peer %d draws no hologram" % peer)

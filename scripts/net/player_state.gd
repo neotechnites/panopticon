@@ -34,13 +34,16 @@ var placed_counter: int = 0
 ## Hit points, 0-255.
 var health: int = 0
 
-## The power: which [enum MatchRules.RunnerAbility], whether its hologram is out, and its two end ticks.
+## The power ([PowerState]): the [enum MatchRules.RunnerAbility] of the running or last activation,
+## whether it runs, its entity is out or its fuse lit, which activation it is, and its two end ticks.
 var ability: int = 0
-var decoy_alive: bool = false
+var power_active: bool = false
+var power_out: bool = false
+var power_cooking: bool = false
+var power_serial: int = 0
 var ability_end_tick: int = 0
 var cooldown_end_tick: int = 0
-## Where the power stands in the world while it has a place: the shield's centre, the hologram's pose.
-var has_anchor: bool = false
+## Where the power stands in the world: the entity's pose while out, else its placed anchor; zero for none.
 var anchor_position: Vector3 = Vector3.ZERO
 var anchor_yaw: float = 0.0
 ## The anchor's speed between the two worlds a blend drew it from, m/s; never on the wire.
@@ -77,10 +80,12 @@ func clear() -> void:
 	placed_counter = 0
 	health = 0
 	ability = 0
-	decoy_alive = false
+	power_active = false
+	power_out = false
+	power_cooking = false
+	power_serial = 0
 	ability_end_tick = 0
 	cooldown_end_tick = 0
-	has_anchor = false
 	anchor_position = Vector3.ZERO
 	anchor_yaw = 0.0
 	anchor_velocity = Vector3.ZERO
@@ -112,10 +117,12 @@ func copy_from(other: PlayerState) -> void:
 	placed_counter = other.placed_counter
 	health = other.health
 	ability = other.ability
-	decoy_alive = other.decoy_alive
+	power_active = other.power_active
+	power_out = other.power_out
+	power_cooking = other.power_cooking
+	power_serial = other.power_serial
 	ability_end_tick = other.ability_end_tick
 	cooldown_end_tick = other.cooldown_end_tick
-	has_anchor = other.has_anchor
 	anchor_position = other.anchor_position
 	anchor_yaw = other.anchor_yaw
 	anchor_velocity = other.anchor_velocity
@@ -158,7 +165,10 @@ func interpolate_from(from: PlayerState, to: PlayerState, weight: float) -> void
 	yaw = lerp_angle(from.yaw, to.yaw, t)
 	pitch = lerp_angle(from.pitch, to.pitch, t)
 	anchor_velocity = Vector3.ZERO
-	if from.has_anchor and to.has_anchor and from.ability == to.ability:
+	if t < 1.0:
+		# A power's facts are the snapshot's at or before the playout clock (DESIGN 5).
+		_take_power(from)
+	if same_anchor(from, to):
 		anchor_position = from.anchor_position.lerp(to.anchor_position, t)
 		anchor_yaw = lerp_angle(from.anchor_yaw, to.anchor_yaw, t)
 		var ticks: int = NetCodec.tick_delta(from.tick, to.tick)
@@ -167,6 +177,26 @@ func interpolate_from(from: PlayerState, to: PlayerState, weight: float) -> void
 	if t < 0.5:
 		tick = from.tick
 		on_floor = from.on_floor
+
+
+func _take_power(other: PlayerState) -> void:
+	ability = other.ability
+	power_active = other.power_active
+	power_out = other.power_out
+	power_cooking = other.power_cooking
+	power_serial = other.power_serial
+	ability_end_tick = other.ability_end_tick
+	cooldown_end_tick = other.cooldown_end_tick
+	anchor_position = other.anchor_position
+	anchor_yaw = other.anchor_yaw
+
+
+## True when [param a] and [param b] place one activation's anchor the same way: it may slide between them.
+static func same_anchor(a: PlayerState, b: PlayerState) -> bool:
+	return (
+		a.power_active and b.power_active and a.ability == b.ability and a.power_serial == b.power_serial
+		and a.power_out == b.power_out
+	)
 
 
 ## Whether every field equals [param other]'s: records are held quantised, so this is the wire's equality.

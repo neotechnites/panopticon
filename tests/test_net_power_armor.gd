@@ -148,7 +148,7 @@ func test_twenty_lock_hologram_lock_cycles_on_a_bad_line_end_clean() -> void:
 	assert_eq_int(_shells_anywhere(), 0, "shells left on any machine after the cycles")
 	for links: Array[PlayerNetLink] in [host_links, a_links, b_links]:
 		assert_false(body_of(links, A_SEAT).is_movement_locked(), "the cycles left a copy of A held")
-		assert_null(power_of(links, A_SEAT).get_decoy(), "the cycles left a hologram standing")
+		assert_null(power_of(links, A_SEAT).get_hologram(), "the cycles left a hologram standing")
 
 
 ## Press [param which] (held, for the lock; NONE lets go) and count what the host starts meanwhile.

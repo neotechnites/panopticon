@@ -563,7 +563,7 @@ func _on_event(type: NetEvents.Type, payload: PackedByteArray, _tick: int) -> vo
 		NetEvents.Type.SHOVE_KICK:
 			controller.net_shove_felt(NetCodec.event_unit(payload, 0))
 		NetEvents.Type.CAT_BLAST:
-			HubCat.blast_in(get_parent(), NetCodec.event_point(payload, 1))
+			CatView.play_blast(get_parent(), NetCodec.event_point(payload, 1))
 
 
 ## The other machines whose copy of this scene stands; who a prop in it may send to.

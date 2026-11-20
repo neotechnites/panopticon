@@ -184,15 +184,21 @@ func cats(machine: int) -> Array[HubCat]:
 	return found
 
 
-## The node that draws power cats on [param machine], or null where the build has none per machine.
-func relay(machine: int) -> Node:
-	return sessions[machine].get_parent().get_node_or_null("CatGrenadeRelay")
-
-
 ## The host's live power cat for [param seat], or null.
 func grenade(seat: int) -> CatGrenade:
-	var held: Variant = power(HOST, seat).get("_cat")
-	return held as CatGrenade if is_instance_valid(held) else null
+	return power(HOST, seat).get_cat()
+
+
+## The power cats [param machine] draws, one per seat that has one out, carried or thrown.
+func cat_views(machine: int) -> Array[CatView]:
+	var views: Array[CatView] = []
+	if hubs[machine] == null:
+		return views
+	for seat: int in 3:
+		var seat_power: RunnerPower = power(machine, seat) if body(machine, seat) != null else null
+		if seat_power != null and seat_power.get_cat_view() != null:
+			views.append(seat_power.get_cat_view())
+	return views
 
 
 ## What each machine has for [param seat]'s power: the authority's truth, then what A and B draw.
@@ -274,10 +280,7 @@ func freeze(machine: int, ms: float) -> void:
 
 ## A presses 5, facing the middle of the hub, and each machine draws [param seen] cats. The
 ## host's live cat, or null after failing.
-func hold_power_cat(seen: Array[int] = [0, 1, 1]) -> CatGrenade:
-	if relay(HOST) == null or relay(A) == null or relay(B) == null:
-		fail("no cat relay beside each machine's session (API absent)")
-		return null
+func hold_power_cat(seen: Array[int] = [1, 1, 1]) -> CatGrenade:
 	var at: Vector3 = body(HOST, A).global_position
 	var yaw: float = yaw_towards(Vector3(-at.x, 0.0, -at.z).normalized())
 	if not assert_true(await stand(A, at, yaw), "A faces the middle of the hub on the host and on A"):
@@ -293,18 +296,20 @@ func hold_power_cat(seen: Array[int] = [0, 1, 1]) -> CatGrenade:
 	return grenade(A)
 
 
-## How many power cats each machine draws through its relay.
+## How many power cats each machine draws.
 func cats_drawn() -> Array[int]:
 	var seen: Array[int] = []
 	for machine: int in 3:
-		var shown: Dictionary = relay(machine).get("_shown")
-		seen.append(shown.size())
+		seen.append(cat_views(machine).size())
 	return seen
 
 
-## The power cat [param machine] offers its own player the pet for, 0 for none.
+## 1 while [param machine] offers its own player the pet for a power cat, else 0.
 func pet_offer(machine: int) -> int:
-	return int(relay(machine).get("_held_id"))
+	for view: CatView in cat_views(machine):
+		if view.is_petting():
+			return 1
+	return 0
 
 
 ## True while [param machine] offers its own player the pet for the hub cat.

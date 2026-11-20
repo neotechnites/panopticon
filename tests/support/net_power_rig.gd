@@ -51,6 +51,8 @@ func before_each() -> void:
 	wires.clear()
 	for session: NetSession in [host, a]:
 		session.connection_state_changed.connect(_wrap.bind(session))
+	for session: NetSession in [a, b]:
+		session.replicator.event_received.connect(_present_event.bind(session))
 
 
 ## Every machine reads its socket once a tick, whatever the frame rate: the engine polls on
@@ -75,8 +77,8 @@ func after_each() -> void:
 
 
 ## Connect all three, build the bodies and arm every power. [param loss] and [param delay_ms]
-## condition A's sends and the host's. False after failing loudly.
-func stand_up(loss: float = 0.0, delay_ms: int = 0) -> bool:
+## condition A's sends and the host's; B stands only at [method stand_late] when [param b_late].
+func stand_up(loss: float = 0.0, delay_ms: int = 0, b_late: bool = false) -> bool:
 	var port: int = await NetFixtures.host_and_wait(self, host)
 	if port < 0:
 		fail("the host could not take a port")
@@ -89,7 +91,10 @@ func stand_up(loss: float = 0.0, delay_ms: int = 0) -> bool:
 		a_wire = _condition(a, loss, 11, delay_ms)
 		host_wire = _condition(host, loss, 7, delay_ms)
 	# The host sends snapshots only to machines standing in its epoch.
-	if not await NetFixtures.stand(self, host, [a, b]):
+	var standing: Array[NetSession] = [a]
+	if not b_late:
+		standing.append(b)
+	if not await NetFixtures.stand(self, host, standing):
 		fail("the clients never stood in the host's epoch")
 		return false
 	var a_id: int = a.get_local_peer_id()
@@ -126,6 +131,11 @@ func stand_up(loss: float = 0.0, delay_ms: int = 0) -> bool:
 	if not placed:
 		fail("client A's body was never placed by a snapshot")
 	return placed
+
+
+## B stands in the host's epoch now, and is sent the world from then on.
+func stand_late() -> bool:
+	return await NetFixtures.stand(self, host, [b])
 
 
 func power_of(links: Array[PlayerNetLink], seat: int) -> RunnerPower:
@@ -194,6 +204,12 @@ func _wrap(_state: NetTransport.ConnectionState, session: NetSession) -> void:
 	if real.get_connection_status() == MultiplayerPeer.CONNECTION_DISCONNECTED:
 		return
 	wires.wrap(session)
+
+
+## A client's cat blast, drawn as [NetMatch] draws it in a scene: the rig has no scene of its own.
+func _present_event(type: NetEvents.Type, payload: PackedByteArray, _tick: int, session: NetSession) -> void:
+	if type == NetEvents.Type.CAT_BLAST:
+		CatView.play_blast(session.get_parent(), NetCodec.event_point(payload, 1))
 
 
 func _give_keys(link: PlayerNetLink) -> PressSource:

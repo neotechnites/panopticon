@@ -548,7 +548,7 @@ func _watch_bodies() -> void:
 		_note("power" + seat, str(shown), "POWER seat=%s ability=%d left=%.1f immune=%d camo=%d shield=%d decoy=%d cool=%.1f" % [
 			seat, shown, power.get_remaining() if power != null else 0.0,
 			int(power != null and power.is_hit_immune()), int(power != null and power.is_camouflaged()),
-			int(power != null and power.get_shield() != null), int(power != null and power.get_decoy() != null),
+			int(power != null and power.get_shield() != null), int(power != null and power.get_hologram() != null),
 			power.get_cooldown_remaining() if power != null else 0.0])
 		var emote: int = (2 if p.body.is_emote_alt() else 1) if p.body.is_emoting() else 0
 		_note("emote" + seat, str(emote), "EMOTE seat=%s on=%d alt=%d" % [seat, int(emote > 0), int(emote == 2)])
@@ -558,12 +558,14 @@ func _watch_bodies() -> void:
 		if avatar != null and avatar._ragdoll != null:
 			var rag: int = (1 if avatar._ragdoll.is_active() else 0) + (2 if avatar._ragdoll.is_flopping() else 0)
 			_note("rag" + seat, str(rag), "RAG seat=%s active=%d flop=%d" % [seat, rag & 1, rag >> 1])
+		if power != null and power.get_cat_view() != null:
+			cats += 1
 		if session.is_authority() and power != null:
-			var cat: CatGrenade = power._cat
-			if is_instance_valid(cat):
-				cats += 1
-				_cats_seen[p.index] = [cat.cooking, cat.fuse_left]
-				_note("cat" + seat, str(cat.cooking), "CATHOST seat=%s held=1 cooking=%d fuse=%.2f" % [seat, int(cat.cooking), cat.fuse_left])
+			var cat: CatGrenade = power.get_cat()
+			if cat != null:
+				_cats_seen[p.index] = [power.state.cooking, power.state.remaining]
+				_note("cat" + seat, str(power.state.cooking), "CATHOST seat=%s held=1 cooking=%d fuse=%.2f" % [
+					seat, int(power.state.cooking), power.state.remaining])
 			elif _seen.get("cat" + seat, "gone") != "gone":
 				var last: Array = _cats_seen.get(p.index, [false, 0.0])
 				_note("cat" + seat, "gone", "CATHOST seat=%s held=0 was_cooking=%d fuse_was=%.2f" % [seat, int(last[0]), float(last[1])])
@@ -574,9 +576,6 @@ func _watch_bodies() -> void:
 		link.controller.launched.connect(func(velocity_vector: Vector3) -> void:
 			line("KNOCK seat=%s local=1 after=%d frame=%d speed=%.1f" % [_seat_of_body(link.controller),
 				session.replicator.outbox.next_seq() - 1, Engine.get_physics_frames(), velocity_vector.length()]))
-	if not session.is_authority():
-		var relay: CatGrenadeRelay = CatGrenadeRelay.of(session)
-		cats = relay._shown.size() if relay != null else 0
 	_note("cats", str(cats), "CATS drawn=%d" % cats)
 
 
