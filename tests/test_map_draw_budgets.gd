@@ -233,6 +233,12 @@ const DRAW_BUDGETS: Dictionary = {
 		"tris": 172354, "surfaces": 54, "materials": 51,
 		"transparent_tris": 32778, "lights": 2, "shadow_casters": 1,
 	},
+	# Map 6, the aspens (2026-11-25, first pass): counted off the built glbs and the scene (tris 374453,
+	# surfaces 27, materials 15, lights 2) + 20 %, not yet measured on this suite; casters exact.
+	"aspens": {
+		"tris": 449344, "surfaces": 33, "materials": 18,
+		"transparent_tris": 0, "lights": 3, "shadow_casters": 1,
+	},
 }
 
 ## The keys every row carries, in the order the [code]BUDGET[/code] line prints

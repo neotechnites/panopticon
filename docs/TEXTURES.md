@@ -125,6 +125,15 @@ slice is placed nearest-upscaled (chunkier, same UVs and density), each locked t
 | beach_road_albedo | pale paving setts | the island road, the hotel's pool deck |
 | beach_hull_albedo, beach_glass_albedo, beach_teak_albedo | white gelcoat, blue tinted glass, teak planks | the yacht; teak also the loungers and the tiki bar's counter |
 
+### Aspens: `maps/aspens/textures/` (`aspens.ase`), placeholders for Ryan to replace
+
+| Texture | Looks like | Worn by |
+|---|---|---|
+| aspens_grass_albedo | olive grass, upright blades, dry yellow tufts | the ground (vertex colour turns patches green) |
+| aspens_bark_albedo | white bark, thin dark scars, black knots (32 px wide: one turn of a trunk) | trunks, limbs, the stump's side |
+| aspens_leaf_albedo | round yellow leaves in four tones | every leaf mass |
+| aspens_wood_albedo | pale growth rings and radial checks, a 128 px tile | the stump's cut face |
+
 ### Hub: `hub/textures/` (`hub.ase`)
 
 | Texture | Looks like | Worn by |

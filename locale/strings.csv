@@ -43,7 +43,7 @@ DEBUG_TOWER_BOT,Bot,[Böt ~~~~]
 DEBUG_BOTS,Bots,[Böts ~~~~]
 DEBUG_BOTS_RELAUNCH,Relaunch with these seats,[Rélääünch wïth thésé séäts ~~~~~~]
 DEBUG_SECTION_SEATS,Seats,[Séäts ~~]
-DEBUG_SEAT,"Seat {n}: {name}","[Séät {n}: {name} ~~~]"
+DEBUG_SEAT,Seat {n}: {name},[Séät {n}: {name} ~~~]
 DEBUG_SEAT_HUMAN,Player,[Pläýér ~~]
 DEBUG_SEAT_BOT,Bot,[Böt ~]
 DEBUG_OPENING_TOWER,Opens in the tower,[Öpéns ïn thé töwér ~~~~]
@@ -422,6 +422,7 @@ MAP_MARBLE_SUMMARY,"One closed rotunda of sand-green stone under a solid dome. T
 MAP_FOREST_SUMMARY,"A clearing under a closed canopy. One grass lane round a ravine with water at the bottom, a wall of leaves you cannot see through with cells cut into it, and a great tree in the middle: the guard sits on top of it. The sun comes through the canopy from one side.","[Å cléärïng ündér ä clöséd cänöpý. Öné gräss läné röünd ä rävïné wïth wätér ät thé böttöm, ä wäll öf léävés ýöü cännöt séé thröügh wïth célls cüt ïntö ït, änd ä gréät tréé ïn thé mïddlé: thé güärd sïts ön töp öf ït. Thé sün cömés thröügh thé cänöpý fröm öné sïdé. ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]"
 MAP_ICE_SUMMARY,"A cavern of blue ice. One lane of lake ice round a crevassed pit, tiers of ice-barred cells cut into the walls, and a scalloped ice roof with cold daylight coming through it. A tower of ice stands in the middle: the guard keeps its chamber.","[Å cävérn öf blüé ïcé. Öné läné öf läké ïcé röünd ä crévässéd pït, tïérs öf ïcé-bärréd célls cüt ïntö thé wälls, änd ä scällöpéd ïcé rööf wïth cöld däýlïght cömïng thröügh ït. Å töwér öf ïcé ständs ïn thé mïddlé: thé güärd kééps ïts chämbér. ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]"
 MAP_BEACH_SUMMARY,"A sunny bay. One sand lane from the tip of one jetty, along the beach and out to the tip of the other, with a low rock wall and the island's palms and hills behind it. Off the sand, teal shallows drop to deep water. The guard keeps the deck of a yacht anchored in the middle.","[Å sünný bäý. Öné sänd läné fröm thé tïp öf öné jéttý, älöng thé béäch änd öüt tö thé tïp öf thé öthér, wïth ä löw röck wäll änd thé ïsländ's pälms änd hïlls béhïnd ït. Öff thé sänd, téäl shällöws dröp tö déép wätér. Thé güärd kééps thé déck öf ä ýächt änchöréd ïn thé mïddlé. ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]"
+MAP_ASPENS_SUMMARY,"A grove of fall aspens under open sky: white trunks, yellow leaves, grass. No lane and no cells. The guard stands on a tree stump in the middle.","[Å grövé öf fäll äspéns ündér öpén ský: whïté trünks, ýéllöw léävés, gräss. Nö läné änd nö célls. Thé güärd ständs ön ä tréé stümp ïn thé mïddlé. ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]"
 DEBUG_SECTION_MANNEQUIN,Mannequins,[Männéqüïns ~~~~]
 DEBUG_MQ_COUNT,{count} in the hub. Each is a real body: shove or shoot it yourself too.,[{count} ïn thé hüb. Éäch ïs ä réäl bödý: shövé ör shööt ït ýöürsélf töö. ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]
 DEBUG_MQ_SPAWN,Spawn mannequin,[Späwn männéqüïn ~~~~]

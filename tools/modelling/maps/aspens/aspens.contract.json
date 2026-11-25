@@ -1,0 +1,9 @@
+{
+  "_comment": "aspens: Map 6 first pass, one sculpt exported as 14 chunks (aspens_build.py writes aspens.chunks.json, which carries each chunk's own node_paths): aspens_ground.glb (AspensGround), aspens_stump.glb (AspensStump), aspens_near0..7.glb (AspensNear0..7), aspens_far0..3.glb (AspensFar0..3). Each chunk ships its own -colonly collider. World coordinates, instanced at identity. Notes in docs/maps/aspens.md.",
+  "node_paths": [
+    "AspensGround",
+    "AspensGroundCollision",
+    "AspensGroundCollision/CollisionShape3D"
+  ],
+  "max_tris": 60000
+}
