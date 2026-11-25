@@ -27,10 +27,10 @@ const DEFS: Array[PowerDef] = [
 	preload("res://match/powers/cat_grenade.tres"),
 ]
 
-## The local player's held power with no session seat to keep it: kept across scenes, as the hub's statics are.
+## This machine's player's pick: kept across scenes, carried into a session's seat, and the seat's while in one.
 static var solo_held: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE
-## Seeds the bots' picks off a session; once per run.
-static var solo_power_seed: int = randi()
+## Seeds the bots' picks; once per run.
+static var bot_seed: int = randi()
 
 ## Power [param which] stopped: "expired", "released", "unheld" (a starved command let the key go),
 ## "spent" or "cancelled".
@@ -106,9 +106,9 @@ static func duration_of(which: int) -> float:
 	return DEFS[which].duration_seconds
 
 
-## A bot's held power: a pick by [param index] and [param pick_seed], never NONE, so bots differ.
-static func bot_pick(index: int, pick_seed: int) -> MatchRules.RunnerAbility:
-	return (1 + posmod(hash([pick_seed, index]), DEFS.size() - 1)) as MatchRules.RunnerAbility
+## A bot's held power: a pick by [param index] and [member bot_seed], never NONE, so bots differ.
+static func bot_pick(index: int) -> MatchRules.RunnerAbility:
+	return (1 + posmod(hash([bot_seed, index]), DEFS.size() - 1)) as MatchRules.RunnerAbility
 
 
 ## [param seconds] as whole commands: a power's clocks count commands, one a host tick.
@@ -254,8 +254,9 @@ func refusal() -> StringName:
 	return &""
 
 
-## The deciding machine: hold [param which] from now, the old one stopped and nothing cooling.
-func take_power(which: MatchRules.RunnerAbility) -> void:
+## Hold [param which] from now, the old one stopped and nothing cooling: the one way [member held] changes,
+## the same on every machine, from the seat's word (or the solo pick off a session).
+func apply_held(which: MatchRules.RunnerAbility) -> void:
 	if which == held:
 		return
 	cancel()

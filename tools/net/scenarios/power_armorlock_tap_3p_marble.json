@@ -14,11 +14,11 @@
  },
  "host": {
   "keys": "q@6/6",
-  "ability": 3
+  "ability": "3,4"
  },
  "peer": {
   "1": {
-   "keys": "q@8/6"
+   "keys": "q@9/11"
   },
   "2": {
    "aim": false,

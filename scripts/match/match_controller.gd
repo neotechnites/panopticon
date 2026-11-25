@@ -1074,9 +1074,7 @@ func _place_in_hub(participant: MatchParticipant, index: int, spawns: Array[Mark
 	body.is_armed = false
 	# Null: the hub is nobody's round, so the prisoner pace levers come off.
 	_apply_runner_multipliers(body, null)
-	var ability: RunnerPower = RunnerPower.of(body)
-	if ability != null:
-		ability.arm(get_rules() if hub_powers else null, self)
+	_arm_power(participant, hub_powers)
 	_tint_body(participant, participant.home_body_material)
 	_hold_body(participant)
 	if not spawns.is_empty():
@@ -1188,10 +1186,8 @@ func _place_in_brawl(participant: MatchParticipant, index: int, count: int) -> v
 	_unmake_ghost(participant)
 	_tint_body(participant, participant.home_body_material)
 	_hold_body(participant)
-	var ability: RunnerPower = RunnerPower.of(body)
-	if ability != null:
-		# Only the shove: no rules, no power.
-		ability.arm(null, self)
+	# Only the shove: no power.
+	_arm_power(participant, false)
 	_quiet_for_brawl(participant)
 	participant.tracker.stop()
 	var angle: float = TAU * float(index) / float(maxi(count, 1))
@@ -2271,9 +2267,7 @@ func convert_participant(participant: MatchParticipant) -> bool:
 
 	participant.is_running = false
 	participant.lives = 0
-	var ability: RunnerPower = RunnerPower.of(participant.body)
-	if ability != null:
-		ability.cancel()
+	_arm_power(participant, false)
 	if get_rules().has_ghosts():
 		_make_ghost(participant)
 	else:
@@ -2817,6 +2811,7 @@ func _make_ghost(participant: MatchParticipant) -> void:
 	participant.is_ghost = true
 	participant.is_shooter = false
 	participant.is_running = false
+	_arm_power(participant, false)
 	participant.ghost_grace_remaining = maxf(profile.catch_grace_seconds, 0.0)
 	body.died.emit()
 
@@ -3057,6 +3052,7 @@ func _start_running_in_place(
 	participant.is_running = true
 	participant.lives = maxi(active.prisoner_lives, 1)
 	_apply_runner_multipliers(body, active)
+	_arm_power(participant, true)
 
 	body.add_to_group(RUNNER_GROUP)
 	# One route, so the carried arc and the arc it is now measured against are
@@ -3292,6 +3288,10 @@ func _build_participants() -> void:
 		participant.index = index
 		if participant.brain != null:
 			participant.brain.seat_index = index
+		if participant.kind == MatchParticipant.Kind.AI and not _mirror and participant.body != null \
+				and participant.body.power != null and participant.body.power.held == MatchRules.RunnerAbility.NONE:
+			# A bot picks as a player does, by the deciding machine, where its seat has none.
+			give_power(participant, RunnerPower.bot_pick(participant.seat if participant.seat >= 0 else index))
 		if participant.body != null:
 			_participant_by_body_id[participant.body.get_instance_id()] = participant
 			_assign_runner_color(participant)
@@ -3334,7 +3334,8 @@ func _step_command(command: MoveIntent, swung: bool, authority: bool, body: Play
 	var decides: bool = authority and not _refuses_local_decision()
 	if decides and swung:
 		_resolve_shove(participant)
-	if decides and command.cook_pressed and _phase == Phase.HUB:
+	if decides and command.cook_pressed and _phase == Phase.HUB and body.power != null and body.power.rules != null:
+		# Only an armed body picks: a living runner where powers are on (see _arm_power).
 		var stand: PowerStand = PowerStand.in_reach(body)
 		if stand != null:
 			give_power(participant, stand.power)
@@ -3342,16 +3343,28 @@ func _step_command(command: MoveIntent, swung: bool, authority: bool, body: Play
 		_step_rifle(command, participant, not decides)
 
 
-## The deciding machine: [param participant] holds [param which] from now. A participant with no
-## seat (no session) keeps it in [member RunnerPower.solo_held]; a seat's is the lobby's.
+## The deciding machine picks [param which] for [param participant]. A seat keeps it and the roster
+## applies it everywhere ([signal power_taken]); with no seat it applies here, the player's kept as theirs.
 func give_power(participant: MatchParticipant, which: MatchRules.RunnerAbility) -> void:
 	var power: RunnerPower = RunnerPower.of(participant.body)
 	if power == null or power.held == which:
 		return
-	power.take_power(which)
-	if participant.seat < 0 and participant.is_human():
+	if participant.seat >= 0:
+		power_taken.emit(participant, which)
+		return
+	if participant.is_human():
 		RunnerPower.solo_held = which
-	power_taken.emit(participant, which)
+	power.apply_held(which)
+
+
+## Arm [param participant]'s power by its role, the one place a power is armed: a living runner where
+## [param powers] holds, and disarmed otherwise (the guard, a ghost, the brawl, the dead).
+func _arm_power(participant: MatchParticipant, powers: bool) -> void:
+	var power: RunnerPower = RunnerPower.of(participant.body)
+	if power == null:
+		return
+	var runner: bool = participant.is_running and not participant.is_ghost and not participant.is_shooter
+	power.arm(get_rules() if powers and runner else null, self)
 
 
 ## One command of the rifle's holder: a person's trigger is their commands' (a bot's [TowerShooter]
@@ -3399,7 +3412,7 @@ func _make_human_participant() -> MatchParticipant:
 	participant.home_collision_mask = player.collision_mask
 	_watch_laps(participant, player)
 	if player.power != null:
-		player.power.held = RunnerPower.solo_held
+		player.power.apply_held(RunnerPower.solo_held)
 	return participant
 
 
@@ -3444,8 +3457,6 @@ func _make_ai_participant(slot: int) -> MatchParticipant:
 	participant.home_collision_layer = body.collision_layer
 	participant.home_collision_mask = body.collision_mask
 	_watch_laps(participant, body)
-	if body.power != null:
-		body.power.held = RunnerPower.bot_pick(slot, RunnerPower.solo_power_seed)
 	return participant
 
 
@@ -3646,9 +3657,7 @@ func _place_on_track(participant: MatchParticipant, start_point: Vector3) -> voi
 	# ghost and is still wearing the guard colour from _place_in_tower.
 	_tint_body(participant, participant.home_body_material)
 	_hold_body(participant)
-	var ability: RunnerPower = RunnerPower.of(body)
-	if ability != null:
-		ability.arm(active, self)
+	_arm_power(participant, true)
 	# A body on the track runs; it does not play the tower. The outgoing shooter
 	# arrives here on every seat change with its tower brain still loaded.
 	_silence_tower_brain(participant)
@@ -3687,6 +3696,7 @@ func _place_in_tower(participant: MatchParticipant) -> void:
 	# A ghost can take the tower: they were a prisoner when the seat changed
 	# hands, and the round restarts around them like anybody else.
 	_unmake_ghost(participant)
+	_arm_power(participant, false)
 	# The guard keeps the shirt colour they wore as a runner.
 	_tint_body(participant, _runner_material_for(participant))
 	_hold_body(participant)

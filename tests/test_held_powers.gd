@@ -10,6 +10,7 @@ const ARMOR: int = MatchRules.RunnerAbility.ARMOR_LOCK
 const CAMO: int = MatchRules.RunnerAbility.ACTIVE_CAMO
 const CAT: int = MatchRules.RunnerAbility.CAT_GRENADE
 const HUB_SCENE_PATH: String = "res://hub/hub.tscn"
+const STAND_SCENE_PATH: String = "res://hub/props/power_stand/power_stand.tscn"
 
 
 ## The shipped match scene, without its music: a player still streaming at exit is a leaked resource.
@@ -59,15 +60,16 @@ func test_a_power_runs_its_own_time_then_cools_its_own_time_scaled_by_the_lever(
 		power.cancel()
 		power.state.cooldown_ticks = 0
 		assert_true(TestFixtures.fire(power, which), "power %d starts" % which)
-		assert_eq_int(power.state.remaining_ticks, RunnerPower.ticks_of(RunnerPower.duration_of(which)), "power %d runs its own length" % which)
 		assert_almost_eq(power.get_active_fraction(), 1.0, 1e-4, "the readout starts whole")
+		var run: float = RunnerPower.def(which).duration_seconds
+		await step_seconds(run - 0.5)
+		assert_true(power.is_active(), "power %d still runs half a second before its own %.0f s" % [which, run])
 		assert_eq_int(power.state.cooldown_ticks, 0, "no cooldown while it runs")
-		power.state.remaining_ticks = 1
-		await step_ticks(3)
-		assert_false(power.is_active(), "power %d ran out" % which)
+		await step_seconds(1.0)
+		assert_false(power.is_active(), "power %d is over half a second after" % which)
 		var cooling: int = RunnerPower.ticks_of(RunnerPower.def(which).cooldown_seconds * 0.5)
-		assert_between(float(power.state.cooldown_ticks), float(cooling - 3), float(cooling), "power %d cools its own time, halved" % which)
-		assert_between(power.get_cooldown_fraction(), 0.9, 1.0, "the readout's wait starts whole")
+		assert_between(float(power.state.cooldown_ticks), float(cooling - 40), float(cooling), "power %d cools its own time, halved" % which)
+		assert_gt(power.get_cooldown_fraction(), 0.8, "the readout's wait starts near whole")
 		assert_eq_string(String(power.refusal()), "cooldown", "and refuses a press until it has cooled")
 
 
@@ -135,3 +137,37 @@ func test_a_hub_stand_gives_its_power_and_the_next_match_keeps_it() -> void:
 	await step_ticks(5)
 	var next: MatchController = scene.get_node("MatchController") as MatchController
 	assert_eq_int(int(RunnerPower.of(next.get_human_participant().body).get_held()), CAT, "the next match's player holds the cat")
+
+
+func test_the_guard_and_a_ghost_cannot_fire_or_hold_an_armed_power() -> void:
+	var rules: MatchRules = TestFixtures.match_rules()
+	rules.ghost_behaviour = MatchRules.GhostBehaviour.CATCH_AND_SWAP
+	var body: PlayerController = await _running_body(rules)
+	var controller: MatchController = body.get_parent().get_node("MatchController") as MatchController
+	var guard: MatchParticipant = controller.get_participants()[1]
+	assert_true(guard.is_shooter, "the AI holds the tower")
+	var guard_power: RunnerPower = RunnerPower.of(guard.body)
+	assert_null(guard_power.rules, "the guard's power is disarmed")
+	assert_false(TestFixtures.fire(guard_power, SHIELD), "and the guard cannot fire one")
+	var me: MatchParticipant = controller.get_participants()[0]
+	var mine: RunnerPower = RunnerPower.of(body)
+	assert_not_null(mine.rules, "the living runner is armed")
+	assert_true(controller.convert_participant(me), "the runner is shot")
+	assert_true(me.is_ghost, "and is a ghost")
+	assert_null(mine.rules, "a ghost's power is disarmed")
+	assert_false(TestFixtures.fire(mine, SHIELD), "and a ghost cannot fire one")
+
+
+func test_no_stand_gives_a_power_outside_the_hub() -> void:
+	var body: PlayerController = await _running_body(TestFixtures.match_rules())
+	var stand: PowerStand = (load(STAND_SCENE_PATH) as PackedScene).instantiate() as PowerStand
+	stand.power = CAT
+	body.get_parent().add_child(stand)
+	stand.global_position = body.global_position + Vector3(1.0, 0.0, 0.0)
+	var keys: BotIntentSource = body.intent_source as BotIntentSource
+	keys.command.cook_pressed = true
+	await step_ticks(1)
+	keys.command.cook_pressed = false
+	await step_ticks(2)
+	assert_eq_int(int(RunnerPower.of(body).get_held()), NONE, "a stand in a round gives nothing")
+	assert_eq_int(int(RunnerPower.solo_held), NONE, "and the player's pick is untouched")

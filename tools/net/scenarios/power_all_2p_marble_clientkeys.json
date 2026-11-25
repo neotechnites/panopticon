@@ -17,11 +17,11 @@
   "fire-every": 0,
   "press-fire": 0,
   "keys": "",
-  "ability": 4
+  "ability": "3,5"
  },
  "peer": {
   "1": {
-   "keys": "q@7+2,f@>1.2,q@22,n@39+2,b@44+2,q@52"
+   "keys": "q@7,e@>1,b@16+2,n@21+2,q@30,f@>1.2,q@48,e@>1"
   }
  },
  "expect": {

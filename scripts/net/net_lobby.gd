@@ -128,6 +128,8 @@ var build_fingerprint: int = wire_fingerprint()
 
 ## The name this machine asks to be seated under when it joins; set before [method NetSession.join].
 var local_name: String = ""
+## The power it asks to be seated holding; -1 is the player's own pick, [member RunnerPower.solo_held].
+var local_power: int = -1
 
 var _phase: Phase = Phase.IDLE
 
@@ -148,8 +150,8 @@ var _epoch: int = 0
 ## [method conclude_match] for why the lobby keeps so little of a result.
 var _last_winning_seat: int = -1
 
-## Seeds the bots' power picks for this lobby.
-var _power_seed: int = 0
+## The pick each asking peer brought with it, adopted by its seat.
+var _asked_power: Dictionary[int, int] = {}
 
 ## Authority: the name each connected peer asked to join under. A peer absent here has not asked.
 var _asked: Dictionary[int, String] = {}
@@ -337,7 +339,6 @@ func open(local_display_name: String) -> bool:
 		return false
 	_reset_seats()
 	_bump_epoch()
-	_power_seed = randi()
 
 	var host_seat: LobbySeat = seats[0]
 	host_seat.occupancy = LobbySeat.Occupancy.HUMAN
@@ -355,6 +356,7 @@ func open(local_display_name: String) -> bool:
 			var seat: LobbySeat = _seat_peer(peer_id)
 			if seat != null:
 				seat.display_name = _clean(_asked[peer_id])
+				seat.power = _asked_power.get(peer_id, 0)
 
 	_set_phase(Phase.GATHERING)
 	_publish()
@@ -384,6 +386,7 @@ func set_rules(source: MatchRules) -> bool:
 func close() -> void:
 	if not session.is_established():
 		_asked.clear()
+		_asked_power.clear()
 		_pending.clear()
 	_reset_seats()
 	_local_seat_index = -1
@@ -412,7 +415,6 @@ func add_bot(display_name: String = "") -> int:
 	seat.occupancy = LobbySeat.Occupancy.BOT
 	seat.peer_id = 0
 	seat.display_name = _clean(display_name if not display_name.is_empty() else "Bot %d" % (seat.index + 1))
-	seat.power = RunnerPower.bot_pick(seat.index, _power_seed)
 	# Bots are ready the moment they exist. See set_ready().
 	seat.is_ready = true
 	seat_occupancy_changed.emit(seat.index, seat.occupancy)
@@ -432,7 +434,6 @@ func set_bot(seat_index: int, on: bool) -> bool:
 	seat.occupancy = LobbySeat.Occupancy.BOT
 	seat.peer_id = 0
 	seat.display_name = _clean("Bot %d" % (seat_index + 1))
-	seat.power = RunnerPower.bot_pick(seat_index, _power_seed)
 	seat.is_ready = true
 	seat_occupancy_changed.emit(seat_index, seat.occupancy)
 	_publish()
@@ -671,7 +672,8 @@ func _on_peer_joined(peer_id: int) -> void:
 ## A client says who it is the moment it is connected; the host seats nobody it has not heard from.
 func _on_session_established() -> void:
 	if not _is_authority():
-		rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_request_join", build_fingerprint, _clean(local_name))
+		rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_request_join", build_fingerprint, _clean(local_name),
+				local_power if local_power >= 0 else int(RunnerPower.solo_held))
 
 
 ## One number for what two builds must share to play together: wire sizes, rule fields and maps.
@@ -685,6 +687,10 @@ static func wire_fingerprint() -> int:
 		str(MoveIntent.BUTTON_MASK),
 	])
 	parts.append_array(NetCodec.rules_field_names(MatchRules.new()))
+	# Both ends predict the same powers: their timing is part of the game they speak.
+	for definition: PowerDef in RunnerPower.DEFS:
+		parts.append("%d/%s/%s/%d" % [definition.clock, definition.duration_seconds, definition.cooldown_seconds,
+				int(definition.ends_on_release)])
 	for map: MapDefinition in MapCatalog.all():
 		if map != null:
 			parts.append(String(map.id))
@@ -692,15 +698,16 @@ static func wire_fingerprint() -> int:
 	return _fingerprint
 
 
-## A connected peer asks for a seat: its build's fingerprint and the name it wants.
+## A connected peer asks for a seat: its build's fingerprint, the name it wants and the power it holds.
 @rpc("any_peer", "reliable", "call_remote", 0)
-func _request_join(fingerprint: int, display_name: String) -> void:
+func _request_join(fingerprint: int, display_name: String, power: int) -> void:
 	var peer_id: int = multiplayer.get_remote_sender_id()
 	if not _is_authority() or peer_id == NetTransport.AUTHORITY_PEER_ID:
 		return
 	if not session.has_peer(peer_id) or _asked.has(peer_id):
 		return
 	_asked[peer_id] = display_name.substr(0, MAX_RAW_NAME_LENGTH)
+	_asked_power[peer_id] = power if power >= 0 and power < MatchRules.RunnerAbility.size() else 0
 	_pending[peer_id] = PeerState.ASKED
 	if fingerprint != build_fingerprint:
 		_refuse(peer_id, Refusal.VERSION)
@@ -724,6 +731,7 @@ func _admit(peer_id: int) -> void:
 	_pending.erase(peer_id)
 	if _phase == Phase.GATHERING:
 		seat.display_name = _clean(_asked.get(peer_id, ""))
+		seat.power = _asked_power.get(peer_id, 0)
 	_publish()
 	_send_rules_to(peer_id)
 
@@ -746,6 +754,7 @@ func _receive_refusal(reason: int) -> void:
 
 func _on_peer_left(peer_id: int) -> void:
 	_asked.erase(peer_id)
+	_asked_power.erase(peer_id)
 	_pending.erase(peer_id)
 	_request_tokens.erase(peer_id)
 	_request_filled_ms.erase(peer_id)
@@ -799,6 +808,7 @@ func _receive_roster(payload: PackedByteArray) -> void:
 	if phase < 0 or phase > int(Phase.POST_MATCH):
 		return
 	_relearn_local_seat()
+	_keep_local_power()
 	var previous_epoch: int = _epoch
 	_epoch = NetCodec.roster_epoch(payload)
 
@@ -1034,6 +1044,13 @@ func _relearn_local_seat() -> void:
 	_local_seat_index = -1
 
 
+## This machine's player keeps its seat's power as its own pick, for the next session or solo play.
+func _keep_local_power() -> void:
+	var seat: LobbySeat = get_local_seat()
+	if seat != null and seat.is_human():
+		RunnerPower.solo_held = seat.power as MatchRules.RunnerAbility
+
+
 func _send_rules_to(peer_id: int) -> void:
 	if _rules == null or not session.is_established():
 		return
@@ -1056,6 +1073,7 @@ func _set_phase(phase: Phase) -> void:
 func _publish() -> void:
 	if not _is_authority():
 		return
+	_keep_local_power()
 	roster_changed.emit()
 	if session.is_established() and session.get_peer_count() > 1:
 		rpc(&"_receive_roster", NetCodec.pack_roster(int(_phase), seats, _settings().max_name_bytes, _epoch))

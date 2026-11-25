@@ -47,10 +47,13 @@ func test_a_held_power_goes_from_the_hub_into_the_match_and_back() -> void:
 	if not await _rig.launch(4, 0):
 		fail("the match never started on every peer")
 		return
-	assert_true(await _rig.wait_for(func() -> bool: return _bodies_hold(want)), "every machine's match bodies hold their seat's power")
-	for seat: LobbySeat in lobby.get_occupied_seats():
-		if seat.is_bot():
-			assert_true(seat.power != NONE, "bot seat %d holds a power of its own" % seat.index)
+	var bots_picked: Callable = func() -> bool:
+		for seat: LobbySeat in lobby.get_occupied_seats():
+			if seat.is_bot() and seat.power == NONE:
+				return false
+		return true
+	assert_true(await _rig.wait_for(func() -> bool: return bots_picked.call() and _bodies_hold(want)),
+			"every bot seat picked a power, and every machine's bodies hold their seat's")
 	# A death and a round restart re-arm the body; the pick stays.
 	var host: MatchController = _rig.controller(HOST)
 	for participant: MatchParticipant in host.get_participants():

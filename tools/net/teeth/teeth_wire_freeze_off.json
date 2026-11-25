@@ -13,10 +13,11 @@
   "aim": false,
   "fire-every": 0,
   "press-fire": 0,
-  "ghosts": "false"
+  "ghosts": "false",
+  "ability": "4,2"
  },
  "client": {
-  "keys": "1@6,4@14"
+  "keys": "q@6,q@24"
  },
  "name": "teeth_wire_freeze_off",
  "peer": {

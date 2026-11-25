@@ -228,7 +228,7 @@ func _physics_process(delta: float) -> void:
 		"ability":
 			var power: RunnerPower = RunnerPower.of(_body)
 			if power != null:
-				power.held = int(step.get("slot", 2)) as MatchRules.RunnerAbility
+				power.apply_held(int(step.get("slot", 2)) as MatchRules.RunnerAbility)
 			_intent.ability_pressed = true
 			finished = true
 		"turn", "glance":

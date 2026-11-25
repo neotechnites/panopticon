@@ -16,9 +16,32 @@ from pathlib import Path
 
 OUT = Path(__file__).resolve().parent / "scenarios"
 MAPS = {"hell": "bentham_ring", "marble": "marble"}
-# Every key the game reads, in one life: the held power (each scenario's "ability") three times, shove, both emotes.
-ALL_KEYS = "q@5+2,f@>1.2,q@20,b@37+2,n@42+2,q@50"
-ALL_KEYS_LATE = "q@7+2,f@>1.2,q@22,n@39+2,b@44+2,q@52"
+# Every key the game reads, in one life, for the one power the seat holds: q three times, shove, both
+# emotes; the cat is cooked (e) and thrown (f). Spaced past each power's run and cooldown (match/powers/).
+LIFE_KEYS = {
+    1: "q@5,f@>1.2,b@14+2,n@19+2,q@34,q@64",
+    2: "q@5,f@>1.2,b@14+2,n@19+2,q@24,q@42",
+    3: "q@5+2,f@>1.2,b@14+2,n@19+2,q@24+2,q@40",
+    4: "q@5,f@>1.2,b@14+2,n@19+2,q@28,q@50",
+    5: "q@5,e@>1,b@14+2,n@19+2,q@28,f@>1.2,q@46,e@>1",
+}
+
+
+def life_keys(power: int, late: float = 0.0) -> str:
+    """[LIFE_KEYS] for [power], every absolute time [late] seconds later."""
+    def shift(step: str) -> str:
+        key, at = step.split("@")
+        if at.startswith(">"):
+            return step
+        head = at.split("+")[0].split("/")[0]
+        return f"{key}@{float(head) + late:g}{at[len(head):]}"
+    return ",".join(shift(step) for step in LIFE_KEYS[power].split(","))
+
+
+def mixed(powers: tuple[int, ...], late: float = 2.0) -> tuple[dict, dict]:
+    """Seats 0.. hold [powers], each different: the host's --ability spec and each client's own keys."""
+    peers = {str(i): {"keys": life_keys(power, late)} for i, power in enumerate(powers) if i > 0}
+    return {"keys": life_keys(powers[0]), "ability": ",".join(str(p) for p in powers)}, peers
 
 scenarios: list[dict] = []
 
@@ -60,9 +83,10 @@ hub("flow_3p_hell_marble_rounds2", 3, 760, ["flow"],
     {"maps": "bentham_ring,marble", "matches": 2, "ceiling": 330, "hub_seconds": 6, "marksman": True},
     host={"prisoners": 3, "rounds": 2},
     expect={"matches": 2, "natural_win": True, "host": ["EV round_started round=2"]})
+FLOW_HOST, FLOW_PEERS = mixed((5, 2, 3, 1))
 hub("flow_4p_hell_marble_keys", 4, 520, ["flow", "powers"],
-    {"maps": "bentham_ring,marble", "matches": 2, "ceiling": 200, "hub_seconds": 6, "keys": ALL_KEYS},
-    host={"prisoners": 4, "rounds": 1, "ability": 1},
+    {"maps": "bentham_ring,marble", "matches": 2, "ceiling": 200, "hub_seconds": 6},
+    host=dict(FLOW_HOST, prisoners=4, rounds=1), peer=FLOW_PEERS,
     expect={"matches": 2})
 
 # --- B. Openings x map x peers -------------------------------------------------
@@ -84,50 +108,70 @@ for peers in (2, 3, 4):
               expect={"all": ["EV brawl_started", "EV round_started round=1"]})
 
 # --- C. Powers: each key, pressed by the host and by clients, watched by a third peer ---
-# name: (the power every seat holds, or None to leave the picks, host keys, client keys).
+# name: (the host's power, or None to leave the picks, host keys). The client holds the next power round.
 POWER_KEYS = {
-    "shield": (1, "q@6/11", "q@9/11"),
-    "hologram": (2, "q@6/11", "q@9/11"),
-    "armorlock_hold": (3, "q@6+2.5/9", "q@8+2.5/9"),
-    "armorlock_tap": (3, "q@6/6", "q@8/6"),
-    "camo": (4, "q@6/11", "q@9/11"),
-    "cat_cook": (5, "q@6,e@>1,q@>6,e@>1,q@>6,e@>1", "q@8,e@>1,q@>6,e@>1,q@>6,e@>1"),
-    "cat_throw": (5, "q@6,f@>1.2,q@>6,f@>1.2,q@>6,f@>1.2", "q@8,f@>1.2,q@>6,f@>1.2,q@>6,f@>1.2"),
-    "cat_hold": (5, "q@6", "q@8"),
-    "emotes": (None, "b@6+2,n@12+2,b@18+2,n@24+2", "n@7+2,b@13+2,n@19+2,b@25+2"),
-    "shove": (None, "f@5/2", "f@6/2"),
+    "shield": (1, "q@6/11"),
+    "hologram": (2, "q@6/11"),
+    "armorlock_hold": (3, "q@6+2.5/9"),
+    "armorlock_tap": (3, "q@6/6"),
+    "camo": (4, "q@6/11"),
+    "cat_cook": (5, "q@6,e@>1,q@>6,e@>1,q@>6,e@>1"),
+    "cat_throw": (5, "q@6,f@>1.2,q@>6,f@>1.2,q@>6,f@>1.2"),
+    "cat_hold": (5, "q@6"),
+    "emotes": (None, "b@6+2,n@12+2,b@18+2,n@24+2"),
+    "shove": (None, "f@5/2"),
 }
+# The client's keys for the power it holds there, two seconds behind the host's.
+CLIENT_KEYS = {1: "q@9/11", 2: "q@9/11", 3: "q@8+2.5/9", 4: "q@9/11", 5: "q@8,e@>1,q@>6,f@>1.2,q@>6,e@>1"}
+EMOTE_SHOVE_CLIENT = {"emotes": "n@7+2,b@13+2,n@19+2,b@25+2", "shove": "f@6/2"}
+
+
+def next_power(power: int) -> int:
+    return power % 5 + 1
+
+
 # The tower is held by a human who never fires, so the pressers stay on the track and every press counts.
 SILENT = {"aim": False, "fire-every": 0, "press-fire": 0, "keys": ""}
 for map_name, map_id in MAPS.items():
-    for power, (held, host_keys, client_keys) in POWER_KEYS.items():
+    for power, (held, host_keys) in POWER_KEYS.items():
+        if held is None:
+            host, client_keys = {"keys": host_keys}, EMOTE_SHOVE_CLIENT[power]
+        else:
+            host, client_keys = {"keys": host_keys, "ability": f"{held},{next_power(held)}"}, CLIENT_KEYS[next_power(held)]
         match(f"power_{power}_3p_{map_name}", 3, 60, ["powers"], {"map": map_id, "seats": 4, "tower": 2},
-              host={"keys": host_keys} if held is None else {"keys": host_keys, "ability": held}, peer={"1": {"keys": client_keys}, "2": SILENT},
+              host=host, peer={"1": {"keys": client_keys}, "2": SILENT},
               expect={"valid_presses": {"0": 1, "1": 1}})
     for ability in (1, 2, 3, 4, 5):
         match(f"power_q_ability{ability}_3p_{map_name}", 3, 45, ["powers"], {"map": map_id, "seats": 4, "tower": 2},
-              host={"keys": "q@6+1.5/9", "ability": ability}, peer={"1": {"keys": "q@8+1.5/9"}, "2": SILENT},
+              host={"keys": "q@6+1.5/9", "ability": f"{ability},{next_power(ability)}"},
+              peer={"1": {"keys": "q@8+1.5/9"}, "2": SILENT},
               expect={"valid_presses": {"0": 1, "1": 1}})
+    host, _ = mixed((5, 2))
     match(f"power_all_2p_{map_name}_hostkeys", 2, 70, ["powers"], {"map": map_id, "seats": 4, "tower": 1},
-          host={"keys": ALL_KEYS, "ability": 4}, peer={"1": SILENT}, expect={"valid_presses": {"0": 3}})
+          host=host, peer={"1": SILENT}, expect={"valid_presses": {"0": 3}})
     match(f"power_all_2p_{map_name}_clientkeys", 2, 70, ["powers"], {"map": map_id, "seats": 4, "tower": 0},
-          host=dict(SILENT, ability=4), peer={"1": {"keys": ALL_KEYS_LATE}}, expect={"valid_presses": {"1": 3}})
-    for peers in (3, 4):
+          host=dict(SILENT, ability="3,5"), peer={"1": {"keys": life_keys(5, 2.0)}}, expect={"valid_presses": {"1": 3}})
+    for peers, powers in ((3, (5, 2, 4)), (4, (5, 2, 3, 1))):
+        host, keyed = mixed(powers)
+        keyed[str(peers - 1)] = SILENT
         match(f"power_all_{peers}p_{map_name}", peers, 70, ["powers", "smoke"] if (peers, map_name) == (3, "hell") else ["powers"],
-              {"map": map_id, "seats": peers + 1, "tower": peers - 1},
-              host={"keys": ALL_KEYS, "ability": 4}, client={"keys": ALL_KEYS_LATE}, peer={str(peers - 1): SILENT},
+              {"map": map_id, "seats": peers + 1, "tower": peers - 1}, host=host, peer=keyed,
               expect={"valid_presses": {str(i): 3 for i in range(peers - 1)}})
-    # The same keys under a bot guard that shoots: shield, lock and camo against a live rifle.
-    match(f"power_all_botguard_3p_{map_name}", 3, 70, ["powers"], {"map": map_id, "seats": 4, "tower": 3},
-          host={"keys": ALL_KEYS, "ability": 4}, client={"keys": ALL_KEYS_LATE})
-    # Powers a human guard and a ghost should not have, pressed anyway (no waiting for a valid moment).
+    # The same keys under a bot guard that shoots: the hologram's decoy and the cat against a live rifle.
+    host, keyed = mixed((2, 5, 3))
+    match(f"power_all_botguard_3p_{map_name}", 3, 70, ["powers"], {"map": map_id, "seats": 4, "tower": 3}, host=host, peer=keyed)
+    # A human guard holding a power presses it anyway (no waiting for a valid moment): the host refuses every one.
     match(f"power_guard_presses_3p_{map_name}", 3, 45, ["powers", "roles"], {"map": map_id, "seats": 4, "tower": 1},
-          host={"ability": 5}, peer={"1": {"keys": "q@6,q@12+2,q@18,e@>1", "keys-wait": False}})
+          host={"ability": "5,3,2"}, peer={"1": {"keys": "q@6,q@12+2,q@18,e@>1", "keys-wait": False}},
+          expect={"ruled_role_presses": {"1": 2}})
+HUB_KEYS = {5: "q@4,e@>1,q@21,f@>1.2,b@33+2,n@38+2,q@43,e@>1", 2: "q@4,f@>1.2,b@14+2,n@19+2,q@24,q@40",
+            3: "q@5+2,f@>1.2,b@14+2,n@19+2,q@24+2,q@40"}
 for peers in (2, 3):
+    powers = (5, 2, 3)[:peers]
     hub(f"power_hub_{peers}p", peers, 150, ["powers", "hub"],
-        {"maps": "bentham_ring", "matches": 1, "win": 8, "hub-wait": 50,
-         "hub-keys": "q@4,e@>1,q@21,f@>1.2,b@33+2,n@38+2,q@43,f@>1.2"},
-        host={"prisoners": 3, "ability": 5}, expect={"matches": 1})
+        {"maps": "bentham_ring", "matches": 1, "win": 8, "hub-wait": 50},
+        host={"prisoners": 3, "ability": ",".join(str(p) for p in powers), "hub-keys": HUB_KEYS[5]},
+        peer={str(i): {"hub-keys": HUB_KEYS[p]} for i, p in enumerate(powers) if i > 0}, expect={"matches": 1})
 
 # --- D. Ghosts on and off ------------------------------------------------------
 for map_name, map_id in MAPS.items():
@@ -175,12 +219,14 @@ FAULTS = {
     "delay120": {"delay-ms": 120},
     "loss10_delay50": {"loss": 0.1, "delay-ms": 50},
 }
+# Three humans holding three different powers, the cat always among them, the partners rotating.
+MIXES = [(2, 5, 3), (5, 2, 4), (1, 5, 2), (5, 3, 1), (4, 2, 5), (5, 1, 2), (3, 5, 4), (2, 4, 5), (5, 2, 1)]
 for map_name, map_id in MAPS.items():
-    for fault, flags in FAULTS.items():
+    for n, (fault, flags) in enumerate(FAULTS.items()):
         common = {"map": map_id, "seats": 4, "tower": 3}
         common.update(flags)
-        match(f"fault_{fault}_3p_{map_name}", 3, 70, ["fault"], common,
-              host={"keys": ALL_KEYS, "ability": 2}, client={"keys": ALL_KEYS_LATE})
+        host, keyed = mixed(MIXES[n % len(MIXES)])
+        match(f"fault_{fault}_3p_{map_name}", 3, 70, ["fault"], common, host=host, peer=keyed)
     match(f"fault_loss10_delay50_clientguard_3p_{map_name}", 3, 75, ["fault", "guard"],
           {"map": map_id, "seats": 4, "tower": 1, "loss": 0.1, "delay-ms": 50},
           expect={"host": ["RIFLE fired by=s1"]})
@@ -224,11 +270,11 @@ WIRE_MODES = {
     "dup10_peer": {"delay-ms": 20, "dup": 0.1},
 }
 for map_name, map_id in MAPS.items():
-    for mode, flags in WIRE_MODES.items():
+    for n, (mode, flags) in enumerate(WIRE_MODES.items()):
         common = {"map": map_id, "seats": 4, "tower": 3}
         common.update(flags)
-        match(f"fault_{mode}_3p_{map_name}", 3, 70, ["fault", "wire"], common,
-              host={"keys": ALL_KEYS, "ability": 2}, client={"keys": ALL_KEYS_LATE})
+        host, keyed = mixed(MIXES[n % len(MIXES)])
+        match(f"fault_{mode}_3p_{map_name}", 3, 70, ["fault", "wire"], common, host=host, peer=keyed)
     # A machine that hitches the way a first-time shader compile or a debugger break does.
     for who, index in (("client", "1"), ("host", "0")):
         match(f"fault_hitches_{who}_2p_{map_name}", 2, 60, ["fault", "stall"], {"map": map_id, "seats": 4, "tower": 3},

@@ -499,7 +499,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.5, 0, 0)
 power = 5
 
 [node name="Player" parent="." instance=ExtResource("7_player")]
-editor_description = "The local body. In the hub it is a prisoner with nothing to run: full movement, a harmless shove, no rifle and no powers."
+editor_description = "The local body: a prisoner with nothing to run, a harmless shove, no rifle, and the power picked at a stand."
 
 [node name="Runners" type="Node3D" parent="."]
 editor_description = "Empty by design. NetMatch parents one body per OTHER seated human into it; a hub never holds a bot."

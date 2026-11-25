@@ -7,7 +7,7 @@ extends Node
 ## Options both runners take; each runner merges its own over these.
 const OPTIONS: Dictionary = {
 	"role": "server", "address": "127.0.0.1", "port": 27960, "name": "", "log": "",
-	"prisoners": -1, "ability": -1, "rounds": -1, "lives": -1, "ghosts": "", "brawl": false,
+	"prisoners": -1, "ability": "", "rounds": -1, "lives": -1, "ghosts": "", "brawl": false,
 	"loss": 0.0, "delay-ms": 0, "jitter-ms": 0.0, "jitter-dist": "uniform", "jitter-tau-ms": 0.0, "jitter-reorders": false,
 	"burst-ms": 0.0, "burst-gap-ms": 0.0, "burst-loss": 1.0, "dup": 0.0, "reorder": 0.0, "reorder-ms": 0.0,
 	"wire-layer": "peer", "wire-probe-hz": 20.0, "wire-log": "", "freeze": "", "stall-at": 0.0, "stall-ms": 0, "stall-match": 1,
@@ -71,6 +71,7 @@ var _result_showing: bool = false
 var _quit_done: bool = false
 var _cats_seen: Dictionary[int, Array] = {}
 var _broke: bool = false
+var _powered: Dictionary[int, bool] = {}
 var _ev_tampered: bool = false
 var _ev_held: String = ""
 var _hubs_bound: int = 0
@@ -162,8 +163,6 @@ func apply_settings() -> void:
 	var settings: GameSettings = SettingsStore.instance().settings
 	if int(o.prisoners) >= 0:
 		settings.prisoner_count = int(o.prisoners)
-	if int(o.ability) >= 0:
-		RunnerPower.solo_held = int(o.ability) as MatchRules.RunnerAbility
 	if int(o.rounds) > 0:
 		settings.rounds_to_win_match = int(o.rounds)
 	if int(o.lives) > 0:
@@ -174,8 +173,8 @@ func apply_settings() -> void:
 	if bool(o.brawl):
 		settings.tower_brawl = true
 		settings.skip_opening_race = false
-	line("SETTINGS prisoners=%d ability=%d rounds=%d lives=%d ghosts=%s brawl=%s skip_race=%s tower_seat=%d map=%s" % [
-		settings.prisoner_count, int(o.ability), settings.rounds_to_win_match, settings.prisoner_lives,
+	line("SETTINGS prisoners=%d ability=%s rounds=%d lives=%d ghosts=%s brawl=%s skip_race=%s tower_seat=%d map=%s" % [
+		settings.prisoner_count, String(o.ability), settings.rounds_to_win_match, settings.prisoner_lives,
 		str(settings.ghosts_enabled), str(settings.tower_brawl), str(settings.skip_opening_race),
 		settings.tower_seat_index, String(settings.map_id)])
 
@@ -209,12 +208,23 @@ func attach(net_session: NetSession) -> void:
 			_host_lost_ms = Time.get_ticks_msec())
 
 
-## --ability on the host: every occupied seat holds that power, bots and late joiners included.
+## The power --ability gives [param seat]: "5,3,2,1" by seat index, one value for every seat; -1 for none.
+func ability_of(seat: int) -> int:
+	var spec: PackedStringArray = String(o.ability).split(",", false)
+	if spec.size() == 1:
+		return int(spec[0])
+	return int(spec[seat]) if seat >= 0 and seat < spec.size() else -1
+
+
+## --ability on the host, once per seat when it is first occupied, so a later stand pick stands.
 func _hold_powers() -> void:
-	if int(o.ability) < 0 or not is_server() or lobby.get_phase() != NetLobby.Phase.GATHERING:
+	if not is_server():
 		return
 	for seat: LobbySeat in lobby.get_occupied_seats():
-		lobby.set_power(seat.index, int(o.ability))
+		if _powered.has(seat.index) or ability_of(seat.index) < 0:
+			continue
+		_powered[seat.index] = true
+		lobby.set_power(seat.index, ability_of(seat.index))
 
 
 ## Put this machine's sends through [LossyPeer] when a wire option asks for it. Call after host/join.
@@ -472,10 +482,11 @@ func _install_actor() -> void:
 func _on_key_pressed(key: String, valid: bool, note: String) -> void:
 	var mine: MatchParticipant = controller.get_human_participant()
 	var power: RunnerPower = RunnerPower.of(mine.body) if mine != null and mine.body != null else null
-	line("PRESS key=%s seat=%s valid=%d note=%s role=%s phase=%s sim=%d shown=%d frame=%d" % [key, _seat_of(mine), int(valid),
+	line("PRESS key=%s seat=%s valid=%d note=%s role=%s phase=%s sim=%d shown=%d held=%d frame=%d" % [key, _seat_of(mine), int(valid),
 		note if not note.is_empty() else "ok", mine.get_role_name() if mine != null else "none", controller.get_phase_name(),
 		int(mine != null and mine.body != null and _simulated(mine.body)),
-		int(power.get_shown()) if power != null else -1, Engine.get_physics_frames()])
+		int(power.get_shown()) if power != null else -1, int(power.get_held()) if power != null else -1,
+		Engine.get_physics_frames()])
 
 
 # --- Press accounting -----------------------------------------------------------
@@ -725,6 +736,21 @@ func _break() -> void:
 		"leave":
 			if not _broke:
 				session.leave()
+		"wrong-held":
+			# The host's body for seat 1 holds another power than its seat, past the roster.
+			for p: MatchParticipant in controller.get_participants_ref():
+				if not _broke and is_server() and p.body != null and _seat_of(p) == "s1" and RunnerPower.of(p.body) != null:
+					var power: RunnerPower = RunnerPower.of(p.body)
+					power.held = (int(power.held) % (RunnerPower.DEFS.size() - 1) + 1) as MatchRules.RunnerAbility
+		"arm-guard":
+			# The guard's power re-armed with the round's rules and fired, as a prisoner's would be.
+			var guard: MatchParticipant = controller.get_seat_participant()
+			var armed: RunnerPower = RunnerPower.of(guard.body) if guard != null and guard.body != null else null
+			if not _broke and is_server() and armed != null:
+				if RunnerPower.DEFS[armed.held].ends_on_release or armed.held == MatchRules.RunnerAbility.NONE:
+					armed.held = MatchRules.RunnerAbility.ACTIVE_CAMO
+				armed.arm(controller.get_rules(), controller)
+				armed.activate(true)
 	if not _broke:
 		_broke = true
 		line("BREAK kind=%s" % kind)

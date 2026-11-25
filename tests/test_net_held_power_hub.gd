@@ -79,8 +79,41 @@ func test_a_late_joiner_sees_the_power_everyone_holds() -> void:
 		return
 	hold(HOLOGRAM, A)
 	hold(CAMO, HOST)
+	# One process: the static pick the others' lobbies kept is not B's own; B joins holding none.
+	sessions[B].lobby.local_power = NONE
 	if not await join_late(B):
 		return
 	assert_true(await until(func() -> bool: return _everyone_has(A, HOLOGRAM) and _everyone_has(HOST, CAMO)),
 			"the joiner has A holding the hologram and the host camo")
 	assert_eq_int(int(power(B, B).get_held()), NONE, "and holds nothing itself")
+
+
+func test_interact_away_from_every_stand_picks_nothing() -> void:
+	if not await stand_up(0.0, 0, 2):
+		return
+	keys[A].tap(&"cook_pressed")
+	await step_ticks(30)
+	assert_eq_int(sessions[HOST].lobby.get_seat(A).power, NONE, "the seat holds nothing")
+	assert_true(_everyone_has(A, NONE, 2), "and nobody's copy of A does")
+
+
+## The host rules a pick from where its own copy of the body stands, not from where the client says.
+func test_a_client_beside_a_stand_only_on_its_own_screen_picks_nothing() -> void:
+	if not await stand_up(0.0, 0, 2):
+		return
+	var stand: PowerStand = _stand_of(A, HOLOGRAM)
+	var out: Vector3 = Vector3(stand.global_position.x, 0.0, stand.global_position.z).normalized()
+	body(A, A).global_position = stand.global_position + out
+	keys[A].tap(&"cook_pressed")
+	await step_ticks(30)
+	assert_gt(flat_distance(body(HOST, A).global_position, stand.global_position), PowerStand.REACH,
+			"the host's copy of A never stood at the stand")
+	assert_eq_int(sessions[HOST].lobby.get_seat(A).power, NONE, "so A's seat holds nothing")
+
+
+func test_a_players_own_pick_comes_with_them_into_a_session() -> void:
+	RunnerPower.solo_held = CAMO as MatchRules.RunnerAbility
+	if not await stand_up(0.0, 0, 2):
+		return
+	assert_true(await until(func() -> bool: return _everyone_has(A, CAMO, 2) and _everyone_has(HOST, CAMO, 2)),
+			"the host's and the joining client's own picks are their seats'")

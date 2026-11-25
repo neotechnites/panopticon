@@ -45,7 +45,10 @@ func _initialize() -> void:
 	Engine.max_fps = 60
 	_started_ms = Time.get_ticks_msec()
 	if int(_o["press-ability"]) > 0:
-		var legacy: String = "%d@%.2f+%.2f" % [int(_o["press-ability"]), float(_o["press-at"]), float(_o["press-every"]) * 0.8]
+		# The legacy press is q on the held power: the host gives every seat that power unless --ability says.
+		var legacy: String = "q@%.2f+%.2f" % [float(_o["press-at"]), float(_o["press-every"]) * 0.8]
+		if String(_o.ability).is_empty():
+			_o.ability = str(int(_o["press-ability"]))
 		if float(_o["press-every"]) > 0.0:
 			legacy += "/%.2f" % float(_o["press-every"])
 		_o.keys = legacy if String(_o.keys).is_empty() else "%s,%s" % [String(_o.keys), legacy]

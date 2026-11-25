@@ -14,7 +14,7 @@
  },
  "host": {
   "keys": "q@6/11",
-  "ability": 1
+  "ability": "1,2"
  },
  "peer": {
   "1": {

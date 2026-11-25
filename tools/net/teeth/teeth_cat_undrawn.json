@@ -12,10 +12,11 @@
   "aim": false,
   "fire-every": 0,
   "press-fire": 0,
-  "ghosts": "false"
+  "ghosts": "false",
+  "ability": "4,5,1"
  },
  "client": {
-  "keys": "5@12,e@14"
+  "keys": "q@12,e@14"
  },
  "peer": {
   "2": {

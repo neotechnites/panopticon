@@ -76,6 +76,8 @@ func _ready() -> void:
 		_mirror = MatchMirror.new(controller)
 	controller.auto_start = false
 	_bound = true
+	if _session.is_authority():
+		controller.power_taken.connect(_on_power_taken)
 	# Nothing of this scene is drawn until this machine's body has been placed in it.
 	_cover = LoadingCover.new()
 	add_child(_cover)
@@ -87,7 +89,6 @@ func _ready() -> void:
 		if _session.is_authority():
 			# A shove's flop is drawn off this cue; without it a client never sees a hub shove land.
 			controller.participant_shoved.connect(_on_participant_shoved)
-			controller.power_taken.connect(_on_power_taken)
 		controller.start_hub()
 		_started = true
 		_bind_props()
@@ -392,7 +393,7 @@ func _hold_seat_power(link: PlayerNetLink) -> void:
 	var power: RunnerPower = RunnerPower.of(link.controller)
 	var seat: LobbySeat = _lobby.get_seat(link.seat_index)
 	if power != null and seat != null:
-		power.held = seat.power as MatchRules.RunnerAbility
+		power.apply_held(seat.power as MatchRules.RunnerAbility)
 
 
 ## The seat a participant slot was built from, or -1 for a slot this match has
@@ -610,9 +611,10 @@ func _on_participant_shoved(shover: MatchParticipant, victim: MatchParticipant) 
 	_session.replicator.send_event(NetEvents.Type.SHOVE_KICK, NetCodec.pack_kick(forward), NetEvents.Target.ONE, peer)
 
 
-## Host: a stand's pick is the seat's from now, and the roster tells everyone.
+## Host: a pick is the seat's from now, and the roster tells everyone, this machine included. Deferred: a
+## pick made while the roster is being built must not republish it mid-build.
 func _on_power_taken(participant: MatchParticipant, which: MatchRules.RunnerAbility) -> void:
-	_lobby.set_power(participant.seat, which)
+	_lobby.set_power.call_deferred(participant.seat, which)
 
 
 ## The victim's cue, to everyone: the launch rides the snapshot, the sound does not.
