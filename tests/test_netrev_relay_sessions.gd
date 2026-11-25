@@ -11,7 +11,7 @@ func test_a_new_hosts_first_cat_is_drawn_on_a_client_that_saw_cats_in_an_earlier
 	if not await stand_up():
 		return
 	for round_index: int in 2:
-		a_keys.tap_slot(CAT)
+		a_keys.tap_power(CAT)
 		if not assert_true(await until(func() -> bool: return _drawn_on(b, A_SEAT)), "session 1: B draws A's cat %d" % round_index):
 			return
 		a_keys.tap(&"cook_pressed")
@@ -23,7 +23,7 @@ func test_a_new_hosts_first_cat_is_drawn_on_a_client_that_saw_cats_in_an_earlier
 	# A stays in the game and joins another host: B.
 	if not await _second_session(b, a):
 		return
-	_new_keys.tap_slot(CAT)
+	_new_keys.tap_power(CAT)
 	var drawn: bool = await until(func() -> bool: return _drawn_on(a, HOST_SEAT))
 	print("PROOF session2: the new host's cat is drawn on the client: %s" % str(drawn))
 	assert_true(drawn, "the new host's first cat is drawn on the client")
@@ -33,7 +33,7 @@ func test_a_new_hosts_first_cat_is_drawn_on_a_client_that_saw_cats_in_an_earlier
 func test_yesterdays_host_sees_the_new_hosts_cats_when_it_joins_as_a_client() -> void:
 	if not await stand_up():
 		return
-	host_keys.tap_slot(CAT)
+	host_keys.tap_power(CAT)
 	if not assert_true(await until(func() -> bool: return _drawn_on(a, HOST_SEAT)), "session 1: A draws the host's cat"):
 		return
 	host_keys.tap(&"cook_pressed")
@@ -45,7 +45,7 @@ func test_yesterdays_host_sees_the_new_hosts_cats_when_it_joins_as_a_client() ->
 		return
 	var seen: Array[bool] = []
 	for _i: int in 3:
-		_new_keys.tap_slot(CAT)
+		_new_keys.tap_power(CAT)
 		seen.append(await until(func() -> bool: return _drawn_on(host, HOST_SEAT)))
 		_new_keys.tap(&"cook_pressed")
 		await until(func() -> bool: return not _drawn_on(host, HOST_SEAT), FUSE_WAIT_MS)

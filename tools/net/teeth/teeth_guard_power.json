@@ -1,0 +1,27 @@
+{
+ "runner": "match",
+ "peers": 2,
+ "limit": 80,
+ "common": {
+  "seconds": 30,
+  "map": "bentham_ring",
+  "seats": 4,
+  "tower": 0
+ },
+ "host": {
+  "aim": false,
+  "fire-every": 0,
+  "press-fire": 0,
+  "ghosts": "false",
+  "ability": "4,2",
+  "break": "arm-guard",
+  "break-at": 8.0
+ },
+ "client": {
+  "keys": "q@6,j@10,f@12,q@24"
+ },
+ "name": "teeth_guard_power",
+ "teeth": [
+  "role-power"
+ ]
+}

@@ -101,7 +101,7 @@ func test_a_client_leaving_with_the_power_cat_in_hand_takes_it_along() -> void:
 	# B's own body and its copy on the host are awake and B hears the host's world before it presses.
 	await until(func() -> bool:
 		return sessions[B].replicator.get_latest_tick() >= 0 and not body(B, B).held and not body(HOST, B).held)
-	keys[B].tap_slot(SHIELD)
+	keys[B].tap_power(SHIELD)
 	var up: bool = await until(
 		func() -> bool:
 			return int(power(HOST, B).get_active()) == SHIELD and int(power(B, B).get_shown()) == SHIELD

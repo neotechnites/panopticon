@@ -74,6 +74,10 @@ var display_name: String = ""
 
 var role: Role = Role.UNASSIGNED
 
+## The power this seat's player holds, one or none ([enum MatchRules.RunnerAbility]): theirs for the
+## session, through hub, match and rematch, and gone with them.
+var power: int = 0
+
 ## Whether this seat has said it is ready to start.
 ##
 ## A bot is always ready: it has no keyboard to press a button with, and a
@@ -106,6 +110,7 @@ func clear() -> void:
 	peer_id = 0
 	display_name = ""
 	role = Role.UNASSIGNED
+	power = 0
 	is_ready = false
 	standing_epoch = 0
 
@@ -116,6 +121,7 @@ func copy_from(other: LobbySeat) -> void:
 	peer_id = other.peer_id
 	display_name = other.display_name
 	role = other.role
+	power = other.power
 	is_ready = other.is_ready
 	standing_epoch = other.standing_epoch
 
@@ -124,12 +130,13 @@ func copy_from(other: LobbySeat) -> void:
 func describe() -> String:
 	if not is_occupied():
 		return "seat %d: empty" % index
-	return "seat %d: %s %s (peer %d, %s%s, standing %d)" % [
+	return "seat %d: %s %s (peer %d, %s, power %d%s, standing %d)" % [
 		index,
 		String(Occupancy.keys()[occupancy]),
 		display_name,
 		peer_id,
 		String(Role.keys()[role]),
+		power,
 		", ready" if is_ready else "",
 		standing_epoch,
 	]

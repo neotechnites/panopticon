@@ -27,10 +27,10 @@ func test_a_peer_standing_mid_cat_draws_it_from_its_first_snapshot() -> void:
 ## A runs [param which]; B stands only then. B draws nothing of it before its first snapshot, whose
 ## full update carries the power, and draws it as soon as that snapshot is drawn.
 func _stands_mid_power(which: int) -> void:
-	rules.ability_duration_seconds = 30.0
+	TestFixtures.set_power_duration(30.0)
 	if not await stand_up(0.0, 0, true):
 		return
-	a_keys.tap_slot(which)
+	a_keys.tap_power(which)
 	if not assert_true(await until(func() -> bool: return _draws(host_links, which) and _draws(a_links, which)),
 			"A's power is drawn on the host and on A"):
 		return
@@ -60,7 +60,7 @@ func _stands_mid_power(which: int) -> void:
 func test_a_flying_cats_orientation_matches_the_hosts() -> void:
 	if not await stand_up():
 		return
-	host_keys.tap_slot(CAT)
+	host_keys.tap_power(CAT)
 	if not assert_true(await until(func() -> bool: return _draws(b_links, CAT, HOST_SEAT)), "B draws the host's cat"):
 		return
 	var host_power: RunnerPower = power_of(host_links, HOST_SEAT)
@@ -91,7 +91,7 @@ func test_a_flying_cats_orientation_matches_the_hosts() -> void:
 
 
 func test_a_shield_raise_is_drawn_where_its_body_is_drawn() -> void:
-	rules.ability_duration_seconds = 5.0
+	TestFixtures.set_power_duration(5.0)
 	if not await stand_up():
 		return
 	a_keys.held.move_direction = Vector2(0.0, 1.0)
@@ -99,7 +99,7 @@ func test_a_shield_raise_is_drawn_where_its_body_is_drawn() -> void:
 	var runner: PlayerController = body_of(host_links, A_SEAT)
 	if not assert_gt(runner.velocity.length(), 3.0, "A is running on the host"):
 		return
-	a_keys.tap_slot(SHIELD)
+	a_keys.tap_power(SHIELD)
 	var drawn_body: Vector3 = Vector3.INF
 	for _frame: int in 600:
 		await get_tree().process_frame

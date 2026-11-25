@@ -12,12 +12,6 @@
   "reason": "Headless dummy renderer; the unit suite forgives the same line."
  },
  {
-  "pattern": "keybind_panel\\.tscn has no row for action 'ability_5'",
-  "class": "known",
-  "id": "B-ability5-row",
-  "reason": "BASELINE 3B: the keybind panel has no fifth power row. Owned by the suite agent."
- },
- {
   "pattern": "Condition \"!peers\\.has\\(p_id\\)\" is true",
   "class": "known",
   "id": "K-enet-timeout-peers",

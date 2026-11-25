@@ -8,18 +8,6 @@ const ARMOR: int = MatchRules.RunnerAbility.ARMOR_LOCK
 const CAMO: int = MatchRules.RunnerAbility.ACTIVE_CAMO
 const NONE: int = MatchRules.RunnerAbility.NONE
 
-## The rules a test lengthened a power on, and the length they shipped with.
-var _lengthened: MatchRules = null
-var _shipped_seconds: float = 0.0
-
-
-func after_each() -> void:
-	if _lengthened != null:
-		_lengthened.ability_duration_seconds = _shipped_seconds
-		_lengthened = null
-	super()
-
-
 ## What [param machine] has standing in its hub for [param which] on A's body.
 func _draws(machine: int, which: int) -> bool:
 	var mine: RunnerPower = power(machine, A)
@@ -47,12 +35,10 @@ func _a_joiner_draws(which: int) -> void:
 		return net(A).get_local_link() != null and net(A).get_local_link().is_predicting()):
 		fail("A's own body was never placed")
 		return
-	_lengthened = ctrl(HOST).get_rules()
-	_shipped_seconds = _lengthened.ability_duration_seconds
-	_lengthened.ability_duration_seconds = 600.0
+	TestFixtures.set_power_duration(600.0)
 	await step_ticks(30)
 	keys[A].held.ability_held = which == ARMOR
-	keys[A].tap_slot(which)
+	keys[A].tap_power(which)
 	var up: bool = await until(func() -> bool:
 		return int(power(HOST, A).get_active()) == which and _draws(HOST, which) and _draws(A, which))
 	if not assert_true(up, "A's power runs on the host and is drawn on A"):
@@ -64,6 +50,7 @@ func _a_joiner_draws(which: int) -> void:
 		return int(power(B, A).get_shown()) == which and _draws(B, which))
 	assert_eq_int(int(power(HOST, A).get_active()), which, "the power is still running on the host")
 	assert_eq_int(int(power(B, A).get_shown()), which, "the joiner shows A's power running")
+	assert_eq_int(int(power(B, A).get_held()), which, "and has A holding it, from the roster")
 	assert_true(seen, "and draws what it puts in the hub")
 	if seen and which == SHIELD:
 		var off: float = power(B, A).get_shield().global_position.distance_to(power(HOST, A).get_shield().global_position)
@@ -105,7 +92,7 @@ func test_a_joiner_whose_hub_stands_while_a_power_cat_is_held_draws_it() -> void
 		fail("A's own body was never placed")
 		return
 	await step_ticks(30)
-	keys[A].tap_slot(CAT_POWER)
+	keys[A].tap_power(CAT_POWER)
 	if not await until(func() -> bool: return grenade(A) != null):
 		fail("A's 5 put no cat in the hands of the host's copy of A")
 		return

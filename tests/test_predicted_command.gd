@@ -52,7 +52,7 @@ func test_a_predicted_command_changes_no_participant_and_spawns_nothing() -> voi
 	body.shoved.connect(func() -> void: swings[0] += 1)
 
 	var command: MoveIntent = MoveIntent.new()
-	command.buttons = MoveIntent.SHOVE | MoveIntent.FIRE | MoveIntent.COOK | (MoveIntent.POWER_1 << 4)
+	command.buttons = MoveIntent.SHOVE | MoveIntent.FIRE | MoveIntent.COOK | MoveIntent.POWER
 	command.derive_edges(0)
 	body.run_command(command, SIM_DELTA)
 	assert_eq_int(swings[0], 1, "the presser's own swing is drawn on the press, as the client predicts it")

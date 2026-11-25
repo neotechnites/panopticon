@@ -12,10 +12,11 @@
   "aim": false,
   "fire-every": 0,
   "press-fire": 0,
-  "ghosts": "false"
+  "ghosts": "false",
+  "ability": "4,2"
  },
  "client": {
-  "keys": "1@6,j@10,f@12,4@14"
+  "keys": "q@6,j@10,f@12,q@24"
  },
  "name": "teeth_control",
  "teeth": [],
@@ -35,6 +36,7 @@
   "position",
   "presentation",
   "press",
+  "role-power",
   "rules",
   "state",
   "world-hidden"
@@ -44,7 +46,7 @@
    "EV round_started round=1 guard=s0"
   ],
   "host": [
-   "POWER seat=s1 ability=1"
+   "POWER seat=s1 ability=2"
   ]
  }
 }

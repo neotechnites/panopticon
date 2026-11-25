@@ -76,6 +76,8 @@ func _ready() -> void:
 		_mirror = MatchMirror.new(controller)
 	controller.auto_start = false
 	_bound = true
+	if _session.is_authority():
+		controller.power_taken.connect(_on_power_taken)
 	# Nothing of this scene is drawn until this machine's body has been placed in it.
 	_cover = LoadingCover.new()
 	add_child(_cover)
@@ -187,6 +189,8 @@ func _on_roster_changed() -> void:
 	_bind_replicator()
 	_reconcile_hub()
 	_reconcile_seats()
+	for link: PlayerNetLink in _links:
+		_hold_seat_power(link)
 	_start_if_ready()
 
 
@@ -381,6 +385,15 @@ func _add_link(seat: LobbySeat, body: PlayerController, is_local: bool) -> void:
 		link.placed.connect(_on_local_placed)
 	add_child(link)
 	_links.append(link)
+	_hold_seat_power(link)
+
+
+## The body holds what its seat holds, on every machine: the roster is the one source.
+func _hold_seat_power(link: PlayerNetLink) -> void:
+	var power: RunnerPower = RunnerPower.of(link.controller)
+	var seat: LobbySeat = _lobby.get_seat(link.seat_index)
+	if power != null and seat != null:
+		power.apply_held(seat.power as MatchRules.RunnerAbility)
 
 
 ## The seat a participant slot was built from, or -1 for a slot this match has
@@ -596,6 +609,12 @@ func _on_participant_shoved(shover: MatchParticipant, victim: MatchParticipant) 
 	var forward: Vector3 = -shover.body.global_transform.basis.z
 	forward.y = 0.0
 	_session.replicator.send_event(NetEvents.Type.SHOVE_KICK, NetCodec.pack_kick(forward), NetEvents.Target.ONE, peer)
+
+
+## Host: a pick is the seat's from now, and the roster tells everyone, this machine included. Deferred: a
+## pick made while the roster is being built must not republish it mid-build.
+func _on_power_taken(participant: MatchParticipant, which: MatchRules.RunnerAbility) -> void:
+	_lobby.set_power.call_deferred(participant.seat, which)
 
 
 ## The victim's cue, to everyone: the launch rides the snapshot, the sound does not.

@@ -45,7 +45,7 @@ func test_every_power_pressed_while_the_host_is_stalled_runs_when_it_resumes() -
 		@warning_ignore("missing_await")
 		stall_host(20)
 		await step_ticks(10)
-		a_keys.tap_slot(which)
+		a_keys.tap_power(which)
 		await step_ticks(1)
 		assert_eq_int(
 			drawn(A_SEAT)[0], NONE, "%s: the stalled host has run nothing yet" % _title(which)
@@ -70,7 +70,7 @@ func test_twelve_shield_presses_under_random_loss_all_run() -> void:
 	var was_up: bool = false
 	var left_drawing: int = 0
 	for press: int in 12:
-		a_keys.tap_slot(SHIELD)
+		a_keys.tap_power(SHIELD)
 		for _tick: int in PRESS_SPACING_TICKS:
 			await step_ticks(1)
 			var up: bool = int(host_power.get_active()) != NONE
@@ -94,7 +94,7 @@ func test_a_predicted_power_never_flickers_at_80ms() -> void:
 	for which: int in [SHIELD, HOLOGRAM, ARMOR, CAMO]:
 		await step_ticks(1)
 		a_keys.held.ability_held = which == ARMOR
-		a_keys.tap_slot(which)
+		a_keys.tap_power(which)
 		await step_ticks(2)
 		assert_eq_int(
 			int(a_power.get_shown()), which, "%s is drawn on A before the host answers" % _title(which)
@@ -153,13 +153,13 @@ func test_emote_alt_is_one_edge_on_a_clean_line() -> void:
 	assert_eq_int(edges, 1, "one N press: commands the host's body ran it on in the next 60 ticks")
 
 
-func test_power_slot_is_one_edge_on_a_clean_line() -> void:
+func test_power_press_is_one_edge_on_a_clean_line() -> void:
 	if not await stand_up():
 		return
 	await step_ticks(1)
-	a_keys.tap_slot(SHIELD)
-	var edges: int = await _count_ticks_set(&"ability_slot", 60)
-	assert_eq_int(edges, 1, "one press of 1: ticks the host's body read a slot in the next 60")
+	a_keys.tap_power(SHIELD)
+	var edges: int = await _count_ticks_set(&"ability_pressed", 60)
+	assert_eq_int(edges, 1, "one power press: ticks the host's body read it in the next 60")
 
 
 func test_emote_alt_is_one_edge_when_no_packet_follows_it() -> void:
@@ -168,10 +168,10 @@ func test_emote_alt_is_one_edge_when_no_packet_follows_it() -> void:
 		assert_eq_int(edges, 1, "one N press, then silence: commands the host's body ran it on")
 
 
-func test_power_slot_is_one_edge_when_no_packet_follows_it() -> void:
-	var edges: int = await _edges_when_the_line_goes_quiet(&"ability_slot")
+func test_power_press_is_one_edge_when_no_packet_follows_it() -> void:
+	var edges: int = await _edges_when_the_line_goes_quiet(&"ability_pressed")
 	if edges >= 0:
-		assert_eq_int(edges, 1, "one press of 1, then silence: ticks the host's body read a slot")
+		assert_eq_int(edges, 1, "one power press, then silence: ticks the host's body read it")
 
 
 func test_a_shield_the_host_refuses_is_cancelled_on_the_presser() -> void:
@@ -179,7 +179,7 @@ func test_a_shield_the_host_refuses_is_cancelled_on_the_presser() -> void:
 		return
 	await step_ticks(1)
 	power_of(host_links, A_SEAT).rules = null
-	a_keys.tap_slot(SHIELD)
+	a_keys.tap_power(SHIELD)
 	await step_ticks(2)
 	assert_eq_int(drawn(A_SEAT)[1], SHIELD, "A drew its shield before the host refused it")
 	await step_ticks(30)
@@ -199,7 +199,7 @@ func test_an_armor_lock_the_host_refuses_is_cancelled_on_the_presser() -> void:
 	await step_ticks(1)
 	power_of(host_links, A_SEAT).rules = null
 	a_keys.held.ability_held = true
-	a_keys.tap_slot(ARMOR)
+	a_keys.tap_power(ARMOR)
 	await step_ticks(2)
 	assert_eq_int(drawn(A_SEAT)[1], ARMOR, "A drew its lock before the host refused it")
 	assert_true(body_of(a_links, A_SEAT).is_movement_locked(), "A's predicted lock held its body")
@@ -220,7 +220,7 @@ func test_every_refused_power_leaves_the_presser_drawing_nothing() -> void:
 	power_of(host_links, A_SEAT).rules = null
 	for which: int in ALL_POWERS:
 		await step_ticks(1)
-		a_keys.tap_slot(which)
+		a_keys.tap_power(which)
 		await step_ticks(30)
 		assert_eq_int(
 			drawn(A_SEAT)[1], NONE, "%s refused by the host: what A draws" % _title(which)
@@ -241,7 +241,7 @@ func _press_inside_blackout(which: int) -> void:
 	@warning_ignore("missing_await")
 	black_out(a_wire, 4)
 	await step_ticks(2)
-	a_keys.tap_slot(which)
+	a_keys.tap_power(which)
 	await step_ticks(3)
 	assert_ge(
 		float(a_wire.dropped - dropped_before), 3.0,
@@ -271,10 +271,10 @@ func _edges_when_the_line_goes_quiet(flag: StringName) -> int:
 	if not await stand_up(0.0, 1):
 		return -1
 	await step_ticks(30)
-	if flag == &"ability_slot":
+	if flag == &"ability_pressed":
 		# Refused on the host, so nothing but the key itself can stop a second read.
 		power_of(host_links, A_SEAT).rules = null
-		a_keys.tap_slot(SHIELD)
+		a_keys.tap_power(SHIELD)
 	else:
 		a_keys.tap(flag)
 	await step_ticks(1)

@@ -12,10 +12,11 @@
   "aim": false,
   "fire-every": 0,
   "press-fire": 0,
-  "ghosts": "false"
+  "ghosts": "false",
+  "ability": "4,2"
  },
  "client": {
-  "keys": "1@6,4@14",
+  "keys": "q@6,q@24",
   "bind-delay": 300.0
  },
  "name": "teeth_unbound_client",

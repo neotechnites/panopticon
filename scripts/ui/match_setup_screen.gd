@@ -113,7 +113,7 @@ const CUSTOM_TITLE: String = "SETUP_CUSTOM"
 const CUSTOM_ID: int = -1
 
 ## Grid rows only the debug setup shows: the mode picker sets them for a player.
-const DEBUG_ROWS: Array[String] = ["Lives", "Ghosts", "ShooterWin", "RunnerWin", "Ability"]
+const DEBUG_ROWS: Array[String] = ["Lives", "Ghosts", "ShooterWin", "RunnerWin"]
 
 ## Tallest the rules grid stands before it scrolls, so the footer stays on a 900-high screen.
 const GRID_MAX_HEIGHT: float = 200.0
@@ -139,7 +139,6 @@ static var show_all_rules_everywhere: bool = false
 @onready var _ghosts_check: CheckBox = %GhostsCheck
 @onready var _shooter_win_option: OptionButton = %ShooterWinOption
 @onready var _runner_win_option: OptionButton = %RunnerWinOption
-@onready var _ability_option: OptionButton = %AbilityOption
 @onready var _rounds_spin: SpinBox = %RoundsSpin
 @onready var _rounds_readout: Label = %RoundsReadout
 @onready var _note: Label = %Note
@@ -188,7 +187,6 @@ func refresh() -> void:
 	_runner_win_option.selected = _index_of(
 		_runner_win_option, int(settings.runner_win_condition)
 	)
-	_ability_option.selected = _index_of(_ability_option, int(settings.runner_ability))
 	_rounds_spin.value = float(settings.rounds_to_win_match)
 
 	_syncing = false
@@ -316,10 +314,6 @@ func _fill_choices() -> void:
 	for runner_value: int in MatchRules.RunnerWinCondition.size():
 		_runner_win_option.add_item(_runner_win_title(runner_value), runner_value)
 
-	_ability_option.clear()
-	for ability_value: int in MatchRules.RunnerAbility.size():
-		_ability_option.add_item(MatchRules.runner_ability_title(ability_value), ability_value)
-
 
 func _connect_controls() -> void:
 	_map_option.item_selected.connect(_on_map_selected)
@@ -330,7 +324,6 @@ func _connect_controls() -> void:
 	_ghosts_check.toggled.connect(_on_ghosts_toggled)
 	_shooter_win_option.item_selected.connect(_on_shooter_win_selected)
 	_runner_win_option.item_selected.connect(_on_runner_win_selected)
-	_ability_option.item_selected.connect(_on_ability_selected)
 	_rounds_spin.value_changed.connect(_on_rounds_changed)
 
 	_back_button.pressed.connect(close)
@@ -438,15 +431,6 @@ func _on_runner_win_selected(index: int) -> void:
 		return
 	_store.settings.runner_win_condition = (
 		_runner_win_option.get_item_id(index) as MatchRules.RunnerWinCondition
-	)
-	_after_change()
-
-
-func _on_ability_selected(index: int) -> void:
-	if _syncing:
-		return
-	_store.settings.runner_ability = (
-		_ability_option.get_item_id(index) as MatchRules.RunnerAbility
 	)
 	_after_change()
 

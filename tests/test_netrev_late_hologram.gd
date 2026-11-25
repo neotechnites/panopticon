@@ -33,11 +33,11 @@ func test_rv_a_late_peer_sees_the_hologram_the_others_see() -> void:
 		fail("no round")
 		return
 	await step_ticks(30)
-	host.get_rules().ability_duration_seconds = 600.0
+	TestFixtures.set_power_duration(600.0)
 	TestFixtures.pin_the_field(host, null)
 	var slot: int = 3
 	var power: RunnerPower = RunnerPower.of(_rig.body(HOST, slot))
-	assert_true(power.activate(MatchRules.RunnerAbility.HOLOGRAM), "the host starts a bot runner's hologram")
+	assert_true(TestFixtures.fire(power, MatchRules.RunnerAbility.HOLOGRAM), "the host starts a bot runner's hologram")
 	var early: RunnerPower = RunnerPower.of(_rig.body(CLIENT, slot))
 	if not await _rig.wait_for(func() -> bool: return early.get_hologram() != null):
 		fail("the peer that was there never saw the hologram")
@@ -68,10 +68,10 @@ func test_rv_a_late_peer_sees_a_shield_where_the_host_raised_it() -> void:
 		fail("no round")
 		return
 	await step_ticks(30)
-	host.get_rules().ability_duration_seconds = 600.0
+	TestFixtures.set_power_duration(600.0)
 	var slot: int = 3
 	var power: RunnerPower = RunnerPower.of(_rig.body(HOST, slot))
-	assert_true(power.activate(MatchRules.RunnerAbility.BUBBLE_SHIELD), "the host raises a running bot's shield")
+	assert_true(TestFixtures.fire(power, MatchRules.RunnerAbility.BUBBLE_SHIELD), "the host raises a running bot's shield")
 	var raised_at: Vector3 = power.get_shield().global_position
 	await step_ticks(60)
 	var ran: float = _rig.body(HOST, slot).global_position.distance_to(raised_at)

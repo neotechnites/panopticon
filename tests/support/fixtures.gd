@@ -71,6 +71,30 @@ static func match_rules() -> MatchRules:
 	return rules
 
 
+## Every timed power runs [param duration] seconds and every power cools [param cooldown] (the cat
+## keeps its fuse). [method SharedState.restore] puts the shipped definitions back before each test.
+static func time_powers(duration: float, cooldown: float) -> void:
+	set_power_duration(duration)
+	set_power_cooldown(cooldown)
+
+
+static func set_power_duration(seconds: float) -> void:
+	for definition: PowerDef in RunnerPower.DEFS:
+		if definition.clock == PowerDef.Clock.TIMED:
+			definition.duration_seconds = seconds
+
+
+static func set_power_cooldown(seconds: float) -> void:
+	for definition: PowerDef in RunnerPower.DEFS:
+		definition.cooldown_seconds = seconds
+
+
+## [param power]'s player holds [param which], and it is fired as [param authority] would.
+static func fire(power: RunnerPower, which: int, authority: bool = true) -> bool:
+	power.held = which as MatchRules.RunnerAbility
+	return power.activate(authority)
+
+
 ## A private copy of the shipped ghost profile.
 static func ghost_profile() -> GhostProfile:
 	return (load(GHOST_PROFILE_PATH) as GhostProfile).duplicate() as GhostProfile

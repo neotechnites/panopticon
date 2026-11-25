@@ -5,8 +5,9 @@ extends IntentSource
 ## which is what a key is. [BotIntentSource] holds a power key down for as long as it is set.
 
 var held: MoveIntent = MoveIntent.new()
+## How this device's seat picks a power on every machine (its rig's), for [method tap_power].
+var pick: Callable = Callable()
 var _taps: Array[StringName] = []
-var _slots: PackedInt32Array = PackedInt32Array()
 ## Ticks polled, so a test can tell which tick a tap went out on.
 var polls: int = 0
 
@@ -16,9 +17,11 @@ func tap(key: StringName) -> void:
 	_taps.append(key)
 
 
-## Press power key [param slot] on the next tick only.
-func tap_slot(slot: int) -> void:
-	_slots.append(slot)
+## Pick [param which] (as a hub stand would) and press use on the next tick only.
+func tap_power(which: int) -> void:
+	if pick.is_valid():
+		pick.call(which)
+	_taps.append(&"ability_pressed")
 
 
 func poll(_delta: float) -> MoveIntent:
@@ -27,7 +30,4 @@ func poll(_delta: float) -> MoveIntent:
 	for key: StringName in _taps:
 		_intent.set(key, true)
 	_taps.clear()
-	if not _slots.is_empty():
-		_intent.ability_slot = _slots[0]
-		_slots.remove_at(0)
 	return _intent

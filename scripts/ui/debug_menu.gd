@@ -317,8 +317,6 @@ func _build_runners() -> void:
 	_slider("DEBUG_JUMP", GameSettings.MIN_RUNNER_JUMP_MULTIPLIER, GameSettings.MAX_RUNNER_JUMP_MULTIPLIER,
 			0.05, "DEBUG_UNIT_TIMES", rules.runner_jump_multiplier,
 			_rule_then.bind(&"runner_jump_multiplier", false, _controller.debug_refresh_pace))
-	_slider("DEBUG_POWER_COOLDOWN", 0.0, 60.0, 0.5, "DEBUG_UNIT_SECONDS", rules.ability_cooldown_seconds,
-			func(value: float) -> void: rules.ability_cooldown_seconds = value)
 	_slider("DEBUG_POWER_COOLDOWN_SCALE", GameSettings.MIN_ABILITY_COOLDOWN_MULTIPLIER,
 			GameSettings.MAX_ABILITY_COOLDOWN_MULTIPLIER, 0.05, "DEBUG_UNIT_TIMES", rules.ability_cooldown_multiplier,
 			func(value: float) -> void: _rule(&"ability_cooldown_multiplier", value, &"ability_cooldown_multiplier"))

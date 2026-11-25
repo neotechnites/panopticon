@@ -431,7 +431,7 @@ func _a_target_that_moves_in_a_stance(crouched: bool) -> bool:
 func _raise_shield(body: PlayerController) -> RunnerPower:
 	var power: RunnerPower = RunnerPower.of(body)
 	power.arm(TestFixtures.match_rules(), null)
-	assert_true(power.activate(MatchRules.RunnerAbility.BUBBLE_SHIELD), "the shield goes up")
+	assert_true(TestFixtures.fire(power, MatchRules.RunnerAbility.BUBBLE_SHIELD), "the shield goes up")
 	assert_true(power.get_shield() != null, "and stands")
 	return power
 

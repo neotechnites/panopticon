@@ -4,7 +4,6 @@ extends RigidBody3D
 ## The cat power's body on the host (DESIGN 9): carried, then thrown as a rigid body. Physics only: the
 ## fuse is the power's state and every machine draws the cat with a [CatView]. Its blast hurts nobody.
 
-const FUSE_SECONDS: float = 2.5
 const BLAST_RADIUS: float = 7.0
 ## Launch speed at the centre of the blast; the edge gets BLAST_EDGE of it.
 const BLAST_SPEED: float = 22.0

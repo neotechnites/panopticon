@@ -21,9 +21,6 @@ const CROSS_TICKS: int = 30
 var _rig: RefCounted = null
 ## The slot whose body runs the power.
 var _slot: int = 0
-## The rules a test lengthened a power on, and the length they shipped with.
-var _lengthened: MatchRules = null
-var _shipped_seconds: float = 0.0
 
 
 func before_each() -> void:
@@ -31,9 +28,6 @@ func before_each() -> void:
 
 
 func after_each() -> void:
-	if _lengthened != null:
-		_lengthened.ability_duration_seconds = _shipped_seconds
-		_lengthened = null
 	if _rig != null:
 		_rig.close()
 		_rig = null
@@ -56,9 +50,7 @@ func _start(map: StringName, on_bot: bool) -> bool:
 		fail("the host never reached the round")
 		return false
 	await step_ticks(CROSS_TICKS)
-	_lengthened = host.get_rules()
-	_shipped_seconds = _lengthened.ability_duration_seconds
-	_lengthened.ability_duration_seconds = 600.0
+	TestFixtures.set_power_duration(600.0)
 	_slot = 3 if on_bot else _rig.local_slot(EARLY)
 	TestFixtures.pin_the_field(host, null)
 	return assert_true(_rig.participant(HOST, _slot).is_running, "the body the power runs on is a living runner")
@@ -116,7 +108,8 @@ func _a_late_machine_draws(which: int, map: StringName, on_bot: bool) -> void:
 		if not await _rig.wait_for(func() -> bool: return copy.get_intent().ability_held):
 			fail("the held key never reached the host")
 			return
-	if not assert_true(_power(HOST).activate(which as MatchRules.RunnerAbility), "the host starts the power"):
+	_rig.hold(_slot, which)
+	if not assert_true(_power(HOST).activate(), "the host starts the power"):
 		return
 	var early_has_it: bool = await _rig.wait_for(func() -> bool:
 		return int(_power(EARLY).get_shown()) == which and _draws(EARLY, which))
@@ -131,6 +124,7 @@ func _a_late_machine_draws(which: int, map: StringName, on_bot: bool) -> void:
 		return int(_power(LATE).get_shown()) == which and _draws(LATE, which))
 	assert_eq_int(int(_power(LATE).get_shown()), which, "the late machine shows the power running")
 	assert_true(late_has_it, "and draws what it puts in the world")
+	assert_eq_int(int(_power(LATE).get_held()), which, "and has the body holding it, from the roster")
 	if not late_has_it:
 		return
 	await step_ticks(CROSS_TICKS)
@@ -208,7 +202,8 @@ func test_a_late_machine_draws_a_held_cat_grenade_on_a_bots_body_hell() -> void:
 func test_a_late_machine_draws_no_hologram_that_was_shot_away_before_it_bound() -> void:
 	if not await _start(HELL, true):
 		return
-	if not assert_true(_power(HOST).activate(HOLOGRAM as MatchRules.RunnerAbility), "the host starts the hologram"):
+	_rig.hold(_slot, HOLOGRAM)
+	if not assert_true(_power(HOST).activate(), "the host starts the hologram"):
 		return
 	if not await _rig.wait_for(func() -> bool: return _power(EARLY).get_hologram() != null):
 		fail("the machine already in the match never drew it")

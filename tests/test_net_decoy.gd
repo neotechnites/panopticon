@@ -41,9 +41,8 @@ func before_each() -> void:
 	Engine.time_scale = 1.0
 	_profile = TestFixtures.movement_profile()
 	_rules = TestFixtures.match_rules()
-	_rules.runner_ability = MatchRules.RunnerAbility.HOLOGRAM
-	_rules.ability_duration_seconds = DURATION_SECONDS
-	_rules.ability_cooldown_seconds = 5.0
+	TestFixtures.set_power_duration(DURATION_SECONDS)
+	TestFixtures.set_power_cooldown(5.0)
 	_host = NetFixtures.make_peer(self, "Host", NetFixtures.settings())
 	_client = NetFixtures.make_peer(self, "Client", NetFixtures.settings())
 	add_child(TestFixtures.make_floor(0.0))
@@ -204,6 +203,8 @@ func _bring_up() -> Array[RunnerPower]:
 		return []
 	host_power.arm(_rules, _host_stub)
 	client_power.arm(_rules, _client_stub)
+	host_power.held = MatchRules.RunnerAbility.HOLOGRAM
+	client_power.held = MatchRules.RunnerAbility.HOLOGRAM
 	return [host_power, client_power]
 
 

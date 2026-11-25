@@ -23,11 +23,7 @@ const COOK: int = 1 << 5
 const EMOTE: int = 1 << 6
 const EMOTE_ALT: int = 1 << 7
 const POWER: int = 1 << 8
-## Power keys 1-5 pick that power outright: bit [code]POWER_1 << (n - 1)[/code].
-const POWER_1: int = 1 << 9
-const POWER_SLOTS: int = 5
-const ALL_POWER_KEYS: int = POWER | (((1 << POWER_SLOTS) - 1) * POWER_1)
-const BUTTON_MASK: int = (1 << 14) - 1
+const BUTTON_MASK: int = (1 << 9) - 1
 
 ## Desired move direction in the body's local space: x is right, y is forward.
 ## Length is clamped to 1.0 by [method normalise]; a shorter vector is a valid
@@ -121,7 +117,7 @@ var emote_alt_pressed: bool:
 		return (pressed & EMOTE_ALT) != 0
 	set(on):
 		pressed = _with(pressed, EMOTE_ALT, on)
-## The runner's power key (the rules' pick). The level is any power key, so Armor Lock ends on release.
+## The use-power key: fires the held power. Its level ends Armor Lock on release.
 var ability_pressed: bool:
 	get:
 		return (pressed & POWER) != 0
@@ -129,20 +125,9 @@ var ability_pressed: bool:
 		pressed = _with(pressed, POWER, on)
 var ability_held: bool:
 	get:
-		return (buttons & ALL_POWER_KEYS) != 0
+		return (buttons & POWER) != 0
 	set(on):
-		buttons = buttons | POWER if on else buttons & ~ALL_POWER_KEYS
-## The power key 1-5 that went down on this command (the lowest, if several), or 0 for none.
-var ability_slot: int:
-	get:
-		for slot: int in POWER_SLOTS:
-			if (pressed & (POWER_1 << slot)) != 0:
-				return slot + 1
-		return 0
-	set(slot):
-		pressed &= ~(ALL_POWER_KEYS & ~POWER)
-		if slot >= 1 and slot <= POWER_SLOTS:
-			pressed |= POWER_1 << (slot - 1)
+		buttons = _with(buttons, POWER, on)
 
 
 ## Zero every field. Call before refilling, so a source can never leak a stale

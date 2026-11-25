@@ -28,7 +28,7 @@ func test_the_hosts_press_is_drawn_on_both_clients() -> void:
 func test_a_client_sees_its_own_power_on_the_tick_it_presses() -> void:
 	if not await stand_up():
 		return
-	a_keys.tap_slot(MatchRules.RunnerAbility.BUBBLE_SHIELD)
+	a_keys.tap_power(MatchRules.RunnerAbility.BUBBLE_SHIELD)
 	await step_ticks(2)
 	assert_eq_int(
 		int(power_of(a_links, A_SEAT).get_shown()), MatchRules.RunnerAbility.BUBBLE_SHIELD,
@@ -36,10 +36,10 @@ func test_a_client_sees_its_own_power_on_the_tick_it_presses() -> void:
 	)
 
 
-func test_the_picked_power_key_runs_the_hosts_pick_for_a_client() -> void:
-	rules.runner_ability = MatchRules.RunnerAbility.ACTIVE_CAMO
+func test_the_power_key_runs_the_power_a_client_holds() -> void:
 	if not await stand_up():
 		return
+	hold(MatchRules.RunnerAbility.ACTIVE_CAMO, A_SEAT)
 	a_keys.tap(&"ability_pressed")
 	var up: bool = await until(
 		func() -> bool: return all_draw(A_SEAT, MatchRules.RunnerAbility.ACTIVE_CAMO)
@@ -48,17 +48,17 @@ func test_the_picked_power_key_runs_the_hosts_pick_for_a_client() -> void:
 
 
 func test_the_cooldown_reaches_the_client_that_owns_the_power() -> void:
-	rules.ability_cooldown_seconds = 3.0
+	TestFixtures.set_power_cooldown(3.0)
 	if not await stand_up():
 		return
-	a_keys.tap_slot(MatchRules.RunnerAbility.BUBBLE_SHIELD)
+	a_keys.tap_power(MatchRules.RunnerAbility.BUBBLE_SHIELD)
 	await until(func() -> bool: return all_draw(A_SEAT, MatchRules.RunnerAbility.BUBBLE_SHIELD))
 	await until(func() -> bool: return all_draw(A_SEAT, MatchRules.RunnerAbility.NONE))
 	var cooling: bool = await until(
 		func() -> bool: return power_of(a_links, A_SEAT).get_cooldown_remaining() > 1.0
 	)
 	assert_true(cooling, "the owner's machine is told the cooldown the host is counting")
-	a_keys.tap_slot(MatchRules.RunnerAbility.BUBBLE_SHIELD)
+	a_keys.tap_power(MatchRules.RunnerAbility.BUBBLE_SHIELD)
 	await step_ticks(30)
 	assert_eq_int(
 		drawn(A_SEAT)[0], MatchRules.RunnerAbility.NONE, "a press inside the cooldown starts nothing"
@@ -73,7 +73,7 @@ func test_the_cooldown_reaches_the_client_that_owns_the_power() -> void:
 func _press_and_watch(keys: PressSource, seat: int, which: int) -> void:
 	var title: String = MatchRules.runner_ability_title(which as MatchRules.RunnerAbility)
 	keys.held.ability_held = true
-	keys.tap_slot(which)
+	keys.tap_power(which)
 	var up: bool = await until(func() -> bool: return all_draw(seat, which))
 	assert_true(up, "%s is up on host, A and B: %s" % [title, str(drawn(seat))])
 	var gone: bool = await until(

@@ -25,6 +25,7 @@ const SWITCHES: Array[Array] = [
 	[&"HubLobby", &"relaunch_on_arrival", false],
 	[&"HubLobby", &"relaunch_bot_seats", null],
 	[&"MatchSetupScreen", &"show_all_rules_everywhere", false],
+	[&"RunnerPower", &"solo_held", 0],
 ]
 
 ## Process-wide registries of live nodes, as [global class, static variable]. Each empties with the
@@ -32,6 +33,7 @@ const SWITCHES: Array[Array] = [
 const REGISTRIES: Array[Array] = [
 	[&"TrapDoor", &"live"],
 	[&"HubCat", &"_all"],
+	[&"PowerStand", &"_all"],
 ]
 
 ## Nodes the game itself keeps under the root for the life of the process, made on first use.
@@ -61,6 +63,12 @@ static func restore() -> void:
 		var script: GDScript = _script_of(entry[0])
 		if script != null and entry[1] in script:
 			script.set(entry[1], entry[2])
+	# The power definitions are tuned in place by tests (TestFixtures.time_powers): back to the shipped files.
+	for definition: PowerDef in RunnerPower.DEFS:
+		var shipped: PowerDef = ResourceLoader.load(definition.resource_path, "", ResourceLoader.CACHE_MODE_IGNORE)
+		for property: Dictionary in shipped.get_property_list():
+			if int(property["usage"]) & PROPERTY_USAGE_SCRIPT_VARIABLE != 0:
+				definition.set(StringName(property["name"]), shipped.get(StringName(property["name"])))
 	# Only ever the directory the runner made: with no supervisor user:// is somebody's own.
 	var isolated: String = OS.get_environment(ISOLATED_HOME_VARIABLE)
 	if not isolated.is_empty() and OS.get_user_data_dir().simplify_path().begins_with(isolated.simplify_path()):

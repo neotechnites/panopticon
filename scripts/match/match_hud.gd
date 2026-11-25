@@ -72,10 +72,8 @@ const PIP_COUNT: int = 10
 ## Ten pips under the guard bar, for a finisher.
 @export var pips_row: Control
 
-## Bottom-right: the runner's power and its cooldown.
-@export var power_panel: Control
-@export var power_label: Label
-@export var power_fill: Control
+## Bottom-right: the held power's run and cooldown, as a ring.
+@export var power_wheel: PowerWheel
 
 ## Bottom-right, under the power: the speed boost while one is running.
 @export var boost_label: Label
@@ -205,11 +203,6 @@ func get_primary_text() -> String:
 	return _shown(guard_panel, guard_value)
 
 
-## The runner's power, as it reads bottom-right.
-func get_context_text() -> String:
-	return _shown(power_panel, power_label)
-
-
 ## The transient centre line, or an empty string.
 func get_flash_text() -> String:
 	return _shown(flash_label, flash_label)
@@ -309,62 +302,18 @@ func _write_pips(wanted: bool) -> void:
 			pip.modulate = tuning.ready_color if index < lit else dim
 
 
-## The runner's power, its cycle, and the speed boost while one runs.
+## The held power's ring, and the speed boost while one runs.
 func _write_power(wanted: bool) -> void:
-	var text: String = _ability_text() if wanted else ""
-	_show(power_panel, text != "")
-	if text != "":
-		_write(power_label, text, _readout().neutral_color)
-		_set_fill(power_fill, _ability_fill())
+	var viewed: MatchParticipant = controller.get_viewed_participant() if wanted else null
+	var ability: RunnerPower = RunnerPower.of(viewed.body) if viewed != null else null
+	var held: bool = ability != null and ability.get_held() != MatchRules.RunnerAbility.NONE
+	if power_wheel != null:
+		power_wheel.power = ability if held else null
+	_show(power_wheel, held)
 	var boost: String = _speed_boost_text() if wanted else ""
 	_show(boost_label, boost != "")
 	if boost != "":
 		_write(boost_label, boost, _readout().ready_color)
-
-
-## The power's name and where it is in its cycle: the one running whichever key started it,
-## else the one the host picked. Nothing picked, running or cooling shows nothing.
-func _ability_text() -> String:
-	var viewed: MatchParticipant = controller.get_viewed_participant()
-	var ability: RunnerPower = RunnerPower.of(viewed.body) if viewed != null else null
-	if ability == null:
-		return ""
-	var shown: MatchRules.RunnerAbility = _shown_ability(ability)
-	if shown == MatchRules.RunnerAbility.NONE:
-		return ""
-	var title: String = MatchRules.runner_ability_title(shown).to_upper()
-	if ability.is_active():
-		return tr("HUD_ABILITY_ACTIVE").format({"title": title, "seconds": "%.1f" % ability.get_remaining()})
-	if ability.get_cooldown_remaining() > 0.0:
-		return tr("HUD_ABILITY_COOLDOWN").format({
-			"title": title, "seconds": "%.0f" % ability.get_cooldown_remaining(),
-		})
-	return tr("HUD_ABILITY_READY").format({"title": title})
-
-
-## The power the panel names: the running or the cooling one, else the host's pick.
-func _shown_ability(ability: RunnerPower) -> MatchRules.RunnerAbility:
-	if ability.is_active() or ability.get_cooldown_remaining() > 0.0:
-		return ability.get_last()
-	return controller.get_rules().runner_ability
-
-
-## How full the power bar is: the run while it is active (the cat's fuse for the cat), the
-## wait while it is cooling, full when it is ready.
-func _ability_fill() -> float:
-	var viewed: MatchParticipant = controller.get_viewed_participant()
-	var rules: MatchRules = controller.get_rules()
-	var ability: RunnerPower = RunnerPower.of(viewed.body) if viewed != null else null
-	if ability == null:
-		return 0.0
-	if ability.is_active():
-		var whole: float = RunnerPower.duration_of(ability.get_last(), rules)
-		return clampf(ability.get_remaining() / maxf(whole, 0.01), 0.0, 1.0)
-	var cooling: float = ability.get_cooldown_remaining()
-	if cooling <= 0.0:
-		return 1.0
-	var wait: float = rules.ability_cooldown_seconds * rules.ability_cooldown_multiplier
-	return clampf(1.0 - cooling / maxf(wait, 0.01), 0.0, 1.0)
 
 
 ## The boost on the viewed body, or an empty string.
@@ -452,7 +401,7 @@ func _write_flash(text: String) -> void:
 func _hide_all() -> void:
 	if _all_panels.is_empty():
 		_all_panels = [
-			crosshair, status_panel, tower_panel, guard_panel, pips_row, power_panel,
+			crosshair, status_panel, tower_panel, guard_panel, pips_row, power_wheel,
 			boost_label, dev_label,
 		]
 	for node: Control in _all_panels:

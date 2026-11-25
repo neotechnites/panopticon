@@ -27,7 +27,7 @@ func test_locking_and_unlocking_at_a_run_does_not_rubber_band_the_presser() -> v
 	await step_ticks(60)
 	a_links[A_SEAT].prediction_corrected.connect(_on_corrected)
 	a_keys.held.ability_held = true
-	a_keys.tap_slot(ARMOR)
+	a_keys.tap_power(ARMOR)
 	await step_ticks(30)
 	assert_eq_int(drawn(A_SEAT)[0], ARMOR, "the host has A locked 30 ticks into the hold")
 	a_keys.held.ability_held = false
@@ -52,7 +52,7 @@ func test_a_held_lock_holds_the_body_on_the_host_and_frees_it_on_release() -> vo
 	var on_host: PlayerController = body_of(host_links, A_SEAT)
 	a_keys.held.move_direction = FORWARD
 	a_keys.held.ability_held = true
-	a_keys.tap_slot(ARMOR)
+	a_keys.tap_power(ARMOR)
 	var up: bool = await until(func() -> bool: return all_draw(A_SEAT, ARMOR))
 	assert_true(up, "the held lock is up on host, A and B: %s" % str(drawn(A_SEAT)))
 	var held_at: Vector3 = on_host.global_position
@@ -82,7 +82,7 @@ func test_a_one_tick_tap_of_the_lock_ends_everywhere() -> void:
 	if not await stand_up():
 		return
 	await step_ticks(1)
-	a_keys.tap_slot(ARMOR)
+	a_keys.tap_power(ARMOR)
 	await step_ticks(2)
 	assert_eq_int(drawn(A_SEAT)[1], NONE, "a tap's lock is over on A the tick after it")
 	await step_ticks(30)
@@ -108,7 +108,7 @@ func test_a_lock_started_inside_a_blackout_still_locks_on_the_host() -> void:
 	black_out(a_wire, 4)
 	await step_ticks(2)
 	a_keys.held.ability_held = true
-	a_keys.tap_slot(ARMOR)
+	a_keys.tap_power(ARMOR)
 	await step_ticks(3)
 	assert_ge(
 		float(a_wire.dropped - dropped_before), 3.0,
@@ -132,7 +132,8 @@ func test_twenty_lock_hologram_lock_cycles_on_a_bad_line_end_clean() -> void:
 	for _cycle: int in 20:
 		await _press_and_watch_host(ARMOR, 10)
 		await _press_and_watch_host(NONE, 1)
-		await _press_and_watch_host(HOLOGRAM, 1)
+		# One power held at a time: the hologram's press lands before the next pick.
+		await _press_and_watch_host(HOLOGRAM, 6)
 		await _press_and_watch_host(ARMOR, 5)
 		await _press_and_watch_host(NONE, 1)
 	var ticks: int = await _ticks_until_all_none(240)
@@ -156,7 +157,7 @@ func _press_and_watch_host(which: int, ticks: int) -> void:
 	var host_power: RunnerPower = power_of(host_links, A_SEAT)
 	a_keys.held.ability_held = which == ARMOR
 	if which != NONE:
-		a_keys.tap_slot(which)
+		a_keys.tap_power(which)
 	for _tick: int in ticks:
 		await step_ticks(1)
 		var now: int = int(host_power.get_active())

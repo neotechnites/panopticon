@@ -57,9 +57,9 @@ PRESS_DELIVERY = 0.5
 # Physics frames from a key going down to the command that carries it: the same frame or the next.
 PRESS_FRAMES = 2
 # MoveIntent's bits for each scripted key (scripts/player/move_intent.gd), and what the host must make of it.
-KEY_BUTTONS = {"q": 1 << 8, "1": 1 << 9, "2": 1 << 10, "3": 1 << 11, "4": 1 << 12, "5": 1 << 13,
+KEY_BUTTONS = {"q": 1 << 8,
                "e": 1 << 5, "b": 1 << 6, "n": 1 << 7, "f": 1 << 4, "j": 1 << 0}
-POWER_KEYS = ("1", "2", "3", "4", "5", "q")
+POWER_KEYS = ("q",)
 PRESS_WANTED = {"b": "on", "n": "alt"}
 PRESS_WHAT = {"e": "cook the cat", "b": "emote", "n": "emote (alt)", "f": "shove", "j": "jump"}
 # Refusals a knock (shove, cat blast) on the host can cause before the presser hears of it.
@@ -683,6 +683,15 @@ def check_presentation(host: Peer, clients: list[Peer], v: Verdict, lag: float, 
                                f"drew {label}={value} for {seat} for {end - start:.1f} s, a stretch the host never had", client.ref(line))
 
 
+def configured_power(spec: object, seat: str) -> int:
+    """The power the host's --ability gave seat "s<n>": one value for every seat, or a list by index; -1 for none."""
+    parts = [p for p in str(spec).split(",") if p.strip()]
+    index = int(seat[1:]) if seat[1:].isdigit() else -1
+    if len(parts) == 1:
+        return int(parts[0])
+    return int(parts[index]) if 0 <= index < len(parts) else -1
+
+
 def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, scenario: dict) -> dict:
     """Every usable press a machine made reached exactly one command the host ran, by sequence, and the host
     ran it; or a host event the presser could not yet have seen overruled it. Every press the host ran on a
@@ -703,11 +712,12 @@ def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, 
     for tag in ("HOLD", "KNOCK", "PWEND"):
         for line in host.tagged(tag):
             by_seat[tag][line.kv.get("seat", "?")].append(line)
-    match_rules = [l for l in host.tagged("MATCH") if l.rest.startswith("rules")]
     turns = sorted(host.tagged("STATE") + host.tagged("ROLE"), key=lambda l: l.w)
     # Where the host stopped running a scene's commands; the last line too, for a host that was killed.
     host_ends = [l.w for l in host.lines if l.tag in ("SCENE", "END")] + [host.last_w]
     valid_by_peer: dict[int, int] = defaultdict(int)
+    ruled_role_by_peer: dict[int, int] = defaultdict(int)
+    spec = peer_options(scenario, 0).get("ability", "")
     # (peer, seq, bit) a press's own check already failed for want of exactly one ruling.
     reported: set[tuple[str, int, int]] = set()
 
@@ -775,6 +785,23 @@ def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, 
             key = press.kv.get("key", "?")
             seat = press.kv.get("seat", "?")
             note = press.kv.get("note", "")
+            if note.startswith("role-") and key in POWER_KEYS and not quiet(press.w):
+                # A guard's or a ghost's power key, sent anyway: the host must never run it.
+                frame = int(press.kv.get("frame", -1))
+                bit = KEY_BUTTONS[key]
+                if peer.index == 0:
+                    ran = [r for r in own[seat] if frame <= int(r.kv.get("frame", -9)) <= frame + PRESS_FRAMES
+                           and int(r.kv.get("pressed", 0)) & bit]
+                else:
+                    command = command_of(peer, sent, frame, bit, "pressed")
+                    ran = [r for r in by_command[(command.kv.get("peer"), int(command.kv["seq"]))]
+                           if int(r.kv.get("pressed", 0)) & bit] if command is not None else []
+                for rule in ran[:1]:
+                    if rule.kv.get("ruling") == "ran":
+                        v.fail("press", peer.name, f"pressed {key} as {seat} while {note[5:]}: the host ran power "
+                               f"{rule.kv.get('ability')}", host.ref(rule))
+                    else:
+                        ruled_role_by_peer[peer.index] += 1
             if press.kv.get("valid") != "1" and not note.startswith(("role-", "no-cat", "no-picked")):
                 # The key was held back for a moment the body could use it, and none came.
                 v.fail("press", peer.name, f"key {key} could never be used as {seat}: {note} for the whole wait", peer.ref(press))
@@ -820,10 +847,12 @@ def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, 
             ruling = rule.kv.get("ruling", "?")
             pressed_w = press.w
             wanted = PRESS_WANTED.get(key, "ran")
-            ability = key
-            if key == "q":
-                current = [l for l in match_rules if l.w <= press.w]
-                ability = current[-1].kv.get("ability", "0") if current else "0"
+            # The power q fires is the one the presser's own body held: the host must run exactly that.
+            ability = press.kv.get("held", "?") if key == "q" else key
+            want = configured_power(spec, seat) if key == "q" else -1
+            if want >= 0 and rule.kv.get("held") != str(want):
+                v.fail("press", peer.name, f"pressed q as {seat} holding power {rule.kv.get('held')} on the host; "
+                       f"the scenario gave the seat {want}", host.ref(rule))
             if ruling == wanted and (key not in POWER_KEYS or rule.kv.get("ability") == ability):
                 tally["ran"] += 1
                 if key in POWER_KEYS and ability == "3":
@@ -833,7 +862,7 @@ def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, 
             if event is not None:
                 tally["overruled"][ruling] += 1
                 continue
-            what = f"power {ability} ({ABILITY_NAMES.get(int(ability), '?')})" if key in POWER_KEYS else PRESS_WHAT.get(key, key)
+            what = f"power {ability} ({ABILITY_NAMES.get(int(ability) if ability.lstrip('-').isdigit() else -1, '?')})" if key in POWER_KEYS else PRESS_WHAT.get(key, key)
             v.fail("press", peer.name, f"pressed {key} ({what}) as {seat}: the host ruled it {ruling} (ability "
                    f"{rule.kv.get('ability')}), and no host event this machine could not yet see explains it", host.ref(rule))
 
@@ -849,7 +878,7 @@ def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, 
             if pressed == 0 or quiet(command.w):
                 continue
             ruled = [int(r.kv.get("pressed", 0)) for r in by_command[(command.kv.get("peer"), seq)]]
-            for bit in (1 << b for b in range(14) if pressed & (1 << b)):
+            for bit in (1 << b for b in range(9) if pressed & (1 << b)):
                 count = sum(1 for r in ruled if r & bit)
                 if count == 1 or (command.kv.get("peer"), seq, bit) in reported:
                     continue
@@ -867,12 +896,16 @@ def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, 
         if valid_by_peer[int(index)] < int(least):
             v.fail("press", peers[int(index)].name if int(index) < len(peers) else f"peer{index}",
                    f"{valid_by_peer[int(index)]} usable key press(es), {least} expected: the scenario tested nothing here")
+    for index, least in scenario.get("expect", {}).get("ruled_role_presses", {}).items():
+        if ruled_role_by_peer[int(index)] < int(least):
+            v.fail("press", peers[int(index)].name if int(index) < len(peers) else f"peer{index}",
+                   f"{ruled_role_by_peer[int(index)]} guard/ghost power press(es) refused by the host, {least} expected")
     return {k: {"pressed": t["pressed"], "ran": t["ran"], "overruled": dict(t["overruled"]), "unrun": t["unrun"]}
             for k, t in stats.items()}
 
 
 def check_role_powers(host: Peer, v: Verdict) -> None:
-    """A runner power running on the guard or on a ghost: allowed by the code today, unruled (POWERS X4)."""
+    """A runner power running on the guard (tower or hunting) or on a ghost: only prisoners hold a live power."""
     role: dict[str, str] = {}
     seen: set[tuple] = set()
     for line in host.lines:
@@ -883,7 +916,7 @@ def check_role_powers(host: Peer, v: Verdict) -> None:
             key = (seat, role.get(seat), line.kv.get("ability"))
             if role.get(seat) in ("TOWER", "GHOST", "HUNTING") and key not in seen:
                 seen.add(key)
-                v.warn("role-power", "host", f"{seat} ran power {line.kv.get('ability')} while {role.get(seat)}", host.ref(line))
+                v.fail("role-power", "host", f"{seat} ran power {line.kv.get('ability')} while {role.get(seat)}", host.ref(line))
 
 
 def check_roster(host: Peer, v: Verdict) -> None:

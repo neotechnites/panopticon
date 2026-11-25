@@ -9,7 +9,7 @@ const CAT: int = MatchRules.RunnerAbility.CAT_GRENADE
 func test_a_cat_in_a_clients_hands_when_the_host_goes_is_cleared_from_its_screen() -> void:
 	if not await stand_up():
 		return
-	a_keys.tap_slot(CAT)
+	a_keys.tap_power(CAT)
 	var offered: bool = await until(func() -> bool:
 		var view: CatView = power_of(a_links, A_SEAT).get_cat_view()
 		return view != null and view.is_petting())

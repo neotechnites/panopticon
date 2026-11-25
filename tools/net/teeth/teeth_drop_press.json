@@ -14,10 +14,11 @@
   "press-fire": 0,
   "ghosts": "false",
   "break": "drop-press",
-  "break-at": 4
+  "break-at": 4,
+  "ability": "4,2"
  },
  "client": {
-  "keys": "1@6,4@14"
+  "keys": "q@6,q@24"
  },
  "name": "teeth_drop_press",
  "teeth": [

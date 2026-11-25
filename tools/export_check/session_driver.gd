@@ -8,8 +8,9 @@ extends Node
 ## --loops=1 --hub-seconds --match-seconds --prisoners --guard=<seat, -1 race> --limit
 ## --act=keys|aim|shove|idle: keys runs --program on the real key actions while walking; aim turns the
 ##   view onto the nearest runner and fires; shove (host) stands behind each client in turn and shoves.
-## --program: steps split by ';'. '3h4' hold key 3 four seconds, '3t' tap, 'j' jump, 's' shove,
+## --program: steps split by ';'. 'qh4' hold the power key four seconds, '3t' tap, 'j' jump, 's' shove,
 ##   'e' interact, 'b'/'n' emotes, 'w1.5' wait. Loops for the whole session, hub included.
+## --power=N (host): every occupied seat holds power N while gathering; -1 leaves the picks alone.
 ## --zap (host): the rifle's hit lands on every armor-locked body, every 0.6 s.
 ## --stall=s freezes this process once, a second into every match; --load-stall overrides the net setting.
 ## --phase: seconds the program start is held back. --mute=false keeps the game's volume.
@@ -21,8 +22,7 @@ const TAP_SECONDS: float = 0.06
 ## Faster upward than anything the game throws a body with.
 const FLUNG_SPEED: float = 40.0
 const KEYS: Dictionary = {
-	"1": &"ability_1", "2": &"ability_2", "3": &"ability_3", "4": &"ability_4", "5": &"ability_5",
-	"j": &"jump", "s": &"shove", "e": &"interact", "b": &"emote", "n": &"emote_alt",
+	"q": &"ability", "j": &"jump", "s": &"shove", "e": &"interact", "b": &"emote", "n": &"emote_alt",
 }
 
 var _o: Dictionary = {}
@@ -70,7 +70,7 @@ func _ready() -> void:
 		"role": "server", "address": "127.0.0.1", "port": 27960, "name": "", "humans": 2,
 		"maps": "bentham_ring,marble", "loops": 1, "hub-seconds": 8.0, "match-seconds": 60.0,
 		"prisoners": 0, "guard": -2, "limit": 600.0, "act": "keys", "program": "", "phase": 0.0,
-		"mute": true, "fire-every": 1.2, "width": 0, "height": 0, "zap": false, "stall": 0.0, "load-stall": 0.0, "peer-timeout": 0.0,
+		"mute": true, "fire-every": 1.2, "width": 0, "height": 0, "zap": false, "power": -1, "stall": 0.0, "load-stall": 0.0, "peer-timeout": 0.0,
 	})
 	_t0 = Time.get_ticks_msec()
 	_maps = String(_o.maps).split(",", false)
@@ -164,6 +164,7 @@ func _enter_multiplayer() -> void:
 		_line("SESSION ended failed=%s%s" % [str(failed), _wire()])
 		_session_over = true)
 	_lobby.roster_changed.connect(func() -> void: _line("ROSTER " + _lobby.describe().replace("\n", " | ")))
+	_lobby.roster_changed.connect(_hold_powers)
 	_lobby.phase_changed.connect(func(phase: NetLobby.Phase) -> void:
 		_line("LOBBY phase=%s" % String(NetLobby.Phase.keys()[phase])))
 	if _is_server():
@@ -252,6 +253,13 @@ func _end(verdict: String, code: int) -> void:
 
 
 # --- Host flow ----------------------------------------------------------------
+
+func _hold_powers() -> void:
+	if int(_o.power) < 0 or not _is_server() or _lobby.get_phase() != NetLobby.Phase.GATHERING:
+		return
+	for seat: LobbySeat in _lobby.get_occupied_seats():
+		_lobby.set_power(seat.index, int(_o.power))
+
 
 func _humans() -> int:
 	var count: int = 0

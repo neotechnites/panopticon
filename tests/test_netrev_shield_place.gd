@@ -12,11 +12,11 @@ func _shield_of(links: Array[PlayerNetLink], seat: int) -> Node3D:
 func test_a_running_players_shield_stands_where_the_host_raised_it() -> void:
 	if not await stand_up(0.0, 1):
 		return
-	rules.ability_duration_seconds = 5.0
+	TestFixtures.set_power_duration(5.0)
 	await step_ticks(10)
 	a_keys.held.move_direction = Vector2(0.0, 1.0)
 	await step_ticks(45)
-	a_keys.tap_slot(SHIELD)
+	a_keys.tap_power(SHIELD)
 	if not await until(func() -> bool: return all_draw(A_SEAT, SHIELD)):
 		fail("the shield never went up everywhere: %s" % str(drawn(A_SEAT)))
 		return
