@@ -1,0 +1,263 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/match/kill_volume.gd" id="1_kill_volume"]
+[ext_resource type="Script" path="res://scripts/ring/ring_route.gd" id="5_ring_route"]
+[ext_resource type="Script" path="res://scripts/ring/ring_level.gd" id="6_ring_level"]
+[ext_resource type="Shader" path="res://maps/aspens/materials/aspens_sky.gdshader" id="7_sky_shader"]
+[ext_resource type="PackedScene" path="res://maps/aspens/models/aspens_stump.glb" id="8_stump"]
+[ext_resource type="PackedScene" path="res://maps/aspens/models/aspens_ground.glb" id="10_ground"]
+[ext_resource type="PackedScene" path="res://maps/aspens/models/aspens_near0.glb" id="11_near0"]
+[ext_resource type="PackedScene" path="res://maps/aspens/models/aspens_near1.glb" id="12_near1"]
+[ext_resource type="PackedScene" path="res://maps/aspens/models/aspens_near2.glb" id="13_near2"]
+[ext_resource type="PackedScene" path="res://maps/aspens/models/aspens_near3.glb" id="14_near3"]
+[ext_resource type="PackedScene" path="res://maps/aspens/models/aspens_near4.glb" id="15_near4"]
+[ext_resource type="PackedScene" path="res://maps/aspens/models/aspens_near5.glb" id="16_near5"]
+[ext_resource type="PackedScene" path="res://maps/aspens/models/aspens_near6.glb" id="17_near6"]
+[ext_resource type="PackedScene" path="res://maps/aspens/models/aspens_near7.glb" id="18_near7"]
+[ext_resource type="PackedScene" path="res://maps/aspens/models/aspens_far0.glb" id="19_far0"]
+[ext_resource type="PackedScene" path="res://maps/aspens/models/aspens_far1.glb" id="20_far1"]
+[ext_resource type="PackedScene" path="res://maps/aspens/models/aspens_far2.glb" id="21_far2"]
+[ext_resource type="PackedScene" path="res://maps/aspens/models/aspens_far3.glb" id="22_far3"]
+
+[ext_resource type="Texture2D" path="res://maps/aspens/textures/aspens_grass_albedo.png" id="30_grass_tile"]
+[ext_resource type="Texture2D" path="res://maps/aspens/textures/aspens_bark_albedo.png" id="31_bark_tile"]
+
+[ext_resource type="Texture2D" path="res://maps/aspens/textures/aspens_leaf_albedo.png" id="32_leaf_tile"]
+[ext_resource type="Texture2D" path="res://maps/aspens/textures/aspens_tuft_albedo.png" id="33_tuft_tile"]
+[ext_resource type="Shader" path="res://maps/aspens/materials/aspens_card.gdshader" id="34_card_shader"]
+
+[sub_resource type="ShaderMaterial" id="SkyMat"]
+shader = ExtResource("7_sky_shader")
+
+[sub_resource type="Sky" id="Sky"]
+sky_material = SubResource("SkyMat")
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 2
+sky = SubResource("Sky")
+ambient_light_source = 2
+ambient_light_color = Color(1, 1, 1, 1)
+ambient_light_energy = 0.44
+reflected_light_source = 1
+tonemap_mode = 0
+fog_enabled = true
+fog_mode = 1
+fog_light_color = Color(0.704, 0.512, 0.207, 1)
+fog_density = 0.8
+fog_sky_affect = 0.0
+fog_depth_curve = 1.0
+fog_depth_begin = 70.0
+fog_depth_end = 380.0
+
+[sub_resource type="StandardMaterial3D" id="GrassMat"]
+resource_name = "aspens_grass"
+vertex_color_use_as_albedo = true
+albedo_texture = ExtResource("30_grass_tile")
+roughness = 1.0
+texture_filter = 5
+
+[sub_resource type="StandardMaterial3D" id="BarkMat"]
+resource_name = "aspens_bark"
+vertex_color_use_as_albedo = true
+albedo_texture = ExtResource("31_bark_tile")
+roughness = 1.0
+texture_filter = 5
+
+[sub_resource type="ShaderMaterial" id="LeafMat"]
+shader = ExtResource("34_card_shader")
+shader_parameter/albedo_texture = ExtResource("32_leaf_tile")
+shader_parameter/glow = 1.3
+
+[sub_resource type="ShaderMaterial" id="TuftMat"]
+shader = ExtResource("34_card_shader")
+shader_parameter/albedo_texture = ExtResource("33_tuft_tile")
+
+[node name="Aspens" type="Node3D"]
+editor_description = "Map 6, first pass: a grove of fall aspens on open ground, a stump for the tower, open sky. One sculpt in 14 chunks at identity. Notes in docs/maps/aspens.md."
+
+[node name="Environment" type="Node3D" parent="."]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Environment"]
+environment = SubResource("Env")
+
+[node name="NoSun" type="DirectionalLight3D" parent="Environment"]
+editor_description = "Energy 0: its presence stops the editor's preview sun so the editor matches the game."
+light_energy = 0.0
+shadow_enabled = false
+
+[node name="Sun" type="DirectionalLight3D" parent="Environment"]
+editor_description = "Daylight from bearing 140, 50 deg up: the one shadowed light."
+transform = Transform3D(0.6428, 0.5868, -0.4924, 0, 0.6428, 0.766, 0.766, -0.4924, 0.4132, 0, 80, 0)
+light_color = Color(1, 1, 1, 1)
+light_energy = 0.22
+light_specular = 0.0
+shadow_enabled = true
+shadow_bias = 0.06
+shadow_blur = 1.5
+directional_shadow_mode = 0
+directional_shadow_max_distance = 200.0
+
+[node name="MapBase" type="Node3D" parent="."]
+
+[node name="Ground" parent="MapBase" instance=ExtResource("10_ground")]
+
+[node name="AspensGround" parent="MapBase/Ground" index="0"]
+editor_description = "Surface 0 restated: the importer drops the first surface's vertex colour."
+surface_material_override/0 = SubResource("GrassMat")
+
+[node name="Near0" parent="MapBase" instance=ExtResource("11_near0")]
+
+[node name="AspensNear0" parent="MapBase/Near0" index="0"]
+editor_description = "Surfaces in class order: bark (restated: the importer drops the first surface's vertex colour), leaf and tuft (alpha-cut cards, aspens_card.gdshader)."
+surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
+surface_material_override/2 = SubResource("TuftMat")
+
+[node name="Near1" parent="MapBase" instance=ExtResource("12_near1")]
+
+[node name="AspensNear1" parent="MapBase/Near1" index="0"]
+surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
+surface_material_override/2 = SubResource("TuftMat")
+
+[node name="Near2" parent="MapBase" instance=ExtResource("13_near2")]
+
+[node name="AspensNear2" parent="MapBase/Near2" index="0"]
+surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
+surface_material_override/2 = SubResource("TuftMat")
+
+[node name="Near3" parent="MapBase" instance=ExtResource("14_near3")]
+
+[node name="AspensNear3" parent="MapBase/Near3" index="0"]
+surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
+surface_material_override/2 = SubResource("TuftMat")
+
+[node name="Near4" parent="MapBase" instance=ExtResource("15_near4")]
+
+[node name="AspensNear4" parent="MapBase/Near4" index="0"]
+surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
+surface_material_override/2 = SubResource("TuftMat")
+
+[node name="Near5" parent="MapBase" instance=ExtResource("16_near5")]
+
+[node name="AspensNear5" parent="MapBase/Near5" index="0"]
+surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
+surface_material_override/2 = SubResource("TuftMat")
+
+[node name="Near6" parent="MapBase" instance=ExtResource("17_near6")]
+
+[node name="AspensNear6" parent="MapBase/Near6" index="0"]
+surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
+surface_material_override/2 = SubResource("TuftMat")
+
+[node name="Near7" parent="MapBase" instance=ExtResource("18_near7")]
+
+[node name="AspensNear7" parent="MapBase/Near7" index="0"]
+surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
+surface_material_override/2 = SubResource("TuftMat")
+
+[node name="Far0" parent="MapBase" instance=ExtResource("19_far0")]
+
+[node name="AspensFar0" parent="MapBase/Far0" index="0"]
+surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
+
+[node name="Far1" parent="MapBase" instance=ExtResource("20_far1")]
+
+[node name="AspensFar1" parent="MapBase/Far1" index="0"]
+surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
+
+[node name="Far2" parent="MapBase" instance=ExtResource("21_far2")]
+
+[node name="AspensFar2" parent="MapBase/Far2" index="0"]
+surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
+
+[node name="Far3" parent="MapBase" instance=ExtResource("22_far3")]
+
+[node name="AspensFar3" parent="MapBase/Far3" index="0"]
+surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
+
+[node name="KillBox" type="Area3D" parent="."]
+editor_description = "Under the ground: roof 6 m below the deck."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 23, 0)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("1_kill_volume")
+radius_metres = 950.0
+roof_depth_metres = 6.0
+depth_metres = 30.0
+
+[node name="Shape" type="CollisionShape3D" parent="KillBox"]
+
+[node name="StartEnd" type="Node3D" parent="."]
+
+[node name="PrisonerStart" type="Marker3D" parent="StartEnd"]
+transform = Transform3D(-0.996195, 0, 0.0871557, 0, 1, 0, -0.0871557, 0, -0.996195, 109.5814, 23, 9.5871)
+
+[node name="PrisonerEnd" type="Marker3D" parent="StartEnd"]
+transform = Transform3D(0.906308, 0, 0.422618, 0, 1, 0, -0.422618, 0, 0.906308, 99.6939, 23, -46.4880)
+
+[node name="Sections" type="Node3D" parent="."]
+
+[node name="Watch" type="Node3D" parent="Sections"]
+editor_description = "Where the AI guard's scan rests: three points at the start distance."
+
+[node name="Lane100" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -19.10, 24, 108.33)
+
+[node name="Lane200" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -103.37, 24, -37.62)
+
+[node name="Lane300" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55.00, 24, -95.26)
+
+[node name="Route" type="Node3D" parent="."]
+script = ExtResource("5_ring_route")
+
+[node name="Level1" type="Node3D" parent="Route"]
+editor_description = "The match engine's ring, laid at the start distance: ground y 23.0, r 104..116, lane r 110, 5 to 335 deg."
+script = ExtResource("6_ring_level")
+deck_height = 23.0
+inner_radius = 104.0
+outer_radius = 116.0
+lane_radius = 110.0
+entry_angle_degrees = 5.0
+exit_angle_degrees = 335.0
+
+[node name="Tower" type="Node3D" parent="."]
+editor_description = "The stump; origin 1.70 m under its cut face (y 25.0), as every tower's datum."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 23.3, 0)
+
+[node name="Stump" parent="Tower" instance=ExtResource("8_stump")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -23.3, 0)
+
+[node name="AspensStump" parent="Tower/Stump" index="0"]
+surface_material_override/0 = SubResource("BarkMat")
+
+[node name="TowerSpawn" type="Marker3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
+
+[editable path="MapBase/Ground"]
+[editable path="MapBase/Near0"]
+[editable path="MapBase/Near1"]
+[editable path="MapBase/Near2"]
+[editable path="MapBase/Near3"]
+[editable path="MapBase/Near4"]
+[editable path="MapBase/Near5"]
+[editable path="MapBase/Near6"]
+[editable path="MapBase/Near7"]
+[editable path="MapBase/Far0"]
+[editable path="MapBase/Far1"]
+[editable path="MapBase/Far2"]
+[editable path="MapBase/Far3"]
+[editable path="Tower/Stump"]
