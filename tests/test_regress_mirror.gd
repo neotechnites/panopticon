@@ -259,7 +259,8 @@ func _watch_a_hologram(clients: int, map: StringName, sender: int) -> void:
 		return
 	_hold_the_field()
 	var slot: int = _rig.local_slot(sender)
-	assert_true(TestFixtures.fire(RunnerPower.of(_rig.body(HOST, slot)), MatchRules.RunnerAbility.HOLOGRAM), "the host runs the hologram")
+	_rig.hold(slot, MatchRules.RunnerAbility.HOLOGRAM)
+	assert_true(RunnerPower.of(_rig.body(HOST, slot)).activate(), "the host runs the hologram")
 	var seen: Array[bool] = []
 	seen.resize(_rig.peer_count())
 	var all: bool = await _rig.wait_for(func() -> bool:

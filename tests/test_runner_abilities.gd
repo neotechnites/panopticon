@@ -173,7 +173,7 @@ func test_active_camo_repaints_the_body_then_restores_it_and_cools_down() -> voi
 	for index: int in mesh.mesh.get_surface_count():
 		before.append(mesh.get_surface_override_material(index))
 	await _press()
-	await get_tree().process_frame
+	await _after_a_drawn_frame()
 	assert_true(_ability.is_camouflaged(), "camo is on")
 	for index: int in mesh.mesh.get_surface_count():
 		var was: BaseMaterial3D = CharacterLight.base_of(_drawn(mesh, index, before[index]))
@@ -185,7 +185,7 @@ func test_active_camo_repaints_the_body_then_restores_it_and_cools_down() -> voi
 			assert_eq_int(int(now.transparency), int(BaseMaterial3D.TRANSPARENCY_ALPHA), "surface %d blends" % index)
 
 	await step_seconds(DURATION_SECONDS + 0.5)
-	await get_tree().process_frame
+	await _after_a_drawn_frame()
 	assert_false(_ability.is_active(), "camo expired")
 	assert_true(mesh.material_override == saved, "the body's material came back")
 	for index: int in mesh.mesh.get_surface_count():
@@ -210,6 +210,13 @@ func test_the_codec_carries_the_ability_bits() -> void:
 	assert_true(out.ability_pressed and out.ability_held, "the key's level survives the wire, and its press is the level going down")
 	out.clear()
 	assert_false(out.ability_pressed or out.ability_held, "clear zeroes them")
+
+
+## Past one whole frame's [method Node._process], where powers are drawn from state: [signal
+## SceneTree.process_frame] fires before that frame's _process, so the second is the first after one ran.
+func _after_a_drawn_frame() -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
 
 
 ## What [param mesh] draws on surface [param index] given its [param override].

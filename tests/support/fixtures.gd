@@ -89,7 +89,8 @@ static func set_power_cooldown(seconds: float) -> void:
 		definition.cooldown_seconds = seconds
 
 
-## [param power]'s player holds [param which], and it is fired as [param authority] would.
+## [param power]'s player holds [param which], and it is fired as [param authority] would. Off a seat only:
+## in a session the roster overrules it; pick through the rig's [code]hold[/code] there.
 static func fire(power: RunnerPower, which: int, authority: bool = true) -> bool:
 	power.held = which as MatchRules.RunnerAbility
 	return power.activate(authority)
