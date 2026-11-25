@@ -7,7 +7,8 @@ tree stump in the middle for the tower. ONE sculpt in one Blender scene, exporte
     aspens_near0..7.glb   the grove out to NEAR_R, one chunk per 45 deg of bearing              AspensNear0..7
     aspens_far0..3.glb    the outer grove out to FOREST_R, low detail, one chunk per 90 deg     AspensFar0..3
 
-Trees are five modelled aspens (VARIANTS) and two far ones (FAR_VARIANTS), placed turned and scaled.
+Trees are six modelled aspens (VARIANTS) and three far ones (FAR_VARIANTS), placed turned and scaled;
+leaves and grass tufts are alpha-cut cards (maps/aspens/materials/aspens_card.gdshader).
 World coordinates, instanced at identity (Blender +Z -> Godot +Y, +Y -> Godot -Z; bearings as the
 scene's markers, pol()). Sizes and colours: docs/maps/aspens.md.
 
@@ -54,12 +55,12 @@ SPOT_CLEAR = 2.5            # no trunk this near a start or finish marker
 SPOTS = ((5.0, START_R), (335.0, START_R))
 
 # -- spacing: a sightline's mean free path through the trunks is 1 / (density x trunk width).
-TRUNK_W = 0.38              # mean trunk width at chest height
+TRUNK_W = 0.33              # mean trunk width at chest height (VARIANTS by weight)
 FREE_PATH = START_R         # the guard's mean clear run: one start distance
-DENSITY = 1.0 / (TRUNK_W * FREE_PATH)       # 0.0239 trees per m2: 6.5 m between neighbours
-MIN_GAP = 4.2               # no two trunks nearer than this
-FAR_DENSITY = DENSITY * 1.2                # past the starts nobody aims through it: close the horizon
-FAR_GAP = 3.4
+DENSITY = 1.0 / (TRUNK_W * FREE_PATH)       # 0.0275 trees per m2
+MIN_GAP = 3.6               # no two trunks nearer than this
+FAR_DENSITY = DENSITY * 1.1                 # past the starts nobody aims through it: close the horizon
+FAR_GAP = 3.2
 
 # -- ground
 SWELL = 0.45                # metres the ground rolls, +-
@@ -80,21 +81,33 @@ STUMP_FOOT = 2.65           # radius at the ground between roots
 BARK_U = 1.6                # metres of trunk one turn of the bark tile wraps (32 texels)
 BARK_V = 12.8
 
-# -- trees: (height, trunk width at the foot, crown foot, clumps, lean metres at the top, weight)
+# -- trees: (height, trunk width at the foot, crown foot, limbs, weight); every trunk stands plumb
 VARIANTS = (
-    (21.0, 0.46, 10.5, 7, 0.35, 3),
-    (18.0, 0.36, 8.5, 6, 0.5, 4),
-    (23.5, 0.50, 12.0, 7, 0.25, 2),
-    (16.0, 0.30, 7.5, 5, 0.7, 3),
-    (13.0, 0.24, 6.0, 4, 0.45, 2),
+    (21.0, 0.42, 10.5, 8, 3),
+    (18.0, 0.30, 9.0, 7, 5),
+    (23.5, 0.68, 12.0, 9, 1),
+    (16.0, 0.24, 8.0, 6, 4),
+    (19.5, 0.34, 10.0, 7, 4),
+    (22.0, 0.52, 11.5, 8, 2),
 )
-FAR_VARIANTS = ((20.0, 0.44, 6.0, 2, 0.3, 1), (16.5, 0.34, 3.6, 2, 0.5, 1), (11.0, 0.24, 1.4, 2, 0.4, 1))   # leaves lower toward the edge: the grove closes in gold, as istock's far trunks do
+FAR_VARIANTS = ((20.0, 0.44, 6.0, 0, 1), (16.5, 0.34, 3.6, 0, 1), (11.0, 0.24, 1.4, 0, 1))   # leaves lower toward the edge: the grove closes in gold, as istock's far trunks do
 FAR_STEP = (165.0, 192.0)   # past these radii the lower-leaved far trees take over
 SCALE = (0.88, 1.12)
-TRUNK_SIDES = 5
-TRUNK_RINGS = ((-0.5, 1.10), (1.3, 0.93), (0.45, 0.72), (0.78, 0.44), (-0.35, 0.12))   # z (m, share of H, m under the tip), share of the foot radius
+TRUNK_RINGS = ((-0.5, 1.10), (1.3, 0.93), (0.45, 0.74), (0.78, 0.46), (-0.35, 0.12))   # z (m, share of H, m under the tip), share of the foot radius
 BRANCH_COL = (0.047, 0.028, 0.017)          # x the bark tile = the photo's black (47, 34, 23)
+LIMB = ((2.0, 3.8), (22.0, 50.0))           # a limb's reach (longest low in the crown) and its rise, degrees
+CARD = (1.9, 2.8)           # a leaf mass: two crossed cards this wide
+CARD_SHADE = ((0.72, 0.85, 1.0), (0.11, 0.48, 0.6), (0.17, 0.26, 0.35))   # (share, from, to) of leaf masses: the photo's bright, mid and dark leaf
+LEAF_GLOW = 1.3             # LeafMat's glow, over the shade: the bright masses burn out to the photo's yellow
 COLLIDER_TOP = 8.0          # trunks stop shots and bodies to here
+
+# -- tufts: crossed grass cards, in the Minecraft frame's dry yellow and green
+TUFT_R = 140.0              # out to here
+TUFT_PER_TREE = (1, 3)      # round each near trunk's foot ...
+TUFT_FOOT = (0.45, 1.7)     # ... this far out
+TUFT_LOOSE = 2200           # and this many in the open
+TUFT_SIZE = ((0.7, 1.05), (0.4, 0.72))      # width, height: under a runner's knee to mid thigh
+TUFT_GREEN = (0.26, 0.53, 0.49)             # x the dry tile = frame0's lit green (85, 108, 45)
 
 # -- the scene's light, restated by maps/aspens/aspens.tscn (the review renders use these)
 SUN_BEARING = 140.0
@@ -340,55 +353,60 @@ def build_stump(m, foot_ring):
 # TREES -- modelled once per variant in its own frame (foot at the origin), then placed
 # =============================================================================
 
+def _shade(rng):
+    pick = rng.f()
+    for share, lo, hi in CARD_SHADE:
+        pick -= share
+        if pick <= 0.0:
+            return rng.u(lo, hi)
+    return 1.0
+
+
 class Tree(object):
-    """One modelled aspen: trunk rings, leaf clumps, branches; verts in its own frame."""
+    """One modelled aspen: plumb trunk rings, thin limbs, leaf masses; in its own frame."""
 
     def __init__(self, spec, seed, far=False):
-        self.h, self.w, crown, clumps, lean, self.weight = spec
+        self.h, self.w, crown, limbs, self.weight = spec
         self.far = far
         rng = Rng(seed)
         r0 = self.w * 0.5
-        lean_a = rng.u(0.0, TWO_PI)
-        self.sides = 4 if far else TRUNK_SIDES
+        self.sides = 3 if far else (6 if self.w > 0.45 else 5)
         table = (TRUNK_RINGS[0], TRUNK_RINGS[4]) if far else TRUNK_RINGS
-        self.rings = []                    # (centre, radius)
+        self.rings = []                    # (z, radius)
         for i, (zz, share) in enumerate(table):
-            z = zz if zz < -0.4 or zz > 1.0 else zz * self.h
-            z = self.h + zz if (zz < 0.0 and i == len(table) - 1) else z
-            off = lean * clamp(z / self.h) ** 2
-            self.rings.append(((off * math.cos(lean_a), off * math.sin(lean_a), z), r0 * share))
-        self.clumps = []                   # (centre, radius, height, turn)
-        self.branches = []                 # (from, to)
-        tip = self.rings[-1][0]
+            z = self.h + zz if i == len(table) - 1 else zz if i < 2 else zz * self.h
+            self.rings.append((z, r0 * share))
+        self.limbs = []                    # (from, to)
+        self.masses = []                   # (centre, width, shade)
+        span = self.h - crown
         if far:
-            span = self.h - crown
-            self.clumps.append(((tip[0] * 0.4, tip[1] * 0.4, crown + 0.3 * span), 3.2, 0.62 * span, rng.u(0.0, 90.0)))
-            self.clumps.append(((tip[0], tip[1], crown + 0.76 * span), 2.4, 0.56 * span, rng.u(0.0, 90.0)))
+            for k in range(5):
+                t = (k + 0.5) / 5.0
+                a = math.radians(rng.u(0.0, 360.0))
+                reach = (1.0 - 0.6 * t) * rng.u(0.6, 1.6)
+                self.masses.append(((reach * math.cos(a), reach * math.sin(a), crown + t * span), rng.u(3.6, 4.6) * (1.0 - 0.3 * t),
+                                    _shade(rng)))
             return
-        self.clumps.append(((tip[0], tip[1], self.h - 1.1), rng.u(1.6, 2.0), rng.u(2.8, 3.4), rng.u(0.0, 72.0)))
         a = rng.u(0.0, 360.0)
-        for k in range(clumps - 1):
-            t = (k + 0.5) / (clumps - 1)
-            z = crown + t * (self.h - 3.0 - crown) + rng.u(-0.4, 0.4)
-            a += 137.5 + rng.u(-25.0, 25.0)
-            reach = (1.7 - 0.9 * t) * rng.u(0.7, 1.1)
-            cx, cy = self.trunk_at(z)
-            c = (cx + reach * math.cos(math.radians(a)), cy + reach * math.sin(math.radians(a)), z + reach * 0.25)
-            self.clumps.append((c, rng.u(1.7, 2.4) * (1.0 - 0.25 * t), rng.u(2.3, 3.0), rng.u(0.0, 72.0)))
-            if reach > 1.2:
-                self.branches.append(((cx, cy, z - 0.9), (c[0], c[1], c[2] - 0.5)))
-
-    def trunk_at(self, z):
-        for (c0, _r0), (c1, _r1) in zip(self.rings, self.rings[1:]):
-            if z <= c1[2]:
-                t = clamp((z - c0[2]) / (c1[2] - c0[2]))
-                return (c0[0] + (c1[0] - c0[0]) * t, c0[1] + (c1[1] - c0[1]) * t)
-        return self.rings[-1][0][:2]
+        for k in range(limbs):
+            t = (k + 0.5) / limbs
+            z = crown + t * (span - 1.6) + rng.u(-0.4, 0.4)
+            a += 137.5 + rng.u(-22.0, 22.0)
+            reach = (LIMB[0][1] - (LIMB[0][1] - LIMB[0][0]) * t) * rng.u(0.8, 1.15)
+            rise = math.radians(rng.u(*LIMB[1]))
+            d = (math.cos(math.radians(a)) * math.cos(rise), math.sin(math.radians(a)) * math.cos(rise), math.sin(rise))
+            tip = (d[0] * reach, d[1] * reach, z + d[2] * reach)
+            self.limbs.append(((0.0, 0.0, z), tip))
+            for along, grow in ((0.55, 0.92), (1.0, 1.0)):
+                c = tuple((0.0, 0.0, z)[q] + (tip[q] - (0.0, 0.0, z)[q]) * along + rng.u(-0.35, 0.35) for q in range(3))
+                self.masses.append((c, rng.u(*CARD) * grow * (1.0 - 0.2 * t), _shade(rng)))
+        for dz in (-1.5, -0.3):
+            self.masses.append(((rng.u(-0.3, 0.3), rng.u(-0.3, 0.3), self.h + dz), rng.u(1.8, 2.3), _shade(rng)))
 
     def radius_at(self, z):
-        for (c0, r0), (c1, r1) in zip(self.rings, self.rings[1:]):
-            if z <= c1[2]:
-                return r0 + (r1 - r0) * clamp((z - c0[2]) / (c1[2] - c0[2]))
+        for (z0, r0), (z1, r1) in zip(self.rings, self.rings[1:]):
+            if z <= z1:
+                return r0 + (r1 - r0) * clamp((z - z0) / (z1 - z0))
         return self.rings[-1][1]
 
     def place(self, m, base, yaw, scale, chunk, rng):
@@ -398,59 +416,58 @@ class Tree(object):
                         base[2] + scale * p[2])
         u_off, v_off = rng.f(), rng.f()
         n = self.sides
-        rows = []
-        for (c, r) in self.rings:
-            rows.append([m.v(at((c[0] + r * math.cos(TWO_PI * k / n), c[1] + r * math.sin(TWO_PI * k / n), c[2])))
-                         for k in range(n)])
-        axis = [at(c) for c, _r in self.rings]
+        rows = [[m.v(at((r * math.cos(TWO_PI * k / n), r * math.sin(TWO_PI * k / n), z))) for k in range(n)]
+                for (z, r) in self.rings]
+        out = lambda cen: (cen[0] - base[0], cen[1] - base[1], 0.0)
+        turns = max(1, int(round(math.pi * self.w * scale / BARK_U)))     # whole turns of the tile round the trunk
         for i in range(len(rows) - 1):
-            out = lambda cen, i=i: (cen[0] - axis[i][0], cen[1] - axis[i][1], 0.0)
-            v0, v1 = v_off + self.rings[i][0][2] * scale / BARK_V, v_off + self.rings[i + 1][0][2] * scale / BARK_V
+            v0, v1 = v_off + self.rings[i][0] * scale / BARK_V, v_off + self.rings[i + 1][0] * scale / BARK_V
             for k in range(n):
                 j = (k + 1) % n
-                u0, u1 = u_off + k / float(n), u_off + (k + 1) / float(n)
+                u0, u1 = u_off + turns * k / float(n), u_off + turns * (k + 1) / float(n)
                 m.quad(rows[i][k], rows[i][j], rows[i + 1][j], rows[i + 1][k], out, "bark", chunk,
                        ((u0, v0), (u1, v0), (u1, v1), (u0, v1)))
-        tip = m.v(at((self.rings[-1][0][0], self.rings[-1][0][1], self.h)))
+        tip = m.v(at((0.0, 0.0, self.h)))
         for k in range(n):
             m.tri(rows[-1][k], rows[-1][(k + 1) % n], tip, UP, "bark", chunk,
                   ((u_off + k / float(n), v1), (u_off + (k + 1) / float(n), v1), (u_off + (k + 0.5) / n, v1 + 0.03)))
-        for (a, b) in self.branches:                    # a thin dark limb, three sides
+        for (a, b) in self.limbs:                       # a thin dark limb, three sides
             pa, pb = at(a), at(b)
             d = [pb[k] - pa[k] for k in range(3)]
-            ln = math.sqrt(sum(x * x for x in d)) or 1.0
+            ln = math.sqrt(d[0] * d[0] + d[1] * d[1]) or 1.0
             sx, sy = -d[1] / ln, d[0] / ln
             ring_a, ring_b = [], []
             for k in range(3):
                 ang = TWO_PI * k / 3
                 o = (sx * math.cos(ang), sy * math.cos(ang), math.sin(ang))
-                ring_a.append(m.v(tuple(pa[q] + 0.085 * scale * o[q] for q in range(3)), BRANCH_COL))
-                ring_b.append(m.v(tuple(pb[q] + 0.04 * scale * o[q] for q in range(3)), BRANCH_COL))
+                ring_a.append(m.v(tuple(pa[q] + 0.1 * scale * o[q] for q in range(3)), BRANCH_COL))
+                ring_b.append(m.v(tuple(pb[q] + 0.035 * scale * o[q] for q in range(3)), BRANCH_COL))
             mid = tuple((pa[q] + pb[q]) * 0.5 for q in range(3))
             away = lambda cen, mid=mid: tuple(cen[q] - mid[q] for q in range(3))
             for k in range(3):
                 j = (k + 1) % 3
                 m.quad(ring_a[k], ring_a[j], ring_b[j], ring_b[k], away, "bark", chunk,
                        ((0.0, 0.0), (0.1, 0.0), (0.1, 0.2), (0.0, 0.2)))
-        for (c, rad, hh, turn) in self.clumps:          # a faceted leaf mass: apex, two rings, apex
-            sides = 4 if self.far else 5
-            cw = at(c)
-            away = lambda cen, cw=cw: tuple(cen[q] - cw[q] for q in range(3))
-            lo = m.v(at((c[0] + rng.u(-0.3, 0.3), c[1] + rng.u(-0.3, 0.3), c[2] - 0.5 * hh)), (0.95, 0.94, 0.92))
-            hi = m.v(at((c[0] + rng.u(-0.3, 0.3), c[1] + rng.u(-0.3, 0.3), c[2] + 0.5 * hh)))
-            r1, r2 = [], []
-            for k in range(sides):
-                a1 = math.radians(turn + 360.0 * k / sides)
-                a2 = math.radians(turn + 360.0 * (k + 0.5) / sides)
-                q1, q2 = rad * rng.u(0.8, 1.05), rad * rng.u(0.6, 0.85)
-                r1.append(m.v(at((c[0] + q1 * math.cos(a1), c[1] + q1 * math.sin(a1), c[2] - hh * rng.u(0.08, 0.2)))))
-                r2.append(m.v(at((c[0] + q2 * math.cos(a2), c[1] + q2 * math.sin(a2), c[2] + hh * rng.u(0.18, 0.3)))))
-            for k in range(sides):
-                j = (k + 1) % sides
-                m.tri(lo, r1[k], r1[j], away, "leaf", chunk)
-                m.tri(r1[k], r1[j], r2[k], away, "leaf", chunk)
-                m.tri(r1[j], r2[j], r2[k], away, "leaf", chunk)
-                m.tri(r2[k], r2[j], hi, away, "leaf", chunk)
+        for (c, width, shade) in self.masses:
+            card_pair(m, at(c), width * scale, width * scale, rng, "leaf", chunk, (shade, shade, shade), tilt=0.9)
+
+
+def card_pair(m, c, w, h, rng, zone, chunk, col, tilt, foot=False):
+    """Two crossed alpha-cut cards on one quarter of the zone's sheet; foot: c is the bottom middle."""
+    cell = int(rng.f() * 4.0) % 4
+    u0, v0 = 0.5 * (cell % 2), 0.5 * (cell // 2)
+    a = rng.u(0.0, math.pi)
+    for k in range(2):
+        ang = a + k * math.pi / 2.0 + rng.u(-0.3, 0.3)
+        lean = rng.u(-tilt, tilt)
+        ax = (math.cos(ang), math.sin(ang), 0.0)
+        up = (-math.sin(ang) * math.sin(lean), math.cos(ang) * math.sin(lean), math.cos(lean))
+        lo, hi = (0.0, h) if foot else (-0.5 * h, 0.5 * h)
+        q = [m.v(tuple(c[i] + ax[i] * sx * 0.5 * w + up[i] * sz for i in range(3)), col)
+             for sx, sz in ((-1, lo), (1, lo), (1, hi), (-1, hi))]
+        nrm = (ax[1] * up[2] - ax[2] * up[1], ax[2] * up[0] - ax[0] * up[2], ax[0] * up[1] - ax[1] * up[0])
+        m.quad(q[0], q[1], q[2], q[3], nrm, zone, chunk,
+               ((u0, v0), (u0 + 0.5, v0), (u0 + 0.5, v0 + 0.5), (u0, v0 + 0.5)))
 
 
 def scatter():
@@ -485,13 +502,13 @@ def scatter():
 
 
 def build_trees(m):
-    """Every tree into the sculpt. Returns [(x, y, z, radius at chest, Tree, scale, chunk)] for the colliders."""
+    """Every tree, and the grass tufts, into the sculpt. Returns [(x, y, z, radius at chest, Tree, scale, chunk)]."""
     near = [Tree(s, SEED + 100 + i) for i, s in enumerate(VARIANTS)]
     far = [Tree(s, SEED + 200 + i, far=True) for i, s in enumerate(FAR_VARIANTS)]
     rng = Rng(SEED + 3)
     out = []
     for (x, y, is_far) in scatter():
-        kinds = far if is_far else near
+        kinds = near
         if is_far:
             rr = math.hypot(x, y) + rng.u(-12.0, 12.0)
             kinds = far[:2] if rr < FAR_STEP[0] else far[1:] if rr < FAR_STEP[1] else far[2:]
@@ -508,6 +525,23 @@ def build_trees(m):
         z = ground_z(x, y)
         tree.place(m, (x, y, z), rng.u(0.0, TWO_PI), scale, chunk, rng)
         out.append((x, y, z, tree.radius_at(1.0) * scale, tree, scale, chunk))
+    spots = [(x, y) for (x, y, _z, _r, t, _s, _c) in out if not t.far for _k in range(int(rng.u(TUFT_PER_TREE[0], TUFT_PER_TREE[1] + 0.999)))]
+    tufts = []
+    for (x, y) in spots:
+        a, d = rng.u(0.0, TWO_PI), rng.u(*TUFT_FOOT)
+        tufts.append((x + d * math.cos(a), y + d * math.sin(a)))
+    for _k in range(TUFT_LOOSE):
+        r, a = math.sqrt(rng.u(5.0 ** 2, TUFT_R ** 2)), rng.u(0.0, TWO_PI)
+        tufts.append((r * math.cos(a), r * math.sin(a)))
+    for (x, y) in tufts:
+        if math.hypot(x, y) < 4.6:
+            continue
+        dry = rng.f() < 0.62
+        shade = rng.u(0.85, 1.0)
+        chunk = "near%d" % int(bearing_of((x, y)) // 45.0)
+        card_pair(m, (x, y, ground_z(x, y) - 0.04), rng.u(*TUFT_SIZE[0]), rng.u(*TUFT_SIZE[1]), rng,
+                  "tuft", chunk, tuple(shade * c for c in ((1.0, 1.0, 1.0) if dry else TUFT_GREEN)), tilt=0.18, foot=True)
+    INFO["tufts"] = len(tufts)
     return out
 
 
@@ -539,9 +573,8 @@ def build_colliders(m, trees):
         cm = out[chunk]
         n = 4 if tree.far else 6
         lo = [cm.v((x + rad * 1.1 * math.cos(TWO_PI * k / n), y + rad * 1.1 * math.sin(TWO_PI * k / n), z - 0.4)) for k in range(n)]
-        cx, cy = tree.trunk_at(COLLIDER_TOP / scale)
         rt = tree.radius_at(COLLIDER_TOP / scale) * scale
-        hi = [cm.v((x + scale * cx + rt * math.cos(TWO_PI * k / n), y + scale * cy + rt * math.sin(TWO_PI * k / n), z + COLLIDER_TOP))
+        hi = [cm.v((x + rt * math.cos(TWO_PI * k / n), y + rt * math.sin(TWO_PI * k / n), z + COLLIDER_TOP))
               for k in range(n)]
         outw = lambda c, x=x, y=y: (c[0] - x, c[1] - y, 0.0)
         for k in range(n):
@@ -584,7 +617,8 @@ def sightlines(trees, dist, n=1440):
 SHEETS = {
     "grass": tx.Sheet("grass", mode="box", roughness=1.0),
     "bark": tx.Sheet("bark", mode="custom", width=32, roughness=1.0),
-    "leaf": tx.Sheet("leaf", mode="box", roughness=1.0),
+    "leaf": tx.Sheet("leaf", mode="custom", size=128, roughness=1.0, cull=False),         # four leaf clusters, alpha-cut
+    "tuft": tx.Sheet("tuft", mode="custom", size=128, roughness=1.0, cull=False),         # four dry tufts, alpha-cut
     "wood": tx.Sheet("wood", mode="custom", size=128, roughness=1.0),
 }
 
@@ -624,8 +658,13 @@ def _object(name, part, mats):
 def build():
     m, trees, colliders = build_geometry()
     mats = tx.materials(NAME, SHEETS)
-    for mat in mats.values():
+    for cls, mat in mats.items():
         _tint(mat)
+        if cls in ("leaf", "tuft"):            # the tile's alpha cuts the card
+            nt = mat.node_tree
+            img = next(n for n in nt.nodes if n.type == "TEX_IMAGE")
+            nt.links.new(img.outputs["Alpha"], nt.nodes.get("Principled BSDF").inputs["Alpha"])
+            mdl._try(mat, "surface_render_method", "DITHERED")
     out = []
     for chunk in CHUNKS:
         vis = _object(VIS[chunk], m.part(chunk), mats)
@@ -634,7 +673,7 @@ def build():
         cob.hide_render = True
         out += [vis, cob]
         print("MDL STATS %s visual_tris=%d collision_tris=%d" % (chunk, len(vis.data.polygons), len(cf)))
-    print("MDL STATS trees near=%d far=%d" % (sum(1 for t in trees if not t[4].far), sum(1 for t in trees if t[4].far)))
+    print("MDL STATS trees near=%d far=%d tufts=%d" % (sum(1 for t in trees if not t[4].far), sum(1 for t in trees if t[4].far), INFO.get("tufts", 0)))
     return out
 
 
@@ -666,8 +705,9 @@ def _check():
         total += n
         print("%-7s tris=%d collider_tris=%d" % (chunk, n, len(colliders[chunk].faces)))
     near = [t for t in trees if not t[4].far]
-    print("total tris=%d  trees near=%d far=%d  density=%.4f/m2  mean chest width=%.3f m"
-          % (total, len(near), len(trees) - len(near), DENSITY, 2.0 * sum(t[3] for t in near) / len(near)))
+    print("total tris=%d  trees near=%d far=%d  tufts=%d  density=%.4f/m2  chest width mean %.3f m, %.2f..%.2f"
+          % (total, len(near), len(trees) - len(near), INFO.get("tufts", 0), DENSITY, 2.0 * sum(t[3] for t in near) / len(near),
+             2.0 * min(t[3] for t in near), 2.0 * max(t[3] for t in near)))
     gaps = []
     for i, a in enumerate(near[:400]):
         gaps.append(min(math.hypot(a[0] - b[0], a[1] - b[1]) for j, b in enumerate(near) if j != i))

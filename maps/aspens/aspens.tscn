@@ -22,6 +22,10 @@
 [ext_resource type="Texture2D" path="res://maps/aspens/textures/aspens_grass_albedo.png" id="30_grass_tile"]
 [ext_resource type="Texture2D" path="res://maps/aspens/textures/aspens_bark_albedo.png" id="31_bark_tile"]
 
+[ext_resource type="Texture2D" path="res://maps/aspens/textures/aspens_leaf_albedo.png" id="32_leaf_tile"]
+[ext_resource type="Texture2D" path="res://maps/aspens/textures/aspens_tuft_albedo.png" id="33_tuft_tile"]
+[ext_resource type="Shader" path="res://maps/aspens/materials/aspens_card.gdshader" id="34_card_shader"]
+
 [sub_resource type="ShaderMaterial" id="SkyMat"]
 shader = ExtResource("7_sky_shader")
 
@@ -59,6 +63,15 @@ albedo_texture = ExtResource("31_bark_tile")
 roughness = 1.0
 texture_filter = 5
 
+[sub_resource type="ShaderMaterial" id="LeafMat"]
+shader = ExtResource("34_card_shader")
+shader_parameter/albedo_texture = ExtResource("32_leaf_tile")
+shader_parameter/glow = 1.3
+
+[sub_resource type="ShaderMaterial" id="TuftMat"]
+shader = ExtResource("34_card_shader")
+shader_parameter/albedo_texture = ExtResource("33_tuft_tile")
+
 [node name="Aspens" type="Node3D"]
 editor_description = "Map 6, first pass: a grove of fall aspens on open ground, a stump for the tower, open sky. One sculpt in 14 chunks at identity. Notes in docs/maps/aspens.md."
 
@@ -95,62 +108,83 @@ surface_material_override/0 = SubResource("GrassMat")
 [node name="Near0" parent="MapBase" instance=ExtResource("11_near0")]
 
 [node name="AspensNear0" parent="MapBase/Near0" index="0"]
+editor_description = "Surfaces in class order: bark (restated: the importer drops the first surface's vertex colour), leaf and tuft (alpha-cut cards, aspens_card.gdshader)."
 surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
+surface_material_override/2 = SubResource("TuftMat")
 
 [node name="Near1" parent="MapBase" instance=ExtResource("12_near1")]
 
 [node name="AspensNear1" parent="MapBase/Near1" index="0"]
 surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
+surface_material_override/2 = SubResource("TuftMat")
 
 [node name="Near2" parent="MapBase" instance=ExtResource("13_near2")]
 
 [node name="AspensNear2" parent="MapBase/Near2" index="0"]
 surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
+surface_material_override/2 = SubResource("TuftMat")
 
 [node name="Near3" parent="MapBase" instance=ExtResource("14_near3")]
 
 [node name="AspensNear3" parent="MapBase/Near3" index="0"]
 surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
+surface_material_override/2 = SubResource("TuftMat")
 
 [node name="Near4" parent="MapBase" instance=ExtResource("15_near4")]
 
 [node name="AspensNear4" parent="MapBase/Near4" index="0"]
 surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
+surface_material_override/2 = SubResource("TuftMat")
 
 [node name="Near5" parent="MapBase" instance=ExtResource("16_near5")]
 
 [node name="AspensNear5" parent="MapBase/Near5" index="0"]
 surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
+surface_material_override/2 = SubResource("TuftMat")
 
 [node name="Near6" parent="MapBase" instance=ExtResource("17_near6")]
 
 [node name="AspensNear6" parent="MapBase/Near6" index="0"]
 surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
+surface_material_override/2 = SubResource("TuftMat")
 
 [node name="Near7" parent="MapBase" instance=ExtResource("18_near7")]
 
 [node name="AspensNear7" parent="MapBase/Near7" index="0"]
 surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
+surface_material_override/2 = SubResource("TuftMat")
 
 [node name="Far0" parent="MapBase" instance=ExtResource("19_far0")]
 
 [node name="AspensFar0" parent="MapBase/Far0" index="0"]
 surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
 
 [node name="Far1" parent="MapBase" instance=ExtResource("20_far1")]
 
 [node name="AspensFar1" parent="MapBase/Far1" index="0"]
 surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
 
 [node name="Far2" parent="MapBase" instance=ExtResource("21_far2")]
 
 [node name="AspensFar2" parent="MapBase/Far2" index="0"]
 surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
 
 [node name="Far3" parent="MapBase" instance=ExtResource("22_far3")]
 
 [node name="AspensFar3" parent="MapBase/Far3" index="0"]
 surface_material_override/0 = SubResource("BarkMat")
+surface_material_override/1 = SubResource("LeafMat")
 
 [node name="KillBox" type="Area3D" parent="."]
 editor_description = "Under the ground: roof 6 m below the deck."

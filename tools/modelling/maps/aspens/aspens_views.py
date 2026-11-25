@@ -24,14 +24,19 @@ def _relight(mat, ab):
             n.interpolation = "Linear"
     src = bsdf.inputs["Base Color"]
     out = next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL")
+    card = mat.name.endswith(("_leaf", "_tuft"))       # aspens_card.gdshader: unshaded, cut by the tile's alpha
     dif, emi = nt.nodes.new("ShaderNodeBsdfDiffuse"), nt.nodes.new("ShaderNodeEmission")
-    emi.inputs["Strength"].default_value = ab.AMBIENT
+    emi.inputs["Strength"].default_value = (0.5 * (ab.LEAF_GLOW if mat.name.endswith("_leaf") else 1.0)) if card else ab.AMBIENT
     if src.links:
         for node in (dif, emi):
             nt.links.new(src.links[0].from_socket, node.inputs["Color"])
     else:
         dif.inputs["Color"].default_value = emi.inputs["Color"].default_value = src.default_value
     lit = nt.nodes.new("ShaderNodeAddShader")
+    if card:
+        dif.inputs["Color"].default_value = (0.0, 0.0, 0.0, 1.0)
+        for link in list(dif.inputs["Color"].links):
+            nt.links.remove(link)
     nt.links.new(dif.outputs[0], lit.inputs[0])
     nt.links.new(emi.outputs[0], lit.inputs[1])
     cam = nt.nodes.new("ShaderNodeCameraData")
@@ -46,7 +51,24 @@ def _relight(mat, ab):
     nt.links.new(rng.outputs["Result"], mix.inputs["Fac"])
     nt.links.new(lit.outputs[0], mix.inputs[1])
     nt.links.new(fog.outputs[0], mix.inputs[2])
-    nt.links.new(mix.outputs[0], out.inputs["Surface"])
+    last = mix.outputs[0]
+    if card:
+        img = next(n for n in nt.nodes if n.type == "TEX_IMAGE")
+        gate = nt.nodes.new("ShaderNodeMath")
+        gate.operation = "GREATER_THAN"
+        gate.inputs[1].default_value = 0.4
+        nt.links.new(img.outputs["Alpha"], gate.inputs[0])
+        clear, cutout = nt.nodes.new("ShaderNodeBsdfTransparent"), nt.nodes.new("ShaderNodeMixShader")
+        nt.links.new(gate.outputs[0], cutout.inputs["Fac"])
+        nt.links.new(clear.outputs[0], cutout.inputs[1])
+        nt.links.new(last, cutout.inputs[2])
+        last = cutout.outputs[0]
+        for attr, value in (("surface_render_method", "DITHERED"), ("use_transparent_shadow", True), ("use_backface_culling", False)):
+            try:
+                setattr(mat, attr, value)
+            except Exception:
+                pass
+    nt.links.new(last, out.inputs["Surface"])
 
 
 def _world(ab):
@@ -153,7 +175,10 @@ def post(spec, objects):
         ("stump_close", ab.pol(40.0, 13.0, ab.DECK_Z + ab.EYE), (0.0, 0.0, top[2]), 60.0, (1600, 900)),
         ("guard_down", eye, ab.pol(100.0, 16.0, ab.DECK_Z), 100.0, (1600, 900)),
     )
+    only = os.environ.get("ASPENS_ONLY")
     for name, pos, aim, fov, res in views:
+        if only and name not in only.split(","):
+            continue
         for o in guard:
             o.hide_render = name.startswith("guard")
         cam.location, target.location = pos, aim
