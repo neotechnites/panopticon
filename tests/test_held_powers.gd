@@ -12,9 +12,16 @@ const CAT: int = MatchRules.RunnerAbility.CAT_GRENADE
 const HUB_SCENE_PATH: String = "res://hub/hub.tscn"
 
 
+## The shipped match scene, without its music: a player still streaming at exit is a leaked resource.
+func _match_scene() -> Node3D:
+	var scene: Node3D = TestFixtures.make_match()
+	scene.get_node("Music").free()
+	return scene
+
+
 ## The shipped match with the player running a round and an idle AI in the tower; the player's body.
 func _running_body(rules: MatchRules) -> PlayerController:
-	var scene: Node3D = TestFixtures.make_match()
+	var scene: Node3D = _match_scene()
 	var controller: MatchController = scene.get_node("MatchController") as MatchController
 	controller.rules = rules
 	add_child(scene)
@@ -77,7 +84,7 @@ func test_the_armor_lock_lets_go_by_itself_at_its_most() -> void:
 
 func test_bots_in_a_match_hold_a_power_and_the_player_holds_their_pick() -> void:
 	RunnerPower.solo_held = HOLOGRAM
-	var scene: Node3D = TestFixtures.make_match()
+	var scene: Node3D = _match_scene()
 	var controller: MatchController = scene.get_node("MatchController") as MatchController
 	controller.rules = TestFixtures.match_rules()
 	add_child(scene)
@@ -123,7 +130,7 @@ func test_a_hub_stand_gives_its_power_and_the_next_match_keeps_it() -> void:
 		assert_eq_int(int(RunnerPower.solo_held), which, "and the player keeps it past this scene")
 	hub.queue_free()
 	await step_ticks(2)
-	var scene: Node3D = TestFixtures.make_match()
+	var scene: Node3D = _match_scene()
 	add_child(scene)
 	await step_ticks(5)
 	var next: MatchController = scene.get_node("MatchController") as MatchController

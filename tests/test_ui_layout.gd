@@ -229,9 +229,6 @@ func _arm_hud(hud: MatchHud) -> Control:
 	(hud.get_node("Flash") as Label).modulate = Color.WHITE
 	(hud.get_node("TowerReload/Rows/Head/Value") as Label).text = tr("HUD_READY")
 	(hud.get_node("GuardReload/Value") as Label).text = tr("HUD_READY")
-	(hud.get_node("Power/Rows/Name") as Label).text = tr("HUD_ABILITY_COOLDOWN").format({
-		"title": MatchRules.runner_ability_title(MatchRules.RunnerAbility.BUBBLE_SHIELD).to_upper(), "seconds": "12",
-	})
 	(hud.get_node("Boost") as Label).text = tr("HUD_SPEED_BOOST").format({"multiplier": 2, "seconds": "12.0"})
 	(hud.get_node("Dev") as Label).text = " · ".join([
 		tr("HUD_DEV_INVINCIBLE"), tr("HUD_DEV_TURBO"), tr("HUD_DEV_FREECAM"),

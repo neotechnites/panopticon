@@ -106,7 +106,7 @@ func test_the_tower_is_told_its_round_its_count_its_turn_and_its_rifle() -> void
 	assert_eq_string(_hud.get_primary_text(), tr(words.ready_text), "and the readout says so")
 
 	# Nothing bottom-right in the tower.
-	assert_eq_string(_hud.get_context_text(), "", "the tower carries no runner power")
+	assert_false(_hud.power_wheel.visible, "the tower carries no runner power")
 
 
 ## The reload is a COUNTDOWN and a bar, not a state word. A guard who cannot see

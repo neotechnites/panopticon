@@ -135,7 +135,7 @@ func test_armor_lock_freezes_the_body_and_ignores_hits_until_released() -> void:
 	assert_true(_ability.is_hit_immune(), "the lock reports immunity")
 	assert_not_null(_body.get_node_or_null(^"ArmorShell"), "the shell shows")
 	_hud.tick()
-	assert_true(_hud.get_context_text().begins_with("ARMOR LOCK"), "the HUD names the power")
+	assert_true(_hud.power_wheel.visible and _hud.power_wheel.power == _ability, "the HUD shows the power's ring")
 
 	_input.command.ability_held = false
 	await step_ticks(2)

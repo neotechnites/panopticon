@@ -1,7 +1,7 @@
 extends TestCase
 
-## The power panel, bottom-right of a prisoner's HUD, on the shipped match scene: it names the
-## power that is running whatever key started it, its time left, and its cooldown.
+## The power wheel, bottom-right of a prisoner's HUD, on the shipped match scene: full when the held
+## power is ready, draining over its run, filling back over its cooldown, hidden with nothing held.
 
 const SETTLE_TICKS: int = 30
 const DURATION_SECONDS: float = 5.0
@@ -49,136 +49,73 @@ func before_each() -> void:
 	assert_not_null(_power, "the viewed body carries a power node")
 
 
-func test_a_number_key_power_is_named_with_nothing_picked() -> void:
+func test_the_wheel_drains_over_the_run() -> void:
 	_input.command.ability_held = true
 	assert_true(TestFixtures.fire(_power, MatchRules.RunnerAbility.ARMOR_LOCK), "the armor lock starts")
 	await step_ticks(6)
 	_hud.tick()
-	assert_true(_hud.power_panel.visible, "the power panel is up for a power nobody picked")
-	var text: String = _hud.get_context_text()
-	assert_true(
-		text.contains(_title(MatchRules.RunnerAbility.ARMOR_LOCK)),
-		"the panel names the armor lock -- got \"%s\"" % text,
-	)
-	assert_eq_string(
-		text, _active_text(MatchRules.RunnerAbility.ARMOR_LOCK),
-		"with the seconds it has left",
-	)
-	assert_between(_power.get_remaining(), 0.1, DURATION_SECONDS - 0.01, "which are counting down")
-	assert_almost_eq(
-		_hud.power_fill.anchor_right, _power.get_remaining() / DURATION_SECONDS, 0.001,
-		"and the bar is the share of the run left",
-	)
+	assert_true(_hud.power_wheel.visible, "the wheel is up for the held power")
+	assert_between(_power.get_remaining(), 0.1, DURATION_SECONDS - 0.01, "the run is counting down")
+	assert_almost_eq(_hud.power_wheel.get_fraction(), _power.get_remaining() / DURATION_SECONDS, 0.001,
+			"and the wheel is the share of the run left")
+	assert_lt(_hud.power_wheel.get_fraction(), 1.0, "so it has drained from full")
 
 
-func test_the_panel_names_the_running_power_not_the_picked_one() -> void:
-	_power.held = MatchRules.RunnerAbility.BUBBLE_SHIELD
-	_hud.tick()
-	assert_eq_string(
-		_hud.get_context_text(),
-		tr("HUD_ABILITY_READY").format({"title": _title(MatchRules.RunnerAbility.BUBBLE_SHIELD)}),
-		"at rest the panel offers the picked power",
-	)
-	assert_true(TestFixtures.fire(_power, MatchRules.RunnerAbility.ACTIVE_CAMO), "camo starts by its own key")
-	await step_ticks(6)
-	_hud.tick()
-	var text: String = _hud.get_context_text()
-	assert_eq_string(
-		text, _active_text(MatchRules.RunnerAbility.ACTIVE_CAMO), "the panel names camo while camo runs"
-	)
-	assert_false(
-		text.contains(_title(MatchRules.RunnerAbility.BUBBLE_SHIELD)),
-		"and not the shield that was picked -- got \"%s\"" % text,
-	)
-
-
-func test_the_cooldown_keeps_the_name_of_the_power_that_ran() -> void:
+func test_the_wheel_fills_back_over_the_cooldown() -> void:
 	TestFixtures.set_power_cooldown(5.0)
 	# A lock with the key up ends on its next tick: a power that has just ended.
 	assert_true(TestFixtures.fire(_power, MatchRules.RunnerAbility.ARMOR_LOCK), "the armor lock starts")
-	_hud.tick()
 	await step_ticks(3)
 	assert_false(_power.is_active(), "the lock has ended")
-	assert_gt(_power.get_cooldown_remaining(), 4.0, "and its cooldown is running")
 	_hud.tick()
-	var text: String = _hud.get_context_text()
-	assert_true(
-		text.contains(_title(MatchRules.RunnerAbility.ARMOR_LOCK)),
-		"the cooldown is shown under the armor lock's name -- got \"%s\"" % text,
-	)
-	assert_eq_string(
-		text,
-		tr("HUD_ABILITY_COOLDOWN").format({
-			"title": _title(MatchRules.RunnerAbility.ARMOR_LOCK),
-			"seconds": "%.0f" % _power.get_cooldown_remaining(),
-		}),
-		"as the seconds until it is ready",
-	)
-	assert_almost_eq(
-		_hud.power_fill.anchor_right, 1.0 - _power.get_cooldown_remaining() / 5.0, 0.001,
-		"and the bar is the share of the wait served",
-	)
+	var early: float = _hud.power_wheel.get_fraction()
+	assert_almost_eq(early, 1.0 - _power.get_cooldown_remaining() / 5.0, 0.01, "the wheel is the share of the wait served")
+	assert_lt(early, 0.1, "nearly empty as the cooldown starts")
+	await step_seconds(2.0)
+	_hud.tick()
+	assert_gt(_hud.power_wheel.get_fraction(), early + 0.3, "and fills as it runs")
 
 
-func test_a_cooked_cat_shows_its_fuse_and_fills_by_the_fuse() -> void:
+func test_a_cooked_cat_drains_the_wheel_by_its_fuse() -> void:
 	assert_true(TestFixtures.fire(_power, MatchRules.RunnerAbility.CAT_GRENADE), "the cat is in hand")
+	_hud.tick()
+	assert_almost_eq(_hud.power_wheel.get_fraction(), 1.0, 0.001, "an unlit cat keeps the wheel whole")
 	_input.command.cook_pressed = true
 	await step_ticks(2)
 	_input.command.cook_pressed = false
 	await step_ticks(30)
-	var left: float = _power.get_remaining()
-	assert_between(left, 0.5, RunnerPower.duration_of(MatchRules.RunnerAbility.CAT_GRENADE) - 0.3, "the fuse is running: %.2f s" % left)
+	var fuse: float = RunnerPower.duration_of(MatchRules.RunnerAbility.CAT_GRENADE)
 	_hud.tick()
-	assert_eq_string(
-		_hud.get_context_text(), _active_text(MatchRules.RunnerAbility.CAT_GRENADE),
-		"the panel names the cat and the seconds on its fuse",
-	)
-	assert_almost_eq(
-		float(_hud.call(&"_ability_fill")), left / RunnerPower.duration_of(MatchRules.RunnerAbility.CAT_GRENADE), 0.001,
-		"the fill is the share of the 2.5 s fuse left, not of the power duration",
-	)
-	assert_almost_eq(
-		_hud.power_fill.anchor_right, left / RunnerPower.duration_of(MatchRules.RunnerAbility.CAT_GRENADE), 0.001,
-		"and the bar on screen is drawn to it",
-	)
+	assert_almost_eq(_hud.power_wheel.get_fraction(), _power.get_remaining() / fuse, 0.02, "the wheel drains by the fuse")
 	# Put the cat away unexploded: its blast is the hub file's business.
 	_power.cancel()
 	await step_ticks(2)
 
 
-func test_nothing_picked_running_or_cooling_shows_no_panel() -> void:
-	assert_false(_power.is_active(), "nothing runs")
-	assert_almost_eq(_power.get_cooldown_remaining(), 0.0, 0.001, "nothing cools")
+func test_nothing_held_shows_no_wheel() -> void:
 	_hud.tick()
-	assert_false(_hud.power_panel.visible, "the power panel is hidden")
-	assert_eq_string(_hud.get_context_text(), "", "and reads nothing")
+	assert_false(_hud.power_wheel.visible, "the wheel is hidden with nothing held")
+	_power.held = MatchRules.RunnerAbility.HOLOGRAM
+	_hud.tick()
+	assert_true(_hud.power_wheel.visible, "and up once a power is held")
+	assert_almost_eq(_hud.power_wheel.get_fraction(), 1.0, 0.001, "full while it is ready")
 
 
 func test_a_presented_power_is_shown_as_a_client_sees_it() -> void:
 	# What a snapshot does to a client's body: the power is drawn, never run, on this machine.
-	_present(MatchRules.RunnerAbility.ACTIVE_CAMO, true, 3.0, 0.0)
+	TestFixtures.set_power_cooldown(8.0)
+	_power.held = MatchRules.RunnerAbility.ACTIVE_CAMO
+	var run: float = RunnerPower.duration_of(MatchRules.RunnerAbility.ACTIVE_CAMO)
+	_present(MatchRules.RunnerAbility.ACTIVE_CAMO, true, run * 0.5, 0.0)
 	_hud.tick()
-	assert_true(_hud.power_panel.visible, "the panel is up for a power the host says is running")
-	assert_eq_string(
-		_hud.get_context_text(),
-		tr("HUD_ABILITY_ACTIVE").format({
-			"title": _title(MatchRules.RunnerAbility.ACTIVE_CAMO), "seconds": "3.0",
-		}),
-		"it names camo with the 3.0 s the host reported",
-	)
-	# The record names the power it is cooling, so the panel needs no memory of its own.
-	_present(MatchRules.RunnerAbility.ACTIVE_CAMO, false, 0.0, 4.0)
+	assert_almost_eq(_hud.power_wheel.get_fraction(), 0.5, 0.02, "half the run the host reported is left")
+	var wait: float = RunnerPower.def(MatchRules.RunnerAbility.ACTIVE_CAMO).cooldown_seconds * _rules.ability_cooldown_multiplier
+	_present(MatchRules.RunnerAbility.ACTIVE_CAMO, false, 0.0, wait * 0.25)
 	_hud.tick()
-	assert_eq_string(
-		_hud.get_context_text(),
-		tr("HUD_ABILITY_COOLDOWN").format({
-			"title": _title(MatchRules.RunnerAbility.ACTIVE_CAMO), "seconds": "4",
-		}),
-		"then camo's cooldown, as the host reported it",
-	)
+	assert_almost_eq(_hud.power_wheel.get_fraction(), 0.75, 0.02, "then three quarters of the wait served")
 	_present(MatchRules.RunnerAbility.ACTIVE_CAMO, false, 0.0, 0.0)
 	_hud.tick()
-	assert_eq_string(_hud.get_context_text(), "", "and nothing once the host says it is ready")
+	assert_almost_eq(_hud.power_wheel.get_fraction(), 1.0, 0.001, "and full once the host says it is ready")
 
 
 # --- Helpers ------------------------------------------------------------------
@@ -192,14 +129,3 @@ func _present(which: MatchRules.RunnerAbility, running: bool, remaining: float, 
 	record.ability_end_tick = NetCodec.end_tick(record.tick, remaining)
 	record.cooldown_end_tick = NetCodec.end_tick(record.tick, cooldown)
 	_power.take_record(record)
-
-
-func _title(which: MatchRules.RunnerAbility) -> String:
-	return MatchRules.runner_ability_title(which).to_upper()
-
-
-## What the panel reads while [param which] runs, off the power's own clock.
-func _active_text(which: MatchRules.RunnerAbility) -> String:
-	return tr("HUD_ABILITY_ACTIVE").format({
-		"title": _title(which), "seconds": "%.1f" % _power.get_remaining(),
-	})

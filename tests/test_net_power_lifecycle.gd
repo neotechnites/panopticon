@@ -110,12 +110,31 @@ func test_a_presented_camo_refuses_a_second_start_and_gives_the_skin_back() -> v
 	if not assert_not_null(mesh, "the fixture body has a mesh for camo to tint"):
 		return
 	var worn: Material = mesh.material_override
+	var before: Array[Material] = []
+	for index: int in mesh.mesh.get_surface_count():
+		before.append(mesh.get_surface_override_material(index))
 	_present(power, CAMO)
-	assert_true(mesh.material_override != worn, "presented camo tints the body")
+	assert_almost_eq(BodyMaterial.of(mesh).fade, RunnerPower.CAMO_ALPHA, 1e-4, "presented camo fades the viewer's copy")
+	for index: int in mesh.mesh.get_surface_count():
+		var was: BaseMaterial3D = CharacterLight.base_of(_drawn(mesh, index, before[index], worn))
+		var now: BaseMaterial3D = CharacterLight.base_of(_drawn(mesh, index, mesh.get_surface_override_material(index), mesh.material_override))
+		if assert_not_null(now, "surface %d wears a material" % index) and was != null:
+			assert_almost_eq(now.albedo_color.a, was.albedo_color.a * RunnerPower.CAMO_ALPHA, 1e-4, "surface %d at the camo's opacity" % index)
+			assert_true(Color(now.albedo_color, 1.0).is_equal_approx(Color(was.albedo_color, 1.0)), "surface %d keeps its colour" % index)
 	var started: bool = TestFixtures.fire(power, MatchRules.RunnerAbility.ACTIVE_CAMO)
 	assert_false(started, "a press under presented camo starts nothing")
 	_present(power, NONE)
+	assert_almost_eq(BodyMaterial.of(mesh).fade, 1.0, 1e-4, "the fade comes off")
 	assert_same(mesh.material_override, worn, "the body wears what it wore before the camo")
+	for index: int in mesh.mesh.get_surface_count():
+		assert_true(mesh.get_surface_override_material(index) == before[index], "surface %d is exactly as before" % index)
+
+
+## What [param mesh] draws on surface [param index]: the whole-mesh [param whole], else [param override], else authored.
+func _drawn(mesh: MeshInstance3D, index: int, override: Material, whole: Material) -> Material:
+	if whole != null:
+		return whole
+	return override if override != null else mesh.mesh.surface_get_material(index)
 
 
 func test_presenting_a_predicted_power_leaves_one_drawing_and_one_flag() -> void:
