@@ -180,7 +180,8 @@ func _standard(base: BaseMaterial3D) -> BaseMaterial3D:
 	plain.emission_energy_multiplier = 1.0
 	plain.emission_texture = base.albedo_texture
 	plain.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
-	if fit.dapple != null:
+	# A multiply pass would draw a faded body's silhouette at full strength.
+	if fit.dapple != null and base.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED:
 		plain.next_pass = _dapple_pass()
 	return plain
 

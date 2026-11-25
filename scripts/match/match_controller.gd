@@ -2176,6 +2176,8 @@ static func shirt_surface_of(mesh: MeshInstance3D) -> int:
 ## The material this file last painted on [param mesh]: the shirt's override, or
 ## the whole-mesh override on a body with no shirt surface.
 static func _painted_material_of(mesh: MeshInstance3D) -> Material:
+	if mesh.has_meta(BodyMaterial.META):
+		return BodyMaterial.of(mesh).worn()
 	var shirt: int = shirt_surface_of(mesh)
 	if shirt < 0:
 		return mesh.material_override
@@ -3205,65 +3207,22 @@ func _tint_body(participant: MatchParticipant, material: Material) -> void:
 	_paint(mesh, material)
 
 
-## Wear [param material] on [param mesh]'s shirt, the rest of it lit and faded to match.
+## Wear [param material] on [param mesh]'s shirt through its [BodyMaterial], the rest lit and faded to match.
 func _paint(mesh: MeshInstance3D, material: Material) -> void:
-	var shirt: int = shirt_surface_of(mesh)
-	if shirt < 0:
-		mesh.material_override = material
-		return
-	# A whole-mesh override would hide every per-surface one under it, and an
-	# authored one (characters/bots/ring_runner.tscn used to paint a flat orange) is
-	# exactly the one-colour prisoner this replaces.
-	mesh.material_override = null
-	mesh.set_surface_override_material(shirt, _lit(material))
-	_fade_body(mesh, shirt, _alpha_of(material))
-
-
-## Carry a ghost's alpha onto every surface but [param shirt], or clear them
-## again at full opacity.
-func _fade_body(mesh: MeshInstance3D, shirt: int, alpha: float) -> void:
-	for index: int in mesh.mesh.get_surface_count():
-		if index == shirt:
-			continue
-		var authored: BaseMaterial3D = _authored_material_of(mesh, index)
-		if alpha >= 1.0:
-			var lit: Material = _lit(authored)
-			mesh.set_surface_override_material(index, null if lit == authored else lit)
-		else:
-			mesh.set_surface_override_material(index, _lit(_faded_material(authored, alpha)))
+	BodyMaterial.of(mesh).paint(material, _arena_light())
 
 
 ## [param material] as the standing arena's suns light it; itself on a map that does not.
 func _lit(material: Material) -> Material:
+	return _arena_light().apply(material)
+
+
+func _arena_light() -> CharacterLight:
 	var arena_id: int = 0 if arena == null else arena.get_instance_id()
 	if _character_light == null or _character_light_arena != arena_id:
 		_character_light = CharacterLight.for_arena(arena)
 		_character_light_arena = arena_id
-	return _character_light.apply(material)
-
-
-## [param material]'s alpha, or fully opaque for anything that has no albedo.
-static func _alpha_of(material: Material) -> float:
-	var albedo: BaseMaterial3D = material as BaseMaterial3D
-	return 1.0 if albedo == null else albedo.albedo_color.a
-
-
-## [param base] at [param alpha], cached alongside the tints. Skin and trousers
-## keep their own colours while a ghost fades; only the alpha moves.
-func _faded_material(base: BaseMaterial3D, alpha: float) -> Material:
-	var key: String = "fade|%d|%.3f" % [0 if base == null else base.get_instance_id(), alpha]
-	if _tint_cache.has(key):
-		return _tint_cache[key]
-	var material: BaseMaterial3D
-	if base == null:
-		material = StandardMaterial3D.new()
-		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	else:
-		material = base.duplicate() as BaseMaterial3D
-	material.albedo_color.a = alpha
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_tint_cache[key] = material
-	return material
+	return _character_light
 
 
 ## The one mesh that IS [param body] on screen, and so the one whose colour says

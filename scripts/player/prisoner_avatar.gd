@@ -1172,9 +1172,8 @@ func tick_first_person() -> void:
 		if drawn != _fp_arms.active:
 			_fp_arms.active = drawn
 			_fp_arms_mesh.visible = drawn
-			_fp_arms_mesh.material_override = mesh.material_override
-			for surface: int in mesh.mesh.get_surface_count():
-				_fp_arms_mesh.set_surface_override_material(surface, mesh.get_surface_override_material(surface))
+			# The body's look without a power's fade: the eye's own arms never take camo.
+			BodyMaterial.of(mesh).dress(_fp_arms_mesh, 1.0)
 	if hide_arms != _arms_hidden:
 		_arms_hidden = hide_arms
 		for hider: FirstPersonHead in _arm_hiders:

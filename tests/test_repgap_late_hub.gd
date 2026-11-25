@@ -32,8 +32,7 @@ func _draws(machine: int, which: int) -> bool:
 			return body(machine, A).get_node_or_null("ArmorShell") != null
 		CAMO:
 			var mesh: MeshInstance3D = RunnerPower._avatar_mesh(body(machine, A))
-			var worn: BaseMaterial3D = mesh.material_override as BaseMaterial3D if mesh != null else null
-			return worn != null and worn.albedo_color.is_equal_approx(RunnerPower.CAMO_COLOR)
+			return mesh != null and BodyMaterial.of(mesh).fade == RunnerPower.CAMO_ALPHA
 	return false
 
 

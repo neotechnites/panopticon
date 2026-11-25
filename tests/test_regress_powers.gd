@@ -288,9 +288,8 @@ func _camo() -> void:
 	await _stays_up(CAMO, 60)
 	assert_true(_power(HOST).is_camouflaged(), "the host hides the body from the guard's eye")
 	for peer: int in _rig.peer_count():
-		var worn: BaseMaterial3D = _skin(peer) as BaseMaterial3D
-		if assert_not_null(worn, "peer %d paints the body" % peer):
-			assert_true(worn.albedo_color.is_equal_approx(RunnerPower.CAMO_COLOR), "peer %d paints it the camo colour" % peer)
+		var look: BodyMaterial = BodyMaterial.of(_rig.avatar(peer, _slot).mesh)
+		assert_almost_eq(look.fade, RunnerPower.CAMO_ALPHA, 1e-6, "peer %d fades the body" % peer)
 	if not await _every_peer_shows(NONE, "once the camo runs out"):
 		return
 	for peer: int in _rig.peer_count():

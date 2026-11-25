@@ -166,28 +166,32 @@ func test_a_power_never_frees_a_body_the_match_holds() -> void:
 	assert_almost_eq(_body.global_position.distance_to(held), 0.0, 1e-3, "and a launch waiting on the held body stays waiting")
 
 
-## Active camo is a REPAINT, not a fade. Ryan's ruling: [i]"not invisible -- hell
-## red, the colour that vanished against the rock."[/i] So the body keeps its
-## own material's texture and stays fully opaque; only the albedo moves.
+## Active camo draws every surface of the body at [constant RunnerPower.CAMO_ALPHA], its colours untouched.
 func test_active_camo_repaints_the_body_then_restores_it_and_cools_down() -> void:
 	_rules.runner_ability = MatchRules.RunnerAbility.ACTIVE_CAMO
 	var mesh: MeshInstance3D = (_body.get_node(^"Avatar") as PrisonerAvatar).mesh
 	var saved: Material = mesh.material_override
+	var before: Array[Material] = []
+	for index: int in mesh.mesh.get_surface_count():
+		before.append(mesh.get_surface_override_material(index))
 	await _press()
+	await get_tree().process_frame
 	assert_true(_ability.is_camouflaged(), "camo is on")
-	var camo: StandardMaterial3D = mesh.material_override as StandardMaterial3D
-	assert_not_null(camo, "the body wears a camo material")
-	if camo != null:
-		assert_true(camo.albedo_color.is_equal_approx(RunnerPower.CAMO_COLOR), "in hell red")
-		assert_eq_int(
-			int(camo.transparency), int(BaseMaterial3D.TRANSPARENCY_DISABLED),
-			"solid -- a camouflaged runner is repainted, not faded out",
-		)
-		assert_false(camo.emission_enabled, "and unlit, so it cannot glow in the dark")
+	for index: int in mesh.mesh.get_surface_count():
+		var was: BaseMaterial3D = CharacterLight.base_of(_drawn(mesh, index, before[index]))
+		var now: BaseMaterial3D = CharacterLight.base_of(_drawn(mesh, index, mesh.get_surface_override_material(index)))
+		if assert_not_null(now, "surface %d wears a material" % index) and was != null:
+			assert_almost_eq(now.albedo_color.a, was.albedo_color.a * RunnerPower.CAMO_ALPHA, 1e-4, "surface %d at a quarter opacity" % index)
+			var rgb_was: Color = Color(was.albedo_color, 1.0)
+			assert_true(Color(now.albedo_color, 1.0).is_equal_approx(rgb_was), "surface %d keeps its colour" % index)
+			assert_eq_int(int(now.transparency), int(BaseMaterial3D.TRANSPARENCY_ALPHA), "surface %d blends" % index)
 
 	await step_seconds(DURATION_SECONDS + 0.5)
+	await get_tree().process_frame
 	assert_false(_ability.is_active(), "camo expired")
 	assert_true(mesh.material_override == saved, "the body's material came back")
+	for index: int in mesh.mesh.get_surface_count():
+		assert_true(mesh.get_surface_override_material(index) == before[index], "surface %d is exactly as before" % index)
 
 	await _press()
 	assert_false(_ability.is_active(), "a second use waits for the cooldown")
@@ -208,6 +212,11 @@ func test_the_codec_carries_the_ability_bits() -> void:
 	assert_true(out.ability_pressed and out.ability_held, "the key's level survives the wire, and its press is the level going down")
 	out.clear()
 	assert_false(out.ability_pressed or out.ability_held, "clear zeroes them")
+
+
+## What [param mesh] draws on surface [param index] given its [param override].
+func _drawn(mesh: MeshInstance3D, index: int, override: Material) -> Material:
+	return override if override != null else mesh.mesh.surface_get_material(index)
 
 
 ## Put the power key down and keep it down; a key still down from the last press comes up first.

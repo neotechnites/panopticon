@@ -20,8 +20,8 @@ const SHIELD_LAYER: int = 1 << 19
 const DECOY_LAYER: int = 1 << 18
 const DECOY_LEAD_METRES: float = 2.0
 const CAMO_VISIBLE_RANGE: float = 25.0
-## Whole-body camo tint: dark hell red.
-const CAMO_COLOR: Color = Color(0.55, 0.11, 0.06, 1.0)
+## The whole body's opacity under active camo; its colours never change.
+const CAMO_ALPHA: float = 0.25
 ## One row per [enum MatchRules.RunnerAbility] (DESIGN 9 PowerDef): its clock, whether letting the
 ## key go ends it, where the press places it, its host entity, and whether it holds the body still.
 const DEFS: Array[Dictionary] = [
@@ -63,7 +63,6 @@ var _collider_from_state: bool = false
 var _has_playout_record: bool = false
 var _shell: MeshInstance3D = null
 var _camo_mesh: MeshInstance3D = null
-var _camo_saved: Material = null
 var _hologram: HologramView = null
 var _cat_view: CatView = null
 
@@ -560,8 +559,8 @@ func _sync_effect(view: PowerState) -> void:
 				_stage().add_child(_bubble)
 			MatchRules.RunnerAbility.ARMOR_LOCK:
 				_raise_shell()
-			MatchRules.RunnerAbility.ACTIVE_CAMO:
-				_cloak()
+	if effect == MatchRules.RunnerAbility.ACTIVE_CAMO:
+		_cloak()
 	if _bubble != null and _bubble.global_position != view.place_position:
 		_bubble.global_position = view.place_position
 	_drawn.copy_from(view)
@@ -586,10 +585,7 @@ func _tear_down_effect() -> void:
 	if _shell != null:
 		_shell.queue_free()
 		_shell = null
-	if _camo_mesh != null:
-		_camo_mesh.material_override = _camo_saved
-		_camo_mesh = null
-		_camo_saved = null
+	_uncloak()
 
 
 func _draw_hologram(view: PowerState) -> void:
@@ -682,27 +678,21 @@ static func _build_shell() -> MeshInstance3D:
 	return shell
 
 
+## Fade the body's mesh, or the one it has now; a mesh not built yet is faded the frame it appears.
 func _cloak() -> void:
 	var mesh: MeshInstance3D = _avatar_mesh(body)
-	if mesh == null:
+	if mesh == _camo_mesh:
 		return
-	_camo_mesh = mesh
-	_camo_saved = mesh.material_override
-	mesh.material_override = _camo_for(mesh)
+	_uncloak()
+	if mesh != null:
+		_camo_mesh = mesh
+		BodyMaterial.of(mesh).set_fade(CAMO_ALPHA)
 
 
-## A duplicate of whatever [param mesh] wears, so the model's texture and the team tint on it survive
-## the cloak; a fresh flat material only if it has none.
-static func _camo_for(mesh: MeshInstance3D) -> BaseMaterial3D:
-	var base: Material = mesh.material_override
-	if base == null:
-		base = mesh.get_active_material(0)
-	var camo: BaseMaterial3D = (base.duplicate() as BaseMaterial3D) if base is BaseMaterial3D else StandardMaterial3D.new()
-	# Ryan: not invisible -- hell red, the colour that vanished against the rock.
-	camo.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
-	camo.albedo_color = CAMO_COLOR
-	camo.emission_enabled = false
-	return camo
+func _uncloak() -> void:
+	if _camo_mesh != null and is_instance_valid(_camo_mesh):
+		BodyMaterial.of(_camo_mesh).set_fade(1.0)
+	_camo_mesh = null
 
 
 ## What this body's powers draw when they run, for [SceneWarmup]; built by the code that draws them.
@@ -714,7 +704,7 @@ func warmup_samples() -> Array[Node3D]:
 	if avatar != null and avatar.mesh != null:
 		var cloaked: MeshInstance3D = MeshInstance3D.new()
 		cloaked.mesh = avatar.mesh
-		cloaked.material_override = _camo_for(avatar)
+		BodyMaterial.of(avatar).dress(cloaked, CAMO_ALPHA)
 		samples.append(cloaked)
 	return samples
 
