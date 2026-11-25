@@ -13,9 +13,12 @@
   "seats": 4,
   "tower": 1
  },
+ "host": {
+  "ability": 5
+ },
  "peer": {
   "1": {
-   "keys": "1@6,3@12+2,5@18,e@>1",
+   "keys": "q@6,q@12+2,q@18,e@>1",
    "keys-wait": false
   }
  }

@@ -47,6 +47,8 @@ func before_each() -> void:
 	Engine.physics_ticks_per_second = int(SIM_HZ)
 	Engine.time_scale = 1.0
 	process_physics_priority = -100
+	# Powers run 5 s and do not cool: the timing these tests were written to.
+	TestFixtures.time_powers(5.0, 0.0)
 	for machine: int in BRANCHES.size():
 		sessions[machine] = NetFixtures.make_peer(self, BRANCHES[machine], NetFixtures.settings())
 
@@ -282,6 +284,14 @@ func freeze(machine: int, ms: float) -> void:
 	await wires.freeze(sessions[machine], ms)
 
 
+## [param seat]'s player holds [param which]: the host's ruling, and every machine's body at once.
+func hold(which: int, seat: int) -> void:
+	sessions[HOST].lobby.set_power(seat, which)
+	for machine: int in hubs.size():
+		if hubs[machine] != null and body(machine, seat) != null:
+			power(machine, seat).held = which as MatchRules.RunnerAbility
+
+
 # --- Steps: the cats ---------------------------------------------------------
 
 ## A presses 5, facing the middle of the hub, and each machine draws [param seen] cats. The
@@ -291,7 +301,7 @@ func hold_power_cat(seen: Array[int] = [1, 1, 1]) -> CatGrenade:
 	var yaw: float = yaw_towards(Vector3(-at.x, 0.0, -at.z).normalized())
 	if not assert_true(await stand(A, at, yaw), "A faces the middle of the hub on the host and on A"):
 		return null
-	keys[A].tap_slot(CAT_POWER)
+	keys[A].tap_power(CAT_POWER)
 	var held: bool = await until(
 		func() -> bool: return grenade(A) != null and cats_drawn() == seen
 	)
@@ -397,6 +407,7 @@ func _make_hub(machine: int) -> void:
 	device.name = "Keys"
 	own.add_child(device)
 	own.intent_source = device
+	device.pick = hold.bind(machine)
 	keys[machine] = device
 	# One world per process: a second WorldEnvironment or audio director is an engine complaint.
 	# The pause menu is settings UI with its own tests; nothing here opens it.

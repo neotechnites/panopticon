@@ -543,9 +543,6 @@ var guard_health: int = DEFAULT_GUARD_HEALTH
 ## [member MatchRules.finisher_health].
 var finisher_health: int = DEFAULT_FINISHER_HEALTH
 
-## The power every prisoner carries. Written over [member MatchRules.runner_ability].
-var runner_ability: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE
-
 ## The map the match is played in, by [member MapDefinition.id]. Written over
 ## [member MatchRules.map_id].
 ##
@@ -626,7 +623,6 @@ func reset() -> void:
 	hold_duration_seconds = DEFAULT_HOLD_DURATION_SECONDS
 	runner_win_condition = MatchRules.RunnerWinCondition.FIRST_ARRIVAL
 	rounds_to_win_match = DEFAULT_ROUNDS_TO_WIN_MATCH
-	runner_ability = MatchRules.RunnerAbility.NONE
 	sniper_by_visit = SniperKnobs.defaults()
 	tower_variant = DEFAULT_TOWER_VARIANT
 	map_pick_mode = DEFAULT_MAP_PICK_MODE
@@ -682,9 +678,6 @@ func clamp_all() -> void:
 	runner_win_condition = clampi(
 		int(runner_win_condition), 0, MatchRules.RunnerWinCondition.size() - 1
 	) as MatchRules.RunnerWinCondition
-	runner_ability = clampi(
-		int(runner_ability), 0, MatchRules.RunnerAbility.size() - 1
-	) as MatchRules.RunnerAbility
 	# Bounded by the field it is counted against, so lowering the prisoner count
 	# can never leave a shutout nobody can reach. Same bargain as every clamp
 	# here: the player loses a choice, not the match.
@@ -755,7 +748,6 @@ func copy_from(other: GameSettings) -> void:
 	hold_duration_seconds = other.hold_duration_seconds
 	runner_win_condition = other.runner_win_condition
 	rounds_to_win_match = other.rounds_to_win_match
-	runner_ability = other.runner_ability
 	sniper_by_visit = other.sniper_by_visit.duplicate()
 	tower_variant = other.tower_variant
 	map_pick_mode = other.map_pick_mode
@@ -806,7 +798,6 @@ func equals(other: GameSettings) -> bool:
 		and is_equal_approx(hold_duration_seconds, other.hold_duration_seconds)
 		and runner_win_condition == other.runner_win_condition
 		and rounds_to_win_match == other.rounds_to_win_match
-		and runner_ability == other.runner_ability
 		and tower_variant == other.tower_variant
 		and map_pick_mode == other.map_pick_mode
 		and is_equal_approx(vote_seconds, other.vote_seconds)
@@ -880,7 +871,6 @@ func write_to(config: ConfigFile) -> void:
 	config.set_value(SECTION_MATCH, "hold_duration_seconds", hold_duration_seconds)
 	config.set_value(SECTION_MATCH, "runner_win_condition", int(runner_win_condition))
 	config.set_value(SECTION_MATCH, "rounds_to_win_match", rounds_to_win_match)
-	config.set_value(SECTION_MATCH, "runner_ability", int(runner_ability))
 	config.set_value(SECTION_MATCH, "sniper_by_visit", sniper_by_visit)
 	config.set_value(SECTION_MATCH, "tower_variant", tower_variant)
 	config.set_value(SECTION_MATCH, "map_pick_mode", map_pick_mode)
@@ -952,9 +942,6 @@ func read_from(config: ConfigFile) -> void:
 	rounds_to_win_match = read_int(
 		config, SECTION_MATCH, "rounds_to_win_match", rounds_to_win_match
 	)
-	runner_ability = read_int(
-		config, SECTION_MATCH, "runner_ability", int(runner_ability)
-	) as MatchRules.RunnerAbility
 	tower_variant = read_int(config, SECTION_MATCH, "tower_variant", tower_variant)
 	map_pick_mode = read_int(config, SECTION_MATCH, "map_pick_mode", map_pick_mode)
 	vote_seconds = read_float(config, SECTION_MATCH, "vote_seconds", vote_seconds)
@@ -1173,7 +1160,6 @@ func apply_to_match_rules(rules: MatchRules) -> void:
 	rules.hold_duration_seconds = hold_duration_seconds
 	rules.runner_win_condition = runner_win_condition
 	rules.rounds_to_win_match = rounds_to_win_match
-	rules.runner_ability = runner_ability
 	# The balance levers, all written unconditionally for the reason above.
 	rules.scope_sway_degrees = scope_sway_degrees
 	rules.scope_sway_hz = scope_sway_hz

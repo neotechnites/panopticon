@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="PowerDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/player/power_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+clock = 2
+duration_seconds = 2.5
+cooldown_seconds = 15.0
+entity = 2

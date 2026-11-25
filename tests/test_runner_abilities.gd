@@ -1,6 +1,6 @@
 extends TestCase
 
-## The runner powers under [member MatchRules.runner_ability], on the shipped
+## The runner powers a player holds ([member RunnerPower.held]), on the shipped
 ## match scene with an AI in the tower and the human running.
 
 const SETTLE_TICKS: int = 30
@@ -24,9 +24,7 @@ func before_each() -> void:
 	_match = TestFixtures.make_match()
 	_controller = _match.get_node("MatchController") as MatchController
 	_rules = TestFixtures.match_rules()
-	_rules.runner_ability = MatchRules.RunnerAbility.NONE
-	_rules.ability_duration_seconds = DURATION_SECONDS
-	_rules.ability_cooldown_seconds = COOLDOWN_SECONDS
+	TestFixtures.time_powers(DURATION_SECONDS, COOLDOWN_SECONDS)
 	_controller.rules = _rules
 	add_child(_match)
 
@@ -63,7 +61,7 @@ func before_each() -> void:
 
 
 func test_no_power_by_default() -> void:
-	assert_eq_int(int(MatchRules.new().runner_ability), int(MatchRules.RunnerAbility.NONE), "off by default")
+	assert_eq_int(int(_ability.get_held()), int(MatchRules.RunnerAbility.NONE), "a player holds nothing until they pick")
 	await _press()
 	assert_false(_ability.is_active(), "nothing happens with no power selected")
 	assert_null(_ability.get_shield(), "no shield")
@@ -71,7 +69,7 @@ func test_no_power_by_default() -> void:
 
 
 func test_bubble_shield_stops_the_rifle_ray_then_pops() -> void:
-	_rules.runner_ability = MatchRules.RunnerAbility.BUBBLE_SHIELD
+	_ability.held = MatchRules.RunnerAbility.BUBBLE_SHIELD
 	await _press()
 	var shield: StaticBody3D = _ability.get_shield()
 	assert_true(_ability.is_active(), "the shield is up")
@@ -94,7 +92,7 @@ func test_bubble_shield_stops_the_rifle_ray_then_pops() -> void:
 
 
 func test_hologram_runs_ahead_and_shatters_without_converting() -> void:
-	_rules.runner_ability = MatchRules.RunnerAbility.HOLOGRAM
+	_ability.held = MatchRules.RunnerAbility.HOLOGRAM
 	var lives: int = _human.lives
 	var remaining: int = _controller.get_runners_remaining()
 	await _press()
@@ -120,7 +118,7 @@ func test_hologram_runs_ahead_and_shatters_without_converting() -> void:
 
 
 func test_armor_lock_freezes_the_body_and_ignores_hits_until_released() -> void:
-	_rules.runner_ability = MatchRules.RunnerAbility.ARMOR_LOCK
+	_ability.held = MatchRules.RunnerAbility.ARMOR_LOCK
 	_input.command.move_direction = Vector2(0.0, 1.0)
 	await step_ticks(10)
 	assert_gt(_body.velocity.length(), 0.5, "the body runs before the lock")
@@ -149,7 +147,7 @@ func test_armor_lock_freezes_the_body_and_ignores_hits_until_released() -> void:
 
 
 func test_a_power_never_frees_a_body_the_match_holds() -> void:
-	_rules.runner_ability = MatchRules.RunnerAbility.ARMOR_LOCK
+	_ability.held = MatchRules.RunnerAbility.ARMOR_LOCK
 	_body.movement_locked = true
 	_body.launch(Vector3(0.0, 4.0, 12.0))
 	await _press()
@@ -168,7 +166,7 @@ func test_a_power_never_frees_a_body_the_match_holds() -> void:
 
 ## Active camo draws every surface of the body at [constant RunnerPower.CAMO_ALPHA], its colours untouched.
 func test_active_camo_repaints_the_body_then_restores_it_and_cools_down() -> void:
-	_rules.runner_ability = MatchRules.RunnerAbility.ACTIVE_CAMO
+	_ability.held = MatchRules.RunnerAbility.ACTIVE_CAMO
 	var mesh: MeshInstance3D = (_body.get_node(^"Avatar") as PrisonerAvatar).mesh
 	var saved: Material = mesh.material_override
 	var before: Array[Material] = []

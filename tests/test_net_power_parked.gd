@@ -14,7 +14,7 @@ func test_a_press_made_while_parked_does_not_fire_on_the_way_back() -> void:
 	# The host has parked it and the client has not heard yet: the key still goes out.
 	copy.set_held(true)
 	await step_ticks(3)
-	a_keys.tap_slot(SHIELD)
+	a_keys.tap_power(SHIELD)
 	a_keys.tap(&"emote_pressed")
 	await step_ticks(10)
 	copy.set_held(false)
@@ -24,7 +24,7 @@ func test_a_press_made_while_parked_does_not_fire_on_the_way_back() -> void:
 		started = started or drawn(A_SEAT)[0] != MatchRules.RunnerAbility.NONE or copy.is_emoting()
 	assert_false(started, "nothing pressed at a parked body runs when it is let go: %s" % str(drawn(A_SEAT)))
 	await until(func() -> bool: return all_draw(A_SEAT, MatchRules.RunnerAbility.NONE))
-	a_keys.tap_slot(SHIELD)
+	a_keys.tap_power(SHIELD)
 	var up: bool = await until(func() -> bool: return all_draw(A_SEAT, SHIELD))
 	assert_true(up, "and the next real press runs: %s" % str(drawn(A_SEAT)))
 

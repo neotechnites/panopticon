@@ -322,8 +322,8 @@ func _write_power(wanted: bool) -> void:
 		_write(boost_label, boost, _readout().ready_color)
 
 
-## The power's name and where it is in its cycle: the one running whichever key started it,
-## else the one the host picked. Nothing picked, running or cooling shows nothing.
+## The power's name and where it is in its cycle: the running or cooling one, else the one held.
+## Nothing held, running or cooling shows nothing.
 func _ability_text() -> String:
 	var viewed: MatchParticipant = controller.get_viewed_participant()
 	var ability: RunnerPower = RunnerPower.of(viewed.body) if viewed != null else null
@@ -342,29 +342,22 @@ func _ability_text() -> String:
 	return tr("HUD_ABILITY_READY").format({"title": title})
 
 
-## The power the panel names: the running or the cooling one, else the host's pick.
+## The power the panel names: the running or the cooling one, else the held one.
 func _shown_ability(ability: RunnerPower) -> MatchRules.RunnerAbility:
 	if ability.is_active() or ability.get_cooldown_remaining() > 0.0:
 		return ability.get_last()
-	return controller.get_rules().runner_ability
+	return ability.get_held()
 
 
-## How full the power bar is: the run while it is active (the cat's fuse for the cat), the
-## wait while it is cooling, full when it is ready.
+## How full the power bar is: the run left while it is active, the wait done while it cools, else full.
 func _ability_fill() -> float:
 	var viewed: MatchParticipant = controller.get_viewed_participant()
-	var rules: MatchRules = controller.get_rules()
 	var ability: RunnerPower = RunnerPower.of(viewed.body) if viewed != null else null
 	if ability == null:
 		return 0.0
 	if ability.is_active():
-		var whole: float = RunnerPower.duration_of(ability.get_last(), rules)
-		return clampf(ability.get_remaining() / maxf(whole, 0.01), 0.0, 1.0)
-	var cooling: float = ability.get_cooldown_remaining()
-	if cooling <= 0.0:
-		return 1.0
-	var wait: float = rules.ability_cooldown_seconds * rules.ability_cooldown_multiplier
-	return clampf(1.0 - cooling / maxf(wait, 0.01), 0.0, 1.0)
+		return ability.get_active_fraction()
+	return 1.0 - ability.get_cooldown_fraction()
 
 
 ## The boost on the viewed body, or an empty string.

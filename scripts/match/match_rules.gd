@@ -136,7 +136,7 @@ enum GhostBehaviour {
 	CATCH_AND_SWAP,
 }
 
-## The one-shot power every prisoner carries. [b]LIVE[/b], default NONE.
+## A runner power: what one player holds, one or none. Each one's timing is its [PowerDef].
 enum RunnerAbility {
 	## No power. Today's game.
 	NONE,
@@ -552,14 +552,7 @@ enum MapPickMode {
 
 # --- Runner powers ------------------------------------------------------------
 
-## Which power every prisoner carries, if any. See [enum RunnerAbility].
-@export var runner_ability: RunnerAbility = RunnerAbility.NONE
-
-## Seconds after a power ends before it can be used again.
-@export_range(0.0, 120.0, 0.5, "or_greater") var ability_cooldown_seconds: float = 0.0
-
-## Seconds a power lasts once used.
-@export_range(0.5, 60.0, 0.5, "or_greater") var ability_duration_seconds: float = 5.0
+# Each power owns its run and cooldown (PowerDef); what a player holds is theirs, picked in the hub.
 
 ## THE SHOVE. How hard a prisoner throws the prisoner in front of them, in
 ## metres per second along the shover's forward. [b]LIVE.[/b] Enough to put a
@@ -730,7 +723,7 @@ var sniper_visit: int = 0
 ## high.
 @export_range(0.25, 4.0, 0.05, "or_greater") var runner_jump_multiplier: float = 1.0
 
-## Multiplier on [member ability_cooldown_seconds]. [b]LIVE[/b], default 1.0.
+## Multiplier on every power's own cooldown ([member PowerDef.cooldown_seconds]). [b]LIVE[/b], default 1.0.
 @export_range(0.0, 5.0, 0.05, "or_greater") var ability_cooldown_multiplier: float = 1.0
 
 

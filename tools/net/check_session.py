@@ -57,9 +57,9 @@ PRESS_DELIVERY = 0.5
 # Physics frames from a key going down to the command that carries it: the same frame or the next.
 PRESS_FRAMES = 2
 # MoveIntent's bits for each scripted key (scripts/player/move_intent.gd), and what the host must make of it.
-KEY_BUTTONS = {"q": 1 << 8, "1": 1 << 9, "2": 1 << 10, "3": 1 << 11, "4": 1 << 12, "5": 1 << 13,
+KEY_BUTTONS = {"q": 1 << 8,
                "e": 1 << 5, "b": 1 << 6, "n": 1 << 7, "f": 1 << 4, "j": 1 << 0}
-POWER_KEYS = ("1", "2", "3", "4", "5", "q")
+POWER_KEYS = ("q",)
 PRESS_WANTED = {"b": "on", "n": "alt"}
 PRESS_WHAT = {"e": "cook the cat", "b": "emote", "n": "emote (alt)", "f": "shove", "j": "jump"}
 # Refusals a knock (shove, cat blast) on the host can cause before the presser hears of it.
@@ -703,7 +703,6 @@ def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, 
     for tag in ("HOLD", "KNOCK", "PWEND"):
         for line in host.tagged(tag):
             by_seat[tag][line.kv.get("seat", "?")].append(line)
-    match_rules = [l for l in host.tagged("MATCH") if l.rest.startswith("rules")]
     turns = sorted(host.tagged("STATE") + host.tagged("ROLE"), key=lambda l: l.w)
     # Where the host stopped running a scene's commands; the last line too, for a host that was killed.
     host_ends = [l.w for l in host.lines if l.tag in ("SCENE", "END")] + [host.last_w]
@@ -820,10 +819,8 @@ def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, 
             ruling = rule.kv.get("ruling", "?")
             pressed_w = press.w
             wanted = PRESS_WANTED.get(key, "ran")
-            ability = key
-            if key == "q":
-                current = [l for l in match_rules if l.w <= press.w]
-                ability = current[-1].kv.get("ability", "0") if current else "0"
+            # The power q fires is the one the seat held on the host when it ruled.
+            ability = rule.kv.get("held", "0") if key == "q" else key
             if ruling == wanted and (key not in POWER_KEYS or rule.kv.get("ability") == ability):
                 tally["ran"] += 1
                 if key in POWER_KEYS and ability == "3":
@@ -849,7 +846,7 @@ def check_presses(host: Peer, peers: list[Peer], v: Verdict, lag: float, quiet, 
             if pressed == 0 or quiet(command.w):
                 continue
             ruled = [int(r.kv.get("pressed", 0)) for r in by_command[(command.kv.get("peer"), seq)]]
-            for bit in (1 << b for b in range(14) if pressed & (1 << b)):
+            for bit in (1 << b for b in range(9) if pressed & (1 << b)):
                 count = sum(1 for r in ruled if r & bit)
                 if count == 1 or (command.kv.get("peer"), seq, bit) in reported:
                     continue

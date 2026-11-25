@@ -170,6 +170,9 @@ signal match_started(participant_count: int)
 ## The chosen map is installed and the rifle wired: a match may start from here on.
 signal armed()
 
+## The deciding machine gave [param participant] [param which] to hold (a hub stand): the seat keeps it.
+signal power_taken(participant: MatchParticipant, which: MatchRules.RunnerAbility)
+
 ## Emitted when the opening race is armed: no shooter, everyone on the ring.
 signal race_started()
 ## The opening tower shove fight began.
@@ -3331,8 +3334,24 @@ func _step_command(command: MoveIntent, swung: bool, authority: bool, body: Play
 	var decides: bool = authority and not _refuses_local_decision()
 	if decides and swung:
 		_resolve_shove(participant)
+	if decides and command.cook_pressed and _phase == Phase.HUB:
+		var stand: PowerStand = PowerStand.in_reach(body)
+		if stand != null:
+			give_power(participant, stand.power)
 	if rifle != null and rifle.shooter_body == body and (decides or body.net_predicted):
 		_step_rifle(command, participant, not decides)
+
+
+## The deciding machine: [param participant] holds [param which] from now. A participant with no
+## seat (no session) keeps it in [member RunnerPower.solo_held]; a seat's is the lobby's.
+func give_power(participant: MatchParticipant, which: MatchRules.RunnerAbility) -> void:
+	var power: RunnerPower = RunnerPower.of(participant.body)
+	if power == null or power.held == which:
+		return
+	power.take_power(which)
+	if participant.seat < 0 and participant.is_human():
+		RunnerPower.solo_held = which
+	power_taken.emit(participant, which)
 
 
 ## One command of the rifle's holder: a person's trigger is their commands' (a bot's [TowerShooter]
@@ -3379,6 +3398,8 @@ func _make_human_participant() -> MatchParticipant:
 	participant.home_collision_layer = player.collision_layer
 	participant.home_collision_mask = player.collision_mask
 	_watch_laps(participant, player)
+	if player.power != null:
+		player.power.held = RunnerPower.solo_held
 	return participant
 
 
@@ -3423,6 +3444,8 @@ func _make_ai_participant(slot: int) -> MatchParticipant:
 	participant.home_collision_layer = body.collision_layer
 	participant.home_collision_mask = body.collision_mask
 	_watch_laps(participant, body)
+	if body.power != null:
+		body.power.held = RunnerPower.bot_pick(slot, RunnerPower.solo_power_seed)
 	return participant
 
 

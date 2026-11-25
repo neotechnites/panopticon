@@ -72,7 +72,7 @@ func test_a_claimed_view_older_than_the_measured_latency_is_held_to_it() -> void
 
 
 func test_the_host_draws_a_remote_shield_where_it_draws_the_body() -> void:
-	rules.ability_duration_seconds = 5.0
+	TestFixtures.set_power_duration(5.0)
 	if not await stand_up():
 		return
 	a_keys.held.move_direction = Vector2(0.0, 1.0)
@@ -80,7 +80,7 @@ func test_the_host_draws_a_remote_shield_where_it_draws_the_body() -> void:
 	var runner: PlayerController = body_of(host_links, A_SEAT)
 	if not assert_gt(runner.velocity.length(), 3.0, "A is running on the host"):
 		return
-	a_keys.tap_slot(SHIELD)
+	a_keys.tap_power(SHIELD)
 	var drawn_body: Vector3 = Vector3.INF
 	for _frame: int in 600:
 		await get_tree().process_frame
@@ -101,10 +101,10 @@ func test_the_host_draws_a_remote_shield_where_it_draws_the_body() -> void:
 
 ## A's hologram, running on every machine; [param delay_ms] on the host's sends.
 func _a_running_hologram(delay_ms: int) -> bool:
-	rules.ability_duration_seconds = 30.0
+	TestFixtures.set_power_duration(30.0)
 	if not await stand_up(0.0, delay_ms):
 		return false
-	a_keys.tap_slot(HOLOGRAM)
+	a_keys.tap_power(HOLOGRAM)
 	var out: bool = await until(func() -> bool:
 		return power_of(host_links, A_SEAT).get_decoy() != null and power_of(b_links, A_SEAT).get_hologram() != null \
 			and power_of(host_links, A_SEAT).get_hologram() != null)

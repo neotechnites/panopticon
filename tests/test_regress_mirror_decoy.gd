@@ -43,19 +43,19 @@ func _watch_a_mirrored_hologram(seat: int, mirrors: Array, names: PackedStringAr
 func test_a_clients_hologram_is_drawn_running_on_the_machines_that_mirror_it() -> void:
 	if not await stand_up():
 		return
-	a_keys.tap_slot(HOLOGRAM)
+	a_keys.tap_power(HOLOGRAM)
 	await _watch_a_mirrored_hologram(A_SEAT, [a_links, b_links], PackedStringArray(["the client that sent it", "the third machine"]))
 
 
 func test_the_hosts_hologram_is_drawn_running_on_both_clients() -> void:
 	if not await stand_up():
 		return
-	host_keys.tap_slot(HOLOGRAM)
+	host_keys.tap_power(HOLOGRAM)
 	await _watch_a_mirrored_hologram(HOST_SEAT, [a_links, b_links], PackedStringArray(["client A", "client B"]))
 
 
 func test_a_clients_hologram_is_drawn_running_at_40_ms() -> void:
 	if not await stand_up(0.0, 40):
 		return
-	a_keys.tap_slot(HOLOGRAM)
+	a_keys.tap_power(HOLOGRAM)
 	await _watch_a_mirrored_hologram(A_SEAT, [a_links, b_links], PackedStringArray(["the client that sent it", "the third machine"]))

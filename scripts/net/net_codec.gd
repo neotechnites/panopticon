@@ -116,8 +116,8 @@ const ROSTER_HEADER_SIZE: int = 4
 const EPOCH_MODULUS: int = 1 << 16
 
 ## Bytes of the fixed part of a roster seat: u8 index, u8 occupancy, u8 role,
-## u8 flags, u32 peer id, u16 standing epoch, u8 name length. The name follows, that many bytes.
-const ROSTER_SEAT_FIXED_SIZE: int = 11
+## u8 flags, u8 power, u32 peer id, u16 standing epoch, u8 name length. The name follows, that many bytes.
+const ROSTER_SEAT_FIXED_SIZE: int = 12
 
 ## A command's changed mask: which fields follow, against the command before it in the packet.
 const _CMD_BUTTONS: int = 1 << 0
@@ -949,6 +949,7 @@ static func pack_roster(
 		buffer.put_u8(int(seat.occupancy))
 		buffer.put_u8(int(seat.role))
 		buffer.put_u8(_FLAG_SEAT_READY if seat.is_ready else 0)
+		buffer.put_u8(seat.power)
 		buffer.put_u32(seat.peer_id)
 		buffer.put_u16(seat.standing_epoch % EPOCH_MODULUS)
 		buffer.put_u8(name_bytes.size())
@@ -985,17 +986,20 @@ static func unpack_roster(
 		var occupancy: int = buffer.get_u8()
 		var role: int = buffer.get_u8()
 		var flags: int = buffer.get_u8()
+		var power: int = buffer.get_u8()
 		seat.peer_id = buffer.get_u32()
 		seat.standing_epoch = buffer.get_u16()
 		var name_length: int = buffer.get_u8()
 		if buffer.get_available_bytes() < name_length:
 			return -1
-		if seat.index >= seat_count or occupancy > int(LobbySeat.Occupancy.BOT) or role > int(LobbySeat.Role.PRISONER):
+		if seat.index >= seat_count or occupancy > int(LobbySeat.Occupancy.BOT) or role > int(LobbySeat.Role.PRISONER) \
+				or power >= MatchRules.RunnerAbility.size():
 			# An index outside the table, or an enum value this build does not
 			# have, is a peer talking a format this one does not speak.
 			return -1
 		seat.occupancy = occupancy as LobbySeat.Occupancy
 		seat.role = role as LobbySeat.Role
+		seat.power = power
 		seat.is_ready = (flags & _FLAG_SEAT_READY) != 0
 		# get_data() hands back [error, bytes] as an untyped Array; the length
 		# was checked above, so the read cannot short-count and only the bytes

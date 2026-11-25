@@ -28,7 +28,7 @@ func _make_intent() -> MoveIntent:
 	intent.move_direction = Vector2(0.6, -0.8)
 	intent.view_angles = Vector2(0.125, -0.0625)
 	intent.slide_held = true
-	intent.buttons |= MoveIntent.SHOVE | (MoveIntent.POWER_1 << 2)
+	intent.buttons |= MoveIntent.SHOVE | MoveIntent.POWER
 	intent.view_time = 1000.5
 	return intent
 
@@ -359,10 +359,12 @@ func test_a_roster_survives_the_round_trip() -> void:
 	seats[0].role = LobbySeat.Role.GUARD
 	seats[0].is_ready = true
 	seats[0].standing_epoch = 7
+	seats[0].power = MatchRules.RunnerAbility.ACTIVE_CAMO
 	seats[1].occupancy = LobbySeat.Occupancy.BOT
 	seats[1].display_name = "Bot 2"
 	seats[1].role = LobbySeat.Role.PRISONER
 	seats[1].is_ready = true
+	seats[1].power = MatchRules.RunnerAbility.CAT_GRENADE
 
 	var packed: PackedByteArray = NetCodec.pack_roster(
 		int(NetLobby.Phase.GATHERING), seats, NetSettings.new().max_name_bytes
@@ -382,6 +384,12 @@ func test_a_roster_survives_the_round_trip() -> void:
 	assert_true(got[1].occupancy == LobbySeat.Occupancy.BOT, "the bot is a bot")
 	assert_eq_int(got[1].peer_id, 0, "a bot has no peer, and that is the point")
 	assert_false(got[2].is_occupied(), "the empty seat is still empty")
+	assert_eq_int(got[0].power, MatchRules.RunnerAbility.ACTIVE_CAMO, "the human holds camo")
+	assert_eq_int(got[1].power, MatchRules.RunnerAbility.CAT_GRENADE, "the bot holds the cat")
+	assert_eq_int(got[2].power, MatchRules.RunnerAbility.NONE, "and the empty seat holds nothing")
+	# A power this build does not have is a format it does not speak.
+	packed.encode_u8(NetCodec.ROSTER_HEADER_SIZE + 4, MatchRules.RunnerAbility.size())
+	assert_eq_int(NetCodec.unpack_roster(packed, got, NetSettings.new().max_name_bytes), -1, "an unknown power is refused")
 
 
 func test_a_roster_with_an_impossible_enum_is_refused() -> void:

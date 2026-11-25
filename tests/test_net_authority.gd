@@ -56,23 +56,22 @@ func test_the_wire_never_carries_a_dev_key() -> void:
 
 
 func test_the_authority_runs_a_power_key_a_client_pressed() -> void:
-	# Keys 1-4 are the power keys; the host runs a client's press as it runs its own.
+	# The host runs a client's power press as it runs its own.
 	var owner: int = 77
 	var link: PlayerNetLink = _authority_link(owner)
 	await step_ticks(1)
 	var before: MoveIntent = MoveIntent.new()
 	var asking: MoveIntent = MoveIntent.new()
-	asking.buttons = MoveIntent.POWER_1 << 2
+	asking.buttons = MoveIntent.POWER
 	var slots: Array[int] = []
 	link.controller.match_step = func(command: MoveIntent, _swung: bool, _authority: bool) -> void:
-		slots.append(command.ability_slot)
+		slots.append(int(command.ability_pressed))
 	# The stream's first command is its baseline, so the press follows one.
 	link.replicator.take_commands(owner, NetCodec.pack_commands(link.replicator.get_scene(), 0, -1, [before], 1))
 	await step_ticks(1)
 	link.replicator.take_commands(owner, NetCodec.pack_commands(link.replicator.get_scene(), 1, -1, [before, asking], 2))
 	await step_ticks(4)
-	assert_true(slots.has(3), "the press reaches the host's body as power key 3: %s" % str(slots))
-	assert_eq_int(slots.count(3), 1, "once")
+	assert_eq_int(slots.count(1), 1, "the press reaches the host's body, once: %s" % str(slots))
 
 
 # --- Edges --------------------------------------------------------------------

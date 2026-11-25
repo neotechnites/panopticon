@@ -48,13 +48,9 @@ const JUMP: StringName = &"jump"
 ## wants Control can bind it themselves through [KeybindMap].
 const SLIDE: StringName = &"slide"
 
-## The runner's power: Q, or the left shoulder button on a pad.
+## Use the held power: Q, or the left shoulder button on a pad.
 const ABILITY: StringName = &"ability"
 const ABILITY_PAD_BUTTON: JoyButton = JOY_BUTTON_LEFT_SHOULDER
-## Direct picks: 1 shield, 2 hologram, 3 armor lock, 4 camo, 5 cat grenade.
-const ABILITY_SLOTS: Array[StringName] = [
-	&"ability_1", &"ability_2", &"ability_3", &"ability_4", &"ability_5"
-]
 ## E: pet, use, and cook a held cat grenade.
 const INTERACT: StringName = &"interact"
 
@@ -112,9 +108,6 @@ static func ensure_registered() -> void:
 	_ensure(FREE_CAMERA, [KEY_C])
 	_ensure(FREECAM_UP, [KEY_E])
 	_ensure(FREECAM_DOWN, [KEY_Q])
-	var slot_keys: Array[int] = [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5]
-	for i: int in ABILITY_SLOTS.size():
-		_ensure(ABILITY_SLOTS[i], [slot_keys[i]])
 
 
 static func _ensure(action: StringName, physical_keycodes: Array[int]) -> void:

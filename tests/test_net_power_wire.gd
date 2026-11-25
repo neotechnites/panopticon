@@ -43,13 +43,16 @@ class ErrorLog extends Logger:
 
 func test_every_button_level_survives_the_command_round_trip() -> void:
 	var sent: Array[MoveIntent] = []
-	for bit: int in 14:
+	var bits: int = 0
+	while (MoveIntent.BUTTON_MASK >> bits) & 1 != 0:
+		bits += 1
+	for bit: int in bits:
 		var command: MoveIntent = MoveIntent.new()
 		command.buttons = 1 << bit
 		sent.append(command)
 	var out: Array[MoveIntent] = _decoded()
-	assert_eq_int(NetCodec.unpack_commands(NetCodec.pack_commands(7, 900, -1, sent, 14), out, -1), 14, "fourteen commands")
-	for bit: int in 14:
+	assert_eq_int(NetCodec.unpack_commands(NetCodec.pack_commands(7, 900, -1, sent, bits), out, -1), bits, "a command per button")
+	for bit: int in bits:
 		assert_eq_int(out[bit].buttons, 1 << bit, "button %d alone, not mixed with its neighbours" % bit)
 
 
@@ -133,18 +136,18 @@ func test_a_resent_press_is_not_run_twice() -> void:
 	assert_eq_int(_count(first, MoveIntent.POWER) + _count(after, MoveIntent.POWER), 1, "one press, once")
 
 
-func test_a_power_key_press_runs_as_that_key() -> void:
+func test_a_power_key_press_runs_once() -> void:
 	var stream: CommandStream = _stream()
 	_send(stream, 0, [_keys([])])
 	_run(stream, 1)
 	var four: MoveIntent = MoveIntent.new()
-	four.buttons = MoveIntent.POWER_1 << 3
+	four.buttons = MoveIntent.POWER
 	_send(stream, 2, [_keys([]), four, _keys([])])
 	var slots: Array[int] = []
 	for _tick: int in 5:
 		for _i: int in stream.commands_due():
-			slots.append(stream.next_command(SIM_DELTA).ability_slot)
-	assert_eq_int(slots.count(4), 1, "power key 4 is run once, as slot 4: %s" % str(slots))
+			slots.append(int(stream.next_command(SIM_DELTA).ability_pressed))
+	assert_eq_int(slots.count(1), 1, "the press is run once: %s" % str(slots))
 
 
 func test_after_a_reset_the_next_command_starts_from_nothing() -> void:
@@ -231,7 +234,7 @@ func test_three_connected_machines_log_no_engine_error() -> void:
 	OS.add_logger(log)
 	var up: bool = await _machines()
 	if up:
-		a_keys.tap_slot(MatchRules.RunnerAbility.BUBBLE_SHIELD)
+		a_keys.tap_power(MatchRules.RunnerAbility.BUBBLE_SHIELD)
 		host_keys.tap(&"emote_pressed")
 		await step_ticks(120)
 	OS.remove_logger(log)

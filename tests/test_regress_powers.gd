@@ -63,15 +63,19 @@ func _keys() -> MoveIntent:
 	return (player.intent_source as BotIntentSource).command
 
 
-## One tick of a number key, as a finger makes it; [param hold] leaves the power key down after it.
+## The presser holds [param which] and taps the power key, as a finger makes it; [param hold]
+## leaves the key down after it.
 func _tap(which: int, hold: bool = false) -> void:
 	var keys: MoveIntent = _keys()
-	# From the top of a tick, so the body reads the key exactly once whatever was awaited before.
+	_rig.hold(_slot, which)
+	# From the top of a tick, so the body reads the key exactly once whatever was awaited before;
+	# one key, so a press over a held key is the key let up for a tick first.
 	await step_ticks(1)
-	keys.ability_slot = which
+	if keys.ability_held:
+		keys.ability_held = false
+		await step_ticks(1)
 	keys.ability_held = true
 	await step_ticks(1)
-	keys.ability_slot = 0
 	keys.ability_held = hold
 
 
@@ -247,7 +251,7 @@ func _armor() -> void:
 	var host: MatchController = _rig.controller(HOST)
 	var who: MatchParticipant = _rig.participant(HOST, _slot)
 	# Long enough that only letting go can be what ends it below.
-	_power(HOST).rules.ability_duration_seconds = 30.0
+	TestFixtures.set_power_duration(30.0)
 	await _tap(ARMOR, true)
 	if not await _every_peer_shows(ARMOR, "while the key is held"):
 		_release()
@@ -330,7 +334,7 @@ func _cat() -> void:
 		return
 	await _stays_up(CAT, 30)
 	assert_false(_power(HOST).state.cooking, "an uncooked cat's fuse does not run")
-	assert_almost_eq(_power(HOST).get_remaining(), CatGrenade.FUSE_SECONDS, 0.001, "and its fuse is whole")
+	assert_almost_eq(_power(HOST).get_remaining(), RunnerPower.duration_of(MatchRules.RunnerAbility.CAT_GRENADE), 0.001, "and its fuse is whole")
 	var body: PlayerController = _rig.body(HOST, _slot)
 	var stood: Vector3 = body.global_position
 	await step_ticks(1)
@@ -579,7 +583,7 @@ func _lock_through_a_scored_round(peers: int, map: StringName) -> void:
 	if not await _start_round(peers, map, peers - 1):
 		return
 	var host: MatchController = _rig.controller(HOST)
-	_power(HOST).rules.ability_duration_seconds = 120.0
+	TestFixtures.set_power_duration(120.0)
 	await _tap(ARMOR, true)
 	if not await _every_peer_shows(ARMOR, "while the key is held"):
 		return
@@ -643,9 +647,8 @@ func test_a_client_that_leaves_mid_lock_leaves_no_lock_on_the_machines_that_stay
 func _cooldown(peers: int, map: StringName) -> void:
 	if not await _start_round(peers, map, peers - 1):
 		return
-	var rules: MatchRules = _power(HOST).rules
-	rules.ability_duration_seconds = 1.0
-	rules.ability_cooldown_seconds = 4.0
+	TestFixtures.set_power_duration(1.0)
+	TestFixtures.set_power_cooldown(4.0)
 	await _tap(SHIELD)
 	if not await _every_peer_shows(SHIELD, "after the press"):
 		return
@@ -799,7 +802,7 @@ func test_the_ai_guard_cannot_make_out_a_camouflaged_runner_past_the_camo_range(
 	var scene: Node3D = TestFixtures.make_match()
 	var controller: MatchController = scene.get_node("MatchController") as MatchController
 	controller.rules = TestFixtures.match_rules()
-	controller.rules.ability_duration_seconds = 2.0
+	TestFixtures.set_power_duration(2.0)
 	add_child(scene)
 	var runner: MatchParticipant = controller.get_participants()[0]
 	var keys: BotIntentSource = BotIntentSource.new()
@@ -815,9 +818,10 @@ func test_the_ai_guard_cannot_make_out_a_camouflaged_runner_past_the_camo_range(
 	var eye: Vector3 = guard.call(&"_eye_position")
 	assert_gt(eye.distance_to(runner.body.global_position), RunnerPower.CAMO_VISIBLE_RANGE + 2.0, "the runner stands past the camo range")
 	assert_true(bool(guard.call(&"_is_discernible", runner.body)), "a plain runner can be made out")
-	keys.command.ability_slot = CAMO
+	RunnerPower.of(runner.body).held = CAMO
+	keys.command.ability_held = true
 	await step_ticks(1)
-	keys.command.ability_slot = 0
+	keys.command.ability_held = false
 	await step_ticks(2)
 	assert_true(RunnerPower.of(runner.body).is_camouflaged(), "the camo is on")
 	assert_false(bool(guard.call(&"_is_discernible", runner.body)), "the camouflaged runner cannot be made out from the tower")

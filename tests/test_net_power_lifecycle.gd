@@ -16,7 +16,7 @@ const B_DELAY_TICKS: int = 12
 func test_the_hosts_body_freed_under_its_shield_leaves_no_shield() -> void:
 	if not await stand_up():
 		return
-	host_keys.tap_slot(SHIELD)
+	host_keys.tap_power(SHIELD)
 	await until(func() -> bool: return all_draw(HOST_SEAT, SHIELD))
 	assert_eq_int(_live_nodes(host.get_parent(), "BubbleShield"), 1, "the host raised one shield")
 	_free_body(body_of(host_links, HOST_SEAT))
@@ -30,7 +30,7 @@ func test_the_hosts_body_freed_under_its_shield_leaves_no_shield() -> void:
 func test_the_hosts_body_freed_while_its_hologram_runs_leaves_no_hologram() -> void:
 	if not await stand_up():
 		return
-	host_keys.tap_slot(HOLOGRAM)
+	host_keys.tap_power(HOLOGRAM)
 	await until(func() -> bool: return all_draw(HOST_SEAT, HOLOGRAM))
 	assert_eq_int(_decoys_under(host.get_parent()), 1, "the host sent out one hologram")
 	_free_body(body_of(host_links, HOST_SEAT))
@@ -44,7 +44,7 @@ func test_the_hosts_body_freed_while_its_hologram_runs_leaves_no_hologram() -> v
 func test_a_mirror_freed_under_its_shield_leaves_no_shield_on_that_client() -> void:
 	if not await stand_up():
 		return
-	a_keys.tap_slot(SHIELD)
+	a_keys.tap_power(SHIELD)
 	await until(func() -> bool: return all_draw(A_SEAT, SHIELD))
 	assert_eq_int(_live_nodes(b.get_parent(), "BubbleShield"), 1, "B drew A's shield")
 	_free_body(body_of(b_links, A_SEAT))
@@ -59,7 +59,7 @@ func test_a_mirror_freed_under_its_shield_leaves_no_shield_on_that_client() -> v
 func test_a_mirror_freed_while_its_hologram_runs_leaves_no_hologram_on_that_client() -> void:
 	if not await stand_up():
 		return
-	a_keys.tap_slot(HOLOGRAM)
+	a_keys.tap_power(HOLOGRAM)
 	await until(func() -> bool: return _holograms_under(b.get_parent()) == 1)
 	assert_eq_int(_holograms_under(b.get_parent()), 1, "B drew A's hologram")
 	_free_body(body_of(b_links, A_SEAT))
@@ -79,7 +79,7 @@ func test_a_presented_armor_lock_refuses_a_second_start() -> void:
 	var power: RunnerPower = power_of(b_links, A_SEAT)
 	var body: PlayerController = body_of(b_links, A_SEAT)
 	_present(power, ARMOR)
-	var started: bool = power.activate(MatchRules.RunnerAbility.ARMOR_LOCK)
+	var started: bool = TestFixtures.fire(power, MatchRules.RunnerAbility.ARMOR_LOCK)
 	assert_false(started, "a press under a presented armor lock starts nothing")
 	assert_eq_int(_live_nodes(body, "ArmorShell"), 1, "shells on the body while the lock is drawn")
 	_present(power, NONE)
@@ -91,7 +91,7 @@ func test_a_presented_shield_refuses_a_second_start() -> void:
 		return
 	var power: RunnerPower = power_of(b_links, A_SEAT)
 	_present(power, SHIELD)
-	var started: bool = power.activate(MatchRules.RunnerAbility.BUBBLE_SHIELD)
+	var started: bool = TestFixtures.fire(power, MatchRules.RunnerAbility.BUBBLE_SHIELD)
 	assert_false(started, "a press under a presented shield starts nothing")
 	assert_eq_int(
 		_live_nodes(b.get_parent(), "BubbleShield"), 1, "shields on B while one is drawn"
@@ -112,7 +112,7 @@ func test_a_presented_camo_refuses_a_second_start_and_gives_the_skin_back() -> v
 	var worn: Material = mesh.material_override
 	_present(power, CAMO)
 	assert_true(mesh.material_override != worn, "presented camo tints the body")
-	var started: bool = power.activate(MatchRules.RunnerAbility.ACTIVE_CAMO)
+	var started: bool = TestFixtures.fire(power, MatchRules.RunnerAbility.ACTIVE_CAMO)
 	assert_false(started, "a press under presented camo starts nothing")
 	_present(power, NONE)
 	assert_same(mesh.material_override, worn, "the body wears what it wore before the camo")
@@ -123,7 +123,7 @@ func test_presenting_a_predicted_power_leaves_one_drawing_and_one_flag() -> void
 		return
 	var power: RunnerPower = power_of(b_links, A_SEAT)
 	var body: PlayerController = body_of(b_links, A_SEAT)
-	assert_true(power.activate(MatchRules.RunnerAbility.ARMOR_LOCK, false), "the lock starts on a press")
+	assert_true(TestFixtures.fire(power, MatchRules.RunnerAbility.ARMOR_LOCK, false), "the lock starts on a press")
 	power.sync_visuals(power.state)
 	_present(power, ARMOR)
 	assert_eq_int(_live_nodes(body, "ArmorShell"), 1, "shells after the host confirmed the lock")
@@ -132,7 +132,7 @@ func test_presenting_a_predicted_power_leaves_one_drawing_and_one_flag() -> void
 	assert_eq_int(_live_nodes(body, "ArmorShell"), 0, "shells once the host says it is over")
 	assert_eq_int(int(power.get_shown()), NONE, "nothing drawn once the host says it is over")
 	assert_false(body.is_movement_locked(), "the body is free once the host says it is over")
-	assert_true(power.activate(MatchRules.RunnerAbility.BUBBLE_SHIELD, false), "a shield starts on a press")
+	assert_true(TestFixtures.fire(power, MatchRules.RunnerAbility.BUBBLE_SHIELD, false), "a shield starts on a press")
 	power.sync_visuals(power.state)
 	_present(power, CAMO)
 	assert_eq_int(
@@ -157,7 +157,7 @@ func _present(power: RunnerPower, which: int) -> void:
 func test_a_hologram_is_a_decoy_and_not_a_runner_on_every_machine() -> void:
 	if not await stand_up():
 		return
-	a_keys.tap_slot(HOLOGRAM)
+	a_keys.tap_power(HOLOGRAM)
 	var built: bool = await until(
 		func() -> bool:
 			return (
@@ -185,7 +185,7 @@ func test_a_hologram_is_a_decoy_and_not_a_runner_on_every_machine() -> void:
 func test_a_late_snapshot_builds_no_hologram_after_it_ended() -> void:
 	if not await stand_up():
 		return
-	a_keys.tap_slot(HOLOGRAM)
+	a_keys.tap_power(HOLOGRAM)
 	var up: bool = await until(func() -> bool: return all_draw(A_SEAT, HOLOGRAM))
 	assert_true(up, "A's hologram ran: %s" % str(drawn(A_SEAT)))
 	# A world the host sent while the hologram stood, to arrive again after it is over.
@@ -225,8 +225,8 @@ func test_powers_running_at_stand_down_come_down_quietly() -> void:
 	if not await stand_up():
 		return
 	a_keys.held.ability_held = true
-	a_keys.tap_slot(ARMOR)
-	host_keys.tap_slot(HOLOGRAM)
+	a_keys.tap_power(ARMOR)
+	host_keys.tap_power(HOLOGRAM)
 	var up: bool = await until(
 		func() -> bool: return all_draw(A_SEAT, ARMOR) and all_draw(HOST_SEAT, HOLOGRAM)
 	)
@@ -237,8 +237,8 @@ func test_powers_running_at_stand_down_come_down_quietly() -> void:
 func test_a_shield_and_a_held_cat_at_stand_down_come_down_quietly() -> void:
 	if not await stand_up():
 		return
-	a_keys.tap_slot(CAT)
-	host_keys.tap_slot(SHIELD)
+	a_keys.tap_power(CAT)
+	host_keys.tap_power(SHIELD)
 	var up: bool = await until(
 		func() -> bool: return all_draw(A_SEAT, CAT) and all_draw(HOST_SEAT, SHIELD)
 	)
@@ -261,7 +261,7 @@ func _repress_the_tick_it_ended(seat: int) -> void:
 	var b_power: RunnerPower = power_of(b_links, seat)
 	# Past a connection's first seconds, so a client's press is not inside ENet's opening pass.
 	await step_ticks(150)
-	keys.tap_slot(HOLOGRAM)
+	keys.tap_power(HOLOGRAM)
 	var up: bool = await until(func() -> bool: return all_draw(seat, HOLOGRAM))
 	assert_true(up, "the first hologram ran: %s" % str(drawn(seat)))
 	var ended: bool = false
@@ -274,7 +274,7 @@ func _repress_the_tick_it_ended(seat: int) -> void:
 		return
 	var old: HologramView = b_power.get_hologram()
 	var old_id: int = old.get_instance_id() if old != null else 0
-	keys.tap_slot(HOLOGRAM)
+	keys.tap_power(HOLOGRAM)
 	var built: Dictionary[int, bool] = {}
 	for _tick: int in 30:
 		await step_ticks(1)
@@ -344,7 +344,7 @@ func test_the_owners_own_hologram_is_built_once_and_goes_once() -> void:
 	if not await stand_up():
 		return
 	var power: RunnerPower = power_of(a_links, A_SEAT)
-	a_keys.tap_slot(HOLOGRAM)
+	a_keys.tap_power(HOLOGRAM)
 	var built: Dictionary[int, bool] = {}
 	var gone_for: int = 0
 	for _tick: int in 600:

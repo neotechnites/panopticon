@@ -79,7 +79,7 @@ func test_the_holder_is_found_when_its_link_is_not_under_its_body() -> void:
 	_stubs.append(stub)
 	var power: RunnerPower = RunnerPower.of(body)
 	power.arm(rules, stub)
-	assert_true(power.activate(CAT as MatchRules.RunnerAbility), "the cat power starts")
+	assert_true(TestFixtures.fire(power, CAT as MatchRules.RunnerAbility), "the cat power starts")
 	await step_ticks(2)
 	var cats: Array[CatGrenade] = _host_cats()
 	if not assert_eq_int(cats.size(), 1, "the host has the cat"):
@@ -101,13 +101,13 @@ func test_a_cooked_cat_runs_its_fuse_and_goes_off_everywhere() -> void:
 		return
 	var host_power: RunnerPower = power_of(host_links, A_SEAT)
 	assert_almost_eq(
-		host_power.get_remaining(), CatGrenade.FUSE_SECONDS, 0.001, "an uncooked fuse is whole"
+		host_power.get_remaining(), RunnerPower.duration_of(MatchRules.RunnerAbility.CAT_GRENADE), 0.001, "an uncooked fuse is whole"
 	)
 	a_keys.tap(&"cook_pressed")
 	var lit: bool = await until(func() -> bool: return _host_cooking())
 	assert_true(lit, "A's E lit the fuse on the host")
 	var falling: bool = await until(
-		func() -> bool: return host_power.get_remaining() < CatGrenade.FUSE_SECONDS - 0.1
+		func() -> bool: return host_power.get_remaining() < RunnerPower.duration_of(MatchRules.RunnerAbility.CAT_GRENADE) - 0.1
 	)
 	assert_true(falling, "the fuse runs down: %.2f s left" % host_power.get_remaining())
 	var blown: bool = await until(func() -> bool: return _host_cats().is_empty(), FUSE_WAIT_MS)
@@ -143,7 +143,7 @@ func test_an_uncooked_cat_does_not_go_off() -> void:
 	var host_power: RunnerPower = power_of(host_links, A_SEAT)
 	assert_false(host_power.state.cooking, "nobody lit it")
 	assert_same(cats[0].carrier, body_of(host_links, A_SEAT), "it is still in A's hands")
-	assert_almost_eq(host_power.get_remaining(), CatGrenade.FUSE_SECONDS, 0.001, "its fuse is whole")
+	assert_almost_eq(host_power.get_remaining(), RunnerPower.duration_of(MatchRules.RunnerAbility.CAT_GRENADE), 0.001, "its fuse is whole")
 	assert_true(all_draw(A_SEAT, CAT), "the power still runs on all three: %s" % str(drawn(A_SEAT)))
 	assert_true(
 		_shown_count(a) == 1 and _shown_count(b) == 1,
@@ -157,7 +157,7 @@ func test_a_second_press_while_holding_adds_no_second_cat() -> void:
 	if not await _hold(a_keys, A_SEAT):
 		return
 	var first: CatGrenade = _host_cats()[0]
-	a_keys.tap_slot(CAT)
+	a_keys.tap_power(CAT)
 	await step_ticks(20)
 	var cats: Array[CatGrenade] = _host_cats()
 	assert_eq_int(cats.size(), 1, "one cat at a time on the host")
@@ -173,7 +173,7 @@ func test_the_press_and_the_cook_survive_a_burst_of_loss() -> void:
 	if not await _stand_up_on_wires():
 		return
 	var polls: int = a_keys.polls
-	a_keys.tap_slot(CAT)
+	a_keys.tap_power(CAT)
 	await black_out(a_wire, 4)
 	assert_gt(float(a_keys.polls), float(polls), "the 5 went out inside the burst")
 	var up: bool = await until(func() -> bool: return all_draw(A_SEAT, CAT))
@@ -342,7 +342,7 @@ func _stand_up_on_wires() -> bool:
 
 ## Press 5 on [param keys] and wait for the cat on the host and drawn on both clients.
 func _hold(keys: PressSource, seat: int) -> bool:
-	keys.tap_slot(CAT)
+	keys.tap_power(CAT)
 	var up: bool = await until(func() -> bool: return all_draw(seat, CAT))
 	if not assert_true(up, "the cat power is up on host, A and B: %s" % str(drawn(seat))):
 		return false

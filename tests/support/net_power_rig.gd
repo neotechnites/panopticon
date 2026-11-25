@@ -42,8 +42,7 @@ func before_each() -> void:
 	process_physics_priority = -100
 	profile = TestFixtures.movement_profile()
 	rules = TestFixtures.match_rules()
-	rules.ability_duration_seconds = 1.0
-	rules.ability_cooldown_seconds = 0.0
+	TestFixtures.time_powers(1.0, 0.0)
 	host = NetFixtures.make_peer(self, "Host", NetFixtures.settings())
 	a = NetFixtures.make_peer(self, "ClientA", NetFixtures.settings())
 	b = NetFixtures.make_peer(self, "ClientB", NetFixtures.settings())
@@ -219,7 +218,15 @@ func _give_keys(link: PlayerNetLink) -> PressSource:
 	link.controller.intent_source = keys
 	link.local_source = keys
 	link.refresh_role()
+	keys.pick = hold.bind(link.seat_index)
 	return keys
+
+
+## [param seat]'s player holds [param which] on every machine.
+func hold(which: int, seat: int) -> void:
+	for links: Array[PlayerNetLink] in [host_links, a_links, b_links]:
+		if seat < links.size():
+			power_of(links, seat).held = which as MatchRules.RunnerAbility
 
 
 ## What [RunnerPower] needs of a match to build a decoy or a cat; off the tree, so it runs no match.

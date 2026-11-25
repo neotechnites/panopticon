@@ -1,0 +1,24 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/hub/power_stand.gd" id="1_stand"]
+
+[sub_resource type="CylinderMesh" id="PlinthMesh"]
+top_radius = 0.5
+bottom_radius = 0.55
+height = 0.4
+
+[sub_resource type="CylinderShape3D" id="PlinthShape"]
+height = 0.4
+radius = 0.55
+
+[node name="PowerStand" type="Node3D"]
+script = ExtResource("1_stand")
+
+[node name="Plinth" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
+
+[node name="Mesh" type="MeshInstance3D" parent="Plinth"]
+mesh = SubResource("PlinthMesh")
+
+[node name="Shape" type="CollisionShape3D" parent="Plinth"]
+shape = SubResource("PlinthShape")

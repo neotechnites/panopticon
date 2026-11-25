@@ -4,29 +4,28 @@ extends NetPowerRig
 
 const NONE: int = MatchRules.RunnerAbility.NONE
 const SHIELD: int = MatchRules.RunnerAbility.BUBBLE_SHIELD
-const HOLOGRAM: int = MatchRules.RunnerAbility.HOLOGRAM
 
 
-## Two different power keys inside one burst of loss: the host owes both presses, each as its own key.
-func test_two_power_keys_inside_one_blackout_run_as_the_keys_they_were() -> void:
+## Two presses of the power key inside one burst of loss: the host runs the first, as A did, once.
+func test_two_power_presses_inside_one_blackout_run_the_first() -> void:
 	if not await stand_up(0.0, 1):
 		return
 	await step_ticks(1)
 	@warning_ignore("missing_await")
 	black_out(a_wire, 12)
 	await step_ticks(2)
-	a_keys.tap_slot(SHIELD)
+	a_keys.tap_power(SHIELD)
 	await step_ticks(6)
-	a_keys.tap_slot(HOLOGRAM)
+	a_keys.tap_power(SHIELD)
 	await step_ticks(1)
 	var predicted: int = int(power_of(a_links, A_SEAT).get_active())
 	await step_ticks(5)
 	var settled: bool = await until(func() -> bool: return drawn(A_SEAT)[0] != NONE)
 	await step_ticks(20)
-	print("PROOF two-keys: A predicted %d; after the blackout host/A/B draw %s (shield=%d hologram=%d)" % [
-		predicted, str(drawn(A_SEAT)), SHIELD, HOLOGRAM])
+	print("PROOF two-presses: A predicted %d; after the blackout host/A/B draw %s (shield=%d)" % [
+		predicted, str(drawn(A_SEAT)), SHIELD])
 	assert_true(settled, "the host ran a power")
-	assert_eq_int(predicted, SHIELD, "A's own machine ran the first key it pressed")
+	assert_eq_int(predicted, SHIELD, "A's own machine ran the first press")
 	assert_eq_int(drawn(A_SEAT)[0], SHIELD, "and so did the host")
 	assert_eq_int(drawn(A_SEAT)[1], SHIELD, "which A still draws")
 
@@ -127,12 +126,12 @@ func test_an_emote_put_up_inside_a_blackout_does_not_drop() -> void:
 	assert_true(copy.is_emoting(), "and the host has it up")
 
 
-## Two power keys pressed one after the other ride the wire as their own levels, each on its command.
-func test_two_power_keys_in_one_packet_stay_two_keys() -> void:
+## Two power presses in one packet ride the wire as their own levels, each on its command.
+func test_two_power_presses_in_one_packet_stay_two_presses() -> void:
 	var two: MoveIntent = MoveIntent.new()
-	two.buttons = MoveIntent.POWER_1 << 1
+	two.buttons = MoveIntent.POWER
 	var five: MoveIntent = MoveIntent.new()
-	five.buttons = (MoveIntent.POWER_1 << 4) | MoveIntent.SHOVE | MoveIntent.AIM | MoveIntent.COOK
+	five.buttons = MoveIntent.POWER | MoveIntent.SHOVE | MoveIntent.AIM | MoveIntent.COOK
 	var sent: Array[MoveIntent] = [two, MoveIntent.new(), five]
 	var out: Array[MoveIntent] = []
 	for _i: int in NetCodec.MAX_COMMANDS:
@@ -143,6 +142,6 @@ func test_two_power_keys_in_one_packet_stay_two_keys() -> void:
 	for i: int in 3:
 		out[i].derive_edges(last)
 		last = out[i].buttons
-		edges.append(out[i].ability_slot)
-	assert_eq_string(str(edges), str([2, 0, 5]), "key 2 on the first command, key 5 on the third")
+		edges.append(int(out[i].ability_pressed))
+	assert_eq_string(str(edges), str([1, 0, 1]), "a press on the first command and on the third")
 	assert_true(out[2].shove_pressed and out[2].aim_held and out[2].cook_pressed, "and the keys pressed with it")

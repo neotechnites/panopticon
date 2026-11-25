@@ -29,9 +29,10 @@ var _case: Node = null
 var _saved_settings: GameSettings = null
 
 
-## Host plus [param clients] joined and seated. False rather than hanging.
+## Host plus [param clients] joined and seated. False rather than hanging. Powers run 5 s and do not cool.
 func connect_peers(case: Node, clients: int) -> bool:
 	_case = case
+	TestFixtures.time_powers(5.0, 0.0)
 	# The match scene reads the player's settings; a test runs on defaults of its own.
 	_saved_settings = SettingsStore.instance().settings
 	SettingsStore.instance().settings = GameSettings.new()
@@ -262,6 +263,14 @@ func peer_count() -> int:
 func local_slot(peer: int) -> int:
 	var human: MatchParticipant = controller(peer).get_human_participant()
 	return human.index if human != null else -1
+
+
+## [param slot]'s player holds [param which]: the host's seat, and every bound peer's body at once.
+func hold(slot: int, which: int) -> void:
+	sessions[0].lobby.set_power(participant(0, slot).seat, which)
+	for peer: int in matches.size():
+		if matches[peer] != null and slot < controller(peer).get_participants().size():
+			RunnerPower.of(body(peer, slot)).held = which as MatchRules.RunnerAbility
 
 
 ## Hold a move direction on [param peer]'s own body.

@@ -104,9 +104,6 @@ func poll(_delta: float) -> MoveIntent:
 	if Input.is_action_just_pressed(PlayerActions.GODMODE):
 		_godmode = not _godmode
 	_intent.godmode = _godmode
-	for i: int in PlayerActions.ABILITY_SLOTS.size():
-		if _down(PlayerActions.ABILITY_SLOTS[i]):
-			_intent.buttons |= MoveIntent.POWER_1 << i
 	# Dimensionless, and the delta is already in radians, so the order of the
 	# two scalars does not matter. Null optic == 1.0: see the export above.
 	var aim_scale: float = profile.mouse_sensitivity

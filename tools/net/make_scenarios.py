@@ -4,7 +4,7 @@
     python3 tools/net/make_scenarios.py
 
 Axes: peers 2/3/4 x hell/marble x opening (race, named guard on the host, on a client, on a bot,
-tower fight) x each power key x ghosts on/off x rematch / hub return / relaunch, the wire faults
+tower fight) x each held power x ghosts on/off x rematch / hub return / relaunch, the wire faults
 (loss, delay, jitter, reordering, duplication, burst loss, stalls and hitches, bind delay) and the two
 leavers (a client, the host).
 """
@@ -16,9 +16,9 @@ from pathlib import Path
 
 OUT = Path(__file__).resolve().parent / "scenarios"
 MAPS = {"hell": "bentham_ring", "marble": "marble"}
-# Every key the game reads, in one life: powers 1-4, the cat cooked, the picked power on Q, both emotes.
-ALL_KEYS = "1@5,2@12,3@19+2,4@24,5@31,e@>1,b@37+2,n@42+2,q@47"
-ALL_KEYS_LATE = "2@7,1@14,4@21,3@27+2,5@33,f@>1.2,n@39+2,b@44+2,q@49"
+# Every key the game reads, in one life: the held power (each scenario's "ability") three times, shove, both emotes.
+ALL_KEYS = "q@5+2,f@>1.2,q@20,b@37+2,n@42+2,q@50"
+ALL_KEYS_LATE = "q@7+2,f@>1.2,q@22,n@39+2,b@44+2,q@52"
 
 scenarios: list[dict] = []
 
@@ -84,24 +84,25 @@ for peers in (2, 3, 4):
               expect={"all": ["EV brawl_started", "EV round_started round=1"]})
 
 # --- C. Powers: each key, pressed by the host and by clients, watched by a third peer ---
+# name: (the power every seat holds, or None to leave the picks, host keys, client keys).
 POWER_KEYS = {
-    "shield": ("1@6/11", "1@9/11"),
-    "hologram": ("2@6/11", "2@9/11"),
-    "armorlock_hold": ("3@6+2.5/9", "3@8+2.5/9"),
-    "armorlock_tap": ("3@6/6", "3@8/6"),
-    "camo": ("4@6/11", "4@9/11"),
-    "cat_cook": ("5@6,e@>1,5@>6,e@>1,5@>6,e@>1", "5@8,e@>1,5@>6,e@>1,5@>6,e@>1"),
-    "cat_throw": ("5@6,f@>1.2,5@>6,f@>1.2,5@>6,f@>1.2", "5@8,f@>1.2,5@>6,f@>1.2,5@>6,f@>1.2"),
-    "cat_hold": ("5@6", "5@8"),
-    "emotes": ("b@6+2,n@12+2,b@18+2,n@24+2", "n@7+2,b@13+2,n@19+2,b@25+2"),
-    "shove": ("f@5/2", "f@6/2"),
+    "shield": (1, "q@6/11", "q@9/11"),
+    "hologram": (2, "q@6/11", "q@9/11"),
+    "armorlock_hold": (3, "q@6+2.5/9", "q@8+2.5/9"),
+    "armorlock_tap": (3, "q@6/6", "q@8/6"),
+    "camo": (4, "q@6/11", "q@9/11"),
+    "cat_cook": (5, "q@6,e@>1,q@>6,e@>1,q@>6,e@>1", "q@8,e@>1,q@>6,e@>1,q@>6,e@>1"),
+    "cat_throw": (5, "q@6,f@>1.2,q@>6,f@>1.2,q@>6,f@>1.2", "q@8,f@>1.2,q@>6,f@>1.2,q@>6,f@>1.2"),
+    "cat_hold": (5, "q@6", "q@8"),
+    "emotes": (None, "b@6+2,n@12+2,b@18+2,n@24+2", "n@7+2,b@13+2,n@19+2,b@25+2"),
+    "shove": (None, "f@5/2", "f@6/2"),
 }
 # The tower is held by a human who never fires, so the pressers stay on the track and every press counts.
 SILENT = {"aim": False, "fire-every": 0, "press-fire": 0, "keys": ""}
 for map_name, map_id in MAPS.items():
-    for power, (host_keys, client_keys) in POWER_KEYS.items():
+    for power, (held, host_keys, client_keys) in POWER_KEYS.items():
         match(f"power_{power}_3p_{map_name}", 3, 60, ["powers"], {"map": map_id, "seats": 4, "tower": 2},
-              host={"keys": host_keys}, peer={"1": {"keys": client_keys}, "2": SILENT},
+              host={"keys": host_keys} if held is None else {"keys": host_keys, "ability": held}, peer={"1": {"keys": client_keys}, "2": SILENT},
               expect={"valid_presses": {"0": 1, "1": 1}})
     for ability in (1, 2, 3, 4, 5):
         match(f"power_q_ability{ability}_3p_{map_name}", 3, 45, ["powers"], {"map": map_id, "seats": 4, "tower": 2},
@@ -121,12 +122,12 @@ for map_name, map_id in MAPS.items():
           host={"keys": ALL_KEYS, "ability": 4}, client={"keys": ALL_KEYS_LATE})
     # Powers a human guard and a ghost should not have, pressed anyway (no waiting for a valid moment).
     match(f"power_guard_presses_3p_{map_name}", 3, 45, ["powers", "roles"], {"map": map_id, "seats": 4, "tower": 1},
-          peer={"1": {"keys": "1@6,3@12+2,5@18,e@>1", "keys-wait": False}})
+          host={"ability": 5}, peer={"1": {"keys": "q@6,q@12+2,q@18,e@>1", "keys-wait": False}})
 for peers in (2, 3):
     hub(f"power_hub_{peers}p", peers, 150, ["powers", "hub"],
         {"maps": "bentham_ring", "matches": 1, "win": 8, "hub-wait": 50,
-         "hub-keys": "1@4,2@10,3@16+2,4@21,5@27,e@>1,b@33+2,n@38+2,5@43,f@>1.2"},
-        host={"prisoners": 3}, expect={"matches": 1})
+         "hub-keys": "q@4,e@>1,q@21,f@>1.2,b@33+2,n@38+2,q@43,f@>1.2"},
+        host={"prisoners": 3, "ability": 5}, expect={"matches": 1})
 
 # --- D. Ghosts on and off ------------------------------------------------------
 for map_name, map_id in MAPS.items():

@@ -58,7 +58,7 @@ func test_a_power_tap_survives_three_five_and_ten_lost_packets() -> void:
 		var was: bool = false
 		@warning_ignore("missing_await")
 		black_out(a_wire, lost)
-		a_keys.tap_slot(MatchRules.RunnerAbility.BUBBLE_SHIELD)
+		a_keys.tap_power(MatchRules.RunnerAbility.BUBBLE_SHIELD)
 		for _tick: int in lost + 40:
 			await step_ticks(1)
 			var up: bool = int(power.get_active()) != MatchRules.RunnerAbility.NONE

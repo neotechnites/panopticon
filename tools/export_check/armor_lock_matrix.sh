@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The armor-lock matrix against an exported Windows build on the PC: host + 1, 2 and 3 clients,
-# hub -> hell -> marble, clients on key 3 held, tapped, after 2, after 4, in the air, under fire and shoved.
+# hub -> hell -> marble, every seat holding armor lock: q held, tapped, re-pressed, in the air, under fire and shoved.
 #
 #   EXE='C:\...\panopticon.exe' tools/export_check/armor_lock_matrix.sh <headless|windowed> <out dir> [only]
 #
@@ -13,15 +13,15 @@ SECONDS_PER_MAP="${SECONDS_PER_MAP:-70}"
 LOOPS="${LOOPS:-1}"
 LIMIT=$(( (SECONDS_PER_MAP + 45) * LOOPS * 2 + 60 ))
 
-HOLD='3h6;w1;3h2;w0.5;3h0.5;w1'
-TAP='3t;w0.4;3t;w0.1;3t;w1.2;3t;w2'
-P23='2t;w0.3;3h2;w1.5;2t;w0.1;3t;w5.5;3t;w1'
-P43='4t;w0.3;3h2;w1.5;4t;w0.1;3t;w5.5;3t;w1'
-AIR='j;w0.15;3h1.5;w1;j;w0.3;3t;w1.5'
-MIX='1t;w0.3;3h1;w5;5t;w0.3;3h1;e;w1;s;3t;w2;b;3h1;n;3t;w1'
+HOLD='qh6;w1;qh2;w0.5;qh0.5;w1'
+TAP='qt;w0.4;qt;w0.1;qt;w1.2;qt;w2'
+P23='qt;w0.3;qh2;w1.5;qt;w0.1;qt;w5.5;qt;w1'
+P43='w0.3;qh2;w1.5;w0.1;qt;w5.5;qt;w1'
+AIR='j;w0.15;qh1.5;w1;j;w0.3;qt;w1.5'
+MIX='qt;w0.3;qh1;w5;w0.3;qh1;e;w1;s;qt;w2;b;qh1;n;qt;w1'
 ALL="$HOLD;$TAP;$P23;$P43;$AIR;$MIX"
 
-COMMON="--zap=true --maps=$MAPS --loops=$LOOPS --match-seconds=$SECONDS_PER_MAP --hub-seconds=8 --limit=$LIMIT"
+COMMON="--power=3 --zap=true --maps=$MAPS --loops=$LOOPS --match-seconds=$SECONDS_PER_MAP --hub-seconds=8 --limit=$LIMIT"
 keys() { echo "--act=keys --program=$1 --phase=${2:-0} $COMMON"; }
 AIM="--act=aim $COMMON"
 

@@ -67,7 +67,7 @@ func running() -> int:
 
 ## True while [member remaining_ticks] counts down: every running power but an unlit fuse.
 func is_timed() -> bool:
-	return active and (RunnerPower.DEFS[which][&"clock"] != RunnerPower.Clock.FUSE or cooking)
+	return active and (RunnerPower.DEFS[which].clock != PowerDef.Clock.FUSE or cooking)
 
 
 func get_remaining() -> float:
@@ -124,7 +124,7 @@ func take_record(record: PlayerState) -> void:
 	if is_timed():
 		remaining_ticks = record.ticks_to(record.ability_end_tick)
 	else:
-		remaining_ticks = RunnerPower.ticks_of(RunnerPower.duration_of(which, null)) if active else 0
+		remaining_ticks = RunnerPower.ticks_of(RunnerPower.duration_of(which)) if active else 0
 	if out:
 		pose_position = record.anchor_position
 		pose_yaw = record.anchor_yaw

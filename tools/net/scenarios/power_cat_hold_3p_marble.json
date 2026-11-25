@@ -13,11 +13,12 @@
   "tower": 2
  },
  "host": {
-  "keys": "5@6"
+  "keys": "q@6",
+  "ability": 5
  },
  "peer": {
   "1": {
-   "keys": "5@8"
+   "keys": "q@8"
   },
   "2": {
    "aim": false,

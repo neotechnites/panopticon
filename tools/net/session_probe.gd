@@ -28,11 +28,11 @@ const PROBE_MAGIC: int = 0x5750
 const PROBE_SIZE: int = 18
 const WIRE_FLUSH_MS: int = 1000
 ## The keys the press check follows from the client's PRESS to the host's ruling: powers, cook, emotes, shove, jump.
-const PRESS_BUTTONS: int = (MoveIntent.ALL_POWER_KEYS | MoveIntent.COOK | MoveIntent.EMOTE | MoveIntent.EMOTE_ALT
+const PRESS_BUTTONS: int = (MoveIntent.POWER | MoveIntent.COOK | MoveIntent.EMOTE | MoveIntent.EMOTE_ALT
 	| MoveIntent.SHOVE | MoveIntent.JUMP)
 ## --break=drop-*: the key whose first command the host throws away.
 const DROPPED_KEYS: Dictionary[String, int] = {
-	"drop-press": MoveIntent.ALL_POWER_KEYS, "drop-shove": MoveIntent.SHOVE, "drop-jump": MoveIntent.JUMP,
+	"drop-press": MoveIntent.POWER, "drop-shove": MoveIntent.SHOVE, "drop-jump": MoveIntent.JUMP,
 }
 
 signal match_bound(authority: bool)
@@ -163,7 +163,7 @@ func apply_settings() -> void:
 	if int(o.prisoners) >= 0:
 		settings.prisoner_count = int(o.prisoners)
 	if int(o.ability) >= 0:
-		settings.runner_ability = int(o.ability) as MatchRules.RunnerAbility
+		RunnerPower.solo_held = int(o.ability) as MatchRules.RunnerAbility
 	if int(o.rounds) > 0:
 		settings.rounds_to_win_match = int(o.rounds)
 	if int(o.lives) > 0:
@@ -175,7 +175,7 @@ func apply_settings() -> void:
 		settings.tower_brawl = true
 		settings.skip_opening_race = false
 	line("SETTINGS prisoners=%d ability=%d rounds=%d lives=%d ghosts=%s brawl=%s skip_race=%s tower_seat=%d map=%s" % [
-		settings.prisoner_count, int(settings.runner_ability), settings.rounds_to_win_match, settings.prisoner_lives,
+		settings.prisoner_count, int(o.ability), settings.rounds_to_win_match, settings.prisoner_lives,
 		str(settings.ghosts_enabled), str(settings.tower_brawl), str(settings.skip_opening_race),
 		settings.tower_seat_index, String(settings.map_id)])
 
@@ -189,6 +189,7 @@ func attach(net_session: NetSession) -> void:
 	lobby.phase_changed.connect(func(phase: NetLobby.Phase) -> void:
 		line("LOBBY phase=%s epoch=%d" % [String(NetLobby.Phase.keys()[phase]), lobby.get_epoch()]))
 	lobby.roster_changed.connect(func() -> void: line("ROSTER " + lobby.describe().replace("\n", " | ")))
+	lobby.roster_changed.connect(_hold_powers)
 	lobby.rules_changed.connect(func() -> void:
 		var rules: MatchRules = lobby.get_rules()
 		if rules != null:
@@ -206,6 +207,14 @@ func attach(net_session: NetSession) -> void:
 		line("SESSION ended failed=%s" % str(failed))
 		if not is_server() and not finished:
 			_host_lost_ms = Time.get_ticks_msec())
+
+
+## --ability on the host: every occupied seat holds that power, bots and late joiners included.
+func _hold_powers() -> void:
+	if int(o.ability) < 0 or not is_server() or lobby.get_phase() != NetLobby.Phase.GATHERING:
+		return
+	for seat: LobbySeat in lobby.get_occupied_seats():
+		lobby.set_power(seat.index, int(o.ability))
 
 
 ## Put this machine's sends through [LossyPeer] when a wire option asks for it. Call after host/join.
@@ -233,10 +242,9 @@ func condition_wire() -> void:
 
 
 static func describe_rules(rules: MatchRules) -> String:
-	return "map=%s prisoners=%d ghosts=%s race=%s brawl=%s lives=%d rounds=%d ability=%d duration=%.1f cooldown=%.1f reload=%.2f shooter_win=%d runner_win=%d speed=%.1f slide=%s crouch=%s" % [
+	return "map=%s prisoners=%d ghosts=%s race=%s brawl=%s lives=%d rounds=%d reload=%.2f shooter_win=%d runner_win=%d speed=%.1f slide=%s crouch=%s" % [
 		String(rules.map_id), rules.prisoner_count, str(rules.has_ghosts()), str(rules.open_with_race),
-		str(rules.open_with_tower_brawl), rules.prisoner_lives, rules.rounds_to_win_match, int(rules.runner_ability),
-		rules.ability_duration_seconds, rules.ability_cooldown_seconds, rules.base_reload_seconds,
+		str(rules.open_with_tower_brawl), rules.prisoner_lives, rules.rounds_to_win_match, rules.base_reload_seconds,
 		int(rules.shooter_win_condition), int(rules.runner_win_condition), rules.guard_projectile_speed,
 		str(rules.slide_enabled), str(rules.crouch_enabled)]
 
@@ -494,8 +502,9 @@ func _watch_rulings(body: PlayerController) -> void:
 		# A bot's rulings answer no press anyone logged.
 		if buttons & PRESS_BUTTONS != 0 and p != null and p.is_human():
 			var running: RunnerPower = RunnerPower.of(body)
-			line("RULE seat=%s %s pressed=%d ruling=%s ability=%d" % [_seat_of_body(body), _command_of(body),
-				buttons & PRESS_BUTTONS, ruling, int(running.get_active()) if running != null else 0]))
+			line("RULE seat=%s %s pressed=%d ruling=%s ability=%d held=%d" % [_seat_of_body(body), _command_of(body),
+				buttons & PRESS_BUTTONS, ruling, int(running.get_active()) if running != null else 0,
+				int(running.get_held()) if running != null else 0]))
 	body.launched.connect(func(velocity_vector: Vector3) -> void:
 		line("KNOCK seat=%s %s speed=%.1f" % [_seat_of_body(body), _command_of(body), velocity_vector.length()]))
 	body.held_changed.connect(func(hold: bool) -> void:

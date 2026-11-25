@@ -148,6 +148,9 @@ var _epoch: int = 0
 ## [method conclude_match] for why the lobby keeps so little of a result.
 var _last_winning_seat: int = -1
 
+## Seeds the bots' power picks for this lobby.
+var _power_seed: int = 0
+
 ## Authority: the name each connected peer asked to join under. A peer absent here has not asked.
 var _asked: Dictionary[int, String] = {}
 ## Authority: the lifecycle of every connected peer that holds no seat, CONNECTED or REFUSED.
@@ -334,6 +337,7 @@ func open(local_display_name: String) -> bool:
 		return false
 	_reset_seats()
 	_bump_epoch()
+	_power_seed = randi()
 
 	var host_seat: LobbySeat = seats[0]
 	host_seat.occupancy = LobbySeat.Occupancy.HUMAN
@@ -342,6 +346,7 @@ func open(local_display_name: String) -> bool:
 	# this body, and offline nothing can.
 	host_seat.peer_id = session.get_local_peer_id()
 	host_seat.display_name = _clean(local_display_name)
+	host_seat.power = RunnerPower.solo_held
 	host_seat.is_ready = false
 	_local_seat_index = 0
 
@@ -407,6 +412,7 @@ func add_bot(display_name: String = "") -> int:
 	seat.occupancy = LobbySeat.Occupancy.BOT
 	seat.peer_id = 0
 	seat.display_name = _clean(display_name if not display_name.is_empty() else "Bot %d" % (seat.index + 1))
+	seat.power = RunnerPower.bot_pick(seat.index, _power_seed)
 	# Bots are ready the moment they exist. See set_ready().
 	seat.is_ready = true
 	seat_occupancy_changed.emit(seat.index, seat.occupancy)
@@ -426,6 +432,7 @@ func set_bot(seat_index: int, on: bool) -> bool:
 	seat.occupancy = LobbySeat.Occupancy.BOT
 	seat.peer_id = 0
 	seat.display_name = _clean("Bot %d" % (seat_index + 1))
+	seat.power = RunnerPower.bot_pick(seat_index, _power_seed)
 	seat.is_ready = true
 	seat_occupancy_changed.emit(seat_index, seat.occupancy)
 	_publish()
@@ -491,6 +498,19 @@ func set_display_name(seat_index: int, display_name: String) -> bool:
 		rpc_id(session.get_authority_peer_id(), &"_request_name", _clean(display_name))
 		return true
 	return _apply_name(seat_index, display_name)
+
+
+## Give [param seat_index]'s player [param power] to hold ([enum MatchRules.RunnerAbility]). Authority
+## only: a pick is the host's ruling on a command, never a request.
+func set_power(seat_index: int, power: int) -> bool:
+	var seat: LobbySeat = get_seat(seat_index)
+	if not _is_authority() or seat == null or not seat.is_occupied() \
+			or power < 0 or power >= MatchRules.RunnerAbility.size():
+		return false
+	if seat.power != power:
+		seat.power = power
+		_publish()
+	return true
 
 
 # --- Roles --------------------------------------------------------------------

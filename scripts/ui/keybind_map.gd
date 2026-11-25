@@ -59,11 +59,6 @@ const ACTIONS: Array[StringName] = [
 	PlayerActions.JUMP,
 	PlayerActions.SLIDE,
 	PlayerActions.ABILITY,
-	PlayerActions.ABILITY_SLOTS[0],
-	PlayerActions.ABILITY_SLOTS[1],
-	PlayerActions.ABILITY_SLOTS[2],
-	PlayerActions.ABILITY_SLOTS[3],
-	PlayerActions.ABILITY_SLOTS[4],
 	PlayerActions.EMOTE,
 	WeaponActions.FIRE,
 	ZOOM,
@@ -435,16 +430,6 @@ static func display_name(action: StringName) -> String:
 			return TranslationServer.translate("KEYBIND_ACTION_SLIDE")
 		PlayerActions.ABILITY:
 			return TranslationServer.translate("KEYBIND_ACTION_ABILITY")
-		PlayerActions.ABILITY_SLOTS[0]:
-			return TranslationServer.translate("KEYBIND_ACTION_ABILITY_1")
-		PlayerActions.ABILITY_SLOTS[1]:
-			return TranslationServer.translate("KEYBIND_ACTION_ABILITY_2")
-		PlayerActions.ABILITY_SLOTS[2]:
-			return TranslationServer.translate("KEYBIND_ACTION_ABILITY_3")
-		PlayerActions.ABILITY_SLOTS[3]:
-			return TranslationServer.translate("KEYBIND_ACTION_ABILITY_4")
-		PlayerActions.ABILITY_SLOTS[4]:
-			return TranslationServer.translate("KEYBIND_ACTION_ABILITY_5")
 		PlayerActions.EMOTE:
 			return TranslationServer.translate("KEYBIND_ACTION_EMOTE")
 		WeaponActions.FIRE:

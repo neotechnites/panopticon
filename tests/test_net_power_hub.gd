@@ -87,7 +87,7 @@ func _walk_join_walk(delay_ms: int) -> void:
 func test_a_clients_shield_runs_in_the_hub_and_is_drawn_on_all_three() -> void:
 	if not await stand_up():
 		return
-	keys[A].tap_slot(SHIELD)
+	keys[A].tap_power(SHIELD)
 	var up: bool = await until(func() -> bool: return all_draw(A, SHIELD))
 	assert_true(up, "A's shield is up on host, A and B: %s" % str(drawn(A)))
 	var gone: bool = await until(func() -> bool: return all_draw(A, NONE))
@@ -259,7 +259,7 @@ func test_only_the_holders_machine_is_offered_the_pet_while_a_client_holds_the_p
 func test_only_the_host_is_offered_the_pet_while_the_host_holds_the_power_cat() -> void:
 	if not await stand_up():
 		return
-	keys[HOST].tap_slot(CAT)
+	keys[HOST].tap_power(CAT)
 	var offered: bool = await until(func() -> bool: return pet_offer(HOST) != 0)
 	assert_true(offered, "the host's machine offers the pet for the cat the host holds")
 	await until(func() -> bool: return cats_drawn() == [1, 1, 1])

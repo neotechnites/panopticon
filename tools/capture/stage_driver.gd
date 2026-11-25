@@ -226,7 +226,10 @@ func _physics_process(delta: float) -> void:
 		"brawl":
 			finished = _brawl(step, delta)
 		"ability":
-			_intent.ability_slot = int(step.get("slot", 2))
+			var power: RunnerPower = RunnerPower.of(_body)
+			if power != null:
+				power.held = int(step.get("slot", 2)) as MatchRules.RunnerAbility
+			_intent.ability_pressed = true
 			finished = true
 		"turn", "glance":
 			# PlayerController yaws by -look_delta.x: a positive turn is to the right.

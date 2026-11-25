@@ -124,7 +124,7 @@ func _audit_settings(screen: SettingsScreen, root: Control, size: Vector2i, tag:
 	# The capture overlay covers the Controls tab on purpose; it is its own layout.
 	var overlay: Control = panel.get_node("CaptureOverlay")
 	(panel.get_node("CaptureOverlay/CaptureLabel") as Label).text = tr("KEYBIND_CAPTURE_PROMPT").format({
-		"action": KeybindMap.display_name(&"ability_4"), "slot": 2,
+		"action": KeybindMap.display_name(&"ability"), "slot": 2,
 	})
 	overlay.visible = true
 	await _settle()

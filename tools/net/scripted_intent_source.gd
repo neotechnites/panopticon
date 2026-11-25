@@ -8,10 +8,8 @@ enum Mode { IDLE, WALK, PLAY }
 enum Role { HELD, RUN, CHASE, HUNT, GUARD, BRAWL }
 
 const KEY_ACTIONS: Dictionary[String, StringName] = {
-	"1": &"ability_1", "2": &"ability_2", "3": &"ability_3", "4": &"ability_4", "5": &"ability_5",
 	"q": &"ability", "e": &"interact", "f": &"shove", "b": &"emote", "n": &"emote_alt", "j": &"jump",
 }
-const POWER_KEYS: PackedStringArray = ["1", "2", "3", "4", "5", "q"]
 const BOT_PROFILE: String = "res://characters/bots/default_bot_profile.tres"
 const RUNNER_PROFILE: String = "res://characters/bots/default_runner_profile.tres"
 ## A deferred key gives up waiting for a valid moment after this long.
@@ -118,7 +116,7 @@ func bind(controller: MatchController, local_body: PlayerController) -> void:
 	controller.seat_changed.connect(func(_p: MatchParticipant, _t: int) -> void: _rearm = true)
 
 
-## "3@8+2,5@14,e@>1,f@>1.5,b@20+2/15": key@seconds[+hold][/every]; ">" counts from the previous press.
+## "q@8+2,q@14,e@>1,f@>1.5,b@20+2/15": key@seconds[+hold][/every]; ">" counts from the previous press.
 func set_keys(spec: String) -> void:
 	_keys.clear()
 	_repeats.clear()
@@ -236,7 +234,9 @@ func _press(entry: Dictionary, me: MatchParticipant, due: float) -> bool:
 	# One tick at least, so the press edge is read before the release.
 	_down[key] = _elapsed + maxf(float(entry.hold), 0.0) + 0.02
 	_last_press = _elapsed
-	if key == "b" or key == "n" or key == "3":
+	var locks: bool = key == "q" and me.body != null and RunnerPower.of(me.body) != null \
+			and RunnerPower.of(me.body).get_held() == MatchRules.RunnerAbility.ARMOR_LOCK
+	if key == "b" or key == "n" or locks:
 		_still_until = _elapsed + float(entry.hold) + 0.3
 	key_pressed.emit(key, note.is_empty(), note)
 	return true
@@ -253,18 +253,14 @@ func _why_not(key: String, me: MatchParticipant) -> String:
 		return "role-%s" % me.get_role_name()
 	var power: RunnerPower = RunnerPower.of(me.body)
 	match key:
-		"1", "2", "3", "4", "5", "q":
+		"q":
 			if power == null or power.rules == null:
 				return "unarmed"
 			if power.get_active() != MatchRules.RunnerAbility.NONE:
 				return "busy-%d" % int(power.get_active())
-			# One power at a time: a second power key in the tick of the first is ignored by the body.
-			for other: String in _down:
-				if other != key and POWER_KEYS.has(other):
-					return "busy-key-%s" % other
 			if power.get_cooldown_remaining() > 0.0:
 				return "cooldown"
-			if key == "q" and power.rules.runner_ability == MatchRules.RunnerAbility.NONE:
+			if power.get_held() == MatchRules.RunnerAbility.NONE:
 				return "no-picked-power"
 		"e":
 			if power == null or power.get_active() != MatchRules.RunnerAbility.CAT_GRENADE:

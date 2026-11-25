@@ -20,9 +20,8 @@ func before_each() -> void:
 	_match = TestFixtures.make_match()
 	_controller = _match.get_node("MatchController") as MatchController
 	_rules = TestFixtures.match_rules()
-	_rules.runner_ability = MatchRules.RunnerAbility.NONE
-	_rules.ability_duration_seconds = DURATION_SECONDS
-	_rules.ability_cooldown_seconds = 0.0
+	TestFixtures.set_power_duration(DURATION_SECONDS)
+	TestFixtures.set_power_cooldown(0.0)
 	_controller.rules = _rules
 	add_child(_match)
 	_hud = _match.get_node("HUD/Root") as MatchHud
@@ -52,7 +51,7 @@ func before_each() -> void:
 
 func test_a_number_key_power_is_named_with_nothing_picked() -> void:
 	_input.command.ability_held = true
-	assert_true(_power.activate(MatchRules.RunnerAbility.ARMOR_LOCK), "the armor lock starts")
+	assert_true(TestFixtures.fire(_power, MatchRules.RunnerAbility.ARMOR_LOCK), "the armor lock starts")
 	await step_ticks(6)
 	_hud.tick()
 	assert_true(_hud.power_panel.visible, "the power panel is up for a power nobody picked")
@@ -73,14 +72,14 @@ func test_a_number_key_power_is_named_with_nothing_picked() -> void:
 
 
 func test_the_panel_names_the_running_power_not_the_picked_one() -> void:
-	_rules.runner_ability = MatchRules.RunnerAbility.BUBBLE_SHIELD
+	_power.held = MatchRules.RunnerAbility.BUBBLE_SHIELD
 	_hud.tick()
 	assert_eq_string(
 		_hud.get_context_text(),
 		tr("HUD_ABILITY_READY").format({"title": _title(MatchRules.RunnerAbility.BUBBLE_SHIELD)}),
 		"at rest the panel offers the picked power",
 	)
-	assert_true(_power.activate(MatchRules.RunnerAbility.ACTIVE_CAMO), "camo starts by its own key")
+	assert_true(TestFixtures.fire(_power, MatchRules.RunnerAbility.ACTIVE_CAMO), "camo starts by its own key")
 	await step_ticks(6)
 	_hud.tick()
 	var text: String = _hud.get_context_text()
@@ -94,9 +93,9 @@ func test_the_panel_names_the_running_power_not_the_picked_one() -> void:
 
 
 func test_the_cooldown_keeps_the_name_of_the_power_that_ran() -> void:
-	_rules.ability_cooldown_seconds = 5.0
+	TestFixtures.set_power_cooldown(5.0)
 	# A lock with the key up ends on its next tick: a power that has just ended.
-	assert_true(_power.activate(MatchRules.RunnerAbility.ARMOR_LOCK), "the armor lock starts")
+	assert_true(TestFixtures.fire(_power, MatchRules.RunnerAbility.ARMOR_LOCK), "the armor lock starts")
 	_hud.tick()
 	await step_ticks(3)
 	assert_false(_power.is_active(), "the lock has ended")
@@ -122,24 +121,24 @@ func test_the_cooldown_keeps_the_name_of_the_power_that_ran() -> void:
 
 
 func test_a_cooked_cat_shows_its_fuse_and_fills_by_the_fuse() -> void:
-	assert_true(_power.activate(MatchRules.RunnerAbility.CAT_GRENADE), "the cat is in hand")
+	assert_true(TestFixtures.fire(_power, MatchRules.RunnerAbility.CAT_GRENADE), "the cat is in hand")
 	_input.command.cook_pressed = true
 	await step_ticks(2)
 	_input.command.cook_pressed = false
 	await step_ticks(30)
 	var left: float = _power.get_remaining()
-	assert_between(left, 0.5, CatGrenade.FUSE_SECONDS - 0.3, "the fuse is running: %.2f s" % left)
+	assert_between(left, 0.5, RunnerPower.duration_of(MatchRules.RunnerAbility.CAT_GRENADE) - 0.3, "the fuse is running: %.2f s" % left)
 	_hud.tick()
 	assert_eq_string(
 		_hud.get_context_text(), _active_text(MatchRules.RunnerAbility.CAT_GRENADE),
 		"the panel names the cat and the seconds on its fuse",
 	)
 	assert_almost_eq(
-		float(_hud.call(&"_ability_fill")), left / CatGrenade.FUSE_SECONDS, 0.001,
+		float(_hud.call(&"_ability_fill")), left / RunnerPower.duration_of(MatchRules.RunnerAbility.CAT_GRENADE), 0.001,
 		"the fill is the share of the 2.5 s fuse left, not of the power duration",
 	)
 	assert_almost_eq(
-		_hud.power_fill.anchor_right, left / CatGrenade.FUSE_SECONDS, 0.001,
+		_hud.power_fill.anchor_right, left / RunnerPower.duration_of(MatchRules.RunnerAbility.CAT_GRENADE), 0.001,
 		"and the bar on screen is drawn to it",
 	)
 	# Put the cat away unexploded: its blast is the hub file's business.

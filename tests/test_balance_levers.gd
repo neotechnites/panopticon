@@ -284,9 +284,8 @@ func test_the_jump_multiplier_is_a_height() -> void:
 
 ## The cooldown multiplier scales the seconds the rule names.
 func test_the_ability_cooldown_multiplier_scales_the_wait() -> void:
-	_rules.runner_ability = MatchRules.RunnerAbility.BUBBLE_SHIELD
-	_rules.ability_cooldown_seconds = 4.0
-	_rules.ability_duration_seconds = 0.5
+	TestFixtures.set_power_cooldown(4.0)
+	TestFixtures.set_power_duration(0.5)
 	_rules.ability_cooldown_multiplier = 0.5
 	await _arm()
 
@@ -295,7 +294,7 @@ func test_the_ability_cooldown_multiplier_scales_the_wait() -> void:
 	if not assert_not_null(power, "a prisoner carries a power node"):
 		return
 
-	assert_true(power.activate(), "the power starts")
+	assert_true(TestFixtures.fire(power, MatchRules.RunnerAbility.BUBBLE_SHIELD), "the power starts")
 	await step_seconds(0.7)
 
 	assert_false(power.is_active(), "and runs out")
